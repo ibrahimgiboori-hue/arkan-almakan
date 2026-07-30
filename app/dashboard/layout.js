@@ -20,6 +20,7 @@ const NAV = [
   ]},
   { group: 'الإعدادات', items: [
     { href: '/dashboard/settings', label: 'بيانات الشركة' },
+    { href: '/dashboard/backup', label: 'النسخ الاحتياطي' },
   ]},
 ];
 

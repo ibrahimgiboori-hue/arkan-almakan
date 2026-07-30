@@ -30,19 +30,22 @@ export default function QuoteEditor() {
   const [lines, setLines] = useState([]);
   const [pays, setPays] = useState([]);
   const [items, setItems] = useState([]);
+  const [presets, setPresets] = useState([]);
   const [tab, setTab] = useState('lines');
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState('');
 
   const load = useCallback(async () => {
-    const [a, b, c, d] = await Promise.all([
+    const [a, b, c, d, e] = await Promise.all([
       supabase.from('quotations').select('*').eq('id', id).maybeSingle(),
       supabase.from('quotation_lines').select('*').eq('quotation_id', id).order('sort_order'),
       supabase.from('quotation_payments').select('*').eq('quotation_id', id).order('sort_order'),
       supabase.from('work_items').select('*').order('use_count', { ascending: false }).limit(300),
+      supabase.from('quote_presets').select('*').order('sort_order'),
     ]);
     if (!a.data) { setErr('لم يُعثر على هذا العرض.'); return; }
-    setQ(a.data); setLines(b.data || []); setPays(c.data || []); setItems(d.data || []);
+    setQ(a.data); setLines(b.data || []); setPays(c.data || []);
+    setItems(d.data || []); setPresets(e.data || []);
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -53,6 +56,11 @@ export default function QuoteEditor() {
     setQ({ ...q, ...fields });
     const { error } = await supabase.from('quotations').update(fields).eq('id', id);
     if (error) setErr('تعذّر الحفظ: ' + error.message); else flash('حُفظ');
+  }
+
+  async function applyPreset(p) {
+    await patch(p.switches);
+    flash('طُبّق قالب: ' + p.name_ar);
   }
 
   async function addLine(kind) {
@@ -351,6 +359,26 @@ export default function QuoteEditor() {
 
       {/* ============ المفاتيح ============ */}
       {tab === 'switches' && (
+        <>
+        <div className="section" style={{marginTop:0,marginBottom:16}}>
+          <header><h2>قوالب جاهزة</h2></header>
+          <div style={{padding:16,display:'grid',
+                       gridTemplateColumns:'repeat(auto-fill,minmax(215px,1fr))',gap:10}}>
+            {presets.map((p) => (
+              <button key={p.id} onClick={()=>applyPreset(p)}
+                style={{textAlign:'right',background:'#fff',border:'1px solid var(--hair-strong)',
+                        padding:'11px 13px',cursor:'pointer',fontFamily:'inherit'}}>
+                <div style={{fontSize:14.5,color:'var(--maroon-dark)',fontWeight:600}}>{p.name_ar}</div>
+                <div style={{fontSize:12,color:'var(--ink-soft)',marginTop:3,lineHeight:1.5}}>
+                  {p.description}
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="hint" style={{padding:'0 16px 14px'}}>
+            القالب يضبط المفاتيح دفعة واحدة — وتبقى حراً في تعديل أي مفتاح بعده
+          </div>
+        </div>
         <div className="grid k2">
           <div className="section" style={{marginTop:0}}>
             <header><h2>أعمدة الجدول</h2></header>
@@ -378,6 +406,28 @@ export default function QuoteEditor() {
             </div>
           </div>
         </div>
+        <div className="section">
+          <header><h2>تجاوز الهوامش لهذا المستند فقط</h2></header>
+          <div style={{padding:18}}>
+            <div className="form-grid">
+              {[['margin_top_mm','الهامش العلوي'],['margin_bottom_mm','الهامش السفلي'],
+                ['margin_side_mm','الهامش الجانبي'],['stamp_size_mm','حجم الختم']].map(([k,label]) => (
+                <div className="field" key={k}>
+                  <label>{label} (مم)</label>
+                  <input type="number" step="0.5" dir="ltr" placeholder="من الإعدادات المركزية"
+                         value={q[k] ?? ''}
+                         onChange={(e)=>setQ({...q,[k]:e.target.value})}
+                         onBlur={(e)=>patch({[k]: e.target.value === '' ? null : Number(e.target.value)})} />
+                </div>
+              ))}
+            </div>
+            <div className="hint">
+              اتركها فارغة ليستخدم المستند الهوامش المركزية من بيانات الشركة —
+              وهذا هو الوضع الصحيح في الأحوال العادية
+            </div>
+          </div>
+        </div>
+        </>
       )}
 
       {/* ============ الدفعات ============ */}

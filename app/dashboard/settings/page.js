@@ -96,6 +96,36 @@ export default function Settings() {
         </div>
       </div>
 
+      <div className="section" style={{marginTop:22}}>
+        <header><h2>الهوامش وحجم الختم — مركزي لكل المستندات</h2></header>
+        <div style={{padding:18}}>
+          {[['letterhead_top_mm','الهامش العلوي',20,70],
+            ['letterhead_bottom_mm','الهامش السفلي',15,60],
+            ['letterhead_side_mm','الهامش الجانبي',8,35],
+            ['stamp_size_mm','حجم الختم',15,55],
+            ['signature_size_mm','حجم التوقيع',10,45]].map(([k,label,min,max]) => (
+            <div key={k} style={{marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',
+                           alignItems:'center',marginBottom:5}}>
+                <span style={{fontSize:13.5}}>{label}</span>
+                <span className="mono" style={{fontSize:13,color:'var(--maroon-dark)',
+                                               fontWeight:600}}>{s[k] ?? 0} مم</span>
+              </div>
+              <input type="range" min={min} max={max} step="0.5"
+                     value={Number(s[k] ?? min)}
+                     onChange={(e)=>setS({...s,[k]:Number(e.target.value)})}
+                     onMouseUp={(e)=>saveField(k, Number(e.target.value))}
+                     onTouchEnd={(e)=>saveField(k, Number(e.target.value))}
+                     style={{width:'100%',accentColor:'#8B3332'}} />
+            </div>
+          ))}
+          <div className="hint">
+            هذه القيم تُطبَّق على كل المستندات. أي مستند يحتاج استثناءً يُضبط من داخله.
+            القياس الحقيقي لورقك: الرأس ٤٠ مم والتذييل ٣٢ مم — والفرق هامش أمان.
+          </div>
+        </div>
+      </div>
+
       <div className="grid k2" style={{marginTop:22}}>
         <div className="section" style={{marginTop:0}}>
           <header><h2>البيانات الرسمية</h2></header>

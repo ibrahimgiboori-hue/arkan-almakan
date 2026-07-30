@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { money, dateAr } from '@/lib/format';
+import { money, dateAr, qty as fmtQty } from '@/lib/format';
 import { tafqit } from '@/lib/tafqit';
 import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
 import './quote-print.css';
@@ -44,6 +44,12 @@ export default function QuotePrint() {
   const validUntil = q.quote_date
     ? new Date(new Date(q.quote_date).getTime() + q.valid_days*86400000) : null;
 
+  const mTop  = q.margin_top_mm    ?? cfg.letterhead_top_mm;
+  const mBot  = q.margin_bottom_mm ?? cfg.letterhead_bottom_mm;
+  const mSide = q.margin_side_mm   ?? cfg.letterhead_side_mm;
+  const stampMm = q.stamp_size_mm  ?? cfg.stamp_size_mm ?? 30;
+  const signMm  = cfg.signature_size_mm ?? 20;
+
   const cols = 1 + 1 + (q.show_unit?1:0) + (q.show_qty?1:0)
              + (q.show_unit_price?1:0) + (q.show_line_total?1:0);
 
@@ -51,7 +57,9 @@ export default function QuotePrint() {
     <>
       <div className="qtoolbar">
         <span className="qt-note">
-          الترويسة ورأس الجدول يتكرران على كل صفحة — الهوامش {cfg.letterhead_top_mm}/{cfg.letterhead_bottom_mm} مم
+          الترويسة ورأس الجدول يتكرران على كل صفحة — الهوامش {mTop}/{mBot}/{mSide} مم
+          {(q.margin_top_mm ?? q.margin_bottom_mm ?? q.margin_side_mm) !== null
+            && q.margin_top_mm !== undefined ? ' (تجاوز خاص بهذا المستند)' : ''}
         </span>
         <button onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
       </div>
@@ -60,13 +68,13 @@ export default function QuotePrint() {
         {lhUrl && <img className="page-bg" src={lhUrl} alt="" aria-hidden="true" />}
         <table className="page-frame">
           <thead>
-            <tr><td className="frame-top" style={{height:`${cfg.letterhead_top_mm}mm`}} /></tr>
+            <tr><td className="frame-top" style={{height:`${mTop}mm`}} /></tr>
           </thead>
           <tfoot>
-            <tr><td className="frame-bottom" style={{height:`${cfg.letterhead_bottom_mm}mm`}} /></tr>
+            <tr><td className="frame-bottom" style={{height:`${mBot}mm`}} /></tr>
           </tfoot>
           <tbody>
-            <tr><td className="frame-body" style={{padding:`0 ${cfg.letterhead_side_mm}mm`}}>
+            <tr><td className="frame-body" style={{padding:`0 ${mSide}mm`}}>
 
               <div className="q-title">
                 <h1>{title}</h1>
@@ -133,7 +141,7 @@ export default function QuotePrint() {
                         )}
                       </td>
                       {q.show_unit && <td className="ctr">{l.unit || '—'}</td>}
-                      {q.show_qty && <td className="num">{Number(l.qty).toLocaleString('en-US')}</td>}
+                      {q.show_qty && <td className="num">{fmtQty(l.qty)}</td>}
                       {q.show_unit_price && <td className="num">{money(l.unit_price)}</td>}
                       {q.show_line_total && <td className="num">{money(lineTotal(l, q.show_qty))}</td>}
                     </tr>
@@ -202,8 +210,10 @@ export default function QuotePrint() {
                 <div className="q-sign">
                   <div className="qs-label">ختم وتوقيع مؤسسة أركان المكان</div>
                   <div className="qs-marks">
-                    {signUrl && <img className="sign" src={signUrl} alt="" />}
-                    {stampUrl && <img className="stamp" src={stampUrl} alt="" />}
+                    {signUrl && <img className="sign" src={signUrl} alt=""
+                                     style={{height:`${signMm}mm`}} />}
+                    {stampUrl && <img className="stamp" src={stampUrl} alt=""
+                                      style={{height:`${stampMm}mm`}} />}
                   </div>
                 </div>
                 {q.show_bank && (
