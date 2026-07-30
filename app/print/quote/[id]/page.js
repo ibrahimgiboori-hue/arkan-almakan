@@ -169,7 +169,7 @@ export default function QuotePrint() {
               </div>
 
               {q.show_payments && pays.length > 0 && (
-                <div className="q-block">
+                <div className="q-block pay">
                   <div className="qb-head">الدفعات المقترحة</div>
                   <table className="q-pay">
                     <thead>
@@ -194,7 +194,7 @@ export default function QuotePrint() {
               )}
 
               {q.show_terms && terms.length > 0 && (
-                <div className="q-block">
+                <div className="q-block terms">
                   <div className="qb-head">الشروط والأحكام</div>
                   <ol className="q-terms">
                     {terms.map((s,i)=><li key={i}>{s}</li>)}
