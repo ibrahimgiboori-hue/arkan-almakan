@@ -17,6 +17,7 @@ const NAV = [
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
+    { href: '/dashboard/formbuilder', label: 'محرّر النماذج' },
   ]},
   { group: 'الإعدادات', items: [
     { href: '/dashboard/settings', label: 'بيانات الشركة' },
