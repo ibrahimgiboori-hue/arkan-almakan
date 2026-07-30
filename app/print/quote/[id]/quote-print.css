@@ -1,0 +1,106 @@
+.qtoolbar{
+  position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--hair);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;flex-wrap:wrap;
+}
+.qt-note{font-size:12.5px;color:var(--ink-soft)}
+.qtoolbar button{background:var(--maroon);color:#fff;border:1px solid var(--maroon);
+  padding:8px 16px;font-size:14px;cursor:pointer}
+.qtoolbar button:hover{background:var(--maroon-dark)}
+
+/* الخلفية: على الشاشة داخل الورقة، وعند الطباعة ثابتة على كل صفحة */
+.page-bg{position:absolute;top:0;left:0;width:210mm;height:297mm;
+  object-fit:fill;z-index:0;pointer-events:none}
+
+.qsheet{width:210mm;margin:24px auto 60px;background:#fff;
+  box-shadow:0 1px 6px rgba(0,0,0,.16);position:relative}
+.page-frame{width:100%;border-collapse:collapse;position:relative;z-index:1}
+.frame-top,.frame-bottom{padding:0}
+.frame-body{vertical-align:top}
+
+.q-title{text-align:center;margin-bottom:5mm}
+.q-title h1{font-size:15pt;color:var(--maroon-dark);margin:0}
+.q-title .rule{display:block;width:24mm;height:2px;background:var(--maroon);margin:4px auto 0}
+
+.q-meta{display:grid;grid-template-columns:1fr 1fr;gap:0;
+  border:1px solid var(--hair-strong);margin-bottom:5mm}
+.mcell{padding:4px 8px;border-bottom:1px solid #EFE6E6;border-left:1px solid #EFE6E6;
+  display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.75)}
+.mcell:nth-child(2n){border-left:none}
+.mcell:nth-last-child(-n+2){border-bottom:none}
+.mk{font-size:7.5pt;color:var(--maroon);letter-spacing:.02em}
+.mv{font-size:9.5pt;color:var(--ink);font-weight:600}
+.ms{font-size:8pt;color:var(--ink-soft)}
+
+.q-intro{font-size:9pt;line-height:1.8;color:var(--ink);margin:0 0 4mm;
+  padding:5px 9px;border-right:2px solid var(--maroon-light);background:rgba(255,255,255,.7)}
+
+.q-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:4mm}
+.q-table th{background:var(--maroon);color:#fff;font-weight:500;font-size:8pt;
+  padding:5px 6px;text-align:right;border:1px solid var(--maroon)}
+.q-table td{border:1px solid var(--hair-strong);padding:4px 6px;vertical-align:top;
+  background:rgba(255,255,255,.78)}
+.q-table .desc{line-height:1.65}
+.q-table .desc-en{display:block;direction:ltr;text-align:left;font-size:7.5pt;
+  color:var(--ink-soft);margin-top:2px}
+.q-table .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;white-space:nowrap}
+.q-table .ctr{text-align:center}
+.q-table tr.trow td{background:var(--rose-wash);color:var(--maroon-dark);font-weight:600}
+.q-table tr.nrow td{background:#FAFAFA;font-size:8pt;color:var(--ink-soft)}
+
+.q-sum{margin:0 0 5mm auto;width:96mm;border:1px solid var(--hair-strong)}
+.srow{display:flex;justify-content:space-between;gap:8px;padding:4px 9px;font-size:9pt;
+  border-bottom:1px solid #EFE6E6;background:rgba(255,255,255,.8)}
+.srow:last-of-type{border-bottom:none}
+.srow.grand{background:var(--maroon);color:#fff;font-weight:700;font-size:10.5pt;padding:6px 9px}
+.tafqit-row{background:var(--rose-wash);color:var(--maroon-dark);font-size:8pt;
+  padding:4px 9px;border-top:1px solid var(--hair-strong)}
+
+.q-block{border:1px solid var(--hair-strong);margin-bottom:4mm;page-break-inside:avoid}
+.qb-head{background:var(--rose-wash);color:var(--maroon-dark);font-size:8.5pt;
+  padding:4px 9px;border-bottom:1px solid var(--hair-strong);font-weight:600}
+.q-pay{width:100%;border-collapse:collapse;font-size:8.5pt}
+.q-pay th{background:#FBF7F7;color:var(--maroon-dark);font-weight:500;font-size:8pt;
+  padding:4px 6px;text-align:right;border-bottom:1px solid var(--hair-strong)}
+.q-pay td{padding:4px 6px;border-bottom:1px solid #F0E8E8;background:rgba(255,255,255,.78)}
+.q-pay .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left}
+.q-terms{margin:0;padding:7px 22px 7px 9px;font-size:8.5pt;line-height:1.8;
+  background:rgba(255,255,255,.78)}
+.q-terms li{margin-bottom:2px}
+
+.q-closing{font-size:9pt;text-align:center;color:var(--maroon-dark);margin:0 0 5mm;
+  padding:4px 0;border-top:1px dashed var(--hair-strong);border-bottom:1px dashed var(--hair-strong)}
+
+.q-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:8mm;
+  page-break-inside:avoid}
+.q-sign{display:flex;flex-direction:column;gap:2mm}
+.qs-label{font-size:8pt;color:var(--ink-soft)}
+.qs-marks{position:relative;height:32mm;width:52mm}
+.qs-marks .stamp{position:absolute;right:0;bottom:0;height:30mm;opacity:.95}
+.qs-marks .sign{position:absolute;right:14mm;bottom:6mm;height:20mm}
+.q-bank{text-align:right;font-size:8pt;color:var(--ink-soft);line-height:1.7}
+.qb-t{font-size:8.5pt;color:var(--maroon-dark);font-weight:600;margin-bottom:2px}
+.q-bank .iban{color:var(--maroon);direction:ltr;text-align:right}
+
+@media print{
+  @page{size:A4 portrait;margin:0}
+  .qtoolbar{display:none}
+  .qsheet{width:auto;margin:0;box-shadow:none}
+
+  /* الترويسة صورة ثابتة تظهر على كل صفحة مطبوعة */
+  .page-bg{
+    position:fixed!important;top:0;left:0;
+    width:210mm;height:297mm;z-index:-1;object-fit:fill;
+  }
+  /* إطار الصفحة: thead و tfoot يتكرران فيحفظان الهوامش في كل صفحة */
+  .page-frame > thead{display:table-header-group}
+  .page-frame > tfoot{display:table-footer-group}
+  .q-table thead{display:table-header-group}
+  .q-table tr{page-break-inside:avoid}
+  .q-sum,.q-block,.q-foot{page-break-inside:avoid}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+    box-shadow:none!important}
+}
+
+@media screen{
+  .qsheet{background-size:210mm auto;background-repeat:no-repeat}
+}

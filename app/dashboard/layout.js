@@ -12,6 +12,9 @@ const NAV = [
     { href: '/dashboard/leaves', label: 'الإجازات' },
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
   ]},
+  { group: 'المشاريع والتسعير', items: [
+    { href: '/dashboard/quotes', label: 'عروض الأسعار وجداول الكميات' },
+  ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
   ]},
