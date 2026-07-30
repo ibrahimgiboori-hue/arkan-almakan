@@ -10,6 +10,7 @@ const NAV = [
     { href: '/dashboard', label: 'لوحة المتابعة' },
     { href: '/dashboard/employees', label: 'الموظفون' },
     { href: '/dashboard/leaves', label: 'الإجازات' },
+    { href: '/dashboard/advances', label: 'السلف والمديونيات' },
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
