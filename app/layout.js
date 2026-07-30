@@ -1,15 +1,10 @@
 import './globals.css';
-import { Reem_Kufi, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 
-const display = Reem_Kufi({
+const plex = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
-  variable: '--font-display',
-});
-
-const body = IBM_Plex_Sans_Arabic({
-  subsets: ['arabic', 'latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-body',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-plex',
 });
 
 export const metadata = {
@@ -19,7 +14,15 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ar" dir="rtl" className={`${display.variable} ${body.variable}`}>
+    <html
+      lang="ar"
+      dir="rtl"
+      className={plex.variable}
+      style={{
+        '--font-display': 'var(--font-plex)',
+        '--font-body': 'var(--font-plex)',
+      }}
+    >
       <body>{children}</body>
     </html>
   );
