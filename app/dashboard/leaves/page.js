@@ -5,27 +5,32 @@ import { dateAr } from '@/lib/format';
 import { STATUS_AR, STATUS_CLASS, LEAVE_AR, nextRole, ROLE_AR } from '@/lib/requests';
 
 const KINDS = ['annual','sick','unpaid','permission','emergency','hajj','maternity'];
+const EMPTY = { employee_id:'', leave_kind:'annual', start_date:'', end_date:'', reason:'' };
 
 export default function Leaves() {
   const [rows, setRows] = useState(null);
   const [bal, setBal] = useState([]);
   const [emps, setEmps] = useState([]);
   const [role, setRole] = useState(null);
-  const [form, setForm] = useState({ employee_id:'', leave_kind:'annual', start_date:'', end_date:'', reason:'' });
+  const [form, setForm] = useState({ ...EMPTY });
+  const [editId, setEditId] = useState(null);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
   async function load() {
+    const sess = (await supabase.auth.getSession()).data.session;
     const [r, b, e, u] = await Promise.all([
       supabase.from('leave_requests')
         .select('*, employees(full_name_ar, employee_no)')
         .order('created_at', { ascending: false }),
       supabase.from('v_leave_balance').select('*').eq('year', new Date().getFullYear()),
-      supabase.from('employees').select('id, employee_no, full_name_ar').eq('status','active').order('employee_no'),
-      supabase.from('app_users').select('role').eq('id', (await supabase.auth.getSession()).data.session?.user?.id).maybeSingle(),
+      supabase.from('employees').select('id, employee_no, full_name_ar')
+        .eq('status','active').order('employee_no'),
+      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
-    setRows(r.data || []); setBal(b.data || []); setEmps(e.data || []); setRole(u.data?.role || null);
+    setRows(r.data || []); setBal(b.data || []);
+    setEmps(e.data || []); setRole(u.data?.role || null);
   }
 
   useEffect(() => { load(); }, []);
@@ -33,16 +38,32 @@ export default function Leaves() {
   const days = form.start_date && form.end_date
     ? Math.round((new Date(form.end_date) - new Date(form.start_date)) / 86400000) + 1 : 0;
 
+  function startEdit(r) {
+    setEditId(r.id);
+    setForm({ employee_id: r.employee_id, leave_kind: r.leave_kind,
+              start_date: r.start_date, end_date: r.end_date, reason: r.reason || '' });
+    setOpen(true);
+    setErr(''); setMsg('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function startNew() {
+    setEditId(null); setForm({ ...EMPTY }); setOpen(true); setErr(''); setMsg('');
+  }
+
   async function submit(e) {
     e.preventDefault(); setErr(''); setMsg('');
-    if (days <= 0) { setErr('تاريخ النهاية يجب أن يكون بعد تاريخ البداية أو مساوياً له.'); return; }
-    const { error } = await supabase.from('leave_requests').insert({
-      ...form, status: 'submitted', is_paid: form.leave_kind !== 'unpaid',
-    });
-    if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
-    setMsg('تم تقديم الطلب — انتقل إلى الموارد البشرية للتدقيق');
-    setForm({ employee_id:'', leave_kind:'annual', start_date:'', end_date:'', reason:'' });
-    setOpen(false); load();
+    if (days <= 0) { setErr('تاريخ النهاية يجب أن يكون بعد البداية أو مساوياً لها.'); return; }
+
+    const payload = { ...form, is_paid: form.leave_kind !== 'unpaid' };
+
+    const res = editId
+      ? await supabase.from('leave_requests').update(payload).eq('id', editId)
+      : await supabase.from('leave_requests').insert({ ...payload, status: 'submitted' });
+
+    if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
+    setMsg(editId ? 'حُفظت التعديلات' : 'تم تقديم الطلب');
+    setForm({ ...EMPTY }); setEditId(null); setOpen(false); load();
   }
 
   async function decide(id, decision) {
@@ -53,9 +74,29 @@ export default function Leaves() {
     load();
   }
 
+  async function cancel(r) {
+    const reason = window.prompt(`سبب إلغاء إجازة ${r.employees?.full_name_ar || ''}:`);
+    if (reason === null) return;
+    setErr(''); setMsg('');
+    const { error } = await supabase.rpc('cancel_leave', { p_id: r.id, p_reason: reason });
+    if (error) { setErr(error.message); return; }
+    setMsg('أُلغي الطلب وأُعيد الرصيد إن كان مخصوماً');
+    load();
+  }
+
+  async function remove(r) {
+    if (!window.confirm('حذف هذا الطلب نهائياً؟ لا يمكن التراجع.')) return;
+    setErr(''); setMsg('');
+    const { error } = await supabase.from('leave_requests').delete().eq('id', r.id);
+    if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
+    setMsg('حُذف الطلب'); load();
+  }
+
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
 
-  const balOf = (empId) => bal.find((b) => b.employee_id === empId);
+  const balOf = (id) => bal.find((b) => b.employee_id === id);
+  const canEdit = (r) => ['draft','submitted'].includes(r.status) && ['ceo','hr'].includes(role);
+  const canCancel = (r) => !['cancelled','rejected'].includes(r.status) && ['ceo','hr'].includes(role);
 
   return (
     <>
@@ -64,7 +105,7 @@ export default function Leaves() {
           <h1>الإجازات</h1>
           <p>الطلبات والأرصدة ودورة الاعتماد</p>
         </div>
-        <button className="btn" onClick={()=>setOpen(!open)}>
+        <button className="btn" onClick={open ? ()=>{setOpen(false);setEditId(null);} : startNew}>
           {open ? 'إغلاق النموذج' : 'طلب إجازة جديد'}
         </button>
       </div>
@@ -74,7 +115,7 @@ export default function Leaves() {
 
       {open && (
         <div className="section" style={{marginTop:0}}>
-          <header><h2>طلب إجازة</h2></header>
+          <header><h2>{editId ? 'تعديل طلب إجازة' : 'طلب إجازة'}</h2></header>
           <form onSubmit={submit} style={{padding:18}}>
             <div className="form-grid">
               <div className="field">
@@ -82,25 +123,22 @@ export default function Leaves() {
                 <select required value={form.employee_id}
                         onChange={(e)=>setForm({...form, employee_id:e.target.value})}>
                   <option value="">—</option>
-                  {emps.map((x) => <option key={x.id} value={x.id}>{x.employee_no} — {x.full_name_ar}</option>)}
+                  {emps.map((x)=><option key={x.id} value={x.id}>{x.employee_no} — {x.full_name_ar}</option>)}
                 </select>
                 {form.employee_id && balOf(form.employee_id) && (
-                  <span className="hint">
-                    الرصيد المتبقي: {balOf(form.employee_id).remaining_days} يوم
-                  </span>
+                  <span className="hint">الرصيد المتبقي: {balOf(form.employee_id).remaining_days} يوم</span>
                 )}
               </div>
               <div className="field">
                 <label>نوع الإجازة *</label>
                 <select value={form.leave_kind} onChange={(e)=>setForm({...form, leave_kind:e.target.value})}>
-                  {KINDS.map((k) => <option key={k} value={k}>{LEAVE_AR[k]}</option>)}
+                  {KINDS.map((k)=><option key={k} value={k}>{LEAVE_AR[k]}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label>عدد الأيام</label>
                 <input value={days || ''} readOnly dir="ltr"
                        style={{background:'#F6EEEE',color:'#7C2B28',fontWeight:600}} />
-                <span className="hint">محسوب من التاريخين</span>
               </div>
               <div className="field">
                 <label>من *</label>
@@ -117,7 +155,11 @@ export default function Leaves() {
                 <input value={form.reason} onChange={(e)=>setForm({...form, reason:e.target.value})} />
               </div>
             </div>
-            <button className="btn" type="submit">تقديم الطلب</button>
+            <div className="rowsplit">
+              <button className="btn" type="submit">{editId ? 'حفظ التعديلات' : 'تقديم الطلب'}</button>
+              <button className="btn ghost" type="button"
+                      onClick={()=>{setOpen(false);setEditId(null);setForm({...EMPTY});}}>إلغاء</button>
+            </div>
           </form>
         </div>
       )}
@@ -125,13 +167,11 @@ export default function Leaves() {
       <div className="section">
         <header><h2>أرصدة الإجازة السنوية {new Date().getFullYear()}</h2></header>
         {bal.length === 0 ? (
-          <div className="empty"><h3>لا أرصدة</h3><p>ستُنشأ الأرصدة عند إضافة الموظفين.</p></div>
+          <div className="empty"><h3>لا أرصدة</h3><p>ستُنشأ عند اعتماد أول إجازة سنوية.</p></div>
         ) : (
           <table>
-            <thead>
-              <tr><th>الموظف</th><th className="num">المستحق</th><th className="num">مرحّل</th>
-                  <th className="num">المستنفد</th><th className="num">المتبقي</th></tr>
-            </thead>
+            <thead><tr><th>الموظف</th><th className="num">المستحق</th><th className="num">مرحّل</th>
+                       <th className="num">المستنفد</th><th className="num">المتبقي</th></tr></thead>
             <tbody>
               {bal.map((b) => {
                 const emp = emps.find((e) => e.id === b.employee_id);
@@ -143,8 +183,7 @@ export default function Leaves() {
                     <td className="num">{b.used_days}</td>
                     <td className="num">
                       <span className={`pill ${Number(b.remaining_days) <= 0 ? 'bad' : 'ok'}`}>
-                        {b.remaining_days}
-                      </span>
+                        {b.remaining_days}</span>
                     </td>
                   </tr>
                 );
@@ -157,20 +196,18 @@ export default function Leaves() {
       <div className="section">
         <header><h2>الطلبات</h2></header>
         {rows.length === 0 ? (
-          <div className="empty">
-            <h3>لا طلبات</h3>
-            <p>قدّم أول طلب إجازة من الزر أعلى الصفحة.</p>
-          </div>
+          <div className="empty"><h3>لا طلبات</h3><p>قدّم أول طلب من الزر أعلى الصفحة.</p></div>
         ) : (
           <table>
             <thead>
               <tr><th>الموظف</th><th>النوع</th><th>من</th><th>إلى</th>
-                  <th className="num">الأيام</th><th>الحالة</th><th>الخطوة التالية</th><th>إجراء</th></tr>
+                  <th className="num">الأيام</th><th>الحالة</th><th>الخطوة التالية</th>
+                  <th style={{width:230}}>الإجراءات</th></tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const nr = nextRole('leave', r.status);
-                const mine = nr && role === nr;
+                const mine = nr && (role === nr || role === 'ceo');
                 return (
                   <tr key={r.id}>
                     <td>{r.employees?.full_name_ar || '—'}</td>
@@ -178,17 +215,38 @@ export default function Leaves() {
                     <td className="mono">{dateAr(r.start_date)}</td>
                     <td className="mono">{dateAr(r.end_date)}</td>
                     <td className="num">{r.days_count}</td>
-                    <td><span className={`pill ${STATUS_CLASS[r.status]}`}>{STATUS_AR[r.status]}</span></td>
+                    <td>
+                      <span className={`pill ${STATUS_CLASS[r.status]}`}>{STATUS_AR[r.status]}</span>
+                      {r.cancel_reason && (
+                        <div style={{fontSize:11.5,color:'var(--ink-soft)',marginTop:3}}>
+                          {r.cancel_reason}</div>
+                      )}
+                    </td>
                     <td style={{fontSize:13,color:'var(--ink-soft)'}}>{nr ? ROLE_AR[nr] : '—'}</td>
                     <td>
-                      {mine ? (
-                        <div className="rowsplit">
-                          <button className="btn" style={{padding:'5px 11px',fontSize:13}}
-                                  onClick={()=>decide(r.id,'approve')}>اعتماد</button>
-                          <button className="btn ghost" style={{padding:'5px 11px',fontSize:13}}
-                                  onClick={()=>decide(r.id,'reject')}>رفض</button>
-                        </div>
-                      ) : '—'}
+                      <div className="rowsplit">
+                        {mine && !['cancelled','rejected'].includes(r.status) && (
+                          <>
+                            <button className="btn" style={{padding:'4px 9px',fontSize:12.5}}
+                                    onClick={()=>decide(r.id,'approve')}>اعتماد</button>
+                            <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                    onClick={()=>decide(r.id,'reject')}>رفض</button>
+                          </>
+                        )}
+                        {canEdit(r) && (
+                          <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                  onClick={()=>startEdit(r)}>تعديل</button>
+                        )}
+                        {canCancel(r) && (
+                          <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                  onClick={()=>cancel(r)}>إلغاء</button>
+                        )}
+                        {canEdit(r) && (
+                          <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,
+                                          borderColor:'#EBC3C0',color:'#A32B24'}}
+                                  onClick={()=>remove(r)}>حذف</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

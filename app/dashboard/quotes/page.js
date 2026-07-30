@@ -10,17 +10,21 @@ export default function Quotes() {
   const router = useRouter();
   const [rows, setRows] = useState(null);
   const [tot, setTot] = useState({});
+  const [role, setRole] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
 
   async function load() {
-    const [q, t] = await Promise.all([
+    const sess = (await supabase.auth.getSession()).data.session;
+    const [q, t, u] = await Promise.all([
       supabase.from('quotations').select('*').order('created_at', { ascending: false }),
       supabase.from('v_quote_totals').select('*'),
+      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
     setRows(q.data || []);
     const m = {}; (t.data || []).forEach((x) => { m[x.id] = x; });
-    setTot(m);
+    setTot(m); setRole(u.data?.role || null);
   }
 
   useEffect(() => { load(); }, []);
@@ -49,7 +53,38 @@ export default function Quotes() {
     router.push(`/dashboard/quotes/${data.id}`);
   }
 
+  async function duplicate(r) {
+    setErr(''); setMsg(''); setBusy(true);
+    const { data, error } = await supabase.rpc('duplicate_quotation', { p_id: r.id });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    router.push(`/dashboard/quotes/${data}`);
+  }
+
+  async function remove(r) {
+    if (!window.confirm(`حذف ${r.quote_no} وكل بنوده نهائياً؟`)) return;
+    setErr(''); setMsg('');
+    const { error } = await supabase.from('quotations').delete().eq('id', r.id);
+    if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
+    setMsg('حُذف العرض'); load();
+  }
+
+  async function toProject(r) {
+    if (!window.confirm(`تحويل ${r.quote_no} إلى مشروع بكل بنوده؟`)) return;
+    setErr(''); setMsg('');
+    const { error } = await supabase.rpc('quote_to_project', { p_quote: r.id });
+    if (error) { setErr(error.message); return; }
+    setMsg('حُوّل إلى مشروع'); load();
+  }
+
+  async function setStatus(r, status) {
+    const { error } = await supabase.from('quotations').update({ status }).eq('id', r.id);
+    if (error) setErr(error.message); else load();
+  }
+
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
+
+  const canWrite = ['ceo','hr','accountant'].includes(role);
 
   return (
     <>
@@ -65,19 +100,18 @@ export default function Quotes() {
       </div>
 
       {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
+      {msg && <div className="msg ok" style={{marginBottom:14}}>{msg}</div>}
 
       <div className="section" style={{marginTop:0}}>
         <header><h2>السجل</h2></header>
         {rows.length === 0 ? (
-          <div className="empty">
-            <h3>لا عروض بعد</h3>
-            <p>أنشئ عرض سعر أو جدول كميات من الزرّين أعلى الصفحة.</p>
-          </div>
+          <div className="empty"><h3>لا عروض بعد</h3><p>أنشئ عرضاً من الزرّين أعلى الصفحة.</p></div>
         ) : (
           <table>
             <thead>
-              <tr><th>الرقم</th><th>النوع</th><th>العميل</th><th>المشروع</th>
-                  <th>التاريخ</th><th className="num">المجموع</th><th>الحالة</th><th>—</th></tr>
+              <tr><th>الرقم</th><th>النوع</th><th>العميل</th><th>التاريخ</th>
+                  <th className="num">المجموع</th><th>الحالة</th>
+                  <th style={{width:280}}>الإجراءات</th></tr>
             </thead>
             <tbody>
               {rows.map((r) => (
@@ -85,12 +119,40 @@ export default function Quotes() {
                   <td className="mono">{r.quote_no}</td>
                   <td>{r.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</td>
                   <td><Link href={`/dashboard/quotes/${r.id}`}>{r.client_name}</Link></td>
-                  <td>{r.project_ref || '—'}</td>
                   <td className="mono">{dateAr(r.quote_date)}</td>
                   <td className="num">{money(tot[r.id]?.grand_total || 0)}</td>
-                  <td><span className={`pill ${r.status === 'accepted' ? 'ok' : r.status === 'rejected' ? 'bad' : ''}`}>
-                    {QSTATUS_AR[r.status]}</span></td>
-                  <td><Link href={`/print/quote/${r.id}`} target="_blank">طباعة</Link></td>
+                  <td>
+                    {canWrite ? (
+                      <select value={r.status} onChange={(e)=>setStatus(r, e.target.value)}
+                              style={{fontSize:12.5,padding:'2px 4px'}}>
+                        {Object.entries(QSTATUS_AR).map(([k,v])=>(
+                          <option key={k} value={k}>{v}</option>))}
+                      </select>
+                    ) : (
+                      <span className="pill">{QSTATUS_AR[r.status]}</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="rowsplit">
+                      <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                            href={`/dashboard/quotes/${r.id}`}>تعديل</Link>
+                      <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                            href={`/print/quote/${r.id}`} target="_blank">طباعة</Link>
+                      {canWrite && (
+                        <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                disabled={busy} onClick={()=>duplicate(r)}>نسخ</button>
+                      )}
+                      {canWrite && r.status === 'accepted' && (
+                        <button className="btn" style={{padding:'4px 9px',fontSize:12.5}}
+                                onClick={()=>toProject(r)}>← مشروع</button>
+                      )}
+                      {canWrite && (
+                        <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,
+                                        borderColor:'#EBC3C0',color:'#A32B24'}}
+                                onClick={()=>remove(r)}>حذف</button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
