@@ -166,3 +166,12 @@ fieldset legend{font-family:var(--font-display);font-size:15px;color:var(--maroo
   .page{padding:18px 14px 48px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- تبويبات ---------- */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--hair);margin-bottom:18px;flex-wrap:wrap}
+.tabs button{
+  background:none;border:none;border-bottom:3px solid transparent;
+  padding:10px 18px;font-size:14.5px;color:var(--ink-soft);cursor:pointer;
+}
+.tabs button:hover{color:var(--maroon-dark);background:var(--rose-wash)}
+.tabs button.on{color:var(--maroon-dark);border-bottom-color:var(--maroon);font-weight:500}
