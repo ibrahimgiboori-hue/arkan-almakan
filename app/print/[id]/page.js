@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { byCode } from '@/lib/doc-templates';
 import { EN_TITLES } from '@/lib/doc-titles';
 import { tafqit } from '@/lib/tafqit';
+import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import './print.css';
 
@@ -65,7 +66,7 @@ export default function PrintDoc() {
   const fmt = (f, val) => {
     if (val === undefined || val === null || val === '') return '—';
     if (f.type === 'date') return dateAr(val);
-    if (f.type === 'money') return money(val) + ' ر.س';
+    if (f.type === 'money') return <>{money(val)} <Riyal /></>;
     if (f.type === 'number') return fmtQty(val);
     return String(val);
   };
@@ -153,7 +154,7 @@ export default function PrintDoc() {
               if (s.style === 'strict' || s.kind === 'totals') {
                 return (
                   <table className="amounts" key={s.id}>
-                    <thead><tr><th>{s.title || 'الحساب'}</th><th className="num">القيمة</th></tr></thead>
+                    <thead><tr><th>{s.title || 'الحساب'}</th><th className="num">القيمة <Riyal /></th></tr></thead>
                     <tbody>
                       {fields.map((f) => (
                         <tr key={f.key}><td>{f.label}</td>
@@ -235,7 +236,7 @@ export default function PrintDoc() {
           {/* ---------- نموذج مدمج ---------- */}
           {!custom && moneyRows.length > 0 && (
             <table className="amounts">
-              <thead><tr><th>البيان</th><th className="num">المبلغ (ريال)</th></tr></thead>
+              <thead><tr><th>البيان</th><th className="num">المبلغ <Riyal /></th></tr></thead>
               <tbody>
                 {moneyRows.map(([k,val]) => (
                   <tr key={k}><td>{k}</td><td className="num">{val}</td></tr>
@@ -248,7 +249,7 @@ export default function PrintDoc() {
             <div className="tafqit">
               <span className="tf-lbl">المبلغ تفقيطاً</span>
               <span className="tf-val">{tafqit(Number(p[mainKey]))}</span>
-              <span className="tf-num mono">{money(p[mainKey])} ر.س</span>
+              <span className="tf-num mono">{money(p[mainKey])} <Riyal /></span>
             </div>
           )}
 

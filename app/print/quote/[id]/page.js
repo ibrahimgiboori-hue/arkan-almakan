@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr, qty as fmtQty } from '@/lib/format';
 import { tafqit } from '@/lib/tafqit';
+import Riyal from '@/components/Riyal';
 import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
 import './quote-print.css';
 
@@ -222,19 +223,19 @@ export default function QuotePrint() {
 
               <div className="q-sum">
                 {t.discount > 0 && (
-                  <div className="srow"><span>الخصم</span><span className="mono">{money(t.discount)} ر.س</span></div>
+                  <div className="srow"><span>الخصم</span><span className="mono">{money(t.discount)} <Riyal /></span></div>
                 )}
-                <div className="srow"><span>الإجمالي الفرعي</span><span className="mono">{money(t.subtotal)} ر.س</span></div>
+                <div className="srow"><span>الإجمالي الفرعي</span><span className="mono">{money(t.subtotal)} <Riyal /></span></div>
                 {q.vat_mode !== 'none' && (
                   <div className="srow">
                     <span>ضريبة القيمة المضافة {(Number(q.vat_rate)*100).toFixed(0)}٪
                       {q.vat_mode === 'inclusive' ? ' (مضمّنة)' : ''}</span>
-                    <span className="mono">{money(t.vat)} ر.س</span>
+                    <span className="mono">{money(t.vat)} <Riyal /></span>
                   </div>
                 )}
                 <div className="srow grand">
                   <span>{q.vat_mode === 'none' ? 'المجموع' : 'المجموع شامل الضريبة'}</span>
-                  <span className="mono">{money(t.grand)} ر.س</span>
+                  <span className="mono">{money(t.grand)} <Riyal size={1.1} /></span>
                 </div>
                 <div className="tafqit-row">{tafqit(t.grand)}</div>
               </div>
