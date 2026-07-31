@@ -63,16 +63,14 @@ export default function QuotePrint() {
     if (!q || !cfg || !measureRef.current) return;
     const mTop  = Number(q.margin_top_mm    ?? cfg.letterhead_top_mm);
     const mBot  = Number(q.margin_bottom_mm ?? cfg.letterhead_bottom_mm);
-    const avail = (297 - mTop - mBot) * MM - 8;      // بكسل متاح للمحتوى مع هامش أمان
+    // يُطرح 5 مم لرقم الصفحة و2 مم أماناً
+    const avail = (297 - mTop - mBot - 7) * MM;
 
+    // الحاويات div تحتوي هوامشها بـ flow-root، وأجسام الجداول تُقاس كما هي
     const els = measureRef.current.querySelectorAll('[data-block]');
     const h = {};
     els.forEach((el) => {
-      const st = window.getComputedStyle(el);
-      const inner = el.firstElementChild ? window.getComputedStyle(el.firstElementChild) : null;
-      const mt = parseFloat(inner?.marginTop || st.marginTop) || 0;
-      const mb = parseFloat(inner?.marginBottom || st.marginBottom) || 0;
-      h[el.dataset.block] = el.getBoundingClientRect().height + mt + mb + 1;
+      h[el.dataset.block] = el.getBoundingClientRect().height + 1;
     });
 
     const headerH = h['__thead'] || 0;               // رأس الجدول يتكرر
@@ -350,9 +348,9 @@ export default function QuotePrint() {
       {/* منطقة القياس المخفية */}
       <div className="measure" ref={measureRef} aria-hidden="true"
            style={{ width:`${210 - mSide*2}mm` }}>
-        <table className="q-table"><TableCols /><TableHead /><tbody>
-          <tr data-block="__thead" style={{visibility:'hidden'}}><td colSpan={cols} /></tr>
-        </tbody></table>
+        <div data-block="__thead">
+          <table className="q-table"><TableCols /><TableHead /></table>
+        </div>
         {blocks.map((b) => b.kind === 'row' ? (
           <table className="q-table" key={b.id}><TableCols /><tbody data-block={b.id}>
             <Row l={b.line} />

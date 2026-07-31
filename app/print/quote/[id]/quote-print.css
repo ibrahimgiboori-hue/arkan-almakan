@@ -30,7 +30,8 @@
 .measure{
   position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;
 }
-.measure [data-block]{display:flow-root}
+.measure > div[data-block]{display:flow-root}
+.measure table{table-layout:fixed;width:100%}
 
 /* ---------- الصفحات ---------- */
 .pages{padding:24px 14px 60px;display:flex;flex-direction:column;

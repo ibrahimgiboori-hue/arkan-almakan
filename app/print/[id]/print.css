@@ -106,8 +106,8 @@
   border:var(--strict-border);table-layout:fixed}
 .amounts td{word-wrap:break-word;overflow-wrap:break-word}
 .amounts th{background:var(--maroon);color:#fff;font-weight:600;font-size:9pt;
-  padding:1.4mm 2.2mm;text-align:right;border:.35mm solid var(--maroon)}
-.amounts td{border:var(--strict-hair);padding:1.3mm 2.2mm;background:transparent;
+  padding:1.4mm 2.2mm;text-align:right;border:.25mm solid var(--maroon)}
+.amounts td{border:.25mm solid #CDBABA;padding:1.3mm 2.2mm;background:transparent;
   color:var(--ink-print)}
 .amounts .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;width:36%}
 .amounts tbody tr:last-child td{border-top:var(--strict-border);font-weight:700;
@@ -131,8 +131,8 @@
 .sigtable{width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:var(--g-row);
   border:var(--strict-border)}
 .sigtable th{background:transparent;color:#8B3332;font-weight:700;
-  padding:1.2mm 1.6mm;border:var(--strict-hair);text-align:center;font-size:8pt}
-.sigtable td{border:var(--strict-hair);padding:2.4mm 1.6mm;text-align:center;
+  padding:1.2mm 1.6mm;border:.25mm solid #CDBABA;text-align:center;font-size:8pt}
+.sigtable td{border:.25mm solid #CDBABA;padding:2.4mm 1.6mm;text-align:center;
   color:var(--maroon-light);font-size:7.5pt;height:15mm;vertical-align:bottom;
   background:transparent}
 
