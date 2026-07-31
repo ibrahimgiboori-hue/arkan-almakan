@@ -26,11 +26,11 @@
 .qtoolbar button.primary{background:var(--maroon);border-color:var(--maroon);color:#fff}
 .qtoolbar button.primary:hover{background:var(--maroon-dark)}
 
-/* منطقة القياس: خارج الشاشة تماماً */
+/* منطقة القياس: خارج الشاشة، وكل كتلة تحتوي هوامشها ليُقاس ارتفاعها الحقيقي */
 .measure{
-  position:absolute;left:-10000px;top:0;visibility:hidden;
-  pointer-events:none;
+  position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;
 }
+.measure [data-block]{display:flow-root}
 
 /* ---------- الصفحات ---------- */
 .pages{padding:24px 14px 60px;display:flex;flex-direction:column;
@@ -38,15 +38,18 @@
 .sheet{
   width:210mm;height:297mm;background:#fff;position:relative;overflow:hidden;
   box-shadow:0 1px 6px rgba(0,0,0,.16);
+  display:flex;flex-direction:column;
 }
 .sheet.dragging{cursor:grabbing;user-select:none}
 
-.lh-head{position:absolute;top:0;left:0;width:210mm;object-fit:fill;z-index:1}
-.lh-foot{position:absolute;bottom:0;left:0;width:210mm;object-fit:fill;z-index:1}
-.lh-mark{position:absolute;left:0;width:210mm;object-fit:fill;z-index:0;opacity:1}
-.content{position:relative;z-index:2;height:297mm;box-sizing:border-box;overflow:hidden}
-.pagenum{position:absolute;left:0;right:0;text-align:center;z-index:3;
-  font-size:7.5pt;color:var(--ink-soft-print)}
+/* الرأس والتذييل في تدفق الصفحة — أضمن للطباعة من التموضع المطلق */
+.lh-head{flex:0 0 auto;display:block;width:210mm;object-fit:fill}
+.lh-foot{flex:0 0 auto;display:block;width:210mm;object-fit:fill;margin-top:auto}
+.content{
+  flex:1 1 auto;min-height:0;box-sizing:border-box;overflow:hidden;position:relative;
+}
+.pagenum{flex:0 0 auto;text-align:center;font-size:7.5pt;
+  color:var(--ink-soft-print);padding-bottom:1.5mm}
 
 .float-mark{position:absolute;z-index:5;cursor:grab}
 .float-mark:active{cursor:grabbing}
@@ -69,12 +72,20 @@
   padding:2mm 2.6mm;border-right:.8mm solid var(--maroon-light)}
 
 /* ---------- جدول البنود ---------- */
-.q-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:0}
+.q-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:0;
+  table-layout:fixed}
+.q-table col.c-no{width:9mm}
+.q-table col.c-unit{width:14mm}
+.q-table col.c-qty{width:18mm}
+.q-table col.c-price{width:22mm}
+.q-table col.c-total{width:26mm}
 .q-table + .q-table{margin-top:0}
 .q-table th{background:var(--maroon);color:#fff;font-weight:600;font-size:8pt;
   padding:1.4mm 1.6mm;text-align:right;border:.35mm solid var(--maroon)}
 .q-table td{border:var(--strict-hair);padding:1.2mm 1.6mm;vertical-align:top;
-  background:transparent;color:var(--ink-print)}
+  background:transparent;color:var(--ink-print);
+  word-wrap:break-word;overflow-wrap:break-word}
+.q-table td:first-child,.q-table th:first-child{text-align:center}
 .q-table .desc{line-height:1.6}
 .q-table .desc-en{display:block;direction:ltr;text-align:left;font-size:7.5pt;
   color:var(--ink-soft-print);margin-top:.4mm}
@@ -139,9 +150,12 @@
   .pages{padding:0;gap:0;background:#fff;display:block}
   .sheet{
     width:210mm;height:297mm;box-shadow:none;margin:0;
-    page-break-after:always;break-after:page;overflow:hidden;
+    page-break-after:always;break-after:page;break-inside:avoid;overflow:hidden;
+    display:flex;flex-direction:column;
   }
   .sheet:last-child{page-break-after:auto;break-after:auto}
+  .lh-head,.lh-foot{display:block!important;max-width:none}
+  .content{background-attachment:scroll!important}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
     box-shadow:none!important}
 }

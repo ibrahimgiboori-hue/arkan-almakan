@@ -103,7 +103,8 @@
 
 /* ---------- المبالغ : مالية ← حادة وشفافة ---------- */
 .amounts{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:var(--g-row);
-  border:var(--strict-border)}
+  border:var(--strict-border);table-layout:fixed}
+.amounts td{word-wrap:break-word;overflow-wrap:break-word}
 .amounts th{background:var(--maroon);color:#fff;font-weight:600;font-size:9pt;
   padding:1.4mm 2.2mm;text-align:right;border:.35mm solid var(--maroon)}
 .amounts td{border:var(--strict-hair);padding:1.3mm 2.2mm;background:transparent;
@@ -153,9 +154,7 @@
   @page{size:A4;margin:0}
   .toolbar{display:none}
   .sheet-wrap{padding:0;background:#fff}
-  .sheet{width:210mm;min-height:297mm;box-shadow:none;
-    background-repeat:repeat-y!important;background-size:210mm 297mm!important}
-  .amounts th{position:static!important}
+  .sheet{width:auto;min-height:297mm;box-shadow:none}
   .card-doc,.amounts thead,.sigtable,.declare,.tafqit,.footer-row{page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;

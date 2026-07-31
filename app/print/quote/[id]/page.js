@@ -63,11 +63,17 @@ export default function QuotePrint() {
     if (!q || !cfg || !measureRef.current) return;
     const mTop  = Number(q.margin_top_mm    ?? cfg.letterhead_top_mm);
     const mBot  = Number(q.margin_bottom_mm ?? cfg.letterhead_bottom_mm);
-    const avail = (297 - mTop - mBot) * MM - 4;      // بكسل متاح للمحتوى
+    const avail = (297 - mTop - mBot) * MM - 8;      // بكسل متاح للمحتوى مع هامش أمان
 
     const els = measureRef.current.querySelectorAll('[data-block]');
     const h = {};
-    els.forEach((el) => { h[el.dataset.block] = el.getBoundingClientRect().height; });
+    els.forEach((el) => {
+      const st = window.getComputedStyle(el);
+      const inner = el.firstElementChild ? window.getComputedStyle(el.firstElementChild) : null;
+      const mt = parseFloat(inner?.marginTop || st.marginTop) || 0;
+      const mb = parseFloat(inner?.marginBottom || st.marginBottom) || 0;
+      h[el.dataset.block] = el.getBoundingClientRect().height + mt + mb + 1;
+    });
 
     const headerH = h['__thead'] || 0;               // رأس الجدول يتكرر
     const out = [];
@@ -151,15 +157,26 @@ export default function QuotePrint() {
   }
 
   // ---------- رسم الكتل ----------
+  const TableCols = () => (
+    <colgroup>
+      <col className="c-no" />
+      <col />
+      {q.show_unit && <col className="c-unit" />}
+      {q.show_qty && <col className="c-qty" />}
+      {q.show_unit_price && <col className="c-price" />}
+      {q.show_line_total && <col className="c-total" />}
+    </colgroup>
+  );
+
   const TableHead = () => (
     <thead>
       <tr>
-        <th style={{width:'9mm'}}>م</th>
+        <th>م</th>
         <th>بيان الأعمال{q.show_en_desc ? ' / Description' : ''}</th>
-        {q.show_unit && <th style={{width:'14mm'}}>الوحدة</th>}
-        {q.show_qty && <th style={{width:'18mm'}} className="num">الكمية</th>}
-        {q.show_unit_price && <th style={{width:'22mm'}} className="num">الفئة</th>}
-        {q.show_line_total && <th style={{width:'26mm'}} className="num">الإجمالي</th>}
+        {q.show_unit && <th>الوحدة</th>}
+        {q.show_qty && <th className="num">الكمية</th>}
+        {q.show_unit_price && <th className="num">الفئة</th>}
+        {q.show_line_total && <th className="num">الإجمالي</th>}
       </tr>
     </thead>
   );
@@ -295,9 +312,15 @@ export default function QuotePrint() {
     }
   }
 
+  // الرأس والتذييل صورتان في تدفق الصفحة، والمحتوى بينهما
+  const headPad = Math.max(0, mTop - hMm);
+  const footPad = Math.max(0, mBot - fMm);
   const contentStyle = {
-    paddingTop: `${mTop}mm`, paddingBottom: `${mBot}mm`,
+    paddingTop: `${headPad}mm`, paddingBottom: `${footPad}mm`,
     paddingRight: `${mSide}mm`, paddingLeft: `${mSide}mm`,
+    backgroundImage: markUrl ? `url(${markUrl})` : undefined,
+    backgroundSize: '100% 100%',
+    backgroundRepeat: 'no-repeat',
   };
 
   return (
@@ -327,11 +350,11 @@ export default function QuotePrint() {
       {/* منطقة القياس المخفية */}
       <div className="measure" ref={measureRef} aria-hidden="true"
            style={{ width:`${210 - mSide*2}mm` }}>
-        <table className="q-table"><TableHead /><tbody>
+        <table className="q-table"><TableCols /><TableHead /><tbody>
           <tr data-block="__thead" style={{visibility:'hidden'}}><td colSpan={cols} /></tr>
         </tbody></table>
         {blocks.map((b) => b.kind === 'row' ? (
-          <table className="q-table" key={b.id}><tbody data-block={b.id}>
+          <table className="q-table" key={b.id}><TableCols /><tbody data-block={b.id}>
             <Row l={b.line} />
           </tbody></table>
         ) : (
@@ -342,12 +365,9 @@ export default function QuotePrint() {
       <div className="pages" onMouseMove={onMove} onMouseUp={endDrag} onMouseLeave={endDrag}>
         {(pages || []).map((page, pi) => (
           <div className={`sheet ${drag ? 'dragging' : ''}`} key={pi}>
-            {headUrl && <img className="lh-head" src={headUrl} alt=""
-                             style={{height:`${hMm}mm`}} />}
-            {markUrl && <img className="lh-mark" src={markUrl} alt=""
-                             style={{top:`${hMm}mm`, height:`${297-hMm-fMm}mm`}} />}
-            {footUrl && <img className="lh-foot" src={footUrl} alt=""
-                             style={{height:`${fMm}mm`}} />}
+            {headUrl
+              ? <img className="lh-head" src={headUrl} alt="" style={{height:`${hMm}mm`}} />
+              : <div className="lh-head" style={{height:`${hMm}mm`}} />}
 
             <div className="content" style={contentStyle}>
               {(() => {
@@ -359,6 +379,7 @@ export default function QuotePrint() {
                     while (i < page.length && page[i].kind === 'row') { rows.push(page[i].line); i++; }
                     out.push(
                       <table className="q-table" key={'t'+i}>
+                        <TableCols />
                         <TableHead />
                         <tbody>{rows.map((l)=><Row l={l} key={l.id} />)}</tbody>
                       </table>
@@ -369,9 +390,11 @@ export default function QuotePrint() {
               })()}
             </div>
 
-            <div className="pagenum" style={{bottom:`${fMm + 3}mm`}}>
-              صفحة {pi+1} من {pages.length}
-            </div>
+            <div className="pagenum">صفحة {pi+1} من {pages.length}</div>
+
+            {footUrl
+              ? <img className="lh-foot" src={footUrl} alt="" style={{height:`${fMm}mm`}} />
+              : <div className="lh-foot" style={{height:`${fMm}mm`}} />}
 
             {stampUrl && pos.stamp_x_mm != null && pi === pages.length - 1 && (
               <img src={stampUrl} alt="ختم" className="float-mark"
