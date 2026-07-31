@@ -69,10 +69,30 @@
 .qtoolbar button:hover{background:var(--maroon-dark)}
 
 
-/* الترويسة خلفية تتكرر كل صفحة A4 فتُطبع على كل الصفحات */
+/* الرأس والتذييل صورتان داخل thead و tfoot فيتكرران على كل صفحة يقيناً */
 .qsheet{width:210mm;margin:24px auto 60px;background:#fff;
-  box-shadow:0 1px 6px rgba(0,0,0,.16);position:relative;
-  background-repeat:repeat-y;background-size:210mm 297mm;background-position:top center}
+  box-shadow:0 1px 6px rgba(0,0,0,.16);position:relative}
+.qsheet.dragging{cursor:grabbing;user-select:none}
+
+.frame-top{padding:0;vertical-align:top}
+.frame-bottom{padding:0;vertical-align:bottom}
+.lh-head,.lh-foot{display:block;width:210mm;object-fit:fill;
+  position:relative;right:50%;transform:translateX(50%)}
+
+/* الختم والتوقيع العائمان */
+.float-mark{
+  position:absolute;z-index:4;cursor:grab;
+  filter:drop-shadow(0 0 0 transparent);
+}
+.float-mark:active{cursor:grabbing}
+.mark-hint{
+  position:absolute;top:6px;left:6px;z-index:9;display:flex;gap:6px;
+}
+.mark-hint button{
+  background:#fff;border:1px solid var(--maroon);color:var(--maroon-dark);
+  padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;
+}
+.mark-hint button:hover{background:var(--rose-wash)}
 /* الترويسة خلفية تتكرر كل صفحة A4 — تُطبع على كل الصفحات */
 .page-frame{width:100%;border-collapse:collapse;position:relative;z-index:1}
 .frame-top,.frame-bottom{padding:0}
@@ -174,11 +194,12 @@
 
 @media print{
   @page{size:A4 portrait;margin:0}
-  .qtoolbar{display:none}
+  .qtoolbar,.mark-hint,.no-print{display:none!important}
+  .float-mark{position:absolute!important}
   .qsheet{width:210mm;margin:0;box-shadow:none;
     background-repeat:repeat-y!important;
-    background-size:210mm 297mm!important;
-    background-position:top center!important}
+    background-position:center!important}
+  .lh-head,.lh-foot{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   .page-frame > thead{display:table-header-group}
   .page-frame > tfoot{display:table-footer-group}
   .q-table thead{display:table-header-group}

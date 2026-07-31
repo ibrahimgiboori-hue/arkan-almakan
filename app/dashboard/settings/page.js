@@ -3,8 +3,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const ASSETS = [
-  { col: 'letterhead_image_path', label: 'صورة ورق الترويسة (الصفحة الأولى)',
-    hint: 'صورة A4 كاملة بالرأس والتذييل — PNG أو JPG بدقة عالية' },
+  { col: 'header_image_path', label: 'شريط الرأس',
+    hint: 'شريط الرأس وحده — يتكرر أعلى كل صفحة مطبوعة' },
+  { col: 'footer_image_path', label: 'شريط التذييل',
+    hint: 'شريط التذييل وحده — يتكرر أسفل كل صفحة' },
+  { col: 'watermark_image_path', label: 'العلامة المائية',
+    hint: 'وسط الصفحة بلا رأس ولا تذييل — اختياري' },
+  { col: 'letterhead_image_path', label: 'ورق الترويسة كاملاً (للمعاينة)',
+    hint: 'صورة A4 كاملة — تُستخدم في النماذج ذات الصفحة الواحدة' },
   { col: 'stamp_image_path', label: 'ختم الشركة',
     hint: 'يُفضل PNG بخلفية شفافة' },
   { col: 'signature_image_path', label: 'توقيع المدير التنفيذي',
@@ -99,7 +105,9 @@ export default function Settings() {
       <div className="section" style={{marginTop:22}}>
         <header><h2>الهوامش وحجم الختم — مركزي لكل المستندات</h2></header>
         <div style={{padding:18}}>
-          {[['letterhead_top_mm','الهامش العلوي',20,70],
+          {[['header_height_mm','ارتفاع شريط الرأس',20,60],
+            ['footer_height_mm','ارتفاع شريط التذييل',15,50],
+            ['letterhead_top_mm','الهامش العلوي',20,70],
             ['letterhead_bottom_mm','الهامش السفلي',15,60],
             ['letterhead_side_mm','الهامش الجانبي',8,35],
             ['stamp_size_mm','حجم الختم',15,55],

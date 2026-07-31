@@ -15,7 +15,10 @@ export default function QuotePrint() {
   const [lines, setLines] = useState([]);
   const [pays, setPays] = useState([]);
   const [cfg, setCfg] = useState(null);
+  const [drag, setDrag] = useState(null);        // 'stamp' | 'sign'
+  const [pos, setPos] = useState({});
   const [err, setErr] = useState('');
+  const [saved, setSaved] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -27,8 +30,55 @@ export default function QuotePrint() {
       ]);
       if (!a.data) { setErr('لم يُعثر على هذا العرض.'); return; }
       setQ(a.data); setLines(b.data || []); setPays(c.data || []); setCfg(d.data);
+      setPos({
+        stamp_x_mm: a.data.stamp_x_mm, stamp_y_mm: a.data.stamp_y_mm,
+        sign_x_mm: a.data.sign_x_mm, sign_y_mm: a.data.sign_y_mm,
+      });
     })();
   }, [id]);
+
+  const MM = 3.7795275591;   // مليمتر → بكسل عند 96 نقطة/بوصة
+
+  function startDrag(kind) {
+    return (e) => {
+      e.preventDefault();
+      const sheet = document.querySelector('.qsheet');
+      const rect = sheet.getBoundingClientRect();
+      setDrag({ kind, rect });
+    };
+  }
+
+  function onMove(e) {
+    if (!drag) return;
+    const xPx = drag.rect.right - e.clientX;    // من الحافة اليمنى
+    const yPx = e.clientY - drag.rect.top;
+    const x = Math.max(0, Math.round(xPx / MM));
+    const y = Math.max(0, Math.round(yPx / MM));
+    setPos((p) => drag.kind === 'stamp'
+      ? { ...p, stamp_x_mm: x, stamp_y_mm: y }
+      : { ...p, sign_x_mm: x, sign_y_mm: y });
+  }
+
+  async function endDrag() {
+    if (!drag) return;
+    const kind = drag.kind;
+    setDrag(null);
+    const fields = kind === 'stamp'
+      ? { stamp_x_mm: pos.stamp_x_mm, stamp_y_mm: pos.stamp_y_mm }
+      : { sign_x_mm: pos.sign_x_mm, sign_y_mm: pos.sign_y_mm };
+    const { error } = await supabase.from('quotations').update(fields).eq('id', id);
+    if (error) setErr('تعذّر حفظ الموضع: ' + error.message);
+    else { setSaved('حُفظ موضع ' + (kind === 'stamp' ? 'الختم' : 'التوقيع'));
+           setTimeout(()=>setSaved(''), 1500); }
+  }
+
+  async function resetPos() {
+    setPos({});
+    await supabase.from('quotations').update({
+      stamp_x_mm: null, stamp_y_mm: null, sign_x_mm: null, sign_y_mm: null,
+    }).eq('id', id);
+    setSaved('أُعيد الموضع الافتراضي'); setTimeout(()=>setSaved(''), 1500);
+  }
 
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
   if (!q || !cfg) return <div style={{padding:40}}>جارٍ التحميل…</div>;
@@ -36,7 +86,11 @@ export default function QuotePrint() {
   const numbered = numberLines(lines);
   const subs = titleSubtotals(lines, q.show_qty);
   const t = totals(q, lines);
-  const lhUrl = q.show_letterhead ? pub(cfg.letterhead_image_path) : null;
+  const headUrl = q.show_letterhead ? pub(cfg.header_image_path) : null;
+  const footUrl = q.show_letterhead ? pub(cfg.footer_image_path) : null;
+  const markUrl = q.show_letterhead ? pub(cfg.watermark_image_path) : null;
+  const hMm = Number(cfg.header_height_mm || 40);
+  const fMm = Number(cfg.footer_height_mm || 32);
   const stampUrl = q.show_stamp ? pub(cfg.stamp_image_path) : null;
   const signUrl = q.show_signature ? pub(cfg.signature_image_path) : null;
   const terms = (q.terms_text || '').split('\n').map((s)=>s.trim()).filter(Boolean);
@@ -56,26 +110,39 @@ export default function QuotePrint() {
   return (
     <>
       <div className="qtoolbar">
+        <div className="tb-group">
+          <button onClick={resetPos}>إعادة الختم لموضعه الافتراضي</button>
+          {saved && <span style={{fontSize:12.5,color:'var(--ok)'}}>{saved}</span>}
+        </div>
         <span className="qt-note">
-          الترويسة ورأس الجدول يتكرران على كل صفحة — الهوامش {mTop}/{mBot}/{mSide} مم
+          اسحب الختم أو التوقيع بالفأرة لتضعه حيث شئت — الهوامش {mTop}/{mBot}/{mSide} مم
+          {!cfg.header_image_path ? ' · لم تُرفع صورة الرأس بعد' : ''}
           {(q.margin_top_mm ?? q.margin_bottom_mm ?? q.margin_side_mm) !== null
             && q.margin_top_mm !== undefined ? ' (تجاوز خاص بهذا المستند)' : ''}
         </span>
         <button onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
       </div>
 
-      <div className="qsheet" style={lhUrl ? {
-        backgroundImage: `url(${lhUrl})`,
-        backgroundRepeat: 'repeat-y',
-        backgroundSize: '210mm 297mm',
-        backgroundPosition: 'top center',
-      } : undefined}>
+      <div className={`qsheet ${drag ? 'dragging' : ''}`}
+           onMouseMove={onMove} onMouseUp={endDrag} onMouseLeave={endDrag}
+           style={markUrl ? {
+             backgroundImage: `url(${markUrl})`,
+             backgroundRepeat: 'repeat-y',
+             backgroundSize: `210mm ${297 - hMm - fMm}mm`,
+             backgroundPosition: `center ${hMm}mm`,
+           } : undefined}>
         <table className="page-frame">
           <thead>
-            <tr><td className="frame-top" style={{height:`${mTop}mm`}} /></tr>
+            <tr><td className="frame-top" style={{height:`${mTop}mm`}}>
+              {headUrl && <img className="lh-head" src={headUrl} alt=""
+                               style={{height:`${hMm}mm`}} />}
+            </td></tr>
           </thead>
           <tfoot>
-            <tr><td className="frame-bottom" style={{height:`${mBot}mm`}} /></tr>
+            <tr><td className="frame-bottom" style={{height:`${mBot}mm`}}>
+              {footUrl && <img className="lh-foot" src={footUrl} alt=""
+                               style={{height:`${fMm}mm`}} />}
+            </td></tr>
           </tfoot>
           <tbody>
             <tr><td className="frame-body" style={{padding:`0 ${mSide}mm`}}>
@@ -214,10 +281,12 @@ export default function QuotePrint() {
                 <div className="q-sign">
                   <div className="qs-label">ختم وتوقيع مؤسسة أركان المكان</div>
                   <div className="qs-marks">
-                    {signUrl && <img className="sign" src={signUrl} alt=""
-                                     style={{height:`${signMm}mm`}} />}
-                    {stampUrl && <img className="stamp" src={stampUrl} alt=""
-                                      style={{height:`${stampMm}mm`}} />}
+                    {signUrl && pos.sign_x_mm == null && (
+                      <img className="sign" src={signUrl} alt="" style={{height:`${signMm}mm`}} />
+                    )}
+                    {stampUrl && pos.stamp_x_mm == null && (
+                      <img className="stamp" src={stampUrl} alt="" style={{height:`${stampMm}mm`}} />
+                    )}
                   </div>
                 </div>
                 {q.show_bank && (
@@ -233,6 +302,34 @@ export default function QuotePrint() {
             </td></tr>
           </tbody>
         </table>
+
+        {stampUrl && pos.stamp_x_mm != null && (
+          <img src={stampUrl} alt="ختم" className="float-mark"
+               onMouseDown={startDrag('stamp')}
+               style={{ height:`${stampMm}mm`,
+                        right:`${pos.stamp_x_mm}mm`, top:`${pos.stamp_y_mm}mm` }} />
+        )}
+        {signUrl && pos.sign_x_mm != null && (
+          <img src={signUrl} alt="توقيع" className="float-mark"
+               onMouseDown={startDrag('sign')}
+               style={{ height:`${signMm}mm`,
+                        right:`${pos.sign_x_mm}mm`, top:`${pos.sign_y_mm}mm` }} />
+        )}
+
+        {(stampUrl || signUrl) && (
+          <div className="mark-hint no-print">
+            {pos.stamp_x_mm == null && stampUrl && (
+              <button onClick={()=>setPos({...pos, stamp_x_mm:25, stamp_y_mm:240})}>
+                تحرير الختم للسحب
+              </button>
+            )}
+            {pos.sign_x_mm == null && signUrl && (
+              <button onClick={()=>setPos({...pos, sign_x_mm:60, sign_y_mm:235})}>
+                تحرير التوقيع للسحب
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
