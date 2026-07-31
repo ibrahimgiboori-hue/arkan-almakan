@@ -137,23 +137,35 @@ export default function Settings() {
       <div className="grid k2" style={{marginTop:22}}>
         <div className="section" style={{marginTop:0}}>
           <header><h2>البيانات الرسمية</h2></header>
-          <table>
-            <tbody>
-              {[['الاسم بالعربية', s.company_name_ar],
-                ['الاسم بالإنجليزية', s.company_name_en],
-                ['السجل التجاري', s.cr_number],
-                ['المدينة', s.city],
-                ['الجوال الأول', s.phone_1],
-                ['الجوال الثاني', s.phone_2],
-                ['البريد الإلكتروني', s.email],
-                ['الموقع', s.website],
-                ['نسبة الضريبة', `${(Number(s.vat_rate)*100).toFixed(0)}%`],
-                ['هوامش الترويسة', `${s.letterhead_top_mm} / ${s.letterhead_bottom_mm} / ${s.letterhead_side_mm} مم`],
-              ].map(([k,v]) => (
-                <tr key={k}><td style={{color:'var(--ink-soft)',width:'45%'}}>{k}</td><td>{v || '—'}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{padding:18}}>
+            {[['company_name_ar','الاسم بالعربية','text'],
+              ['company_name_en','الاسم بالإنجليزية','ltr'],
+              ['cr_number','السجل التجاري','ltr'],
+              ['city','المدينة','text'],
+              ['phone_1','الجوال الأول','ltr'],
+              ['phone_2','الجوال الثاني','ltr'],
+              ['email','البريد الإلكتروني','ltr'],
+              ['website','الموقع الإلكتروني','ltr'],
+              ['national_address','العنوان الوطني','text'],
+            ].map(([col,label,kind]) => (
+              <div className="field" key={col}>
+                <label>{label}</label>
+                <input dir={kind === 'ltr' ? 'ltr' : undefined}
+                       defaultValue={s[col] || ''}
+                       onBlur={(e)=>saveField(col, e.target.value)} />
+              </div>
+            ))}
+            <div className="field">
+              <label>نسبة ضريبة القيمة المضافة</label>
+              <input type="number" step="0.01" min="0" max="1" dir="ltr"
+                     defaultValue={s.vat_rate ?? 0.15}
+                     onBlur={(e)=>saveField('vat_rate', Number(e.target.value || 0))} />
+              <span className="hint">0.15 تعني ١٥٪ — تُطبَّق على العروض الجديدة</span>
+            </div>
+            <div className="hint" style={{marginTop:6}}>
+              كل خانة تُحفظ بمجرد الخروج منها
+            </div>
+          </div>
         </div>
 
         <div className="section" style={{marginTop:0}}>
