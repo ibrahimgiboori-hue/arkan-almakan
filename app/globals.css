@@ -175,3 +175,14 @@ fieldset legend{font-family:var(--font-display);font-size:15px;color:var(--maroo
 }
 .tabs button:hover{color:var(--maroon-dark);background:var(--rose-wash)}
 .tabs button.on{color:var(--maroon-dark);border-bottom-color:var(--maroon);font-weight:500}
+
+
+/* ---------- شريط أدوات لاصق وصف إضافة ---------- */
+.stickybar{
+  position:sticky;top:56px;z-index:6;background:var(--paper);
+  padding:10px 0;margin-bottom:12px;border-bottom:1px solid var(--hair);
+}
+tr.addrow td{background:#FBF7F7;padding:10px 12px}
+tr.addrow:hover td{background:#FBF7F7}
+thead th{position:sticky;top:0;z-index:2}
+@media (max-width:760px){ .stickybar{top:0} }

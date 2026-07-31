@@ -38,6 +38,13 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     if (error) setErr('تعذّر الإضافة: ' + error.message); else load();
   }
 
+  async function insertAfter(afterOrder, kind) {
+    const { error } = await supabase.rpc('project_item_insert_after', {
+      p_project: projectId, p_after_order: afterOrder, p_kind: kind,
+    });
+    if (error) setErr('تعذّر الإدراج: ' + error.message); else load();
+  }
+
   async function upd(id, fields) {
     setItems(items.map((x) => x.id === id ? { ...x, ...fields } : x));
     const { error } = await supabase.from('project_items').update(fields).eq('id', id);
@@ -128,8 +135,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       )}
 
       {canWrite && (
-        <div className="rowsplit" style={{marginBottom:12}}>
-          <button className="btn" onClick={()=>addLine('item')}>+ بند</button>
+        <div className="rowsplit stickybar">
+          <button className="btn" onClick={()=>addLine('item')}>+ بند في النهاية</button>
           <button className="btn ghost" onClick={()=>addLine('title')}>+ عنوان قسم</button>
           <span className="spacer" />
           <span style={{fontSize:13,color:'var(--ink-soft)'}}>
@@ -170,6 +177,10 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                   <td>
                     {canWrite && (
                       <div className="rowsplit">
+                        <button className="btn" style={{padding:'3px 7px',fontSize:12}}
+                                title="إدراج بند بعده" onClick={()=>insertAfter(l.sort_order,'item')}>+</button>
+                        <button className="btn ghost" style={{padding:'3px 7px',fontSize:12}}
+                                title="إدراج عنوان بعده" onClick={()=>insertAfter(l.sort_order,'title')}>+ع</button>
                         <button className="btn ghost" style={{padding:'3px 7px',fontSize:12}}
                                 onClick={()=>move(l.id,-1)}>▲</button>
                         <button className="btn ghost" style={{padding:'3px 7px',fontSize:12}}
@@ -241,6 +252,10 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                             <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
                                     onClick={()=>delDecision(l)}>إلغاء</button>
                           )}
+                          <button className="btn" style={{padding:'3px 7px',fontSize:11.5}}
+                                  title="إدراج بند بعده" onClick={()=>insertAfter(l.sort_order,'item')}>+</button>
+                          <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
+                                  title="إدراج عنوان بعده" onClick={()=>insertAfter(l.sort_order,'title')}>+ع</button>
                           <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
                                   onClick={()=>move(l.id,-1)}>▲</button>
                           <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
@@ -255,6 +270,20 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                 </tr>
               );
             })}
+            {items.length > 0 && canWrite && (
+              <tr className="addrow">
+                <td colSpan={9}>
+                  <div className="rowsplit">
+                    <button className="btn" style={{padding:'5px 12px',fontSize:13}}
+                            onClick={()=>addLine('item')}>+ بند جديد</button>
+                    <button className="btn ghost" style={{padding:'5px 12px',fontSize:13}}
+                            onClick={()=>addLine('title')}>+ عنوان قسم</button>
+                    <span className="spacer" />
+                    <span style={{fontSize:12,color:'var(--ink-soft)'}}>يُضاف في نهاية الجدول</span>
+                  </div>
+                </td>
+              </tr>
+            )}
             {items.length === 0 && (
               <tr><td colSpan={9}>
                 <div className="empty"><h3>لا بنود</h3>

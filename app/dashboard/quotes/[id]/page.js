@@ -74,6 +74,14 @@ export default function QuoteEditor() {
     setLines([...lines, data]);
   }
 
+  async function insertAfter(afterOrder, kind) {
+    const { error } = await supabase.rpc('quote_line_insert_after', {
+      p_quotation: id, p_after_order: afterOrder, p_kind: kind,
+    });
+    if (error) { setErr('تعذّر الإدراج: ' + error.message); return; }
+    load();
+  }
+
   async function updLine(lineId, fields) {
     setLines(lines.map((l) => l.id === lineId ? { ...l, ...fields } : l));
     const { error } = await supabase.from('quotation_lines').update(fields).eq('id', lineId);
@@ -172,12 +180,12 @@ export default function QuoteEditor() {
       {/* ============ البنود ============ */}
       {tab === 'lines' && (
         <>
-          <div className="rowsplit" style={{marginBottom:12}}>
-            <button className="btn" onClick={()=>addLine('item')}>+ بند</button>
+          <div className="rowsplit stickybar">
+            <button className="btn" onClick={()=>addLine('item')}>+ بند في النهاية</button>
             <button className="btn ghost" onClick={()=>addLine('title')}>+ عنوان قسم</button>
             <span className="spacer" />
-            <span style={{fontSize:13,color:'var(--ink-soft)'}}>
-              الترقيم يُحسب تلقائياً — العنوان يأخذ رقماً، وبنوده تأخذ ٣-١ و٣-٢
+            <span style={{fontSize:12.5,color:'var(--ink-soft)'}}>
+              {lines.length} سطراً · زر <b>+</b> في كل سطر يُدرج بعده مباشرة
             </span>
           </div>
 
@@ -208,6 +216,10 @@ export default function QuoteEditor() {
                       {money(subs[l.id] || 0)}</td>}
                     <td>
                       <div className="rowsplit">
+                        <button className="btn" style={{padding:'3px 8px',fontSize:12}}
+                                title="إدراج بند بعده" onClick={()=>insertAfter(l.sort_order,'item')}>+</button>
+                        <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}}
+                                title="إدراج عنوان بعده" onClick={()=>insertAfter(l.sort_order,'title')}>+ع</button>
                         <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>move(l.id,-1)}>▲</button>
                         <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>move(l.id,1)}>▼</button>
                         <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>delLine(l.id)}>حذف</button>
@@ -259,6 +271,10 @@ export default function QuoteEditor() {
                     {q.show_line_total && <td className="num">{money(lineTotal(l, q.show_qty))}</td>}
                     <td>
                       <div className="rowsplit">
+                        <button className="btn" style={{padding:'3px 8px',fontSize:12}}
+                                title="إدراج بند بعده" onClick={()=>insertAfter(l.sort_order,'item')}>+</button>
+                        <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}}
+                                title="إدراج عنوان بعده" onClick={()=>insertAfter(l.sort_order,'title')}>+ع</button>
                         <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>move(l.id,-1)}>▲</button>
                         <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>move(l.id,1)}>▼</button>
                         <button className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>delLine(l.id)}>حذف</button>
@@ -266,6 +282,23 @@ export default function QuoteEditor() {
                     </td>
                   </tr>
                 ))}
+                {lines.length > 0 && (
+                  <tr className="addrow">
+                    <td colSpan={2 + (q.show_unit?1:0) + (q.show_qty?1:0)
+                                 + (q.show_unit_price?1:0) + (q.show_line_total?1:0) + 1}>
+                      <div className="rowsplit">
+                        <button className="btn" style={{padding:'5px 12px',fontSize:13}}
+                                onClick={()=>addLine('item')}>+ بند جديد</button>
+                        <button className="btn ghost" style={{padding:'5px 12px',fontSize:13}}
+                                onClick={()=>addLine('title')}>+ عنوان قسم</button>
+                        <span className="spacer" />
+                        <span style={{fontSize:12,color:'var(--ink-soft)'}}>
+                          يُضاف في نهاية الجدول
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {lines.length === 0 && (
                   <tr><td colSpan={8}>
                     <div className="empty"><h3>لا بنود</h3><p>أضف بنداً أو عنوان قسم من الأزرار أعلاه.</p></div>
