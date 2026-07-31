@@ -184,5 +184,6 @@ fieldset legend{font-family:var(--font-display);font-size:15px;color:var(--maroo
 }
 tr.addrow td{background:#FBF7F7;padding:10px 12px}
 tr.addrow:hover td{background:#FBF7F7}
-thead th{position:sticky;top:0;z-index:2}
+@media screen{ .section thead th{position:sticky;top:0;z-index:2} }
+@media print{ .section thead th{position:static} }
 @media (max-width:760px){ .stickybar{top:0} }

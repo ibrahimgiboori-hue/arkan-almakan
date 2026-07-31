@@ -64,8 +64,12 @@ export default function QuotePrint() {
         <button onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
       </div>
 
-      <div className="qsheet">
-        {lhUrl && <img className="page-bg" src={lhUrl} alt="" aria-hidden="true" />}
+      <div className="qsheet" style={lhUrl ? {
+        backgroundImage: `url(${lhUrl})`,
+        backgroundRepeat: 'repeat-y',
+        backgroundSize: '210mm 297mm',
+        backgroundPosition: 'top center',
+      } : undefined}>
         <table className="page-frame">
           <thead>
             <tr><td className="frame-top" style={{height:`${mTop}mm`}} /></tr>

@@ -77,7 +77,7 @@
 .sheet{
   width:210mm;min-height:297mm;background:#fff;box-sizing:border-box;
   box-shadow:0 1px 5px rgba(0,0,0,.15);display:flex;flex-direction:column;
-  background-size:210mm 297mm;background-repeat:no-repeat;background-position:top center;
+  background-size:210mm 297mm;background-repeat:repeat-y;background-position:top center;
 }
 .fill{flex:1;min-height:var(--g-row)}
 
@@ -153,7 +153,9 @@
   @page{size:A4;margin:0}
   .toolbar{display:none}
   .sheet-wrap{padding:0;background:#fff}
-  .sheet{width:auto;min-height:297mm;box-shadow:none}
+  .sheet{width:210mm;min-height:297mm;box-shadow:none;
+    background-repeat:repeat-y!important;background-size:210mm 297mm!important}
+  .amounts th{position:static!important}
   .card-doc,.amounts thead,.sigtable,.declare,.tafqit,.footer-row{page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
