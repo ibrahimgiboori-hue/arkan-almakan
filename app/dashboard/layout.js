@@ -13,7 +13,9 @@ const NAV = [
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
   ]},
   { group: 'المشاريع والتسعير', items: [
+    { href: '/dashboard/projects', label: 'المشاريع' },
     { href: '/dashboard/quotes', label: 'عروض الأسعار وجداول الكميات' },
+    { href: '/dashboard/contractors', label: 'المقاولون' },
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
