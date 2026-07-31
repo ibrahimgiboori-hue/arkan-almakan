@@ -1,131 +1,76 @@
 /* ============================================================
-   نظام تصميم مطبوعات أركان المكان
-   الشبكة  : مساحة المحتوى 170 مم = 12 عموداً بفاصل 3 مم
-   الصف    : 6 مم وكل عنصر يأخذ مضاعفاته
-   النمطان : بطاقة معلومات رمادية ناعمة | بطاقة إلزامية شفافة حادة
+   طباعة عرض السعر — صفحات يقسّمها النظام لا المتصفح
+   كل صفحة 210×297 مم بالضبط، ولها رأسها وتذييلها وهوامشها
    ============================================================ */
 :root{
-  --g-gap: 3mm;
-  --g-row: 6mm;
-
-  /* بطاقة المعلومات: رمادي شفاف 90% يُظهر العلامة المائية للشعار */
   --info-bg: rgba(244,244,244,.90);
   --info-radius: 1.2mm;
-  --info-pad: 2mm 2.6mm;
-
-  /* البطاقة الإلزامية والمالية: شفافة تماماً بحد حاد */
   --strict-border: .35mm solid #8B3332;
   --strict-hair: .2mm solid #CDBABA;
-  --strict-pad: 2mm 2.6mm;
-
   --ink-print: #2E2E30;
   --ink-soft-print: #6B6B6D;
+  --g-gap: 3mm;
+  --g-row: 6mm;
 }
 
-/* ---------- الشبكة ---------- */
-.g-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap)}
-.c2{grid-column:span 2}  .c3{grid-column:span 3}
-.c4{grid-column:span 4}  .c5{grid-column:span 5}
-.c6{grid-column:span 6}  .c7{grid-column:span 7}
-.c8{grid-column:span 8}  .c9{grid-column:span 9}
-.c12{grid-column:span 12}
-
-/* ---------- النمط الأول : بطاقة معلومات ---------- */
-.info{
-  background:var(--info-bg);
-  border:none;
-  border-radius:var(--info-radius);
-  padding:var(--info-pad);
-}
-.info .k{display:block;font-size:7pt;color:#8B3332;letter-spacing:.01em;margin-bottom:.4mm}
-.info .v{display:block;font-size:9.5pt;color:var(--ink-print);font-weight:600;line-height:1.4}
-.info .s{display:block;font-size:8pt;color:var(--ink-soft-print);margin-top:.3mm}
-
-/* ---------- النمط الثاني : بطاقة إلزامية / مالية ---------- */
-.strict{
-  background:transparent;
-  border:var(--strict-border);
-  border-radius:0;
-  padding:0;
-}
-.strict > .head{
-  border-bottom:var(--strict-border);
-  padding:1.4mm 2.6mm;
-  font-size:8.5pt;font-weight:700;color:#8B3332;
-  background:transparent;
-}
-.strict > .body{padding:var(--strict-pad);font-size:9pt;line-height:1.85;color:var(--ink-print)}
-
-/* ============================================================
-   طباعة عرض السعر وجدول الكميات
-   ============================================================ */
 .qtoolbar{
   position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--hair);
-  display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;flex-wrap:wrap;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 18px;flex-wrap:wrap;
 }
+.tb-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .qt-note{font-size:12.5px;color:var(--ink-soft)}
-.qtoolbar button{background:var(--maroon);color:#fff;border:1px solid var(--maroon);
-  padding:8px 16px;font-size:14px;cursor:pointer}
-.qtoolbar button:hover{background:var(--maroon-dark)}
+.qtoolbar button{border:1px solid var(--hair-strong);background:none;padding:7px 13px;
+  font-size:13.5px;color:var(--ink-soft);cursor:pointer}
+.qtoolbar button:hover{border-color:var(--maroon);color:var(--maroon)}
+.qtoolbar button.primary{background:var(--maroon);border-color:var(--maroon);color:#fff}
+.qtoolbar button.primary:hover{background:var(--maroon-dark)}
 
-
-/* الرأس والتذييل صورتان داخل thead و tfoot فيتكرران على كل صفحة يقيناً */
-.qsheet{width:210mm;margin:24px auto 60px;background:#fff;
-  box-shadow:0 1px 6px rgba(0,0,0,.16);position:relative}
-.qsheet.dragging{cursor:grabbing;user-select:none}
-
-.frame-top{padding:0;vertical-align:top}
-.frame-bottom{padding:0;vertical-align:bottom}
-.lh-head,.lh-foot{display:block;width:210mm;object-fit:fill;
-  position:relative;right:50%;transform:translateX(50%)}
-
-/* الختم والتوقيع العائمان */
-.float-mark{
-  position:absolute;z-index:4;cursor:grab;
-  filter:drop-shadow(0 0 0 transparent);
+/* منطقة القياس: خارج الشاشة تماماً */
+.measure{
+  position:absolute;left:-10000px;top:0;visibility:hidden;
+  pointer-events:none;
 }
+
+/* ---------- الصفحات ---------- */
+.pages{padding:24px 14px 60px;display:flex;flex-direction:column;
+  align-items:center;gap:20px;background:#EFEAEA}
+.sheet{
+  width:210mm;height:297mm;background:#fff;position:relative;overflow:hidden;
+  box-shadow:0 1px 6px rgba(0,0,0,.16);
+}
+.sheet.dragging{cursor:grabbing;user-select:none}
+
+.lh-head{position:absolute;top:0;left:0;width:210mm;object-fit:fill;z-index:1}
+.lh-foot{position:absolute;bottom:0;left:0;width:210mm;object-fit:fill;z-index:1}
+.lh-mark{position:absolute;left:0;width:210mm;object-fit:fill;z-index:0;opacity:1}
+.content{position:relative;z-index:2;height:297mm;box-sizing:border-box;overflow:hidden}
+.pagenum{position:absolute;left:0;right:0;text-align:center;z-index:3;
+  font-size:7.5pt;color:var(--ink-soft-print)}
+
+.float-mark{position:absolute;z-index:5;cursor:grab}
 .float-mark:active{cursor:grabbing}
-.mark-hint{
-  position:absolute;top:6px;left:6px;z-index:9;display:flex;gap:6px;
-}
-.mark-hint button{
-  background:#fff;border:1px solid var(--maroon);color:var(--maroon-dark);
-  padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;
-}
-.mark-hint button:hover{background:var(--rose-wash)}
-/* الترويسة خلفية تتكرر كل صفحة A4 — تُطبع على كل الصفحات */
-.page-frame{width:100%;border-collapse:collapse;position:relative;z-index:1}
-.frame-top,.frame-bottom{padding:0}
-.frame-body{vertical-align:top}
 
-/* ---------- العنوان ---------- */
+/* ---------- العنوان والبطاقات ---------- */
 .q-title{text-align:center;margin-bottom:var(--g-row)}
-.q-title h1{font-size:15pt;color:var(--maroon-dark);margin:0;letter-spacing:.01em}
+.q-title h1{font-size:15pt;color:var(--maroon-dark);margin:0}
 .q-title .rule{display:block;width:24mm;height:.6mm;background:var(--maroon);margin:1.2mm auto 0}
 
-/* ---------- بطاقات المعلومات على الشبكة : 4 بطاقات × 3 أعمدة ---------- */
-.q-meta{
-  display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap);
-  margin-bottom:var(--g-row);border:none;
-}
-.mcell{
-  grid-column:span 3;
-  background:var(--info-bg);border:none;border-radius:var(--info-radius);
-  padding:var(--info-pad);display:flex;flex-direction:column;min-height:calc(var(--g-row)*2.4);
-}
+.q-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--g-gap);
+  margin-bottom:var(--g-row)}
+.mcell{background:var(--info-bg);border-radius:var(--info-radius);
+  padding:2mm 2.6mm;display:flex;flex-direction:column;min-height:16mm}
 .mk{font-size:7pt;color:var(--maroon);margin-bottom:.4mm}
 .mv{font-size:9.5pt;color:var(--ink-print);font-weight:600;line-height:1.35}
 .ms{font-size:8pt;color:var(--ink-soft-print);margin-top:auto;padding-top:.6mm}
 
-/* ---------- النص الافتتاحي : معلومة ---------- */
-.q-intro{
-  font-size:9pt;line-height:1.8;color:var(--ink-print);margin:0 0 var(--g-row);
+.q-intro{font-size:9pt;line-height:1.8;color:var(--ink-print);margin:0 0 var(--g-row);
   background:var(--info-bg);border-radius:var(--info-radius);
-  padding:2mm 2.6mm;border:none;border-right:.8mm solid var(--maroon-light);
-}
+  padding:2mm 2.6mm;border-right:.8mm solid var(--maroon-light)}
 
-/* ---------- جدول البنود : مالي إلزامي بحدود كاملة ---------- */
-.q-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:var(--g-row)}
+/* ---------- جدول البنود ---------- */
+.q-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:0}
+.q-table + .q-table{margin-top:0}
 .q-table th{background:var(--maroon);color:#fff;font-weight:600;font-size:8pt;
   padding:1.4mm 1.6mm;text-align:right;border:.35mm solid var(--maroon)}
 .q-table td{border:var(--strict-hair);padding:1.2mm 1.6mm;vertical-align:top;
@@ -135,78 +80,68 @@
   color:var(--ink-soft-print);margin-top:.4mm}
 .q-table .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;white-space:nowrap}
 .q-table .ctr{text-align:center}
-.q-table tr.trow td{background:var(--info-bg);color:var(--maroon-dark);font-weight:700;
-  border-color:var(--maroon-light)}
+.q-table tr.trow td{background:var(--info-bg);color:var(--maroon-dark);font-weight:700}
 .q-table tr.nrow td{background:var(--info-bg);font-size:8pt;color:var(--ink-soft-print)}
 
-/* ---------- الإجماليات : أقصى درجات الإلزام ---------- */
-.q-sum{
-  margin:0 0 var(--g-row) auto;width:calc((100% - 11*var(--g-gap)) / 12 * 5 + 4*var(--g-gap));
-  border:var(--strict-border);background:transparent;
-}
+/* ---------- الإجماليات ---------- */
+.q-sum{margin:var(--g-row) 0 var(--g-row) auto;width:96mm;border:var(--strict-border)}
 .srow{display:flex;justify-content:space-between;gap:2mm;padding:1.2mm 2.6mm;font-size:9pt;
-  border-bottom:var(--strict-hair);background:transparent;color:var(--ink-print)}
+  border-bottom:var(--strict-hair);color:var(--ink-print)}
 .srow:last-of-type{border-bottom:none}
 .srow.grand{background:var(--maroon);color:#fff;font-weight:700;font-size:11pt;
   padding:1.8mm 2.6mm;border-bottom:none}
 .tafqit-row{border-top:var(--strict-border);color:var(--maroon-dark);font-size:8pt;
-  padding:1.2mm 2.6mm;background:transparent;font-weight:600}
+  padding:1.2mm 2.6mm;font-weight:600}
 
-/* ---------- الدفعات : مالية ← حادة ---------- */
-.q-block{margin-bottom:var(--g-row);page-break-inside:avoid}
-.q-block.pay{border:var(--strict-border);background:transparent}
+/* ---------- الدفعات والشروط ---------- */
+.q-block{margin-bottom:var(--g-row)}
+.q-block.pay{border:var(--strict-border)}
 .q-block.pay .qb-head{border-bottom:var(--strict-border);color:#8B3332;font-weight:700;
-  background:transparent;font-size:8.5pt;padding:1.4mm 2.6mm}
+  font-size:8.5pt;padding:1.4mm 2.6mm}
 .q-pay{width:100%;border-collapse:collapse;font-size:8.5pt}
-.q-pay th{background:transparent;color:var(--maroon-dark);font-weight:600;font-size:8pt;
+.q-pay th{color:var(--maroon-dark);font-weight:600;font-size:8pt;
   padding:1.2mm 1.6mm;text-align:right;border-bottom:var(--strict-hair)}
-.q-pay td{padding:1.2mm 1.6mm;border-bottom:var(--strict-hair);background:transparent}
+.q-pay td{padding:1.2mm 1.6mm;border-bottom:var(--strict-hair)}
 .q-pay tr:last-child td{border-bottom:none}
 .q-pay .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left}
 
-/* ---------- الشروط : معلومة ← ناعمة ---------- */
-.q-block.terms{background:var(--info-bg);border:none;border-radius:var(--info-radius);
-  overflow:hidden}
+.q-block.terms{background:var(--info-bg);border-radius:var(--info-radius);overflow:hidden}
 .q-block.terms .qb-head{color:var(--maroon-dark);font-weight:700;font-size:8.5pt;
-  padding:1.4mm 2.6mm;border-bottom:.2mm solid rgba(139,51,50,.22);background:transparent}
-.qb-head{background:transparent}
+  padding:1.4mm 2.6mm;border-bottom:.2mm solid rgba(139,51,50,.22)}
 .q-terms{margin:0;padding:1.6mm 6mm 1.6mm 2.6mm;font-size:8.5pt;line-height:1.75}
 .q-terms li{margin-bottom:.6mm}
 
 .q-closing{font-size:9pt;text-align:center;color:var(--maroon-dark);margin:0 0 var(--g-row);
   padding:1.4mm 0;background:var(--info-bg);border-radius:var(--info-radius)}
 
-/* ---------- الاعتماد والحساب : التزام ← حاد ---------- */
-.q-foot{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap);
-  align-items:stretch;page-break-inside:avoid}
-.q-sign{grid-column:span 5;border:var(--strict-border);padding:1.4mm 2.6mm;
-  display:flex;flex-direction:column;gap:1mm;background:transparent}
+/* ---------- الاعتماد والحساب ---------- */
+.q-foot{display:grid;grid-template-columns:5fr 7fr;gap:var(--g-gap);align-items:stretch}
+.q-sign{border:var(--strict-border);padding:1.4mm 2.6mm;display:flex;
+  flex-direction:column;gap:1mm}
 .qs-label{font-size:8pt;color:var(--ink-soft-print)}
 .qs-marks{position:relative;height:32mm;width:100%}
-.qs-marks .stamp{position:absolute;right:2mm;bottom:0;opacity:.95}
+.qs-marks .stamp{position:absolute;right:2mm;bottom:0}
 .qs-marks .sign{position:absolute;right:18mm;bottom:5mm}
-.q-bank{grid-column:span 7;border:var(--strict-border);padding:1.4mm 2.6mm;
-  text-align:right;font-size:8pt;color:var(--ink-print);line-height:1.7;background:transparent}
+.q-bank{border:var(--strict-border);padding:1.4mm 2.6mm;text-align:right;
+  font-size:8pt;color:var(--ink-print);line-height:1.7}
 .qb-t{font-size:8.5pt;color:#8B3332;font-weight:700;margin-bottom:.6mm}
 .q-bank .iban{color:var(--maroon);direction:ltr;text-align:right;
   font-variant-numeric:tabular-nums}
 .q-bank .acct{direction:ltr;unicode-bidi:isolate;display:inline-block}
 
+/* ============================================================
+   الطباعة: كل صفحة ورقة مستقلة — لا قرار للمتصفح
+   ============================================================ */
 @media print{
   @page{size:A4 portrait;margin:0}
-  .qtoolbar,.mark-hint,.no-print{display:none!important}
-  .float-mark{position:absolute!important}
-  .qsheet{width:210mm;margin:0;box-shadow:none;
-    background-repeat:repeat-y!important;
-    background-position:center!important}
-  .lh-head,.lh-foot{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-  .page-frame > thead{display:table-header-group}
-  .page-frame > tfoot{display:table-footer-group}
-  .q-table thead{display:table-header-group}
-  .q-table th{position:static!important}
-  .q-table tbody tr{page-break-inside:avoid}
-  .q-table tr{page-break-inside:avoid}
-  .q-sum,.q-block,.q-foot,.q-meta{page-break-inside:avoid}
+  html,body{margin:0;padding:0;background:#fff}
+  .qtoolbar,.no-print,.measure{display:none!important}
+  .pages{padding:0;gap:0;background:#fff;display:block}
+  .sheet{
+    width:210mm;height:297mm;box-shadow:none;margin:0;
+    page-break-after:always;break-after:page;overflow:hidden;
+  }
+  .sheet:last-child{page-break-after:auto;break-after:auto}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
     box-shadow:none!important}
 }
