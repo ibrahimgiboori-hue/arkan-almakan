@@ -188,3 +188,40 @@ tr.addrow:hover td{background:#FBF7F7}
 @media screen{ .section thead th{position:sticky;top:0;z-index:2} }
 @media print{ .section thead th{position:static} }
 @media (max-width:760px){ .stickybar{top:0} }
+
+
+/* ============================================================
+   لوحة ميزانية البند
+   ============================================================ */
+.budget-panel{border-color:var(--maroon-light)}
+.bud-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;
+  background:var(--hair);border-bottom:1px solid var(--hair)}
+.bud-cell{background:#fff;padding:11px 13px;display:flex;flex-direction:column;gap:2px}
+.bud-cell .bk{font-size:11.5px;color:var(--ink-soft)}
+.bud-cell .bv{font-size:19px;font-weight:600;color:var(--maroon-dark);
+  font-variant-numeric:tabular-nums;direction:ltr;text-align:right}
+.bud-cell .bs{font-size:11px;color:var(--maroon-light)}
+.bud-cell .bv.ok{color:var(--ok)}
+.bud-cell.left{background:#F1FAF5}
+.bud-cell.left .bv{color:var(--ok)}
+.bud-cell.over{background:#FDF2F1}
+.bud-cell.over .bv{color:var(--bad)}
+
+.crew{display:flex;flex-direction:column;gap:5px}
+.crew-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.crew-row label{font-size:12px;color:var(--ink-soft);min-width:52px}
+.crew-row input{width:62px;border:1px solid var(--hair);padding:3px 5px;
+  text-align:left;direction:ltr;font-family:inherit;font-size:12.5px}
+.crew-row .x{color:var(--ink-soft);font-size:12px}
+.crew-row .btn{padding:3px 9px;font-size:11.5px}
+.crew-hint{font-size:12px;color:var(--ink-soft);background:var(--rose-wash);
+  padding:4px 8px;border-right:2px solid var(--maroon-light)}
+.crew-hint.bad{background:#FDF2F1;color:var(--bad);border-right-color:var(--bad)}
+.crew-hint b{color:var(--maroon-dark);font-size:14px}
+.crew-hint .apply{margin-inline-start:8px;background:var(--maroon);color:#fff;
+  border:none;padding:2px 9px;font-size:11.5px;cursor:pointer;font-family:inherit}
+
+tr.bud-total td{background:var(--rose-wash);font-weight:600;
+  color:var(--maroon-dark);border-top:2px solid var(--maroon-light)}
+
+@media (max-width:1000px){ .bud-bar{grid-template-columns:repeat(2,1fr)} }

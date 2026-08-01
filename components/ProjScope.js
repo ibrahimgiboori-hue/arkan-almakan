@@ -3,24 +3,29 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { MODE_AR } from '@/lib/projects';
+import ItemBudget from '@/components/ItemBudget';
 
 export default function ProjScope({ projectId, canWrite, onChange }) {
   const [items, setItems] = useState(null);
   const [execs, setExecs] = useState([]);
   const [cons, setCons] = useState([]);
   const [decideFor, setDecideFor] = useState(null);
+  const [budgetFor, setBudgetFor] = useState(null);
+  const [buds, setBuds] = useState([]);
   const [d, setD] = useState({});
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const [i, e, c] = await Promise.all([
+    const [i, e, c, bg] = await Promise.all([
       supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('item_execution').select('*'),
       supabase.from('contractors').select('id, name_ar, worker_daily, tech_daily')
         .eq('is_active', true).order('name_ar'),
+      supabase.from('v_item_budget').select('*').eq('project_id', projectId),
     ]);
     setItems(i.data || []); setExecs(e.data || []); setCons(c.data || []);
+    setBuds(bg.data || []);
     onChange?.();
   }
 
@@ -223,6 +228,18 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                   </td>
                   <td className="num">{money(l.contract_value)}</td>
                   <td>
+                    {(() => {
+                      const bd = buds.find((x)=>x.project_item_id===l.id);
+                      if (!bd) return null;
+                      return (
+                        <div style={{marginBottom:3}}>
+                          <span className={`pill ${bd.over_budget ? 'bad' : 'ok'}`}
+                                style={{fontSize:11}}>
+                            هامش {(Number(bd.actual_margin||0)*100).toFixed(0)}٪
+                          </span>
+                        </div>
+                      );
+                    })()}
                     {ex ? (
                       <div>
                         <span className="pill ok" style={{fontSize:11.5}}>{MODE_AR[ex.mode]}</span>
@@ -246,6 +263,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                     <div className="rowsplit">
                       {canWrite && (
                         <>
+                          <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
+                                  onClick={()=>{setBudgetFor(l); setDecideFor(null);}}>ميزانية</button>
                           <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
                                   onClick={()=>openDecide(l)}>{ex ? 'تعديل القرار' : 'قرار'}</button>
                           {ex && (
@@ -293,6 +312,11 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
           </tbody>
         </table>
       </div>
+
+      {budgetFor && (
+        <ItemBudget item={budgetFor} canWrite={canWrite}
+                    onClose={()=>setBudgetFor(null)} onSaved={load} />
+      )}
 
       {decideFor && (
         <div className="section">
