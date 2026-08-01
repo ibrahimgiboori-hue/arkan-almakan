@@ -110,6 +110,18 @@
 .amounts td{border:.25mm solid #CDBABA;padding:1.3mm 2.2mm;background:transparent;
   color:var(--ink-print)}
 .amounts .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;width:36%}
+/* ------------------------------------------------------------
+   الصنف mono يضبط اتجاه الأرقام، لكنه يحمل display:inline-block
+   في التنسيق العام — وهذا يُخرج خلية الجدول من بنيته فيسقط حدها.
+   نعيدها خلية طبيعية هنا.
+   ------------------------------------------------------------ */
+td.mono, th.mono{
+  display:table-cell!important;
+  font-variant-numeric:tabular-nums;
+  direction:ltr;
+}
+td.mono{unicode-bidi:isolate}
+
 .amounts tbody tr:last-child td{border-top:var(--strict-border);font-weight:700;
   color:var(--maroon-dark)}
 

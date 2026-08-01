@@ -104,6 +104,7 @@ tbody tr:nth-child(even){background:#FBF7F7}
 tbody tr:hover{background:var(--rose-wash)}
 td.num,th.num{font-variant-numeric:tabular-nums;text-align:left;direction:ltr}
 .mono{font-variant-numeric:tabular-nums;direction:ltr;display:inline-block}
+td.mono,th.mono{display:table-cell}
 
 /* ---------- عناصر ---------- */
 .btn{
