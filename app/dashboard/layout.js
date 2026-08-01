@@ -17,6 +17,10 @@ const NAV = [
     { href: '/dashboard/quotes', label: 'عروض الأسعار وجداول الكميات' },
     { href: '/dashboard/contractors', label: 'المقاولون' },
   ]},
+  { group: 'التنفيذ', items: [
+    { href: '/dashboard/timesheet', label: 'التايم شيت' },
+    { href: '/dashboard/labor', label: 'الأيدي العاملة' },
+  ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
     { href: '/dashboard/formbuilder', label: 'محرّر النماذج' },

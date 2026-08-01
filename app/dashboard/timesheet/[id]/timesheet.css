@@ -1,0 +1,45 @@
+.ts-wrap{overflow-x:auto}
+.ts-grid{width:100%;border-collapse:collapse;font-size:13px;min-width:760px}
+.ts-grid th{background:var(--maroon);color:#fff;font-weight:500;font-size:11.5px;
+  padding:6px 5px;text-align:center;white-space:nowrap;border:1px solid var(--maroon)}
+.ts-grid td{border:1px solid var(--hair);padding:5px 6px;text-align:center}
+.ts-grid .sticky-c{position:sticky;right:0;z-index:2;background:#fff;text-align:right;
+  min-width:130px;box-shadow:-1px 0 0 var(--hair)}
+.ts-grid thead .sticky-c{background:var(--maroon);z-index:3}
+.ts-grid tbody tr:nth-child(even) .sticky-c{background:#FBF7F7}
+.ts-grid .nm{font-size:13px}
+.ts-grid .tr{font-size:11px;color:var(--ink-soft)}
+.ts-grid .dayhead{min-width:52px}
+.ts-grid .dnum{font-size:10.5px;opacity:.85}
+.ts-grid .num{font-variant-numeric:tabular-nums;direction:ltr}
+.ts-grid .tot{font-weight:600;color:var(--maroon-dark)}
+.ts-grid .foot-row td{background:var(--rose-wash);font-weight:600;
+  color:var(--maroon-dark);border-top:2px solid var(--maroon-light)}
+
+.acell{cursor:pointer;font-weight:700;font-size:14px;user-select:none;min-width:44px}
+.acell:hover{outline:2px solid var(--maroon-light);outline-offset:-2px}
+.a-full{background:#E6F4EC;color:#1E7A55}
+.a-half{background:#FDF6E3;color:#9A6A16}
+.a-stop{background:#EEF2FA;color:#2F5B9A}
+.a-leave{background:#F3EEF8;color:#6B4A8A}
+.a-abs{background:#FBEDEC;color:#A32B24}
+
+.legend{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;
+  font-size:12px;border:1px solid var(--hair)}
+
+.daybox{border:1px solid var(--hair);padding:10px 12px;margin-bottom:10px;background:#fff}
+.daybox-h{display:flex;justify-content:space-between;align-items:center;
+  padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--hair);
+  font-size:13.5px;color:var(--maroon-dark);font-weight:500}
+.mini{width:100%;border-collapse:collapse;font-size:13px}
+.mini td{padding:4px 6px;border-bottom:1px solid var(--hair)}
+.mini tr:last-child td{border-bottom:none}
+.mini .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left}
+
+.expform{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.expform select,.expform input{border:1px solid var(--hair-strong);
+  padding:4px 6px;font-family:inherit}
+
+@media (max-width:760px){
+  .ts-grid .sticky-c{position:static;box-shadow:none}
+}
