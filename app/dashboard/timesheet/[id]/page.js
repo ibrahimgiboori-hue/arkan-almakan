@@ -23,6 +23,8 @@ export default function WeekSheet() {
   const [role, setRole] = useState(null);
   const [tab, setTab] = useState('grid');
   const [busy, setBusy] = useState(false);
+  const [editDates, setEditDates] = useState(false);
+  const [dates, setDates] = useState({ start:'', end:'' });
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -33,6 +35,7 @@ export default function WeekSheet() {
       .eq('id', id).maybeSingle();
     if (!week) { setErr('لم يُعثر على هذا الأسبوع.'); return; }
     setW(week);
+    setDates({ start: week.start_date, end: week.end_date });
 
     const [d, l, a, s, u] = await Promise.all([
       supabase.from('timesheet_days').select('*').eq('week_id', id).order('work_date'),
@@ -147,6 +150,16 @@ export default function WeekSheet() {
     load();
   }
 
+  async function saveDates() {
+    setErr(''); setBusy(true);
+    const { error } = await supabase.rpc('reset_week_dates', {
+      p_week: id, p_start: dates.start, p_end: dates.end,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    flash('حُدّثت تواريخ الأسبوع'); setEditDates(false); load();
+  }
+
   async function buildSettlement() {
     setBusy(true); setErr('');
     const { data, error } = await supabase.rpc('build_settlement', { p_week: id });
@@ -180,7 +193,14 @@ export default function WeekSheet() {
             {pc ? ` · عامل ${money(pc.worker_daily||0)} · صنايعي ${money(pc.tech_daily||0)}` : ''}
           </p>
         </div>
-        <Link className="btn ghost" href="/dashboard/timesheet">كل الأسابيع</Link>
+        <div className="rowsplit">
+          {canWrite && (
+            <button className="btn ghost" onClick={()=>setEditDates(!editDates)}>
+              {editDates ? 'إغلاق' : 'تعديل التواريخ'}
+            </button>
+          )}
+          <Link className="btn ghost" href="/dashboard/timesheet">كل الأسابيع</Link>
+        </div>
       </div>
 
       {err && <div className="msg err" style={{marginBottom:12}}>{err}</div>}
@@ -188,6 +208,33 @@ export default function WeekSheet() {
       {!pc && (
         <div className="msg err" style={{marginBottom:12}}>
           لا اتفاق مسجَّل مع هذا المقاول في هذا المشروع — اليوميات ستكون صفراً
+        </div>
+      )}
+
+      {editDates && (
+        <div className="section" style={{marginTop:0,marginBottom:14,borderColor:'var(--maroon)'}}>
+          <header><h2>تواريخ الأسبوع</h2></header>
+          <div style={{padding:18}}>
+            <div className="form-grid">
+              <div className="field">
+                <label>من</label>
+                <input type="date" dir="ltr" value={dates.start}
+                       onChange={(e)=>setDates({...dates, start:e.target.value})} />
+              </div>
+              <div className="field">
+                <label>إلى</label>
+                <input type="date" dir="ltr" value={dates.end}
+                       onChange={(e)=>setDates({...dates, end:e.target.value})} />
+              </div>
+            </div>
+            <div className="rowsplit">
+              <button className="btn" onClick={saveDates} disabled={busy}>حفظ التواريخ</button>
+              <button className="btn ghost" onClick={()=>setEditDates(false)}>إلغاء</button>
+            </div>
+            <div className="hint" style={{marginTop:8}}>
+              تُولَّد الأيام من جديد — واليوم الذي فيه حضور مسجَّل لا يُحذف
+            </div>
+          </div>
         </div>
       )}
 

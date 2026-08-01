@@ -14,7 +14,8 @@ export default function Timesheet() {
   const [cons, setCons] = useState([]);
   const [pcs, setPcs] = useState([]);
   const [role, setRole] = useState(null);
-  const [pick, setPick] = useState({ project_id:'', contractor_id:'' });
+  const [pick, setPick] = useState({ project_id:'', contractor_id:'', start_date:'' });
+  const [earlier, setEarlier] = useState({ start:'', end:'' });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -43,11 +44,28 @@ export default function Timesheet() {
     if (!pick.project_id) { setErr('اختر المشروع أولاً'); return; }
     setErr(''); setBusy(true);
     const { data, error } = await supabase.rpc('new_timesheet_week', {
-      p_project: pick.project_id, p_contractor: pick.contractor_id || null,
+      p_project: pick.project_id,
+      p_contractor: pick.contractor_id || null,
+      p_start: pick.start_date || null,
     });
     setBusy(false);
     if (error) { setErr(error.message); return; }
     router.push(`/dashboard/timesheet/${data}`);
+  }
+
+  async function addEarlier() {
+    if (!pick.project_id || !earlier.start || !earlier.end) {
+      setErr('اختر المشروع وحدّد تاريخي البداية والنهاية'); return;
+    }
+    setErr(''); setBusy(true);
+    const { error } = await supabase.rpc('insert_earlier_week', {
+      p_project: pick.project_id, p_contractor: pick.contractor_id || null,
+      p_start: earlier.start, p_end: earlier.end,
+    });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setMsg('أُضيف أسبوع سابق وأُعيد ترقيم الأسابيع');
+    setEarlier({ start:'', end:'' }); load();
   }
 
   async function removeWeek(w) {
@@ -100,6 +118,14 @@ export default function Timesheet() {
                   {cons.map((c)=><option key={c.id} value={c.id}>{c.name_ar}</option>)}
                 </select>
               </div>
+              <div className="field">
+                <label>تاريخ بداية الأسبوع</label>
+                <input type="date" dir="ltr" value={pick.start_date}
+                       onChange={(e)=>setPick({...pick, start_date:e.target.value})} />
+                <span className="hint">
+                  اتركه فارغاً ليكمل من نهاية آخر أسبوع — أو اكتبه للمشاريع الجارية
+                </span>
+              </div>
             </div>
             {pick.project_id && pick.contractor_id && !hasAgreement && (
               <div className="msg err" style={{marginBottom:12}}>
@@ -111,8 +137,33 @@ export default function Timesheet() {
               {busy ? 'جارٍ…' : 'إنشاء الأسبوع'}
             </button>
             <div className="hint" style={{marginTop:8}}>
-              يبدأ من اليوم التالي لنهاية آخر أسبوع وينتهي عند أقرب خميس — والجمعة تُتخطى
+              ينتهي عند أقرب خميس — والجمعة تُتخطى
             </div>
+
+            <fieldset style={{marginTop:14}}>
+              <legend>أسبوع سابق (لمشروع بدأ قبل استخدام النظام)</legend>
+              <div className="form-grid">
+                <div className="field">
+                  <label>من</label>
+                  <input type="date" dir="ltr" value={earlier.start}
+                         onChange={(e)=>setEarlier({...earlier, start:e.target.value})} />
+                </div>
+                <div className="field">
+                  <label>إلى</label>
+                  <input type="date" dir="ltr" value={earlier.end}
+                         onChange={(e)=>setEarlier({...earlier, end:e.target.value})} />
+                </div>
+                <div className="field">
+                  <label>&nbsp;</label>
+                  <button className="btn ghost" onClick={addEarlier} disabled={busy}>
+                    إضافة أسبوع سابق
+                  </button>
+                </div>
+              </div>
+              <div className="hint">
+                يُدرَج في موضعه الزمني الصحيح ويُعاد ترقيم كل الأسابيع بترتيب التواريخ
+              </div>
+            </fieldset>
           </div>
         </div>
       )}

@@ -12,20 +12,25 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [decideFor, setDecideFor] = useState(null);
   const [budgetFor, setBudgetFor] = useState(null);
   const [buds, setBuds] = useState([]);
+  const [states, setStates] = useState([]);
+  const [starting, setStarting] = useState(null);
+  const [askStart, setAskStart] = useState(null);
+  const [sDate, setSDate] = useState('');
   const [d, setD] = useState({});
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const [i, e, c, bg] = await Promise.all([
+    const [i, e, c, bg, st] = await Promise.all([
       supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('item_execution').select('*'),
       supabase.from('contractors').select('id, name_ar, worker_daily, tech_daily')
         .eq('is_active', true).order('name_ar'),
       supabase.from('v_item_budget').select('*').eq('project_id', projectId),
+      supabase.from('v_item_execution_state').select('*').eq('project_id', projectId),
     ]);
     setItems(i.data || []); setExecs(e.data || []); setCons(c.data || []);
-    setBuds(bg.data || []);
+    setBuds(bg.data || []); setStates(st.data || []);
     onChange?.();
   }
 
@@ -103,6 +108,29 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       : await supabase.from('item_execution').insert(payload);
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
     setMsg('سُجّل قرار التنفيذ'); setDecideFor(null); load();
+  }
+
+  async function startExec(item, date) {
+    setStarting(item.id); setErr(''); setMsg('');
+    const { data, error } = await supabase.rpc('start_item_execution',
+      { p_item: item.id, p_start_date: date || null });
+    setStarting(null);
+    if (error) { setErr(error.message); return; }
+    const parts = ['بدأ التنفيذ'];
+    if (data?.created_agreement) parts.push('وأُنشئ اتفاق المقاول');
+    if (data?.created_week) parts.push('وفُتح أسبوع تايم شيت');
+    setMsg(parts.join(' ') + '.');
+    setAskStart(null);
+    load();
+    if (data?.week_id) {
+      setTimeout(()=>{ window.open(`/dashboard/timesheet/${data.week_id}`, '_blank'); }, 400);
+    }
+  }
+
+  async function finishExec(item) {
+    if (!window.confirm('إنهاء تنفيذ هذا البند؟')) return;
+    const { error } = await supabase.rpc('finish_item_execution', { p_item: item.id });
+    if (error) setErr(error.message); else { setMsg('أُنهي البند'); load(); }
   }
 
   async function delDecision(item) {
@@ -240,24 +268,64 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                         </div>
                       );
                     })()}
-                    {ex ? (
-                      <div>
-                        <span className="pill ok" style={{fontSize:11.5}}>{MODE_AR[ex.mode]}</span>
-                        {ex.agreed_rate && (
-                          <div style={{fontSize:11.5,color:'var(--ink-soft)',marginTop:2}}>
-                            {money(ex.agreed_rate)} / {l.unit}
+                    {(() => {
+                      const st = states.find((x)=>x.project_item_id===l.id);
+                      if (!ex) return <span className="pill bad" style={{fontSize:11.5}}>بلا قرار</span>;
+                      const S = st?.status || 'planned';
+                      const SAR = { planned:'جاهز للتنفيذ', active:'قيد التنفيذ',
+                                    paused:'متوقف', done:'منتهٍ' };
+                      const SCLS = { planned:'warn', active:'ok', paused:'', done:'' };
+                      return (
+                        <div className="exec-cell">
+                          <div className="rowsplit" style={{gap:4}}>
+                            <span className="pill" style={{fontSize:11}}>{MODE_AR[ex.mode]}</span>
+                            <span className={`pill ${SCLS[S]}`} style={{fontSize:11}}>{SAR[S]}</span>
                           </div>
-                        )}
-                        {ex.planned_cost && (
-                          <div style={{fontSize:11.5,color: Number(ex.planned_cost) > Number(l.budget_value)
-                                        ? 'var(--bad)' : 'var(--ink-soft)'}}>
-                            مخطط {money(ex.planned_cost)}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="pill bad" style={{fontSize:11.5}}>بلا قرار</span>
-                    )}
+                          {st?.contractor_name && (
+                            <div className="ec-line">{st.contractor_name}</div>
+                          )}
+                          {ex.agreed_rate ? (
+                            <div className="ec-line">{money(ex.agreed_rate)} / {l.unit}</div>
+                          ) : ex.worker_daily ? (
+                            <div className="ec-line">
+                              عامل {money(ex.worker_daily)} · صنايعي {money(ex.tech_daily)}
+                            </div>
+                          ) : null}
+                          {Number(st?.days_worked || 0) > 0 && (
+                            <div className="ec-line">
+                              {st.days_worked} يوم عمل ·
+                              {' '}{Number(st.output_from_timesheet||0).toLocaleString('en-US')} {l.unit}
+                            </div>
+                          )}
+                          {canWrite && (
+                            <div className="rowsplit" style={{gap:4,marginTop:3}}>
+                              {S === 'planned' && (
+                                <button className="btn" style={{padding:'3px 9px',fontSize:11.5}}
+                                        disabled={starting === l.id}
+                                        onClick={()=>{
+                                          setAskStart(l);
+                                          setSDate(new Date().toISOString().slice(0,10));
+                                        }}>
+                                  {starting === l.id ? 'جارٍ…' : 'ابدأ التنفيذ'}
+                                </button>
+                              )}
+                              {S === 'active' && (
+                                <>
+                                  {st?.open_week_id && (
+                                    <a className="btn" style={{padding:'3px 9px',fontSize:11.5}}
+                                       href={`/dashboard/timesheet/${st.open_week_id}`}>
+                                      التايم شيت
+                                    </a>
+                                  )}
+                                  <button className="btn ghost" style={{padding:'3px 9px',fontSize:11.5}}
+                                          onClick={()=>finishExec(l)}>إنهاء</button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td>
                     <div className="rowsplit">
@@ -312,6 +380,27 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
           </tbody>
         </table>
       </div>
+
+      {askStart && (
+        <div className="section" style={{borderColor:'var(--maroon)'}}>
+          <header><h2>بدء تنفيذ: {askStart.description_ar}</h2></header>
+          <div style={{padding:18}}>
+            <div className="field" style={{maxWidth:280}}>
+              <label>تاريخ بدء التنفيذ الفعلي *</label>
+              <input type="date" dir="ltr" value={sDate}
+                     onChange={(e)=>setSDate(e.target.value)} />
+              <span className="hint">منه يُبنى أول أسبوع تايم شيت</span>
+            </div>
+            <div className="rowsplit">
+              <button className="btn" disabled={starting === askStart.id}
+                      onClick={()=>startExec(askStart, sDate)}>
+                {starting === askStart.id ? 'جارٍ…' : 'ابدأ التنفيذ'}
+              </button>
+              <button className="btn ghost" onClick={()=>setAskStart(null)}>إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {budgetFor && (
         <ItemBudget item={budgetFor} canWrite={canWrite}
