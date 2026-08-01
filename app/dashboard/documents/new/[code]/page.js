@@ -182,13 +182,34 @@ export default function NewDocument() {
           </div>
         </div>
 
+        {/* ---------- حقول التعبئة العامة (لا تُرسم كقسم) ---------- */}
+        {tpl && (tpl.layout.fill_fields || []).length > 0 && (
+          <div className="section">
+            <header><h2>بيانات الخطاب</h2></header>
+            <div style={{padding:18}}>
+              <div className="form-grid">
+                {tpl.layout.fill_fields.map((f) => (
+                  <div className="field" key={f.key}
+                       style={{gridColumn: `span ${Math.min(3, Math.max(1, Math.round(Number(f.span||4)/4)))}`}}>
+                    <label>{f.label}{f.required ? ' *' : ''}</label>
+                    {inputFor(f, computed.payload[f.key], set(f.key))}
+                    {f.hint && <span className="hint">{f.hint}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ---------- نموذج مخصص: يُرسم من التخطيط ---------- */}
         {tpl && (tpl.layout.sections || []).map((s) => (
           <div className="section" key={s.id}>
             <header>
-              <h2>{s.title || ''}</h2>
+              <h2>{s.title || (s.kind === 'letterhead' ? 'ترويسة الخطاب'
+                    : s.kind === 'stampbox' ? 'الختم والتوقيع' : '')}</h2>
               <span style={{fontSize:12,color:'var(--ink-soft)'}}>
-                {s.style === 'strict' ? 'قسم مالي أو إلزامي' : 'بطاقة معلومات'}
+                {s.style === 'strict' ? 'قسم مالي أو إلزامي'
+                  : s.style === 'plain' ? 'نص حر' : 'بطاقة معلومات'}
               </span>
             </header>
 
@@ -265,6 +286,14 @@ export default function NewDocument() {
               <div style={{padding:18}}>
                 <textarea rows="4" style={{width:'100%'}}
                           value={v[s.key] || ''} onChange={set(s.key)} />
+              </div>
+            )}
+
+            {(s.kind === 'letterhead' || s.kind === 'stampbox') && (
+              <div style={{padding:18,fontSize:13.5,color:'var(--ink-soft)'}}>
+                {s.kind === 'letterhead'
+                  ? 'يُبنى من بيانات الخطاب أعلاه: العنوان في سطر، والجهة يميناً والصفة يساراً.'
+                  : 'مربع الختم والتوقيع أسفل الصفحة — يظهر فقط إن رُفعت صورهما.'}
               </div>
             )}
 

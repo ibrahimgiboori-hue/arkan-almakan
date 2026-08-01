@@ -203,3 +203,27 @@ td.mono{unicode-bidi:isolate}
 /* خلايا التواقيع الفارغة: مساحة توقيع بلا نص */
 .sigtable td:empty{height:16mm}
 .sigtable td:empty::after{content:''}
+
+
+/* ============================================================
+   ترويسة الخطاب الرسمي — لا جدول ولا عناوين حقول
+   ============================================================ */
+.ltr-meta{display:flex;justify-content:space-between;font-size:8.5pt;
+  color:var(--ink-soft-print);margin-bottom:6mm;padding-bottom:1mm;
+  border-bottom:.2mm solid var(--hair)}
+
+.ltr-head{margin-bottom:7mm}
+.ltr-refs{display:flex;gap:8mm;font-size:8.5pt;color:var(--ink-soft-print);
+  margin-bottom:4mm}
+.ltr-subject{
+  font-size:13pt;font-weight:700;color:var(--maroon-dark);
+  text-align:center;margin:0 0 6mm;line-height:1.6;
+}
+.ltr-to{
+  display:flex;justify-content:space-between;align-items:flex-end;gap:8mm;
+  font-size:11pt;font-weight:600;color:var(--ink-print);line-height:1.7;
+  margin-bottom:4mm;
+}
+.ltr-to .to-name{flex:1}
+.ltr-to .to-title{white-space:nowrap;font-weight:600}
+.ltr-salut{font-size:10.5pt;color:var(--ink-print);margin-bottom:4mm}

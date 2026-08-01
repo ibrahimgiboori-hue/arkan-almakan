@@ -59,6 +59,8 @@ export default function PrintDoc() {
   const signMm = Number(doc.sign_size_mm ?? cfg.signature_size_mm ?? 20);
   const hasStampSection = !!custom &&
     (tpl.layout.sections || []).some((x) => x.kind === 'stampbox');
+  const hasLetterHead = !!custom &&
+    (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
 
   const sheetStyle = {
@@ -118,13 +120,15 @@ export default function PrintDoc() {
       <div className="sheet-wrap">
         <div className="sheet" style={sheetStyle}>
 
-          <div className="title-block">
-            <h1>{title}</h1>
-            {titleEn && <div className="title-en">{titleEn}</div>}
-            <span className="title-rule" />
-          </div>
+          {!hasLetterHead && (
+            <div className="title-block">
+              <h1>{title}</h1>
+              {titleEn && <div className="title-en">{titleEn}</div>}
+              <span className="title-rule" />
+            </div>
+          )}
 
-          <div className="cards">
+          <div className="cards" style={hasLetterHead ? {display:'none'} : undefined}>
             <section className="card-doc">
               <div className="card-head">بيانات المستند</div>
               <table><tbody>
@@ -148,6 +152,13 @@ export default function PrintDoc() {
           </div>
 
           {/* ---------- نموذج مخصص ---------- */}
+          {hasLetterHead && (
+            <div className="ltr-meta">
+              <span className="mono">{doc.doc_number}</span>
+              <span className="mono">{dateAr(doc.created_at)}</span>
+            </div>
+          )}
+
           {custom && tpl.intro_text && <div className="dc-body" style={{marginBottom:'6mm'}}>{tpl.intro_text}</div>}
 
           {custom && tpl.layout.sections.map((s) => {
@@ -226,6 +237,28 @@ export default function PrintDoc() {
                      style={{marginBottom:'6mm'}}>
                   <div className={s.style === 'strict' ? 'dc-head' : 'card-head'}>{s.title}</div>
                   <div className="dc-body">{p[s.key]}</div>
+                </div>
+              );
+            }
+
+            if (s.kind === 'letterhead') {
+              const hasRef = p.our_ref || p.your_ref;
+              return (
+                <div className="ltr-head" key={s.id}>
+                  {hasRef && (
+                    <div className="ltr-refs">
+                      {p.our_ref && <span>إشارتنا: <span className="mono">{p.our_ref}</span></span>}
+                      {p.your_ref && <span>إشارتكم: <span className="mono">{p.your_ref}</span></span>}
+                    </div>
+                  )}
+                  {p.letter_title && <h2 className="ltr-subject">{p.letter_title}</h2>}
+                  {(p.addressee || p.addressee_title) && (
+                    <div className="ltr-to">
+                      <span className="to-name">{p.addressee}</span>
+                      <span className="to-title">{p.addressee_title}</span>
+                    </div>
+                  )}
+                  {p.salutation && <div className="ltr-salut">{p.salutation}</div>}
                 </div>
               );
             }
