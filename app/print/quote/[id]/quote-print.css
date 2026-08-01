@@ -146,6 +146,9 @@ td.mono{unicode-bidi:isolate}
 .q-sign{border:var(--strict-border);padding:1.4mm 2.6mm;display:flex;
   flex-direction:column;gap:1mm}
 .qs-label{font-size:8pt;color:var(--ink-soft-print)}
+/* صندوق الاعتماد يختفي حين لا ختم ولا توقيع */
+.q-sign:not(:has(img)){display:none}
+.qs-marks:empty{display:none}
 .qs-marks{position:relative;height:32mm;width:100%}
 .qs-marks .stamp{position:absolute;right:2mm;bottom:0}
 .qs-marks .sign{position:absolute;right:18mm;bottom:5mm}

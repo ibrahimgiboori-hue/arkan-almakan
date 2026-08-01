@@ -172,3 +172,34 @@ td.mono{unicode-bidi:isolate}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
     box-shadow:none!important}
 }
+
+
+/* ============================================================
+   نموذج الخطاب العام
+   ============================================================ */
+.letter-body{
+  font-size:10.5pt;line-height:2.05;color:var(--ink-print);
+  white-space:pre-wrap;margin:0 0 var(--g-row);padding:0 1mm;
+  text-align:justify;
+}
+
+/* بطاقة مُقدِّم الخطاب — أسفل يسار */
+.cards .card-doc.to-left{grid-column:span 6;margin-right:auto}
+
+/* صندوق الختم — أسفل الوسط */
+.stampbox-row{display:flex;justify-content:center;margin:var(--g-row) 0}
+.stampbox{position:relative;width:52mm;height:38mm}
+.stampbox .sb-stamp{position:absolute;left:50%;bottom:0;transform:translateX(-50%)}
+.stampbox .sb-sign{position:absolute;left:50%;bottom:8mm;
+  transform:translateX(-50%) rotate(-4deg);opacity:.92}
+
+/* ------------------------------------------------------------
+   أماكن الختم والتوقيع تختفي كلياً حين لا صورة فيها
+   ------------------------------------------------------------ */
+.stamp-box:empty,.qs-marks:empty{display:none}
+.stamp-ph{display:none}
+.footer-row:not(:has(.stamp-box)):not(:has(.bank)){display:none}
+
+/* خلايا التواقيع الفارغة: مساحة توقيع بلا نص */
+.sigtable td:empty{height:16mm}
+.sigtable td:empty::after{content:''}

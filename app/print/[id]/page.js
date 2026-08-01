@@ -54,7 +54,11 @@ export default function PrintDoc() {
   const mSide = doc.margin_side_mm   ?? tpl?.margin_side_mm   ?? cfg.letterhead_side_mm;
   const stampMm = doc.stamp_size_mm  ?? cfg.stamp_size_mm ?? 30;
 
-  const title = tpl?.name_ar || legacy?.name || doc.template_code;
+  const title = p.letter_title || tpl?.name_ar || legacy?.name || doc.template_code;
+  const signUrl = pub(cfg.signature_image_path);
+  const signMm = Number(doc.sign_size_mm ?? cfg.signature_size_mm ?? 20);
+  const hasStampSection = !!custom &&
+    (tpl.layout.sections || []).some((x) => x.kind === 'stampbox');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
 
   const sheetStyle = {
@@ -166,7 +170,8 @@ export default function PrintDoc() {
               }
               return (
                 <div className="cards" key={s.id} style={{marginBottom:'6mm'}}>
-                  <section className="card-doc" style={{gridColumn:'span 12'}}>
+                  <section className={`card-doc ${s.align === 'left' ? 'to-left' : ''}`}
+                           style={{gridColumn: s.align === 'left' ? 'span 6' : 'span 12'}}>
                     <div className="card-head">{s.title}</div>
                     <table><tbody>
                       {fields.map((f) => (
@@ -213,6 +218,9 @@ export default function PrintDoc() {
 
             if (s.kind === 'text') {
               if (!p[s.key]) return null;
+              if (s.style === 'plain') {
+                return <div className="letter-body" key={s.id}>{p[s.key]}</div>;
+              }
               return (
                 <div className={s.style === 'strict' ? 'declare' : 'card-doc'} key={s.id}
                      style={{marginBottom:'6mm'}}>
@@ -222,11 +230,25 @@ export default function PrintDoc() {
               );
             }
 
+            if (s.kind === 'stampbox') {
+              if (!stampUrl && !signUrl) return null;
+              return (
+                <div className="stampbox-row" key={s.id}>
+                  <div className="stampbox">
+                    {signUrl && <img className="sb-sign" src={signUrl} alt=""
+                                     style={{height:`${signMm}mm`}} />}
+                    {stampUrl && <img className="sb-stamp" src={stampUrl} alt=""
+                                      style={{height:`${stampMm}mm`}} />}
+                  </div>
+                </div>
+              );
+            }
+
             if (s.kind === 'signatures') {
               return (
                 <table className="sigtable" key={s.id}>
                   <thead><tr>{(s.roles||[]).map((x)=><th key={x}>{x}</th>)}</tr></thead>
-                  <tbody><tr>{(s.roles||[]).map((x)=><td key={x}>الاسم والتوقيع</td>)}</tr></tbody>
+                  <tbody><tr>{(s.roles||[]).map((x)=><td key={x} />)}</tr></tbody>
                 </table>
               );
             }
@@ -269,16 +291,16 @@ export default function PrintDoc() {
           {!custom && legacy?.signatures?.length > 0 && (
             <table className="sigtable">
               <thead><tr>{legacy.signatures.map((s)=><th key={s}>{s}</th>)}</tr></thead>
-              <tbody><tr>{legacy.signatures.map((s)=><td key={s}>الاسم والتوقيع</td>)}</tr></tbody>
+              <tbody><tr>{legacy.signatures.map((s)=><td key={s} />)}</tr></tbody>
             </table>
           )}
 
           <div className="footer-row">
-            <div className="stamp-box">
-              {stampUrl
-                ? <img src={stampUrl} alt="ختم الشركة" style={{height:`${stampMm}mm`}} />
-                : <span className="stamp-ph">ختم وتوقيع الشركة</span>}
-            </div>
+            {stampUrl && !hasStampSection && (
+              <div className="stamp-box">
+                <img src={stampUrl} alt="ختم الشركة" style={{height:`${stampMm}mm`}} />
+              </div>
+            )}
             {bank ? (
               <div className="bank">
                 <div className="bank-head">تفاصيل الحساب البنكي</div>
