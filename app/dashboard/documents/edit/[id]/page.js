@@ -2,7 +2,7 @@
 import { useParams } from 'next/navigation';
 import DocumentForm from '@/components/DocumentForm';
 
-export default function NewDocument() {
-  const { code } = useParams();
-  return <DocumentForm code={code} />;
+export default function EditDocument() {
+  const { id } = useParams();
+  return <DocumentForm docId={id} />;
 }

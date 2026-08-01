@@ -17,7 +17,7 @@ export default function Documents() {
     const sess = (await supabase.auth.getSession()).data.session;
     const [d, t, u] = await Promise.all([
       supabase.from('documents')
-        .select('id, doc_number, template_code, subject, created_at, status, is_void, void_reason')
+        .select('id, doc_number, template_code, subject, created_at, status, is_void, void_reason, issued_at')
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('document_templates').select('*').eq('is_active', true).order('category'),
       supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
@@ -115,7 +115,9 @@ export default function Documents() {
             <tbody>
               {list.map((d) => (
                 <tr key={d.id} style={d.is_void ? {opacity:.6} : undefined}>
-                  <td className="mono">{d.doc_number}</td>
+                  <td className="mono" style={!d.issued_at ? {color:'var(--warn)'} : undefined}>
+                    {d.issued_at ? d.doc_number : 'مسودة'}
+                  </td>
                   <td>{nameOf(d.template_code)}</td>
                   <td>
                     {d.subject || '—'}
@@ -126,12 +128,16 @@ export default function Documents() {
                   </td>
                   <td className="mono">{dateAr(d.created_at)}</td>
                   <td>
-                    <span className={`pill ${d.is_void ? 'bad' : 'ok'}`}>
-                      {d.is_void ? 'لاغٍ' : 'ساري'}
+                    <span className={`pill ${d.is_void ? 'bad' : !d.issued_at ? 'warn' : 'ok'}`}>
+                      {d.is_void ? 'لاغٍ' : !d.issued_at ? 'مسودة' : 'صادر'}
                     </span>
                   </td>
                   <td>
                     <div className="rowsplit">
+                      <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                            href={`/dashboard/documents/edit/${d.id}`}>
+                        {d.issued_at ? 'فتح' : 'تحرير'}
+                      </Link>
                       <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
                             href={`/print/${d.id}`} target="_blank">طباعة</Link>
                       {!d.is_void && ['ceo','hr','accountant'].includes(role) && (
