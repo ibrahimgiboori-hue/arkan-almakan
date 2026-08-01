@@ -301,21 +301,33 @@ export default function PrintDoc() {
                 <img src={stampUrl} alt="ختم الشركة" style={{height:`${stampMm}mm`}} />
               </div>
             )}
-            {bank ? (
+            {bank && (cfg.bank_name_full || cfg.bank_account_no || cfg.bank_iban) ? (
               <div className="bank">
                 <div className="bank-head">تفاصيل الحساب البنكي</div>
-                <div className="bank-line">{cfg.bank_name_full}</div>
-                <div className="bank-line mono">رقم الحساب: {cfg.bank_account_no}</div>
-                <div className="bank-line mono iban">IBAN: {cfg.bank_iban}</div>
+                {cfg.bank_name_full && <div className="bank-line">{cfg.bank_name_full}</div>}
+                {cfg.bank_account_no && (
+                  <div className="bank-line">رقم الحساب:{' '}
+                    <span className="mono acct">{cfg.bank_account_no}</span></div>
+                )}
+                {cfg.bank_iban && (
+                  <div className="bank-line mono iban">IBAN: {cfg.bank_iban}</div>
+                )}
               </div>
-            ) : (
-              <div className="bank">
-                <div className="bank-head">{cfg.company_name_ar}</div>
-                <div className="bank-line">سجل تجاري {cfg.cr_number}
-                  {cfg.vat_number ? ` · رقم ضريبي ${cfg.vat_number}` : ''}</div>
-                <div className="bank-line mono">{cfg.phone_1} · {cfg.email}</div>
-              </div>
-            )}
+            ) : (() => {
+              // لا يُطبع الصندوق إلا إذا كان فيه بيانات فعلية
+              const lines = [];
+              if (cfg.cr_number) lines.push(`سجل تجاري ${cfg.cr_number}`);
+              if (cfg.vat_number) lines.push(`رقم ضريبي ${cfg.vat_number}`);
+              const contact = [cfg.phone_1, cfg.email].filter(Boolean).join(' · ');
+              if (!lines.length && !contact) return null;
+              return (
+                <div className="bank">
+                  <div className="bank-head">{cfg.company_name_ar}</div>
+                  {lines.length > 0 && <div className="bank-line">{lines.join(' · ')}</div>}
+                  {contact && <div className="bank-line mono">{contact}</div>}
+                </div>
+              );
+            })()}
           </div>
 
         </div>

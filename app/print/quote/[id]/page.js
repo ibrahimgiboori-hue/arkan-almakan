@@ -295,13 +295,15 @@ export default function QuotePrint() {
                 <img className="stamp" src={stampUrl} alt="" style={{height:`${stampMm}mm`}} />}
             </div>
           </div>
-          {q.show_bank && (
+          {q.show_bank && (cfg.bank_name_full || cfg.bank_account_no || cfg.bank_iban) && (
             <div className="q-bank">
               <div className="qb-t">تفاصيل الحساب البنكي</div>
-              <div>{cfg.bank_name_full}</div>
-              <div className="bank-line">رقم الحساب:{' '}
-                <span className="mono acct">{cfg.bank_account_no}</span></div>
-              <div className="mono iban">IBAN: {cfg.bank_iban}</div>
+              {cfg.bank_name_full && <div>{cfg.bank_name_full}</div>}
+              {cfg.bank_account_no && (
+                <div className="bank-line">رقم الحساب:{' '}
+                  <span className="mono acct">{cfg.bank_account_no}</span></div>
+              )}
+              {cfg.bank_iban && <div className="mono iban">IBAN: {cfg.bank_iban}</div>}
             </div>
           )}
         </div>
