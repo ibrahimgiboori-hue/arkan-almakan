@@ -225,3 +225,20 @@ tr.bud-total td{background:var(--rose-wash);font-weight:600;
   color:var(--maroon-dark);border-top:2px solid var(--maroon-light)}
 
 @media (max-width:1000px){ .bud-bar{grid-template-columns:repeat(2,1fr)} }
+
+
+/* ---------- خلية التنفيذ في جدول البنود ---------- */
+.exec-cell{display:flex;flex-direction:column;gap:2px}
+.exec-cell .ec-line{font-size:11.5px;color:var(--ink-soft);line-height:1.5}
+
+
+/* ---------- حقل رقمي يحفظ عند الخروج ---------- */
+.live-num{position:relative;display:inline-block;width:100%}
+.live-num input{width:100%}
+.live-num .lm{position:absolute;left:4px;top:50%;transform:translateY(-50%);
+  font-size:11px;font-style:normal;color:var(--ink-soft);pointer-events:none}
+.live-num .lm.ok{color:var(--ok)}
+.live-num .lm.bad{color:var(--bad)}
+.live-num.saving input{border-color:var(--maroon-light)}
+.live-num.saved  input{border-color:var(--ok)}
+.live-num.error  input{border-color:var(--bad)}

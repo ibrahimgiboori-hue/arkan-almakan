@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals, VAT_AR, QSTATUS_AR } from '@/lib/quote-calc';
+import { useLiveRefresh } from '@/lib/live';
 
 const TOGGLES = [
   ['show_unit','عمود الوحدة'],
@@ -49,6 +50,7 @@ export default function QuoteEditor() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(load, ['quote']);
 
   const flash = (m) => { setSaved(m); setTimeout(()=>setSaved(''), 1600); };
 

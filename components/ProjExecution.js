@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money, qty as fq, dateAr } from '@/lib/format';
 import { MODE_AR } from '@/lib/projects';
+import { notifyChange, useLiveRefresh } from '@/lib/live';
 
 const ST_AR = { planned:'جاهز للتنفيذ', active:'قيد التنفيذ', paused:'متوقف', done:'منتهٍ' };
 const ST_CLS = { planned:'warn', active:'ok', paused:'', done:'' };
@@ -34,6 +35,7 @@ export default function ProjExecution({ projectId, canWrite, onChange }) {
   }, [projectId]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(load, ['exec','scope','timesheet','budget','all']);
 
   function openStart(r) {
     setAskFor(r);
@@ -53,14 +55,15 @@ export default function ProjExecution({ projectId, canWrite, onChange }) {
     if (data?.created_week) parts.push('وفُتح أسبوع تايم شيت');
     setMsg(parts.join(' ') + '.');
     setAskFor(null);
-    load(); onChange?.();
+    load(); notifyChange('exec'); onChange?.();
     if (data?.week_id) setTimeout(()=>window.open(`/dashboard/timesheet/${data.week_id}`,'_blank'), 400);
   }
 
   async function finish(r) {
     if (!window.confirm('إنهاء تنفيذ هذا البند؟')) return;
     const { error } = await supabase.rpc('finish_item_execution', { p_item: r.project_item_id });
-    if (error) setErr(error.message); else { setMsg('أُنهي البند'); load(); onChange?.(); }
+    if (error) setErr(error.message);
+    else { setMsg('أُنهي البند'); load(); notifyChange('exec'); onChange?.(); }
   }
 
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;

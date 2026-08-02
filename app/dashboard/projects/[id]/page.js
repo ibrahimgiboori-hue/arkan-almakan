@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
+import { useLiveRefresh, notifyChange } from '@/lib/live';
 import ProjScope from '@/components/ProjScope';
 import ProjProgress from '@/components/ProjProgress';
 import ProjClaims from '@/components/ProjClaims';
@@ -54,12 +55,13 @@ export default function ProjectCard() {
   }, [id, loadFin]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(loadFin, ['all']);
 
   async function patch(fields) {
     setP({ ...p, ...fields });
     const { error } = await supabase.from('projects').update(fields).eq('id', id);
     if (error) setErr('تعذّر الحفظ: ' + error.message);
-    else { setMsg('حُفظ'); setTimeout(()=>setMsg(''), 1200); loadFin(); }
+    else { setMsg('حُفظ'); setTimeout(()=>setMsg(''), 1200); loadFin(); notifyChange('project'); }
   }
 
   if (err && !p) return <div className="msg err">{err}</div>;

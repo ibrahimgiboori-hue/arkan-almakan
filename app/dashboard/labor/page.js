@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr, daysUntil } from '@/lib/format';
 import { CLASS_AR, TRADES } from '@/lib/timesheet';
+import { notifyChange, useLiveRefresh } from '@/lib/live';
 
 const BASIS = {
   daily:     'باليومية',
@@ -39,6 +40,7 @@ export default function Labor() {
   }
 
   useEffect(() => { load(); }, []);
+  useLiveRefresh(load, ['labor','all']);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -56,7 +58,7 @@ export default function Labor() {
     if (!window.confirm(`تحديث اليوميات المسجَّلة لـ"${r.full_name}" بالأجر الجديد؟`)) return;
     const { data, error } = await supabase.rpc('resync_laborer_rates', { p_laborer: r.id });
     if (error) setErr(error.message);
-    else { setMsg(`حُدّث ${data} يوماً مسجَّلاً`); load(); }
+    else { setMsg(`حُدّث ${data} يوماً مسجَّلاً`); load(); notifyChange('timesheet'); }
   }
 
   function startEdit(r) {
@@ -81,6 +83,7 @@ export default function Labor() {
       : await supabase.from('laborers').insert(p);
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
     setMsg(editId ? 'حُفظت التعديلات' : 'أُضيف الفرد');
+    notifyChange('labor');
     setF({ ...EMPTY }); setEditId(null); setOpen(false); load();
   }
 

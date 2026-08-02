@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { money, dateAr, qty as fq } from '@/lib/format';
 import { ATTEND, ATTEND_CYCLE, CLASS_AR, DAY_EXPENSE_CATS, dayName } from '@/lib/timesheet';
 import { CHARGE_AR } from '@/lib/projects';
+import { notifyChange, useLiveRefresh } from '@/lib/live';
 import './timesheet.css';
 
 export default function WeekSheet() {
@@ -63,6 +64,7 @@ export default function WeekSheet() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(load, ['timesheet','all']);
 
   const flash = (m) => { setMsg(m); setTimeout(()=>setMsg(''), 1400); };
   const cell = (dayId, labId) => att.find((a)=>a.day_id===dayId && a.laborer_id===labId);
@@ -96,14 +98,15 @@ export default function WeekSheet() {
       setAtt(att.map((a)=>a.id===cur.id ? {...a, output_qty: val} : a));
       const { error } = await supabase.from('attendance')
         .update({ output_qty: val }).eq('id', cur.id);
-      if (error) setErr(error.message);
+      if (error) setErr(error.message); else refreshTotals();
     } else {
       const { data, error } = await supabase.from('attendance').insert({
         day_id: day.id, laborer_id: lab.id, status: 'full',
         rate_used: rateFor(lab), output_qty: val,
         pay_basis: lab.pay_basis, piece_rate: lab.piece_rate,
       }).select('*').single();
-      if (error) setErr(error.message); else setAtt([...att, data]);
+      if (error) setErr(error.message);
+      else { setAtt([...att, data]); refreshTotals(); }
     }
   }
 
@@ -117,14 +120,28 @@ export default function WeekSheet() {
       setAtt(att.map((a)=>a.id===cur.id ? {...a, status:next} : a));
       const { error } = await supabase.from('attendance')
         .update({ status: next }).eq('id', cur.id);
-      if (error) setErr(error.message);
+      if (error) setErr(error.message); else refreshTotals();
     } else {
       const { data, error } = await supabase.from('attendance').insert({
         day_id: day.id, laborer_id: lab.id, status: next, rate_used: rateFor(lab),
         pay_basis: lab.pay_basis, piece_rate: lab.piece_rate,
       }).select('*').single();
-      if (error) setErr(error.message); else setAtt([...att, data]);
+      if (error) setErr(error.message);
+      else { setAtt([...att, data]); refreshTotals(); }
     }
+  }
+
+  // إعادة قراءة الملخصات وحدها — أسرع من تحميل الشاشة كاملة
+  async function refreshTotals() {
+    const dayIds = days.map((x)=>x.id);
+    if (!dayIds.length) return;
+    const [at, s, pr] = await Promise.all([
+      supabase.from('attendance').select('*').in('day_id', dayIds),
+      supabase.from('v_week_summary').select('*').eq('week_id', id).maybeSingle(),
+      supabase.from('v_daily_productivity').select('*').in('day_id', dayIds),
+    ]);
+    setAtt(at.data || []); setSum(s.data || null); setProd(pr.data || []);
+    notifyChange('timesheet');
   }
 
   async function fillDay(day, status) {
@@ -140,6 +157,7 @@ export default function WeekSheet() {
     if (ex) {
       setDItems(dItems.map((x)=>x.id===ex.id ? {...x, group_output:val} : x));
       await supabase.from('day_items').update({ group_output: val }).eq('id', ex.id);
+      refreshTotals();
     } else {
       const { data } = await supabase.from('day_items').insert({
         day_id: dayId, project_item_id: itemId, group_output: val,
@@ -155,12 +173,14 @@ export default function WeekSheet() {
     const { data, error } = await supabase.from('day_items').insert({
       day_id: dayId, project_item_id: itemId, group_output: 0, unit: it?.unit,
     }).select('*').single();
-    if (error) setErr(error.message); else setDItems([...dItems, data]);
+    if (error) setErr(error.message);
+    else { setDItems([...dItems, data]); notifyChange('timesheet'); }
   }
 
   async function delDayItem(rowId) {
     await supabase.from('day_items').delete().eq('id', rowId);
     setDItems(dItems.filter((x)=>x.id!==rowId));
+    notifyChange('timesheet');
   }
 
   async function updDay(dayId, fields) {
@@ -179,12 +199,13 @@ export default function WeekSheet() {
       contractor_id: w.contractor_id,
       notes: fd.get('notes') || null,
     });
-    if (error) setErr(error.message); else { e.target.reset(); flash('سُجّل المصروف'); load(); }
+    if (error) setErr(error.message);
+    else { e.target.reset(); flash('سُجّل المصروف'); load(); notifyChange('timesheet'); }
   }
 
   async function delExpense(eid) {
     await supabase.from('day_expenses').delete().eq('id', eid);
-    load();
+    load(); notifyChange('timesheet');
   }
 
   async function saveDates() {

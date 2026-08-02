@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, qty as fq } from '@/lib/format';
+import { notifyChange, useLiveRefresh } from '@/lib/live';
 
 const KIND_AR = {
   material:'مواد', labor:'أجور', equipment:'معدات', transport:'ترحيل',
@@ -39,6 +40,7 @@ export default function ItemBudget({ item, canWrite, onClose, onSaved }) {
   }, [item.id]);
 
   useEffect(() => { load(); }, [load]);
+  useLiveRefresh(load, ['budget','scope','all']);
 
   // إعادة القراءة إذا تغيّرت كمية البند أو فئة بيعه من الجدول
   useEffect(() => { if (b) load(); },
@@ -49,7 +51,8 @@ export default function ItemBudget({ item, canWrite, onClose, onSaved }) {
     const { error } = await supabase.from('item_budgets').update(fields).eq('id', b.id);
     if (error) { setErr(error.message); return; }
     await load();
-    setCrew({});          // تغيّرت المدة أو الربح، فالاقتراحات تُعاد
+    setCrew({});
+    notifyChange('budget');
   }
 
   async function addLine(kind) {
@@ -68,12 +71,13 @@ export default function ItemBudget({ item, canWrite, onClose, onSaved }) {
     const { error } = await supabase.from('budget_lines').update(fields).eq('id', id);
     if (error) { setErr(error.message); return; }
     await load();
-    setCrew({});          // اقتراحات العمالة القديمة لم تعد صالحة
+    setCrew({});
+    notifyChange('budget');
   }
 
   async function delLine(id) {
     await supabase.from('budget_lines').delete().eq('id', id);
-    load();
+    load(); notifyChange('budget');
   }
 
   async function askCrew(lineId, lock) {

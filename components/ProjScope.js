@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { MODE_AR } from '@/lib/projects';
 import ItemBudget from '@/components/ItemBudget';
+import { notifyChange, useLiveRefresh } from '@/lib/live';
 
 export default function ProjScope({ projectId, canWrite, onChange }) {
   const [items, setItems] = useState(null);
@@ -35,6 +36,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   }
 
   useEffect(() => { load(); }, [projectId]);
+  useLiveRefresh(load, ['scope','budget','exec','all']);
 
   const execOf = (id) => execs.find((x) => x.project_item_id === id);
 
@@ -45,7 +47,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       description_ar: kind === 'title' ? 'عنوان قسم' : '',
       unit: kind === 'item' ? 'م2' : null, contract_qty: 1, sell_price: 0, budget_cost: 0,
     });
-    if (error) setErr('تعذّر الإضافة: ' + error.message); else load();
+    if (error) setErr('تعذّر الإضافة: ' + error.message);
+    else { load(); notifyChange('scope'); }
   }
 
   async function insertAfter(afterOrder, kind) {
@@ -67,6 +70,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     if (Object.keys(fields).some((k) => CALC_FIELDS.includes(k))) {
       await refreshCalc();
     }
+    notifyChange('scope');
     onChange?.();
   }
 
@@ -85,7 +89,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   async function del(id) {
     if (!window.confirm('حذف هذا البند وقراره وإنجازه؟')) return;
     const { error } = await supabase.from('project_items').delete().eq('id', id);
-    if (error) setErr('تعذّر الحذف: ' + error.message); else load();
+    if (error) setErr('تعذّر الحذف: ' + error.message);
+    else { load(); notifyChange('scope'); }
   }
 
   async function move(id, dir) {
@@ -128,7 +133,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       ? await supabase.from('item_execution').update(payload).eq('id', ex.id)
       : await supabase.from('item_execution').insert(payload);
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
-    setMsg('سُجّل قرار التنفيذ'); setDecideFor(null); await load(); onChange?.();
+    setMsg('سُجّل قرار التنفيذ'); setDecideFor(null);
+    await load(); notifyChange('exec'); onChange?.();
   }
 
   async function startExec(item, date) {

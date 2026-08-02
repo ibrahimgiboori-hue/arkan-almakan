@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import { STAGE_AR, STAGE_CLASS, SCOPE_AR } from '@/lib/projects';
+import { useLiveRefresh } from '@/lib/live';
 
 export default function Projects() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function Projects() {
   }
 
   useEffect(() => { load(); }, []);
+  useLiveRefresh(load, ['all']);
 
   async function create() {
     setErr(''); setBusy(true);
