@@ -43,3 +43,15 @@
 @media (max-width:760px){
   .ts-grid .sticky-c{position:static;box-shadow:none}
 }
+
+
+/* ---------- خلية الإنتاج لمن هو بالمتر ---------- */
+.pcell{padding:2px 3px!important;background:#FBF7F7;min-width:62px}
+.pcell input{
+  width:100%;border:1px solid var(--hair-strong);padding:3px;
+  text-align:center;direction:ltr;font-family:inherit;font-size:12.5px;
+  font-variant-numeric:tabular-nums;
+}
+.pcell input:focus{border-color:var(--maroon);outline:none}
+.pc-amt{display:block;font-size:10px;color:var(--maroon-dark);
+  font-variant-numeric:tabular-nums;direction:ltr;margin-top:1px}

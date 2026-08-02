@@ -67,9 +67,45 @@ export default function WeekSheet() {
   const flash = (m) => { setMsg(m); setTimeout(()=>setMsg(''), 1400); };
   const cell = (dayId, labId) => att.find((a)=>a.day_id===dayId && a.laborer_id===labId);
 
-  const rateFor = (l) => Number(
-    l.daily_rate ??
-    (l.labor_class === 'technician' ? pc?.tech_daily : pc?.worker_daily) ?? 0);
+  const BASIS_AR = { daily:'يومية', salary:'راتب', piecework:'بالمتر' };
+
+  // اليومية المحسوبة بحسب أساس الفرد
+  const rateFor = (l) => {
+    if (l.pay_basis === 'salary') {
+      const d = Number(l.salary_days || 30);
+      return d > 0 ? Math.round(Number(l.monthly_salary || 0) / d * 100) / 100 : 0;
+    }
+    if (l.pay_basis === 'piecework') return 0;   // تُحسب من الإنتاج
+    return Number(l.daily_rate ??
+      (l.labor_class === 'technician' ? pc?.tech_daily : pc?.worker_daily) ?? 0);
+  };
+
+  // مبلغ الخلية: بالمتر = السعر × الإنتاج، وإلا اليومية بحسب الحالة
+  const cellAmount = (a, l) => {
+    if (!a) return 0;
+    if (l?.pay_basis === 'piecework')
+      return Math.round(Number(l.piece_rate || 0) * Number(a.output_qty || 0) * 100) / 100;
+    if (a.status === 'full' || a.status === 'stopped') return Number(a.rate_used || 0);
+    if (a.status === 'half') return Number(a.rate_used || 0) / 2;
+    return 0;
+  };
+
+  async function setOutputQty(day, lab, val) {
+    const cur = cell(day.id, lab.id);
+    if (cur) {
+      setAtt(att.map((a)=>a.id===cur.id ? {...a, output_qty: val} : a));
+      const { error } = await supabase.from('attendance')
+        .update({ output_qty: val }).eq('id', cur.id);
+      if (error) setErr(error.message);
+    } else {
+      const { data, error } = await supabase.from('attendance').insert({
+        day_id: day.id, laborer_id: lab.id, status: 'full',
+        rate_used: rateFor(lab), output_qty: val,
+        pay_basis: lab.pay_basis, piece_rate: lab.piece_rate,
+      }).select('*').single();
+      if (error) setErr(error.message); else setAtt([...att, data]);
+    }
+  }
 
   // نقرة على الخلية تُدوّر الحالة
   async function cycle(day, lab) {
@@ -85,6 +121,7 @@ export default function WeekSheet() {
     } else {
       const { data, error } = await supabase.from('attendance').insert({
         day_id: day.id, laborer_id: lab.id, status: next, rate_used: rateFor(lab),
+        pay_basis: lab.pay_basis, piece_rate: lab.piece_rate,
       }).select('*').single();
       if (error) setErr(error.message); else setAtt([...att, data]);
     }
@@ -173,13 +210,13 @@ export default function WeekSheet() {
 
   const canWrite = ['ceo','hr','accountant','supervisor'].includes(role);
   const dayTotal = (dayId) => att.filter((a)=>a.day_id===dayId)
-    .reduce((t,a)=>t+Number(a.amount||0), 0);
+    .reduce((t,a)=>t + cellAmount(a, labs.find((l)=>l.id===a.laborer_id)), 0);
   const labTotal = (labId) => att.filter((a)=>a.laborer_id===labId)
-    .reduce((t,a)=>t+Number(a.amount||0), 0);
+    .reduce((t,a)=>t + cellAmount(a, labs.find((l)=>l.id===labId)), 0);
   const labDays = (labId) => att.filter((a)=>a.laborer_id===labId
     && ['full','stopped'].includes(a.status)).length
     + att.filter((a)=>a.laborer_id===labId && a.status==='half').length * 0.5;
-  const grand = att.reduce((t,a)=>t+Number(a.amount||0), 0);
+  const grand = att.reduce((t,a)=>t + cellAmount(a, labs.find((l)=>l.id===a.laborer_id)), 0);
   const prodOf = (dayId) => prod.find((p)=>p.day_id===dayId);
 
   return (
@@ -274,7 +311,9 @@ export default function WeekSheet() {
       {tab === 'grid' && (
         <>
           <div className="rowsplit" style={{marginBottom:10,flexWrap:'wrap'}}>
-            <span style={{fontSize:12.5,color:'var(--ink-soft)'}}>انقر الخلية لتغيير الحالة:</span>
+            <span style={{fontSize:12.5,color:'var(--ink-soft)'}}>
+              انقر الخلية لتغيير الحالة · من هو بالمتر تُكتب أمتاره في الخانة:
+            </span>
             {Object.entries(ATTEND).map(([k,v])=>(
               <span key={k} className={`legend ${v.cls}`}>{v.short} {v.ar}</span>
             ))}
@@ -293,15 +332,16 @@ export default function WeekSheet() {
                 <thead>
                   <tr>
                     <th className="sticky-c">الاسم</th>
-                    <th style={{width:'60px'}}>الفئة</th>
-                    <th style={{width:'60px'}} className="num">اليومية</th>
+                    <th style={{width:'58px'}}>الفئة</th>
+                    <th style={{width:'62px'}}>الأساس</th>
+                    <th style={{width:'62px'}} className="num">اليومية</th>
                     {days.map((d)=>(
                       <th key={d.id} className="dayhead">
                         <div>{dayName(d.work_date)}</div>
                         <div className="mono dnum">{dateAr(d.work_date).slice(0,5)}</div>
                       </th>
                     ))}
-                    <th style={{width:'56px'}} className="num">أيام</th>
+                    <th style={{width:'62px'}} className="num">أيام / إنتاج</th>
                     <th style={{width:'86px'}} className="num">المستحق</th>
                   </tr>
                 </thead>
@@ -312,10 +352,40 @@ export default function WeekSheet() {
                         {l.trade && <div className="tr">{l.trade}</div>}
                       </td>
                       <td style={{fontSize:11.5}}>{CLASS_AR[l.labor_class]}</td>
-                      <td className="num">{money(rateFor(l))}</td>
+                      <td style={{fontSize:11}}>
+                        <span className="pill" style={{fontSize:10.5,padding:'1px 6px'}}>
+                          {BASIS_AR[l.pay_basis] || 'يومية'}
+                        </span>
+                      </td>
+                      <td className="num">
+                        {l.pay_basis === 'piecework'
+                          ? <span style={{fontSize:11,color:'var(--ink-soft)'}}>
+                              {money(l.piece_rate)}/{l.piece_unit || 'و'}
+                            </span>
+                          : money(rateFor(l))}
+                      </td>
                       {days.map((d)=>{
                         const a = cell(d.id, l.id);
                         const st = a?.status;
+
+                        // بالمتر: خانة إنتاج تُحسب قيمتها فوراً
+                        if (l.pay_basis === 'piecework') {
+                          return (
+                            <td key={d.id} className="pcell">
+                              <input type="number" step="any" dir="ltr"
+                                     disabled={!canWrite}
+                                     defaultValue={a?.output_qty ?? ''}
+                                     placeholder="0"
+                                     onBlur={(e)=>setOutputQty(d, l, Number(e.target.value||0))} />
+                              {Number(a?.output_qty || 0) > 0 && (
+                                <span className="pc-amt">
+                                  {money(Number(l.piece_rate||0) * Number(a.output_qty||0))}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        }
+
                         return (
                           <td key={d.id} className={`acell ${st ? ATTEND[st].cls : ''}`}
                               onClick={canWrite ? ()=>cycle(d, l) : undefined}
@@ -324,13 +394,18 @@ export default function WeekSheet() {
                           </td>
                         );
                       })}
-                      <td className="num">{labDays(l.id)}</td>
+                      <td className="num">
+                        {l.pay_basis === 'piecework'
+                          ? fq(att.filter((a)=>a.laborer_id===l.id)
+                                 .reduce((t,a)=>t+Number(a.output_qty||0),0))
+                          : labDays(l.id)}
+                      </td>
                       <td className="num tot">{money(labTotal(l.id))}</td>
                     </tr>
                   ))}
                   <tr className="foot-row">
                     <td className="sticky-c">الإجمالي</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                     {days.map((d)=>(
                       <td key={d.id} className="num">{money(dayTotal(d.id))}</td>
                     ))}

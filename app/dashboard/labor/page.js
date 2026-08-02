@@ -4,9 +4,16 @@ import { supabase } from '@/lib/supabase';
 import { money, dateAr, daysUntil } from '@/lib/format';
 import { CLASS_AR, TRADES } from '@/lib/timesheet';
 
+const BASIS = {
+  daily:     'باليومية',
+  salary:    'بالراتب',
+  piecework: 'بالمتر',
+};
+
 const EMPTY = { full_name:'', iqama_no:'', iqama_expiry:'', nationality:'',
                 labor_class:'worker', trade:'', contractor_id:'', group_code:'',
-                daily_rate:'', monthly_salary:'', phone:'' };
+                pay_basis:'daily', daily_rate:'', monthly_salary:'', salary_days:30,
+                piece_rate:'', piece_unit:'م2', deduct_absence:true, phone:'' };
 
 export default function Labor() {
   const [rows, setRows] = useState(null);
@@ -35,6 +42,23 @@ export default function Labor() {
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
+  // اليومية المحسوبة بحسب الأساس
+  const computedDaily = (r) => {
+    if (r.pay_basis === 'salary') {
+      const d = Number(r.salary_days || 30);
+      return d > 0 ? Number(r.monthly_salary || 0) / d : 0;
+    }
+    if (r.pay_basis === 'piecework') return null;   // متغيرة يوماً بيوم
+    return Number(r.daily_rate || 0);
+  };
+
+  async function resync(r) {
+    if (!window.confirm(`تحديث اليوميات المسجَّلة لـ"${r.full_name}" بالأجر الجديد؟`)) return;
+    const { data, error } = await supabase.rpc('resync_laborer_rates', { p_laborer: r.id });
+    if (error) setErr(error.message);
+    else { setMsg(`حُدّث ${data} يوماً مسجَّلاً`); load(); }
+  }
+
   function startEdit(r) {
     setEditId(r.id); setF({ ...EMPTY, ...r });
     setOpen(true); setErr(''); setMsg('');
@@ -44,9 +68,10 @@ export default function Labor() {
   async function save(e) {
     e.preventDefault(); setErr(''); setMsg('');
     const p = { ...f };
-    ['daily_rate','monthly_salary'].forEach((k)=>{
+    ['daily_rate','monthly_salary','piece_rate'].forEach((k)=>{
       p[k] = p[k] === '' || p[k] === null ? null : Number(p[k]);
     });
+    p.salary_days = Number(p.salary_days || 30);
     p.iqama_expiry = p.iqama_expiry || null;
     p.contractor_id = p.contractor_id || null;
     delete p.id; delete p.created_at;
@@ -165,16 +190,64 @@ export default function Labor() {
                        placeholder="GRP-RYD-07" />
               </div>
               <div className="field">
-                <label>اليومية</label>
-                <input type="number" step="0.01" dir="ltr" value={f.daily_rate ?? ''}
-                       onChange={set('daily_rate')} />
-                <span className="hint">اتركها فارغة ليأخذ سعر الاتفاق</span>
+                <label>أساس الأجر *</label>
+                <select value={f.pay_basis} onChange={set('pay_basis')}>
+                  {Object.entries(BASIS).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                </select>
               </div>
-              <div className="field">
-                <label>الراتب الشهري</label>
-                <input type="number" step="0.01" dir="ltr" value={f.monthly_salary ?? ''}
-                       onChange={set('monthly_salary')} />
-              </div>
+
+              {f.pay_basis === 'daily' && (
+                <div className="field">
+                  <label>اليومية</label>
+                  <input type="number" step="0.01" dir="ltr" value={f.daily_rate ?? ''}
+                         onChange={set('daily_rate')} />
+                </div>
+              )}
+
+              {f.pay_basis === 'salary' && (
+                <>
+                  <div className="field">
+                    <label>الراتب الشهري</label>
+                    <input type="number" step="0.01" dir="ltr" value={f.monthly_salary ?? ''}
+                           onChange={set('monthly_salary')} />
+                  </div>
+                  <div className="field">
+                    <label>يُقسم على (يوم)</label>
+                    <input type="number" min="1" max="31" dir="ltr" value={f.salary_days ?? 30}
+                           onChange={set('salary_days')} />
+                    <span className="hint">
+                      اليومية المحسوبة: {computedDaily(f).toFixed(2)} ريال
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {f.pay_basis === 'piecework' && (
+                <>
+                  <div className="field">
+                    <label>سعر الوحدة الممنوح له</label>
+                    <input type="number" step="0.01" dir="ltr" value={f.piece_rate ?? ''}
+                           onChange={set('piece_rate')} />
+                    <span className="hint">يومه = السعر × ما أنجزه ذلك اليوم</span>
+                  </div>
+                  <div className="field">
+                    <label>الوحدة</label>
+                    <input value={f.piece_unit || ''} onChange={set('piece_unit')}
+                           placeholder="م2" />
+                  </div>
+                </>
+              )}
+
+              {f.pay_basis !== 'piecework' && (
+                <div className="field">
+                  <label>الغياب</label>
+                  <select value={f.deduct_absence ? '1' : '0'}
+                          onChange={(e)=>setF({...f, deduct_absence: e.target.value === '1'})}>
+                    <option value="1">يُخصم بقيمة اليومية</option>
+                    <option value="0">لا يُخصم</option>
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label>الجوال</label>
                 <input dir="ltr" value={f.phone || ''} onChange={set('phone')} />
@@ -209,8 +282,8 @@ export default function Labor() {
             <table>
               <thead>
                 <tr><th>الاسم</th><th>التصنيف</th><th>التخصص</th><th>المقاول</th>
-                    <th className="num">اليومية</th><th>الإقامة</th><th>الانتهاء</th>
-                    <th style={{width:170}}>الإجراءات</th></tr>
+                    <th>أساس الأجر</th><th className="num">اليومية المحسوبة</th>
+                    <th>الانتهاء</th><th style={{width:230}}>الإجراءات</th></tr>
               </thead>
               <tbody>
                 {list.map((r) => {
@@ -229,8 +302,24 @@ export default function Labor() {
                       <td style={{fontSize:12.5}}>{r.trade || '—'}</td>
                       <td style={{fontSize:12.5}}>
                         {cons.find((c)=>c.id===r.contractor_id)?.name_ar || '—'}</td>
-                      <td className="num">{r.daily_rate ? money(r.daily_rate) : '—'}</td>
-                      <td className="mono" style={{fontSize:12.5}}>{r.iqama_no || '—'}</td>
+                      <td style={{fontSize:12.5}}>
+                        <span className="pill" style={{fontSize:11}}>{BASIS[r.pay_basis]}</span>
+                        {r.pay_basis === 'salary' && (
+                          <div style={{fontSize:11,color:'var(--ink-soft)'}}>
+                            {money(r.monthly_salary)} ÷ {r.salary_days}
+                          </div>
+                        )}
+                        {r.pay_basis === 'piecework' && (
+                          <div style={{fontSize:11,color:'var(--ink-soft)'}}>
+                            {money(r.piece_rate)} / {r.piece_unit || 'وحدة'}
+                          </div>
+                        )}
+                      </td>
+                      <td className="num">
+                        {r.pay_basis === 'piecework'
+                          ? <span style={{fontSize:12,color:'var(--ink-soft)'}}>متغيرة</span>
+                          : money(computedDaily(r))}
+                      </td>
                       <td>
                         {left === null ? '—' : (
                           <span className={`pill ${cls}`} style={{fontSize:11.5}}>
@@ -244,6 +333,8 @@ export default function Labor() {
                             <>
                               <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
                                       onClick={()=>startEdit(r)}>تعديل</button>
+                              <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                      onClick={()=>resync(r)}>تحديث اليوميات</button>
                               <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
                                       onClick={()=>toggle(r)}>
                                 {r.is_active ? 'تعطيل' : 'تفعيل'}</button>
