@@ -15,7 +15,7 @@ export default function Employees() {
   async function load() {
     const sess = (await supabase.auth.getSession()).data.session;
     const [e, u] = await Promise.all([
-      supabase.from('employees').select('*'),
+      supabase.from('employees').select('*').eq('person_kind', 'employee'),
       supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
     setRows(e.data || []); setRole(u.data?.role || null);
@@ -66,6 +66,7 @@ export default function Employees() {
           <p>{rows.filter((r)=>r.status!=='terminated').length} على رأس العمل من {rows.length} مسجَّلاً</p>
         </div>
         <div className="rowsplit">
+          <Link className="btn ghost" href="/dashboard/board">مجلس الإدارة</Link>
           <Link className="btn ghost" href="/print/employees" target="_blank">
             تقرير الموظفين
           </Link>
