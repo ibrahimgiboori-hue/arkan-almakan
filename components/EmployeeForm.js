@@ -8,7 +8,7 @@ const EMPTY = {
   id_kind:'iqama', id_number:'', id_expiry:'', mobile:'', email:'',
   job_title:'', department:'', hire_date:'', status:'active',
   basic_salary:0, housing_allowance:0, transport_allowance:0, other_allowance:0,
-  iban:'', bank_name:'', gosi_number:'', commission_rate:0, notes:'',
+  iban:'', bank_name:'', gosi_number:'', commission_rate:0, duties:'', notes:'',
 };
 
 export default function EmployeeForm({ initial, id }) {
@@ -136,6 +136,12 @@ export default function EmployeeForm({ initial, id }) {
                   <option value="suspended">موقوف</option>
                   <option value="terminated">منتهي</option>
                 </select>
+              </div>
+              <div className="field span2">
+                <label>المهام الوظيفية</label>
+                <textarea rows="3" value={f.duties || ''} onChange={set('duties')}
+                          placeholder="متابعة المشاريع · إعداد المستخلصات · التنسيق مع المقاولين" />
+                <span className="hint">تظهر في تقرير الموظفين</span>
               </div>
               <div className="field">
                 <label>نسبة العمولة</label>

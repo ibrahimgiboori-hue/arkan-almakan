@@ -15,7 +15,7 @@ export default function Employees() {
   async function load() {
     const sess = (await supabase.auth.getSession()).data.session;
     const [e, u] = await Promise.all([
-      supabase.from('employees').select('*').order('employee_no'),
+      supabase.from('employees').select('*'),
       supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
     setRows(e.data || []); setRole(u.data?.role || null);
@@ -38,13 +38,20 @@ export default function Employees() {
     setMsg(data); load();
   }
 
+  // الترتيب بالرقم لا بالنص: EMP-001 قبل EMO-003
+  const seqOf = (no) => {
+    const digits = String(no || '').replace(/\D/g, '');
+    return digits ? parseInt(digits, 10) : 999999;
+  };
+
   const filtered = useMemo(() => {
     if (!rows) return [];
     const t = q.trim();
     return rows
       .filter((r) => showInactive || r.status !== 'terminated')
       .filter((r) => !t || [r.full_name_ar, r.full_name_en, r.employee_no, r.job_title, r.mobile]
-        .filter(Boolean).some((v) => String(v).includes(t)));
+        .filter(Boolean).some((v) => String(v).includes(t)))
+      .sort((a, b) => seqOf(a.employee_no) - seqOf(b.employee_no));
   }, [rows, q, showInactive]);
 
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
@@ -58,7 +65,12 @@ export default function Employees() {
           <h1>الموظفون</h1>
           <p>{rows.filter((r)=>r.status!=='terminated').length} على رأس العمل من {rows.length} مسجَّلاً</p>
         </div>
-        <Link className="btn" href="/dashboard/employees/new">إضافة موظف</Link>
+        <div className="rowsplit">
+          <Link className="btn ghost" href="/print/employees" target="_blank">
+            تقرير الموظفين
+          </Link>
+          <Link className="btn" href="/dashboard/employees/new">إضافة موظف</Link>
+        </div>
       </div>
 
       {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
