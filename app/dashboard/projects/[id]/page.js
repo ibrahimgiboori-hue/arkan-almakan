@@ -10,10 +10,12 @@ import ProjProgress from '@/components/ProjProgress';
 import ProjClaims from '@/components/ProjClaims';
 import ProjMoney from '@/components/ProjMoney';
 import ProjDocs from '@/components/ProjDocs';
+import ProjExecution from '@/components/ProjExecution';
 
 const TABS = [
   ['overview','نظرة عامة'],
   ['scope','النطاق والقرارات'],
+  ['exec','التنفيذ'],
   ['progress','الإنجاز'],
   ['claims','المستخلصات'],
   ['money','العهد والضمانات'],
@@ -98,7 +100,8 @@ export default function ProjectCard() {
 
       <div className="tabs">
         {TABS.map(([k,label]) => (
-          <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{label}</button>
+          <button key={k} className={tab===k?'on':''}
+                  onClick={()=>{ setTab(k); loadFin(); }}>{label}</button>
         ))}
       </div>
 
@@ -188,7 +191,10 @@ export default function ProjectCard() {
       )}
 
       {tab === 'scope' && (
-        <ProjScope projectId={id} canWrite={canWrite} onChange={loadFin} />
+        <ProjScope projectId={id} canWrite={canWrite} onChange={load} />
+      )}
+      {tab === 'exec' && (
+        <ProjExecution projectId={id} canWrite={canWrite} onChange={load} />
       )}
       {tab === 'progress' && (
         <ProjProgress projectId={id} canWrite={canWrite} onChange={loadFin} />

@@ -55,10 +55,31 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     if (error) setErr('تعذّر الإدراج: ' + error.message); else load();
   }
 
+  // الحقول التي تغيّر الحسابات: تُعيد قراءة كل شيء مرتبط
+  const CALC_FIELDS = ['contract_qty','sell_price','budget_cost'];
+
   async function upd(id, fields) {
     setItems(items.map((x) => x.id === id ? { ...x, ...fields } : x));
     const { error } = await supabase.from('project_items').update(fields).eq('id', id);
-    if (error) setErr('تعذّر الحفظ: ' + error.message); else onChange?.();
+    if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
+
+    // إن مسّ التعديل رقماً محسوباً، أعِد قراءة الملخصات كلها
+    if (Object.keys(fields).some((k) => CALC_FIELDS.includes(k))) {
+      await refreshCalc();
+    }
+    onChange?.();
+  }
+
+  // إعادة قراءة الملخصات المحسوبة: القيم والميزانيات وحالات التنفيذ
+  async function refreshCalc() {
+    const [i, bg, st] = await Promise.all([
+      supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
+      supabase.from('v_item_budget').select('*').eq('project_id', projectId),
+      supabase.from('v_item_execution_state').select('*').eq('project_id', projectId),
+    ]);
+    if (i.data) setItems(i.data);
+    setBuds(bg.data || []);
+    setStates(st.data || []);
   }
 
   async function del(id) {
@@ -107,7 +128,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       ? await supabase.from('item_execution').update(payload).eq('id', ex.id)
       : await supabase.from('item_execution').insert(payload);
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
-    setMsg('سُجّل قرار التنفيذ'); setDecideFor(null); load();
+    setMsg('سُجّل قرار التنفيذ'); setDecideFor(null); await load(); onChange?.();
   }
 
   async function startExec(item, date) {
@@ -403,8 +424,10 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       )}
 
       {budgetFor && (
-        <ItemBudget item={budgetFor} canWrite={canWrite}
-                    onClose={()=>setBudgetFor(null)} onSaved={load} />
+        <ItemBudget key={budgetFor.id}
+                    item={items.find((x)=>x.id===budgetFor.id) || budgetFor} canWrite={canWrite}
+                    onClose={()=>{ setBudgetFor(null); refreshCalc(); }}
+                    onSaved={()=>{ refreshCalc(); onChange?.(); }} />
       )}
 
       {decideFor && (

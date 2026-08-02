@@ -8,7 +8,7 @@ import { MODE_AR } from '@/lib/projects';
 const ST_AR = { planned:'جاهز للتنفيذ', active:'قيد التنفيذ', paused:'متوقف', done:'منتهٍ' };
 const ST_CLS = { planned:'warn', active:'ok', paused:'', done:'' };
 
-export default function ProjExecution({ projectId, canWrite }) {
+export default function ProjExecution({ projectId, canWrite, onChange }) {
   const [rows, setRows] = useState(null);
   const [plan, setPlan] = useState([]);
   const [weeks, setWeeks] = useState([]);
@@ -53,14 +53,14 @@ export default function ProjExecution({ projectId, canWrite }) {
     if (data?.created_week) parts.push('وفُتح أسبوع تايم شيت');
     setMsg(parts.join(' ') + '.');
     setAskFor(null);
-    load();
+    load(); onChange?.();
     if (data?.week_id) setTimeout(()=>window.open(`/dashboard/timesheet/${data.week_id}`,'_blank'), 400);
   }
 
   async function finish(r) {
     if (!window.confirm('إنهاء تنفيذ هذا البند؟')) return;
     const { error } = await supabase.rpc('finish_item_execution', { p_item: r.project_item_id });
-    if (error) setErr(error.message); else { setMsg('أُنهي البند'); load(); }
+    if (error) setErr(error.message); else { setMsg('أُنهي البند'); load(); onChange?.(); }
   }
 
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;

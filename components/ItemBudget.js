@@ -40,10 +40,16 @@ export default function ItemBudget({ item, canWrite, onClose, onSaved }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // إعادة القراءة إذا تغيّرت كمية البند أو فئة بيعه من الجدول
+  useEffect(() => { if (b) load(); },
+    [item.contract_qty, item.sell_price, item.unit]);
+
   async function patch(fields) {
     setB({ ...b, ...fields });
     const { error } = await supabase.from('item_budgets').update(fields).eq('id', b.id);
-    if (error) setErr(error.message); else load();
+    if (error) { setErr(error.message); return; }
+    await load();
+    setCrew({});          // تغيّرت المدة أو الربح، فالاقتراحات تُعاد
   }
 
   async function addLine(kind) {
@@ -60,7 +66,9 @@ export default function ItemBudget({ item, canWrite, onClose, onSaved }) {
   async function updLine(id, fields) {
     setLines(lines.map((l)=>l.id===id ? {...l, ...fields} : l));
     const { error } = await supabase.from('budget_lines').update(fields).eq('id', id);
-    if (error) setErr(error.message); else load();
+    if (error) { setErr(error.message); return; }
+    await load();
+    setCrew({});          // اقتراحات العمالة القديمة لم تعد صالحة
   }
 
   async function delLine(id) {
