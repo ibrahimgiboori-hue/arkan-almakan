@@ -164,9 +164,23 @@ td.mono{unicode-bidi:isolate}
 
 @media print{
   @page{size:A4;margin:0}
+
+  html,body{margin:0;padding:0;background:#fff}
   .toolbar{display:none}
-  .sheet-wrap{padding:0;background:#fff}
-  .sheet{width:auto;min-height:297mm;box-shadow:none}
+  .sheet-wrap{padding:0;background:#fff;display:block}
+
+  /* ------------------------------------------------------------
+     الورقة : 296 مم لا 297
+     السبب : تحويل المليمتر إلى بكسل يترك كسراً زائداً، فيفيض
+     المحتوى بجزء من المليمتر ويولّد صفحة ثانية فارغة تحمل
+     الترويسة وحدها. المليمتر الناقص يمنع ذلك ولا يُرى بالعين.
+     ------------------------------------------------------------ */
+  .sheet{
+    width:210mm;min-height:296mm;box-shadow:none;margin:0 auto;
+    break-after:avoid;page-break-after:avoid;
+  }
+  .sheet:last-child{page-break-after:auto}
+
   .card-doc,.amounts thead,.sigtable,.declare,.tafqit,.footer-row{page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
@@ -227,3 +241,26 @@ td.mono{unicode-bidi:isolate}
 .ltr-to .to-name{flex:1}
 .ltr-to .to-title{white-space:nowrap;font-weight:600}
 .ltr-salut{font-size:10.5pt;color:var(--ink-print);margin-bottom:4mm}
+
+
+/* ============================================================
+   ضغط الخطاب الطويل عند الطباعة
+   الخطاب الرسمي أطول من غيره، وأول ما يفيض هو صف الختم
+   والحساب فيقفز وحده إلى ورقة ثانية. هذه القواعد تكسب
+   نحو 15 مم من الفراغ دون أن يتغيّر شكل الخطاب.
+   ============================================================ */
+@media print{
+  .letter-body{line-height:1.92;margin-bottom:4mm}
+  .ltr-head{margin-bottom:5mm}
+  .ltr-meta{margin-bottom:4mm}
+  .ltr-subject{margin-bottom:4.5mm}
+  .ltr-to{margin-bottom:3mm}
+  .ltr-salut{margin-bottom:3mm}
+
+  .stampbox-row{margin:3mm 0}
+  .stamp-box{min-height:26mm}
+  .footer-row{margin-top:2mm}
+
+  /* الفراغ المرن لا يدفع المحتوى إلى ورقة جديدة */
+  .fill{min-height:0}
+}
