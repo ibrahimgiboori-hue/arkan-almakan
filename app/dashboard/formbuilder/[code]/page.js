@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { OPS, CMP, allKeys, SECTION_KINDS, FIELD_TYPES, uid } from '@/lib/form-engine';
+import PartyCards, { partyGroup } from '@/components/PartyCards';
 
 export default function FormBuilder() {
   const { code } = useParams();
@@ -36,12 +37,15 @@ export default function FormBuilder() {
 
   function addSection(kind) {
     setSections([...sections, {
-      id: uid(), kind, style: kind === 'cards' || kind === 'text' ? 'info' : 'strict',
+      id: uid(),
+      kind,
+      style: ['cards','text','parties'].includes(kind) ? 'info' : 'strict',
       title: SECTION_KINDS[kind],
       ...(kind === 'cards' || kind === 'totals' ? { fields: [] } : {}),
       ...(kind === 'table' ? { columns: [] } : {}),
       ...(kind === 'text' ? { key: 'text_' + uid() } : {}),
       ...(kind === 'signatures' ? { roles: ['الموظف','المدير التنفيذي'] } : {}),
+      ...(kind === 'parties' ? { key: 'parties_' + uid(), groups: [partyGroup(2)] } : {}),
     }]);
   }
 
@@ -172,6 +176,25 @@ export default function FormBuilder() {
                       <label>مفتاح النص</label>
                       <input dir="ltr" value={s.key || ''} onChange={(e)=>patchSection(s.id,{key:e.target.value})} />
                       <span className="hint">يُستخدم في المعادلات والتعبئة</span>
+                    </div>
+                  )}
+
+                  {s.kind === 'parties' && (
+                    <div style={{marginTop:6}}>
+                      <div className="field" style={{maxWidth:280}}>
+                        <label>مفتاح القسم</label>
+                        <input dir="ltr" value={s.key || ''}
+                               onChange={(e)=>patchSection(s.id,{key:e.target.value})} />
+                        <span className="hint">تُحفظ تحته البطاقات في بيانات المستند</span>
+                      </div>
+                      <p style={{fontSize:12.5,color:'var(--ink-soft)',margin:'10px 0 12px'}}>
+                        ما تكتبه هنا يصير القيمة الافتراضية التي تظهر عند تعبئة المستند،
+                        ويبقى قابلاً للتعديل حينها.
+                      </p>
+                      <PartyCards
+                        value={s.groups?.length ? s.groups : [partyGroup(2)]}
+                        onChange={(g)=>patchSection(s.id,{groups:g})}
+                      />
                     </div>
                   )}
 
