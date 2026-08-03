@@ -20,7 +20,7 @@ const CYCLE = ['absent', 'full', 'half', 'stopped', 'leave'];
 const DEF = 'absent';
 
 const COLS = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (isoStr, n) => {
   const d = new Date(isoStr + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d);
 };
