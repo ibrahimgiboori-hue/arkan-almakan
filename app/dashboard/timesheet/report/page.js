@@ -28,6 +28,12 @@ const KINDS = {
   output:     'الإنتاج',
 };
 
+const CLASS_AR = {
+  worker: 'عمال', technician: 'صنايعية', foreman: 'مراقبون',
+  driver: 'سائقون', engineer: 'مهندسون', helper: 'مساعدون', other: 'أخرى',
+};
+const clsAr = (c) => CLASS_AR[c] || c || 'أخرى';
+
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
 const satOf = (s) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); return iso(d); };
@@ -82,7 +88,7 @@ export default function WeeklyReport() {
         let marks = {}; const wmap = {};
         if (ids.length) {
           const { data: att } = await supabase.from('attendance')
-            .select('day_id, status, amount, laborer_id, laborers(full_name, trade, labor_class, contractor_id)')
+            .select('day_id, status, amount, laborer_id, laborers(full_name, trade, labor_class, contractor_id, daily_rate)')
             .in('day_id', ids);
           (att || []).forEach((a) => {
             if (contractorId && a.laborers?.contractor_id !== contractorId) return;
@@ -92,6 +98,8 @@ export default function WeeklyReport() {
                 id: a.laborer_id,
                 name: a.laborers?.full_name || '—',
                 trade: a.laborers?.trade || a.laborers?.labor_class || '',
+                cls: a.laborers?.labor_class || 'other',
+                rate: Number(a.laborers?.daily_rate || 0),
               };
             }
           });
@@ -123,6 +131,21 @@ export default function WeeklyReport() {
   };
   const daysOf = (w) => Array.from({ length: 6 }, (_, i) => addDays(w, i));
   const inRange = (d) => d >= from && d <= to;
+
+  // ملخص الأسبوع بحسب الفئة أو المهنة
+  const summarize = (w, by) => {
+    const acc = {};
+    grid.workers.forEach((wk) => {
+      const key = by === 'cls' ? (wk.cls || 'other') : (wk.trade || '—');
+      const d = workerWeekDays(wk.id, w);
+      acc[key] = acc[key] || { key, people: 0, attended: 0, days: 0, value: 0 };
+      acc[key].people += 1;
+      if (d > 0) acc[key].attended += 1;
+      acc[key].days += d;
+      acc[key].value += d * Number(wk.rate || 0);
+    });
+    return Object.values(acc).sort((a, b) => b.days - a.days);
+  };
 
   const workerWeekDays = (wid, w) =>
     daysOf(w).filter(inRange)
@@ -245,6 +268,67 @@ export default function WeeklyReport() {
                       {chunk.reduce((t, wk) => t + workerWeekDays(wk.id, w), 0)}
                     </td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ padding: '4px 10px 14px' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 6, color: MAROON }}>
+                ملخص الأسبوع
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'right', padding: '6px 10px' }}>الفئة</th>
+                    <th style={{ padding: '6px' }}>عدد الأفراد</th>
+                    <th style={{ padding: '6px' }}>منهم حضر</th>
+                    <th style={{ padding: '6px' }}>مجموع اليوميات</th>
+                    <th style={{ padding: '6px' }}>القيمة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summarize(w, 'cls').map((r) => (
+                    <tr key={r.key}>
+                      <td style={{ padding: '5px 10px' }}>{clsAr(r.key)}</td>
+                      <td style={{ textAlign: 'center' }}>{r.people}</td>
+                      <td style={{ textAlign: 'center' }}>{r.attended}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 500 }}>{r.days}</td>
+                      <td style={{ textAlign: 'center', direction: 'ltr' }}>{money(r.value)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#faf8f8', fontWeight: 500 }}>
+                    <td style={{ padding: '6px 10px' }}>الإجمالي</td>
+                    <td style={{ textAlign: 'center' }}>{grid.workers.length}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      {summarize(w, 'cls').reduce((t, r) => t + r.attended, 0)}
+                    </td>
+                    <td style={{ textAlign: 'center', color: MAROON }}>
+                      {summarize(w, 'cls').reduce((t, r) => t + r.days, 0)}
+                    </td>
+                    <td style={{ textAlign: 'center', direction: 'ltr', color: MAROON }}>
+                      {money(summarize(w, 'cls').reduce((t, r) => t + r.value, 0))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style={{ fontSize: 12.5, fontWeight: 500, margin: '12px 0 6px', color: MAROON }}>
+                بحسب المهنة
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <tbody>
+                  {summarize(w, 'trade').map((r) => (
+                    <tr key={r.key}>
+                      <td style={{ padding: '5px 10px' }}>{r.key || '—'}</td>
+                      <td style={{ textAlign: 'center', width: 110 }}>{r.attended} حضر</td>
+                      <td style={{ textAlign: 'center', width: 130, fontWeight: 500 }}>
+                        {r.days} يومية
+                      </td>
+                      <td style={{ textAlign: 'center', width: 130, direction: 'ltr' }}>
+                        {money(r.value)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
