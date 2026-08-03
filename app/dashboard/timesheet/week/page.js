@@ -17,11 +17,12 @@ const STATUS = {
   stopped: { ar: 'توقف',  short: 'ت', factor: 1,   bg: '#EDF0F6', fg: '#3C4A6B' },
   leave:   { ar: 'إجازة', short: 'إ', factor: 0,   bg: '#F2EEF6', fg: '#5B4380' },
 };
-const CYCLE = ['full', 'half', 'absent', 'stopped', 'leave'];
+const CYCLE = ['absent', 'full', 'half', 'stopped', 'leave'];
+const DEFAULT_ST = 'absent';   // الأصل غياب — لا يُحتسب حاضراً إلا بتحضير يدوي
 
 // السبت → الخميس
 const DAY_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function weekDays(startISO) {
   if (!startISO) return [];
@@ -175,7 +176,7 @@ export default function TimesheetWeek() {
 
       // الافتراض : حاضر كامل لمن لم يُسجَّل
       (labs || []).forEach((l) => {
-        dys.forEach((d) => { if (!m[`${l.id}|${d}`]) m[`${l.id}|${d}`] = 'full'; });
+        dys.forEach((d) => { if (!m[`${l.id}|${d}`]) m[`${l.id}|${d}`] = DEFAULT_ST; });
       });
       setMarks(m);
 
@@ -199,13 +200,19 @@ export default function TimesheetWeek() {
 
   // ---------- التبديل ----------
   const cycle = (lid, d) => {
-    const cur = marks[`${lid}|${d}`] || 'full';
+    const cur = marks[`${lid}|${d}`] || DEFAULT_ST;
     const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
     setMarks((m) => ({ ...m, [`${lid}|${d}`]: next }));
   };
   const setColumn = (d, st) =>
     setMarks((m) => {
       const n = { ...m }; laborers.forEach((l) => { n[`${l.id}|${d}`] = st; }); return n;
+    });
+  const setAll = (st) =>
+    setMarks(() => {
+      const n = {};
+      laborers.forEach((l) => { days.forEach((d) => { n[`${l.id}|${d}`] = st; }); });
+      return n;
     });
   const setRow = (lid, st) =>
     setMarks((m) => {
@@ -222,11 +229,10 @@ export default function TimesheetWeek() {
       const rows = [];
       laborers.forEach((l) => {
         days.forEach((d) => {
-          const st = marks[`${l.id}|${d}`] || 'full';
+          const st = marks[`${l.id}|${d}`] || DEFAULT_ST;
           const rate = Number(l.daily_rate || 0);
           rows.push({
-            day_id: dayIds[d], laborer_id: l.id, status: st,
-            rate_used: rate, amount: Math.round(rate * STATUS[st].factor * 100) / 100,
+            day_id: dayIds[d], laborer_id: l.id, status: st, rate_used: rate,
           });
         });
       });
@@ -265,17 +271,17 @@ export default function TimesheetWeek() {
   // ---------- الإجماليات ----------
   const dayTotal = (d) =>
     laborers.reduce((t, l) =>
-      t + Number(l.daily_rate || 0) * STATUS[marks[`${l.id}|${d}`] || 'full'].factor, 0);
+      t + Number(l.daily_rate || 0) * STATUS[marks[`${l.id}|${d}`] || DEFAULT_ST].factor, 0);
   const weekTotal = days.reduce((t, d) => t + dayTotal(d), 0);
   const presentOn = (d) =>
-    laborers.filter((l) => ['full','half','stopped'].includes(marks[`${l.id}|${d}`] || 'full')).length;
+    laborers.filter((l) => ['full','half','stopped'].includes(marks[`${l.id}|${d}`] || DEFAULT_ST)).length;
 
   return (
     <div dir="rtl">
       <div className="page-head">
         <div>
           <h1>التايم شيت الأسبوعي</h1>
-          <p>اختر أسبوعاً قائماً من القائمة، أو افتح أسبوعاً جديداً بتحديد المقاول والتاريخ</p>
+          <p>الأصل غياب — لا يُحتسب حاضراً إلا من تحضره أنت</p>
         </div>
       </div>
 
@@ -382,7 +388,9 @@ export default function TimesheetWeek() {
                           <div>{DAY_AR[dt.getDay()]}</div>
                           <div style={{ fontSize: 11, opacity: .7, direction: 'ltr' }}>{d.slice(5)}</div>
                           <button type="button" onClick={() => setColumn(d, 'full')}
-                                  style={miniBtn}>الكل حاضر</button>
+                                  style={miniBtn}>حضور الكل</button>
+                          <button type="button" onClick={() => setColumn(d, 'absent')}
+                                  style={miniBtn}>تصفير</button>
                         </th>
                       );
                     })}
@@ -392,20 +400,20 @@ export default function TimesheetWeek() {
                 <tbody>
                   {laborers.map((l) => {
                     const mine = days.reduce((t, d) =>
-                      t + STATUS[marks[`${l.id}|${d}`] || 'full'].factor, 0);
+                      t + STATUS[marks[`${l.id}|${d}`] || DEFAULT_ST].factor, 0);
                     return (
                       <tr key={l.id}>
                         <td style={{ padding: '6px 10px' }}>
                           <div>{l.full_name}</div>
-                          <button type="button" onClick={() => setRow(l.id, 'absent')} style={miniBtn}>
-                            غائب الأسبوع
+                          <button type="button" onClick={() => setRow(l.id, 'full')} style={miniBtn}>
+                            حاضر كل الأسبوع
                           </button>
                         </td>
                         <td style={{ padding: '6px', textAlign: 'center', fontSize: 12, opacity: .8 }}>
                           {l.trade || l.labor_class || '—'}
                         </td>
                         {days.map((d) => {
-                          const st = marks[`${l.id}|${d}`] || 'full';
+                          const st = marks[`${l.id}|${d}`] || DEFAULT_ST;
                           return (
                             <td key={d} style={{ padding: 3, textAlign: 'center' }}>
                               <button type="button" onClick={() => cycle(l.id, d)} title={STATUS[st].ar}
@@ -497,6 +505,9 @@ export default function TimesheetWeek() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '4px 0 30px' }}>
             <button className="btn" onClick={save} disabled={busy}>
               {busy ? 'جارٍ الحفظ…' : 'حفظ الأسبوع'}
+            </button>
+            <button className="btn ghost" onClick={() => setAll('absent')} disabled={busy}>
+              تصفير الأسبوع (الكل غياب)
             </button>
             <span style={{ fontSize: 12.5, color: '#777' }}>
               الحفظ يستبدل حضور هذا الأسبوع بالكامل بما تراه الآن
