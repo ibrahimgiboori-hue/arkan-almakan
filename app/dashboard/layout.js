@@ -23,6 +23,8 @@ const NAV = [
     { href: '/dashboard/labor', label: 'الأيدي العاملة' },
   ]},
   { group: 'المستندات', items: [
+    { href: '/dashboard/archive', label: 'الأرشيف' },
+    { href: '/dashboard/register', label: 'الصادر والوارد' },
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
     { href: '/dashboard/formbuilder', label: 'محرّر النماذج' },
   ]},

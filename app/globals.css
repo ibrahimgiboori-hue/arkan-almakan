@@ -232,13 +232,11 @@ tr.bud-total td{background:var(--rose-wash);font-weight:600;
 .exec-cell .ec-line{font-size:11.5px;color:var(--ink-soft);line-height:1.5}
 
 
-/* ---------- حقل رقمي يحفظ عند الخروج ---------- */
-.live-num{position:relative;display:inline-block;width:100%}
-.live-num input{width:100%}
-.live-num .lm{position:absolute;left:4px;top:50%;transform:translateY(-50%);
-  font-size:11px;font-style:normal;color:var(--ink-soft);pointer-events:none}
-.live-num .lm.ok{color:var(--ok)}
-.live-num .lm.bad{color:var(--bad)}
-.live-num.saving input{border-color:var(--maroon-light)}
-.live-num.saved  input{border-color:var(--ok)}
-.live-num.error  input{border-color:var(--bad)}
+/* ---------- فلاتر الأرشيف ---------- */
+.arc-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:12px 18px;border-bottom:1px solid var(--hair);background:#FBF7F7}
+.arc-filters select,.arc-filters input[type=date]{
+  border:1px solid var(--hair-strong);padding:5px 8px;
+  font-family:inherit;font-size:12.5px;background:#fff}
+.arc-filters label{display:flex;align-items:center;gap:5px;
+  font-size:12.5px;color:var(--ink-soft)}
