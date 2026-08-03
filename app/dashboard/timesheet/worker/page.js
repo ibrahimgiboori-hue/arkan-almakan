@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ============================================================
@@ -42,12 +42,10 @@ export default function TimesheetByWorker() {
   const [worker, setWorker] = useState(null);
 
   const [weekStarts, setWeekStarts] = useState([]);   // قائمة سبوت
-  const [weekRows, setWeekRows] = useState({});       // سبت → سطر الأسبوع
   const [dayIds, setDayIds] = useState({});           // تاريخ → معرّف اليوم
   const [marks, setMarks] = useState({});             // تاريخ → حالة
 
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
@@ -75,16 +73,14 @@ export default function TimesheetByWorker() {
   const openWorker = useCallback(async (w) => {
     setErr(''); setMsg(''); setLoading(true); setWorker(w);
     try {
-      const { data: wks } = await supabase.from('timesheet_weeks')
-        .select('id, week_no, start_date, end_date')
-        .eq('project_id', projectId).eq('contractor_id', contractorId)
-        .order('start_date');
+      // أيام المشروع المسجّلة
+      const { data: dys } = await supabase.from('timesheet_days')
+        .select('id, work_date').eq('project_id', projectId).order('work_date');
 
       const proj = projects.find((p) => p.id === projectId);
-      const firstDate = (wks && wks.length ? wks[0].start_date : null)
+      const firstDate = (dys && dys.length ? dys[0].work_date : null)
         || proj?.start_date || iso(new Date());
 
-      // كل سبوت من البداية إلى اليوم
       const starts = [];
       let cur = satOnOrBefore(firstDate);
       const stop = satOnOrBefore(iso(new Date()));
@@ -92,107 +88,98 @@ export default function TimesheetByWorker() {
       while (cur <= stop && guard++ < 260) { starts.push(cur); cur = addDays(cur, 7); }
       setWeekStarts(starts);
 
-      const byStart = {};
-      (wks || []).forEach((w2) => { byStart[satOnOrBefore(w2.start_date)] = w2; });
-      setWeekRows(byStart);
-
-      const ids = (wks || []).map((x) => x.id);
       const dmap = {}; const m = {};
-      if (ids.length) {
-        const { data: dys } = await supabase.from('timesheet_days')
-          .select('id, work_date').in('week_id', ids);
-        (dys || []).forEach((d) => { dmap[d.work_date] = d.id; });
+      (dys || []).forEach((d) => { dmap[d.work_date] = d.id; });
 
-        const dayIdList = Object.values(dmap);
-        if (dayIdList.length) {
-          const { data: att } = await supabase.from('attendance')
-            .select('day_id, status').eq('laborer_id', w.id).in('day_id', dayIdList);
-          const dateOf = Object.fromEntries(Object.entries(dmap).map(([k, v]) => [v, k]));
-          (att || []).forEach((a) => { m[dateOf[a.day_id]] = a.status; });
-        }
+      const dayIdList = Object.values(dmap);
+      if (dayIdList.length) {
+        const { data: att } = await supabase.from('attendance')
+          .select('day_id, status').eq('laborer_id', w.id).in('day_id', dayIdList);
+        const dateOf = Object.fromEntries(Object.entries(dmap).map(([k, v]) => [v, k]));
+        (att || []).forEach((a) => { m[dateOf[a.day_id]] = a.status; });
       }
       setDayIds(dmap); setMarks(m);
-      setMsg(`${w.full_name} — ${starts.length} أسبوعاً من ${starts[0]} حتى اليوم`);
+      setMsg(`${w.full_name} — ${starts.length} أسبوعاً منذ ${starts[0]}`);
     } catch (e) {
       setErr('تعذّر الفتح: ' + (e.message || e));
     }
     setLoading(false);
-  }, [projectId, contractorId, projects]);
+  }, [projectId, projects]);
 
   const cycle = (d) => {
     const cur = marks[d] || DEF;
-    setMarks((m) => ({ ...m, [d]: CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length] }));
+    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+    setMarks((m) => ({ ...m, [d]: next }));
+    marksRef.current = { ...marksRef.current, [d]: next };
+    queue([d]);
   };
-  const setWeek = (sd, st) =>
+  const setWeek = (sd, st) => {
+    const dates = Array.from({ length: 6 }, (_, i) => addDays(sd, i));
     setMarks((m) => {
-      const n = { ...m };
-      for (let i = 0; i < 6; i++) n[addDays(sd, i)] = st;
-      return n;
+      const n = { ...m }; dates.forEach((d) => { n[d] = st; }); return n;
     });
+    marksRef.current = { ...marksRef.current };
+    dates.forEach((d) => { marksRef.current[d] = st; });
+    queue(dates);
+  };
 
-  // ---------- الحفظ ----------
-  async function save() {
-    setBusy(true); setErr(''); setMsg('');
+  // ---------- الحفظ التلقائي ----------
+  const pending = useRef(new Set());
+  const timer = useRef(null);
+  const [sync, setSync] = useState('idle');   // idle | saving | saved | error
+
+  const flush = useCallback(async () => {
+    if (!worker) return;
+    const dates = Array.from(pending.current);
+    pending.current = new Set();
+    if (!dates.length) return;
+
+    setSync('saving');
     try {
       const rate = Number(worker.daily_rate || 0);
-      const rows = [];
       const dmap = { ...dayIds };
-      const wrows = { ...weekRows };
 
-      for (const sd of weekStarts) {
-        const dates = Array.from({ length: 6 }, (_, i) => addDays(sd, i));
-        const active = dates.filter((d) => (marks[d] || DEF) !== DEF);
-        const known  = dates.filter((d) => dmap[d]);
-        if (!active.length && !known.length) continue;   // أسبوع لم يُمس
-
-        // الأسبوع
-        let wk = wrows[sd];
-        if (!wk) {
-          const { count } = await supabase.from('timesheet_weeks')
-            .select('id', { count: 'exact', head: true })
-            .eq('project_id', projectId).eq('contractor_id', contractorId);
-          const ins = await supabase.from('timesheet_weeks').insert({
-            project_id: projectId, contractor_id: contractorId,
-            week_no: (count || 0) + 1, start_date: sd, end_date: addDays(sd, 5),
-          }).select('id, week_no, start_date, end_date').single();
-          if (ins.error) throw ins.error;
-          wk = ins.data; wrows[sd] = wk;
+      for (const d of dates) {
+        // اليوم يُنشأ عند الحاجة — بلا أسبوع
+        if (!dmap[d]) {
+          const { data: found } = await supabase.from('timesheet_days')
+            .select('id').eq('project_id', projectId).eq('work_date', d).maybeSingle();
+          if (found) dmap[d] = found.id;
+          else {
+            const ins = await supabase.from('timesheet_days')
+              .insert({ project_id: projectId, work_date: d })
+              .select('id').single();
+            if (ins.error) throw ins.error;
+            dmap[d] = ins.data.id;
+          }
         }
-
-        // الأيام
-        const missing = dates.filter((d) => !dmap[d]);
-        if (missing.length) {
-          const { data: made, error } = await supabase.from('timesheet_days')
-            .insert(missing.map((d) => ({ week_id: wk.id, work_date: d })))
-            .select('id, work_date');
-          if (error) throw error;
-          (made || []).forEach((d) => { dmap[d.work_date] = d.id; });
-        }
-
-        dates.forEach((d) => {
-          const st = marks[d] || DEF;
-          rows.push({
-            day_id: dmap[d], laborer_id: worker.id, status: st,
-            rate_used: rate, amount: Math.round(rate * STATUS[st].factor * 100) / 100,
-          });
-        });
-      }
-
-      const touched = rows.map((r) => r.day_id);
-      if (touched.length) {
+        const st = marksRef.current[d] || DEF;
         await supabase.from('attendance')
-          .delete().eq('laborer_id', worker.id).in('day_id', touched);
-        const { error } = await supabase.from('attendance').insert(rows);
+          .delete().eq('laborer_id', worker.id).eq('day_id', dmap[d]);
+        const { error } = await supabase.from('attendance').insert({
+          day_id: dmap[d], laborer_id: worker.id, status: st,
+          rate_used: rate, amount: Math.round(rate * STATUS[st].factor * 100) / 100,
+        });
         if (error) throw error;
       }
 
-      setDayIds(dmap); setWeekRows(wrows);
-      setMsg('حُفظ حضور ' + worker.full_name);
+      setDayIds(dmap);
+      setSync('saved');
+      setTimeout(() => setSync((x) => (x === 'saved' ? 'idle' : x)), 1800);
     } catch (e) {
       setErr('تعذّر الحفظ: ' + (e.message || e));
+      setSync('error');
     }
-    setBusy(false);
-  }
+  }, [worker, dayIds, projectId]);
+
+  const marksRef = useRef({});
+  useEffect(() => { marksRef.current = marks; }, [marks]);
+
+  const queue = (dates) => {
+    dates.forEach((d) => pending.current.add(d));
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => { flush(); }, 700);
+  };
 
   const shown = laborers.filter((l) =>
     !search || (l.full_name || '').includes(search) || (l.iqama_no || '').includes(search));
@@ -295,7 +282,7 @@ export default function TimesheetByWorker() {
                   {weekStarts.map((sd, idx) => (
                     <tr key={sd}>
                       <td style={{ padding: '6px 10px' }}>
-                        <div>الأسبوع {weekRows[sd]?.week_no ?? idx + 1}</div>
+                        <div>الأسبوع {idx + 1}</div>
                         <div style={{ fontSize: 11, opacity: .65, direction: 'ltr' }}>
                           {sd} → {addDays(sd, 5)}
                         </div>
@@ -338,11 +325,15 @@ export default function TimesheetByWorker() {
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '4px 0 30px' }}>
-            <button className="btn" onClick={save} disabled={busy}>
-              {busy ? 'جارٍ الحفظ…' : 'حفظ حضور هذا العامل'}
-            </button>
+            <span style={{
+              fontSize: 13, padding: '6px 14px', borderRadius: 6,
+              background: sync === 'error' ? '#FBECEC' : sync === 'saving' ? '#FDF3DF' : '#E8F3EA',
+              color: sync === 'error' ? '#A32B24' : sync === 'saving' ? '#8A6100' : '#2E6B3A',
+            }}>
+              {sync === 'saving' ? 'يُحفظ…' : sync === 'error' ? 'لم يُحفظ' : 'محفوظ تلقائياً'}
+            </span>
             <span style={{ fontSize: 12.5, color: '#777' }}>
-              الحفظ يمسّ هذا العامل وحده ولا يغيّر حضور زملائه
+              كل ضغطة تُحفظ وحدها — لا حاجة لزر حفظ
             </span>
           </div>
         </>
