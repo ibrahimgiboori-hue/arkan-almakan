@@ -71,6 +71,7 @@ export default function TimesheetByWorker() {
 
   // ---------- فتح ملف العامل ----------
   const openWorker = useCallback(async (w) => {
+    if (!projectId) { setErr('اختر المشروع أولاً — الحضور يُسجَّل في مشروع محدد'); return; }
     setErr(''); setMsg(''); setLoading(true); setWorker(w);
     try {
       // أيام المشروع المسجّلة
@@ -130,6 +131,7 @@ export default function TimesheetByWorker() {
 
   const flush = useCallback(async () => {
     if (!worker) return;
+    if (!projectId) { setErr('اختر المشروع أولاً'); setSync('error'); return; }
     const dates = Array.from(pending.current);
     pending.current = new Set();
     if (!dates.length) return;
@@ -157,8 +159,7 @@ export default function TimesheetByWorker() {
         await supabase.from('attendance')
           .delete().eq('laborer_id', worker.id).eq('day_id', dmap[d]);
         const { error } = await supabase.from('attendance').insert({
-          day_id: dmap[d], laborer_id: worker.id, status: st,
-          rate_used: rate, amount: Math.round(rate * STATUS[st].factor * 100) / 100,
+          day_id: dmap[d], laborer_id: worker.id, status: st, rate_used: rate,
         });
         if (error) throw error;
       }
@@ -226,7 +227,13 @@ export default function TimesheetByWorker() {
           </div>
         </div>
 
-        {contractorId && (
+        {contractorId && !projectId && (
+          <div style={{ padding: '0 16px 16px', fontSize: 13, color: '#8A6100' }}>
+            اختر المشروع أولاً لتظهر أسماء العمال.
+          </div>
+        )}
+
+        {contractorId && projectId && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '0 16px 16px' }}>
             {shown.map((l) => (
               <button key={l.id} type="button" onClick={() => openWorker(l)}
