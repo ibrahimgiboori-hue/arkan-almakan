@@ -148,8 +148,7 @@ export default function DayEntry() {
         const st = marks[w.id] || DEF;
         const rate = Number(w.daily_rate || 0);
         rows.push({
-          day_id: id, laborer_id: w.id, status: st,
-          rate_used: rate, amount: Math.round(rate * STATUS[st].factor * 100) / 100,
+          day_id: id, laborer_id: w.id, status: st, rate_used: rate,
         });
       }));
       await supabase.from('attendance').delete().eq('day_id', id);
