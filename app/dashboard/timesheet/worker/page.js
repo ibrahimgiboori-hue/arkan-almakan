@@ -38,6 +38,8 @@ export default function TimesheetByWorker() {
 
   const [projectId, setProjectId] = useState('');
   const [contractorId, setContractorId] = useState('');
+  const [assigns, setAssigns] = useState([]);   // إسنادات البنود الجاهزة للتنفيذ
+  const [itemId, setItemId] = useState('');
   const [search, setSearch] = useState('');
   const [worker, setWorker] = useState(null);
 
@@ -60,6 +62,15 @@ export default function TimesheetByWorker() {
   }, []);
 
   useEffect(() => {
+    setItemId(''); setContractorId(''); setWorker(null); setMarks({});
+    if (!projectId) { setAssigns([]); return; }
+    supabase.from('v_item_assignments')
+      .select('project_item_id, item_name, contractor_id, contractor_name, mode_ar, is_active')
+      .eq('project_id', projectId)
+      .then(({ data }) => setAssigns((data || []).filter((a) => a.is_active !== false)));
+  }, [projectId]);
+
+  useEffect(() => {
     setWorker(null); setMarks({}); setWeekStarts([]);
     if (!contractorId) { setLaborers([]); return; }
     supabase.from('laborers')
@@ -68,6 +79,24 @@ export default function TimesheetByWorker() {
       .order('full_name')
       .then(({ data }) => setLaborers(data || []));
   }, [contractorId]);
+
+  // البنود التي عليها قرار تنفيذ فقط
+  const itemsReady = Object.values(
+    assigns.reduce((acc, a) => {
+      acc[a.project_item_id] = acc[a.project_item_id] ||
+        { id: a.project_item_id, name: a.item_name };
+      return acc;
+    }, {})
+  );
+  // مقاولو البند المختار
+  const itemContractors = Object.values(
+    assigns.filter((a) => !itemId || a.project_item_id === itemId)
+      .reduce((acc, a) => {
+        if (a.contractor_id) acc[a.contractor_id] =
+          { id: a.contractor_id, name: a.contractor_name, mode: a.mode_ar };
+        return acc;
+      }, {})
+  );
 
   // ---------- فتح ملف العامل ----------
   const openWorker = useCallback(async (w) => {
@@ -155,6 +184,14 @@ export default function TimesheetByWorker() {
             dmap[d] = ins.data.id;
           }
         }
+        // ربط اليوم بالبند المختار (بلا تكرار)
+        if (itemId) {
+          const { data: has } = await supabase.from('day_items')
+            .select('id').eq('day_id', dmap[d]).eq('project_item_id', itemId).maybeSingle();
+          if (!has) await supabase.from('day_items')
+            .insert({ day_id: dmap[d], project_item_id: itemId });
+        }
+
         const st = marksRef.current[d] || DEF;
         await supabase.from('attendance')
           .delete().eq('laborer_id', worker.id).eq('day_id', dmap[d]);
@@ -171,7 +208,7 @@ export default function TimesheetByWorker() {
       setErr('تعذّر الحفظ: ' + (e.message || e));
       setSync('error');
     }
-  }, [worker, dayIds, projectId]);
+  }, [worker, dayIds, projectId, itemId]);
 
   const marksRef = useRef({});
   useEffect(() => { marksRef.current = marks; }, [marks]);
@@ -211,12 +248,30 @@ export default function TimesheetByWorker() {
               ))}
             </select>
           </div>
+          <div className="field" style={{ minWidth: 230 }}>
+            <label>البند الجاهز للتنفيذ</label>
+            <select value={itemId} disabled={!projectId}
+                    onChange={(e) => { setItemId(e.target.value); setContractorId(''); }}>
+              <option value="">— اختر —</option>
+              {itemsReady.map((it) => (
+                <option key={it.id} value={it.id}>{it.name}</option>
+              ))}
+            </select>
+            {projectId && itemsReady.length === 0 && (
+              <span className="hint" style={{ color: '#8A6100' }}>
+                لا بند عليه قرار تنفيذ في هذا المشروع
+              </span>
+            )}
+          </div>
           <div className="field" style={{ minWidth: 200 }}>
             <label>المقاول</label>
-            <select value={contractorId} onChange={(e) => setContractorId(e.target.value)}>
+            <select value={contractorId} disabled={!itemId}
+                    onChange={(e) => setContractorId(e.target.value)}>
               <option value="">— اختر —</option>
-              {contractors.map((c) => (
-                <option key={c.id} value={c.id}>{c.name_ar}</option>
+              {itemContractors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.mode ? ` — ${c.mode}` : ''}
+                </option>
               ))}
             </select>
           </div>
@@ -226,6 +281,12 @@ export default function TimesheetByWorker() {
                    placeholder="اكتب أول حروف الاسم…" />
           </div>
         </div>
+
+        {projectId && !itemId && (
+          <div style={{ padding: '0 16px 16px', fontSize: 13, color: '#8A6100' }}>
+            اختر البند ثم المقاول لتظهر أسماء العمال.
+          </div>
+        )}
 
         {contractorId && !projectId && (
           <div style={{ padding: '0 16px 16px', fontSize: 13, color: '#8A6100' }}>
