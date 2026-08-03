@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 
 const MAROON = '#8B3332';
 const DAY_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const money = (n) => Number(n || 0).toLocaleString('en-US');
 
 export default function TimesheetHome() {
