@@ -28,7 +28,7 @@ const KINDS = {
   output:     'الإنتاج',
 };
 
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
 const satOf = (s) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); return iso(d); };
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0 });
@@ -36,6 +36,8 @@ const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDig
 export default function WeeklyReport() {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState('');
+  const [contractors, setContractors] = useState([]);
+  const [contractorId, setContractorId] = useState('');
   const [from, setFrom] = useState(satOf(iso(new Date())));
   const [to, setTo] = useState(addDays(satOf(iso(new Date())), 5));
   const [kind, setKind] = useState('attendance');
@@ -49,6 +51,8 @@ export default function WeeklyReport() {
   useEffect(() => {
     supabase.from('projects').select('id, project_no, name_ar').order('project_no')
       .then(({ data }) => setProjects(data || []));
+    supabase.from('contractors').select('id, name_ar').eq('is_active', true).order('name_ar')
+      .then(({ data }) => setContractors(data || []));
   }, []);
 
   // أسابيع المدى : تبدأ كلها من السبت
@@ -81,6 +85,7 @@ export default function WeeklyReport() {
             .select('day_id, status, amount, laborer_id, laborers(full_name, trade, labor_class, contractor_id)')
             .in('day_id', ids);
           (att || []).forEach((a) => {
+            if (contractorId && a.laborers?.contractor_id !== contractorId) return;
             marks[`${a.laborer_id}|${dateOf[a.day_id]}`] = a.status;
             if (!wmap[a.laborer_id]) {
               wmap[a.laborer_id] = {
@@ -98,16 +103,19 @@ export default function WeeklyReport() {
           .select('*').eq('project_id', projectId).eq('kind', kind)
           .gte('event_date', satOf(from)).lte('event_date', to)
           .order('event_date');
-        setEvents(data || []);
+        const cname = contractors.find((c) => c.id === contractorId)?.name_ar;
+        setEvents(cname ? (data || []).filter((r) => r.party === cname) : (data || []));
         setGrid({ workers: [], marks: {} });
       }
     } catch (e) {
       setErr('تعذّر التحميل: ' + (e.message || e));
     }
     setLoading(false);
-  }, [projectId, from, to, kind]);
+  }, [projectId, from, to, kind, contractorId, contractors]);
 
   const projName = projects.find((p) => p.id === projectId)?.name_ar || '';
+  const ctrName = contractors.find((c) => c.id === contractorId)?.name_ar || '';
+  const head = ctrName ? `${projName} — ${ctrName}` : projName;
   const pages = (arr) => {
     const out = [];
     for (let i = 0; i < arr.length; i += PER_PAGE) out.push(arr.slice(i, i + PER_PAGE));
@@ -137,6 +145,15 @@ export default function WeeklyReport() {
               <option value="">— اختر —</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.project_no} — {p.name_ar}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 190 }}>
+            <label>المقاول</label>
+            <select value={contractorId} onChange={(e) => setContractorId(e.target.value)}>
+              <option value="">كل المقاولين</option>
+              {contractors.map((c) => (
+                <option key={c.id} value={c.id}>{c.name_ar}</option>
               ))}
             </select>
           </div>
@@ -174,7 +191,7 @@ export default function WeeklyReport() {
         pages(grid.workers).map((chunk, pi) => (
           <div key={w + pi} className="wk section" style={{ pageBreakAfter: 'always' }}>
             <header>
-              <h2>{projName} — أسبوع {w} إلى {addDays(w, 5)}</h2>
+              <h2>{head} — أسبوع {w} إلى {addDays(w, 5)}</h2>
               <span style={{ fontSize: 12.5, color: '#777' }}>
                 {pages(grid.workers).length > 1 ? `ورقة ${pi + 1} من ${pages(grid.workers).length}` : ''}
               </span>
@@ -242,7 +259,7 @@ export default function WeeklyReport() {
         return (
           <div key={w} className="wk section" style={{ pageBreakAfter: 'always' }}>
             <header>
-              <h2>{projName} — {KINDS[kind]} — أسبوع {w} إلى {addDays(w, 5)}</h2>
+              <h2>{head} — {KINDS[kind]} — أسبوع {w} إلى {addDays(w, 5)}</h2>
             </header>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
