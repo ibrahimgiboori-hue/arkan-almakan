@@ -20,7 +20,7 @@ const CYCLE = ['absent', 'full', 'half', 'stopped', 'leave'];
 const DEF = 'absent';
 
 const DAY_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const shift = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
 const money = (n) => Number(n || 0).toLocaleString('en-US');
 
