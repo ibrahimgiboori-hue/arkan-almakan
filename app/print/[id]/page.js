@@ -7,6 +7,7 @@ import { EN_TITLES } from '@/lib/doc-titles';
 import { tafqit } from '@/lib/tafqit';
 import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
+import PartiesPrint from '@/components/PartiesPrint';
 import './print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
@@ -166,10 +167,15 @@ export default function PrintDoc() {
               const fields = (s.fields || []).filter((f) =>
                 p[f.key] !== undefined && p[f.key] !== '' && p[f.key] !== null);
               if (!fields.length) return null;
-              if (s.style === 'strict' || s.kind === 'totals') {
+
+              // الجدول المالي: صندوق حسابات، أو نمط مالي صريح
+              const isMoneyBlock = s.kind === 'totals' || s.money === true;
+
+              if (isMoneyBlock) {
                 return (
                   <table className="amounts" key={s.id}>
-                    <thead><tr><th>{s.title || 'الحساب'}</th><th className="num">القيمة <Riyal /></th></tr></thead>
+                    <thead><tr><th>{s.title || 'الحساب'}</th>
+                      <th className="num">القيمة <Riyal /></th></tr></thead>
                     <tbody>
                       {fields.map((f) => (
                         <tr key={f.key}><td>{f.label}</td>
@@ -177,6 +183,24 @@ export default function PrintDoc() {
                       ))}
                     </tbody>
                   </table>
+                );
+              }
+
+              // بطاقة نصية: سطر عنوان كامل ثم عمودا التسمية والقيمة
+              if (s.style === 'strict') {
+                const heading = p[s.title_key] || s.title;
+                return (
+                  <div className={`plain-card ${s.align === 'left' ? 'to-left' : ''}`} key={s.id}>
+                    {heading && <div className="pc-head">{heading}</div>}
+                    <table className="pc-table"><tbody>
+                      {fields.map((f) => (
+                        <tr key={f.key}>
+                          <td className="pc-k">{f.label}</td>
+                          <td className="pc-v">{fmt(f, p[f.key])}</td>
+                        </tr>
+                      ))}
+                    </tbody></table>
+                  </div>
                 );
               }
               return (
@@ -263,6 +287,10 @@ export default function PrintDoc() {
               );
             }
 
+            if (s.kind === 'parties') {
+              return <PartiesPrint parties={doc.parties} key={s.id} />;
+            }
+
             if (s.kind === 'stampbox') {
               if (!stampUrl && !signUrl) return null;
               return (
@@ -313,6 +341,11 @@ export default function PrintDoc() {
               <div className="dc-head">{legacy.text.label}</div>
               <div className="dc-body">{p[legacy.text.k]}</div>
             </div>
+          )}
+
+          {custom && doc.parties && doc.parties.layout && doc.parties.layout !== 'none'
+            && !(tpl.layout.sections || []).some((x)=>x.kind === 'parties') && (
+            <PartiesPrint parties={doc.parties} />
           )}
 
           {custom && tpl.closing_text && (

@@ -164,23 +164,9 @@ td.mono{unicode-bidi:isolate}
 
 @media print{
   @page{size:A4;margin:0}
-
-  html,body{margin:0;padding:0;background:#fff}
   .toolbar{display:none}
-  .sheet-wrap{padding:0;background:#fff;display:block}
-
-  /* ------------------------------------------------------------
-     الورقة : 296 مم لا 297
-     السبب : تحويل المليمتر إلى بكسل يترك كسراً زائداً، فيفيض
-     المحتوى بجزء من المليمتر ويولّد صفحة ثانية فارغة تحمل
-     الترويسة وحدها. المليمتر الناقص يمنع ذلك ولا يُرى بالعين.
-     ------------------------------------------------------------ */
-  .sheet{
-    width:210mm;min-height:296mm;box-shadow:none;margin:0 auto;
-    break-after:avoid;page-break-after:avoid;
-  }
-  .sheet:last-child{page-break-after:auto}
-
+  .sheet-wrap{padding:0;background:#fff}
+  .sheet{width:auto;min-height:297mm;box-shadow:none}
   .card-doc,.amounts thead,.sigtable,.declare,.tafqit,.footer-row{page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
@@ -244,23 +230,47 @@ td.mono{unicode-bidi:isolate}
 
 
 /* ============================================================
-   ضغط الخطاب الطويل عند الطباعة
-   الخطاب الرسمي أطول من غيره، وأول ما يفيض هو صف الختم
-   والحساب فيقفز وحده إلى ورقة ثانية. هذه القواعد تكسب
-   نحو 15 مم من الفراغ دون أن يتغيّر شكل الخطاب.
+   بطاقة نصية بحد حاد — بيان وقيمة بلا رأس مالي
    ============================================================ */
-@media print{
-  .letter-body{line-height:1.92;margin-bottom:4mm}
-  .ltr-head{margin-bottom:5mm}
-  .ltr-meta{margin-bottom:4mm}
-  .ltr-subject{margin-bottom:4.5mm}
-  .ltr-to{margin-bottom:3mm}
-  .ltr-salut{margin-bottom:3mm}
-
-  .stampbox-row{margin:3mm 0}
-  .stamp-box{min-height:26mm}
-  .footer-row{margin-top:2mm}
-
-  /* الفراغ المرن لا يدفع المحتوى إلى ورقة جديدة */
-  .fill{min-height:0}
+.plain-card{
+  border:.25mm solid #CDBABA;background:transparent;
+  margin-bottom:var(--g-row);width:82mm;
 }
+.plain-card.to-left{margin-right:auto;margin-left:0}
+
+/* سطر العنوان: يمتد بعرض البطاقة كاملاً */
+.pc-head{
+  background:var(--maroon);color:#fff;font-size:9pt;font-weight:600;
+  padding:1.6mm 2.6mm;text-align:right;
+}
+
+.pc-table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+.pc-table td{padding:1.5mm 2.6mm;border-top:.25mm solid #CDBABA;vertical-align:top}
+.pc-table tr:first-child td{border-top:none}
+.pc-k{color:var(--ink-soft-print);width:34%;font-size:9pt;
+  border-left:.25mm solid #CDBABA}
+.pc-v{color:var(--ink-print);font-weight:600;word-wrap:break-word}
+
+
+/* ============================================================
+   بطاقات الأطراف — مفردة ومزدوجة ورباعية
+   ============================================================ */
+.pt-wrap{display:grid;gap:var(--g-gap);margin-bottom:var(--g-row);
+  page-break-inside:avoid}
+.pt-wrap.single{grid-template-columns:82mm;justify-content:flex-start}
+.pt-wrap.double{grid-template-columns:1fr 1fr}
+
+.pt-card{border:.25mm solid #CDBABA;background:transparent;
+  display:flex;flex-direction:column}
+.pt-head{background:var(--maroon);color:#fff;font-size:9pt;font-weight:600;
+  padding:1.6mm 2.6mm;text-align:right}
+.pt-table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+.pt-table td{padding:1.5mm 2.6mm;border-top:.25mm solid #CDBABA;vertical-align:top;
+  word-wrap:break-word;overflow-wrap:break-word}
+.pt-table tr:first-child td{border-top:none}
+.pt-k{color:var(--ink-soft-print);font-size:9pt;border-left:.25mm solid #CDBABA}
+.pt-v{color:var(--ink-print);font-weight:600}
+
+.pt-middle{font-size:9pt;line-height:1.9;color:var(--ink-print);
+  text-align:justify;margin:0 0 var(--g-row);padding:2mm 2.6mm;
+  background:var(--info-bg);border-radius:var(--info-radius)}

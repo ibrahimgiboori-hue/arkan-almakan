@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { byCode } from '@/lib/doc-templates';
 import { applyLogic, uid } from '@/lib/form-engine';
 import { money } from '@/lib/format';
+import PartiesEditor from '@/components/PartiesEditor';
 
 export default function DocumentForm({ code, docId }) {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function DocumentForm({ code, docId }) {
   const [doc, setDoc] = useState(null);
   const [v, setV] = useState({});
   const [rows, setRows] = useState([]);
+  const [parties, setParties] = useState(null);
   const [lang, setLang] = useState('ar');
   const [emps, setEmps] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,7 @@ export default function DocumentForm({ code, docId }) {
       setRows(pl._rows || []);
       const clean = { ...pl }; delete clean._rows;
       setV(clean);
+      setParties(d.parties && Object.keys(d.parties).length ? d.parties : null);
     }
 
     const { data: t } = await supabase.from('document_templates')
@@ -46,6 +49,12 @@ export default function DocumentForm({ code, docId }) {
 
     if (t?.is_custom && t?.layout?.sections?.length) {
       setTpl(t);
+      if (!docId && t.parties_layout && t.parties_layout !== 'none') {
+        const { data: init } = await supabase.rpc('init_parties', {
+          p_layout: t.parties_layout, p_with_arkan: t.parties_layout !== 'single',
+        });
+        if (init) setParties(init);
+      }
       if (!docId) {
         const init = {};
         (t.layout.sections || []).forEach((s) => {
@@ -122,7 +131,8 @@ export default function DocumentForm({ code, docId }) {
 
     if (doc) {
       const { error } = await supabase.from('documents')
-        .update({ payload, language: lang, subject, employee_id }).eq('id', doc.id);
+        .update({ payload, language: lang, subject, employee_id,
+                  parties: parties || {} }).eq('id', doc.id);
       if (error) { setErr('تعذّر الحفظ: ' + error.message); return null; }
       setDirty(false);
       if (!silent) flash('حُفظت المسودة');
@@ -133,6 +143,7 @@ export default function DocumentForm({ code, docId }) {
       doc_number: 'DRAFT-' + uid().toUpperCase(),
       template_code: tpl ? tpl.code : legacy.code,
       language: lang, subject, employee_id, payload, status: 'draft',
+      parties: parties || {},
     }).select('*').single();
 
     if (error) {
@@ -305,7 +316,8 @@ export default function DocumentForm({ code, docId }) {
         <div className="section" key={s.id}>
           <header>
             <h2>{s.title || (s.kind === 'letterhead' ? 'ترويسة الخطاب'
-                  : s.kind === 'stampbox' ? 'الختم والتوقيع' : '')}</h2>
+                  : s.kind === 'stampbox' ? 'الختم والتوقيع'
+                  : s.kind === 'parties' ? 'بطاقات الأطراف' : '')}</h2>
           </header>
 
           {(s.kind === 'cards' || s.kind === 'totals') && (
@@ -390,6 +402,14 @@ export default function DocumentForm({ code, docId }) {
             </div>
           )}
 
+          {s.kind === 'parties' && (
+            <div style={{padding:18}}>
+              <PartiesEditor value={parties}
+                             disabled={isIssued}
+                             onChange={(v)=>{ setParties(v); setDirty(true); }} />
+            </div>
+          )}
+
           {(s.kind === 'letterhead' || s.kind === 'stampbox') && (
             <div style={{padding:18,fontSize:13.5,color:'var(--ink-soft)'}}>
               {s.kind === 'letterhead'
@@ -405,6 +425,18 @@ export default function DocumentForm({ code, docId }) {
           )}
         </div>
       ))}
+
+      {/* الأطراف للنماذج التي لها شكل بطاقات ولا تحوي القسم */}
+      {tpl && tpl.parties_layout && tpl.parties_layout !== 'none'
+        && !(tpl.layout.sections || []).some((x)=>x.kind === 'parties') && (
+        <div className="section">
+          <header><h2>بطاقات الأطراف</h2></header>
+          <div style={{padding:18}}>
+            <PartiesEditor value={parties} disabled={isIssued}
+                           onChange={(v)=>{ setParties(v); setDirty(true); }} />
+          </div>
+        </div>
+      )}
 
       {/* النماذج المدمجة */}
       {legacy && (
