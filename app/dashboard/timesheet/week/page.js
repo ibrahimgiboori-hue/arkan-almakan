@@ -1,10 +1,13 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ============================================================
 //  شاشة الأسبوع : أفراد × أيام
-//  الافتراض حضور كامل — لا تلمس إلا الاستثناء
+//  الأصل غياب — لا يُحتسب حاضراً إلا من تحضره أنت
+//  اليوم هو المحور : يوم واحد للمشروع في كل تاريخ
+//  الأسبوع محسوب من التاريخ ولا يُنشأ ولا يُخزَّن
+//  الحفظ تلقائي مع كل تغيير — لا زر حفظ
 //  المسار : /dashboard/timesheet/week
 // ============================================================
 
@@ -18,12 +21,12 @@ const STATUS = {
   leave:   { ar: 'إجازة', short: 'إ', factor: 0,   bg: '#F2EEF6', fg: '#5B4380' },
 };
 const CYCLE = ['absent', 'full', 'half', 'stopped', 'leave'];
-const DEFAULT_ST = 'absent';   // الأصل غياب — لا يُحتسب حاضراً إلا بتحضير يدوي
+const DEFAULT_ST = 'absent';
 
-// السبت → الخميس
 const DAY_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+// أسبوع أركان : السبت → الخميس (ستة أيام)
 function weekDays(startISO) {
   if (!startISO) return [];
   const out = [];
@@ -35,10 +38,17 @@ function weekDays(startISO) {
   return out;
 }
 
-// أقرب سبت سابق أو اليوم نفسه
-function lastSaturday() {
-  const d = new Date();
+// سبت الأسبوع الذي يقع فيه أي تاريخ — نفس منطق arkan_week_start في القاعدة
+function weekStartOf(dateISO) {
+  const d = new Date(dateISO + 'T00:00:00');
   d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+  return iso(d);
+}
+const lastSaturday = () => weekStartOf(iso(new Date()));
+
+function shiftWeek(startISO, weeks) {
+  const d = new Date(startISO + 'T00:00:00');
+  d.setDate(d.getDate() + weeks * 7);
   return iso(d);
 }
 
@@ -52,21 +62,26 @@ export default function TimesheetWeek() {
   const [contractorId, setContractorId] = useState('');
   const [start, setStart] = useState(lastSaturday());
 
-  const [weeks, setWeeks] = useState([]);
-  const [weekId, setWeekId] = useState(null);
-  const [dayIds, setDayIds] = useState({});     // تاريخ → معرّف اليوم
-  const [marks, setMarks] = useState({});       // "laborerId|تاريخ" → حالة
-  const [output, setOutput] = useState({});     // تاريخ → إنتاج
-  const [itemOf, setItemOf] = useState({});     // تاريخ → بند
-  const [dayNote, setDayNote] = useState({});
+  const [weekRows, setWeekRows] = useState([]);   // أسابيع المشروع المستنتجة من الأيام
+  const [opened, setOpened] = useState(false);
+  const [dayIds, setDayIds] = useState({});       // تاريخ → معرّف اليوم
+  const [marks, setMarks] = useState({});         // "laborerId|تاريخ" → حالة
+  const [output, setOutput] = useState({});       // تاريخ → إنتاج المقاول
+  const [itemOf, setItemOf] = useState({});       // تاريخ → بند
+  const [dayNote, setDayNote] = useState({});     // تاريخ → ملاحظة اليوم (مشتركة)
 
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | error
   const [err, setErr] = useState('');
 
   const days = weekDays(start);
 
+  // مراجع تتجاوز مشكلة الإغلاق القديم أثناء الحفظ التلقائي
+  const dayIdRef  = useRef({});
+  const chainRef  = useRef(Promise.resolve());
+  const timersRef = useRef({});
+
+  // ---------- التحميل الأولي ----------
   useEffect(() => {
     (async () => {
       const [p, c] = await Promise.all([
@@ -86,187 +101,218 @@ export default function TimesheetWeek() {
       .then(({ data }) => setItems(data || []));
   }, [projectId]);
 
-  // أسابيع المشروع مع مقاوليها
+  const nameOf = (cid) => contractors.find((c) => c.id === cid)?.name_ar || 'مقاول';
+
+  // ---------- أسابيع المشروع : مستنتجة من الأيام لا من جدول ----------
   const loadWeeks = useCallback(async (pid) => {
-    if (!pid) { setWeeks([]); return; }
-    const { data } = await supabase.from('timesheet_weeks')
-      .select('id, week_no, start_date, end_date, contractor_id, status')
-      .eq('project_id', pid)
-      .order('start_date', { ascending: false });
-    setWeeks(data || []);
+    if (!pid) { setWeekRows([]); return; }
+    const [d, t] = await Promise.all([
+      supabase.from('timesheet_days').select('work_date').eq('project_id', pid),
+      supabase.from('v_week_totals')
+        .select('week_start, contractor_id, days_worked, laborers_count, works_amount')
+        .eq('project_id', pid),
+    ]);
+    const starts = new Set((d.data || []).map((x) => weekStartOf(x.work_date)));
+    (t.data || []).forEach((x) => x.week_start && starts.add(x.week_start));
+
+    const rows = [...starts].sort().reverse().map((ws) => ({
+      week_start: ws,
+      week_end: shiftWeek(ws, 0) && iso(new Date(new Date(ws + 'T00:00:00').setDate(new Date(ws + 'T00:00:00').getDate() + 5))),
+      parts: (t.data || []).filter((x) => x.week_start === ws && x.contractor_id),
+    }));
+    setWeekRows(rows);
   }, []);
 
   useEffect(() => { loadWeeks(projectId); }, [projectId, loadWeeks]);
-
-  const nameOf = (cid) =>
-    contractors.find((c) => c.id === cid)?.name_ar || 'مقاول';
-
-  // تجميع الأسابيع حسب تاريخ البداية
-  const grouped = weeks.reduce((acc, w) => {
-    (acc[w.start_date] = acc[w.start_date] || []).push(w);
-    return acc;
-  }, {});
 
   // ---------- فتح الأسبوع ----------
   const openWeek = useCallback(async (cidArg, stArg) => {
     const cid = cidArg || contractorId;
     const st  = stArg  || start;
+    if (!projectId || !cid) return;
     const dys = weekDays(st);
+
     if (cidArg) setContractorId(cidArg);
     if (stArg)  setStart(stArg);
-    setErr(''); setMsg(''); setLoading(true);
-    setWeekId(null); setDayIds({}); setMarks({}); setOutput({}); setItemOf({}); setDayNote({});
+
+    setErr(''); setLoading(true); setOpened(false);
+    setDayIds({}); setMarks({}); setOutput({}); setItemOf({}); setDayNote({});
+    dayIdRef.current = {};
 
     try {
-      const end = dys[dys.length - 1];
-
       // عمالة المقاول
       const { data: labs, error: le } = await supabase
         .from('laborers')
-        .select('id, full_name, labor_class, trade, daily_rate, group_code, is_active')
-        .eq('contractor_id', cid)
-        .eq('is_active', true)
+        .select('id, full_name, labor_class, trade, daily_rate, group_code')
+        .eq('contractor_id', cid).eq('is_active', true)
         .order('labor_class').order('full_name');
       if (le) throw le;
       setLaborers(labs || []);
 
-      // أسبوع قائم أم جديد
-      let { data: wk } = await supabase.from('timesheet_weeks')
-        .select('id, start_date, end_date')
-        .eq('project_id', projectId).eq('contractor_id', cid)
-        .eq('start_date', st).maybeSingle();
+      // أيام هذا الأسبوع الموجودة فعلاً — لا نُنشئ شيئاً قبل أول إدخال
+      const { data: existing, error: de } = await supabase.from('timesheet_days')
+        .select('id, work_date, notes')
+        .eq('project_id', projectId)
+        .gte('work_date', dys[0]).lte('work_date', dys[dys.length - 1]);
+      if (de) throw de;
 
-      if (!wk) {
-        const { count } = await supabase.from('timesheet_weeks')
-          .select('id', { count: 'exact', head: true })
-          .eq('project_id', projectId).eq('contractor_id', cid);
-        const ins = await supabase.from('timesheet_weeks').insert({
-          project_id: projectId, contractor_id: cid,
-          week_no: (count || 0) + 1, start_date: st, end_date: end,
-        }).select('id').single();
-        if (ins.error) throw ins.error;
-        wk = ins.data;
-      }
-      setWeekId(wk.id);
-
-      // أيام الأسبوع
-      const { data: existing } = await supabase.from('timesheet_days')
-        .select('id, work_date, notes').eq('week_id', wk.id);
-      const map = {}; const notes = {};
+      const map = {}, notes = {};
       (existing || []).forEach((d) => { map[d.work_date] = d.id; notes[d.work_date] = d.notes || ''; });
-
-      const missing = dys.filter((d) => !map[d]);
-      if (missing.length) {
-        const { data: made, error: de } = await supabase.from('timesheet_days')
-          .insert(missing.map((d) => ({ week_id: wk.id, work_date: d })))
-          .select('id, work_date');
-        if (de) throw de;
-        (made || []).forEach((d) => { map[d.work_date] = d.id; });
-      }
+      dayIdRef.current = map;
       setDayIds(map); setDayNote(notes);
 
       const ids = Object.values(map);
-
-      // الحضور المسجّل
-      const { data: att } = await supabase.from('attendance')
-        .select('day_id, laborer_id, status').in('day_id', ids);
-      const m = {};
       const dateOf = Object.fromEntries(Object.entries(map).map(([k, v]) => [v, k]));
-      (att || []).forEach((a) => { m[`${a.laborer_id}|${dateOf[a.day_id]}`] = a.status; });
+      const labIds = (labs || []).map((l) => l.id);
 
-      // الافتراض : حاضر كامل لمن لم يُسجَّل
+      // الحضور — لعمال هذا المقاول وحدهم
+      const m = {};
+      if (ids.length && labIds.length) {
+        const { data: att } = await supabase.from('attendance')
+          .select('day_id, laborer_id, status')
+          .in('day_id', ids).in('laborer_id', labIds);
+        (att || []).forEach((a) => { m[`${a.laborer_id}|${dateOf[a.day_id]}`] = a.status; });
+      }
       (labs || []).forEach((l) => {
         dys.forEach((d) => { if (!m[`${l.id}|${d}`]) m[`${l.id}|${d}`] = DEFAULT_ST; });
       });
       setMarks(m);
 
-      // البند والإنتاج
-      const { data: di } = await supabase.from('day_items')
-        .select('day_id, project_item_id, group_output').in('day_id', ids);
+      // البند والإنتاج — لهذا المقاول وحده
       const o = {}, it = {};
-      (di || []).forEach((x) => {
-        const d = dateOf[x.day_id];
-        o[d] = x.group_output ?? ''; it[d] = x.project_item_id || '';
-      });
+      if (ids.length) {
+        const { data: di } = await supabase.from('day_items')
+          .select('day_id, project_item_id, group_output')
+          .in('day_id', ids).eq('contractor_id', cid);
+        (di || []).forEach((x) => {
+          const d = dateOf[x.day_id];
+          if (!d) return;
+          o[d] = x.group_output ?? ''; it[d] = x.project_item_id || '';
+        });
+      }
       setOutput(o); setItemOf(it);
 
+      setOpened(true);
       await loadWeeks(projectId);
-      setMsg(`الأسبوع جاهز — ${(labs || []).length} فرداً × ${dys.length} أيام`);
     } catch (e) {
       setErr('تعذّر فتح الأسبوع: ' + (e.message || e));
     }
     setLoading(false);
   }, [projectId, contractorId, start, loadWeeks]);
 
-  // ---------- التبديل ----------
-  const cycle = (lid, d) => {
-    const cur = marks[`${lid}|${d}`] || DEFAULT_ST;
-    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
-    setMarks((m) => ({ ...m, [`${lid}|${d}`]: next }));
-  };
-  const setColumn = (d, st) =>
-    setMarks((m) => {
-      const n = { ...m }; laborers.forEach((l) => { n[`${l.id}|${d}`] = st; }); return n;
+  // ---------- محرك الحفظ التلقائي ----------
+  // كل عملية تدخل طابوراً متسلسلاً حتى لا تتزاحم الكتابات
+  const runSave = useCallback((fn) => {
+    setSaveState('saving');
+    chainRef.current = chainRef.current
+      .then(fn)
+      .then(() => setSaveState('saved'))
+      .catch((e) => { setErr('تعذّر الحفظ: ' + (e.message || e)); setSaveState('error'); });
+    return chainRef.current;
+  }, []);
+
+  // يُنشئ يوم المشروع عند أول إدخال فيه فقط
+  const ensureDay = useCallback(async (d) => {
+    if (dayIdRef.current[d]) return dayIdRef.current[d];
+    const { data, error } = await supabase.rpc('fn_get_or_create_day', {
+      p_project_id: projectId, p_date: d,
     });
-  const setAll = (st) =>
-    setMarks(() => {
-      const n = {};
-      laborers.forEach((l) => { days.forEach((d) => { n[`${l.id}|${d}`] = st; }); });
+    if (error) throw error;
+    dayIdRef.current = { ...dayIdRef.current, [d]: data };
+    setDayIds(dayIdRef.current);
+    return data;
+  }, [projectId]);
+
+  // حضور خلية واحدة — لا يمس أي مقاول آخر في اليوم نفسه
+  const persistMark = useCallback((lab, d, st) => runSave(async () => {
+    const dayId = await ensureDay(d);
+    const { error } = await supabase.from('attendance').upsert({
+      day_id: dayId,
+      laborer_id: lab.id,
+      status: st,
+      rate_used: Number(lab.daily_rate || 0),
+    }, { onConflict: 'day_id,laborer_id' });
+    if (error) throw error;
+  }), [runSave, ensureDay]);
+
+  // بند اليوم وإنتاجه — سطر واحد لهذا المقاول في هذا اليوم
+  const persistDayItem = useCallback((d, itemId, qty) => runSave(async () => {
+    const dayId = await ensureDay(d);
+    await supabase.from('day_items')
+      .delete().eq('day_id', dayId).eq('contractor_id', contractorId);
+    if (itemId) {
+      const { error } = await supabase.from('day_items').insert({
+        day_id: dayId,
+        project_item_id: itemId,
+        contractor_id: contractorId,
+        group_output: qty === '' || qty == null ? null : Number(qty),
+      });
+      if (error) throw error;
+    }
+  }), [runSave, ensureDay, contractorId]);
+
+  const persistNote = useCallback((d, text) => runSave(async () => {
+    const dayId = await ensureDay(d);
+    const { error } = await supabase.from('timesheet_days')
+      .update({ notes: text || null }).eq('id', dayId);
+    if (error) throw error;
+  }), [runSave, ensureDay]);
+
+  // تأخير قصير لحقول الكتابة حتى لا نحفظ عند كل حرف
+  const debounce = useCallback((key, fn, ms = 700) => {
+    clearTimeout(timersRef.current[key]);
+    setSaveState('saving');
+    timersRef.current[key] = setTimeout(fn, ms);
+  }, []);
+
+  useEffect(() => () => Object.values(timersRef.current).forEach(clearTimeout), []);
+
+  // ---------- التبديل ----------
+  const cycle = (lab, d) => {
+    const cur = marks[`${lab.id}|${d}`] || DEFAULT_ST;
+    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+    setMarks((m) => ({ ...m, [`${lab.id}|${d}`]: next }));
+    persistMark(lab, d, next);
+  };
+
+  const setMany = (pairs) => {
+    setMarks((m) => {
+      const n = { ...m };
+      pairs.forEach(([lab, d, st]) => { n[`${lab.id}|${d}`] = st; });
       return n;
     });
-  const setRow = (lid, st) =>
-    setMarks((m) => {
-      const n = { ...m }; days.forEach((d) => { n[`${lid}|${d}`] = st; }); return n;
+    runSave(async () => {
+      const byDate = {};
+      pairs.forEach(([lab, d, st]) => { (byDate[d] = byDate[d] || []).push([lab, st]); });
+      for (const d of Object.keys(byDate)) {
+        const dayId = await ensureDay(d);
+        const rows = byDate[d].map(([lab, st]) => ({
+          day_id: dayId, laborer_id: lab.id, status: st,
+          rate_used: Number(lab.daily_rate || 0),
+        }));
+        const { error } = await supabase.from('attendance')
+          .upsert(rows, { onConflict: 'day_id,laborer_id' });
+        if (error) throw error;
+      }
     });
+  };
 
-  // ---------- الحفظ ----------
-  async function save() {
-    setBusy(true); setErr(''); setMsg('');
-    try {
-      const ids = Object.values(dayIds);
+  const setColumn = (d, st) => setMany(laborers.map((l) => [l, d, st]));
+  const setRow    = (lab, st) => setMany(days.map((d) => [lab, d, st]));
+  const setAll    = (st) => setMany(laborers.flatMap((l) => days.map((d) => [l, d, st])));
 
-      await supabase.from('attendance').delete().in('day_id', ids);
-      const rows = [];
-      laborers.forEach((l) => {
-        days.forEach((d) => {
-          const st = marks[`${l.id}|${d}`] || DEFAULT_ST;
-          const rate = Number(l.daily_rate || 0);
-          rows.push({
-            day_id: dayIds[d], laborer_id: l.id, status: st, rate_used: rate,
-          });
-        });
-      });
-      if (rows.length) {
-        const { error } = await supabase.from('attendance').insert(rows);
-        if (error) throw error;
-      }
-
-      await supabase.from('day_items').delete().in('day_id', ids);
-      const dis = days
-        .filter((d) => itemOf[d] || output[d] !== '' )
-        .map((d) => ({
-          day_id: dayIds[d],
-          project_item_id: itemOf[d] || null,
-          group_output: output[d] === '' || output[d] == null ? null : Number(output[d]),
-        }))
-        .filter((x) => x.project_item_id);
-      if (dis.length) {
-        const { error } = await supabase.from('day_items').insert(dis);
-        if (error) throw error;
-      }
-
-      for (const d of days) {
-        if (dayNote[d] !== undefined) {
-          await supabase.from('timesheet_days').update({ notes: dayNote[d] }).eq('id', dayIds[d]);
-        }
-      }
-
-      setMsg('حُفظ الأسبوع بنجاح');
-    } catch (e) {
-      setErr('تعذّر الحفظ: ' + (e.message || e));
-    }
-    setBusy(false);
-  }
+  const changeItem = (d, itemId) => {
+    setItemOf((x) => ({ ...x, [d]: itemId }));
+    persistDayItem(d, itemId, output[d] ?? '');
+  };
+  const changeOutput = (d, val) => {
+    setOutput((x) => ({ ...x, [d]: val }));
+    debounce('out|' + d, () => persistDayItem(d, itemOf[d] || '', val));
+  };
+  const changeNote = (d, val) => {
+    setDayNote((x) => ({ ...x, [d]: val }));
+    debounce('note|' + d, () => persistNote(d, val));
+  };
 
   // ---------- الإجماليات ----------
   const dayTotal = (d) =>
@@ -276,20 +322,28 @@ export default function TimesheetWeek() {
   const presentOn = (d) =>
     laborers.filter((l) => ['full','half','stopped'].includes(marks[`${l.id}|${d}`] || DEFAULT_ST)).length;
 
+  const saveLabel = {
+    idle: '', saving: 'جارٍ الحفظ…', saved: 'محفوظ', error: 'لم يُحفظ',
+  }[saveState];
+  const saveColor = { saved: '#2E6B3A', saving: '#8A6100', error: '#A32B24' }[saveState] || '#999';
+
   return (
     <div dir="rtl">
       <div className="page-head">
         <div>
           <h1>التايم شيت الأسبوعي</h1>
-          <p>الأصل غياب — لا يُحتسب حاضراً إلا من تحضره أنت</p>
+          <p>الأصل غياب — لا يُحتسب حاضراً إلا من تحضره أنت. الحفظ تلقائي.</p>
         </div>
+        {opened && (
+          <span style={{ fontSize: 12.5, color: saveColor, fontWeight: 500 }}>{saveLabel}</span>
+        )}
       </div>
 
       <div className="section" style={{ marginTop: 0 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: 16, alignItems: 'flex-end' }}>
           <div className="field" style={{ minWidth: 220 }}>
             <label>المشروع</label>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <select value={projectId} onChange={(e) => { setProjectId(e.target.value); setOpened(false); }}>
               <option value="">— اختر —</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.project_no} — {p.name_ar}</option>
@@ -298,7 +352,7 @@ export default function TimesheetWeek() {
           </div>
           <div className="field" style={{ minWidth: 220 }}>
             <label>المقاول</label>
-            <select value={contractorId} onChange={(e) => setContractorId(e.target.value)}>
+            <select value={contractorId} onChange={(e) => { setContractorId(e.target.value); setOpened(false); }}>
               <option value="">— اختر —</option>
               {contractors.map((c) => (
                 <option key={c.id} value={c.id}>{c.name_ar}</option>
@@ -307,50 +361,64 @@ export default function TimesheetWeek() {
           </div>
           <div className="field" style={{ minWidth: 160 }}>
             <label>بداية الأسبوع (السبت)</label>
-            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            <input type="date" value={start}
+                   onChange={(e) => { setStart(weekStartOf(e.target.value)); setOpened(false); }} />
           </div>
           <button className="btn" onClick={() => openWeek()}
                   disabled={!projectId || !contractorId || loading}>
             {loading ? 'جارٍ…' : 'فتح الأسبوع'}
           </button>
+          {opened && (
+            <>
+              <button className="btn ghost" onClick={() => openWeek(contractorId, shiftWeek(start, -1))}>
+                الأسبوع السابق
+              </button>
+              <button className="btn ghost" onClick={() => openWeek(contractorId, shiftWeek(start, 1))}>
+                الأسبوع التالي
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {projectId && Object.keys(grouped).length > 0 && (
+      {projectId && weekRows.length > 0 && (
         <div className="section">
           <header>
-            <h2>أسابيع المشروع ({Object.keys(grouped).length})</h2>
+            <h2>أسابيع المشروع ({weekRows.length})</h2>
             <span style={{ fontSize: 12.5, color: '#777' }}>
-              اختر الأسبوع ثم المقاول الذي تريد العمل عليه
+              محسوبة من الأيام المسجّلة — اختر الأسبوع ثم المقاول
             </span>
           </header>
           <div style={{ padding: '4px 16px 14px' }}>
-            {Object.entries(grouped).map(([sd, list]) => (
-              <div key={sd} style={{
+            {weekRows.map((w) => (
+              <div key={w.week_start} style={{
                 display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                 padding: '9px 0', borderBottom: '1px solid #f0eded',
               }}>
                 <div style={{ minWidth: 190 }}>
-                  <span style={{ fontWeight: 500 }}>الأسبوع {list[0].week_no}</span>
-                  <span style={{ fontSize: 11.5, color: '#888', marginInlineStart: 8, direction: 'ltr' }}>
-                    {sd} → {list[0].end_date}
+                  <span style={{ fontSize: 11.5, color: '#888', direction: 'ltr', display: 'inline-block' }}>
+                    {w.week_start} → {w.week_end}
                   </span>
                 </div>
-                {list.map((w) => (
-                  <button key={w.id} type="button"
-                          onClick={() => openWeek(w.contractor_id, w.start_date)}
-                          style={{
-                            fontSize: 12.5, padding: '4px 12px', cursor: 'pointer',
-                            borderRadius: 5, background: '#fff',
-                            border: '1px solid ' + (weekId === w.id ? MAROON : '#ddd'),
-                            color: weekId === w.id ? MAROON : '#444',
-                          }}>
-                    {nameOf(w.contractor_id)}
+                {w.parts.length === 0 && (
+                  <button type="button" onClick={() => openWeek(contractorId, w.week_start)}
+                          style={pill(start === w.week_start)}>
+                    فتح الأسبوع
+                  </button>
+                )}
+                {w.parts.map((p) => (
+                  <button key={p.contractor_id} type="button"
+                          onClick={() => openWeek(p.contractor_id, w.week_start)}
+                          style={pill(start === w.week_start && contractorId === p.contractor_id)}>
+                    {nameOf(p.contractor_id)}
+                    <span style={{ fontSize: 11, opacity: .65, marginInlineStart: 6 }}>
+                      {p.days_worked} أيام
+                    </span>
                   </button>
                 ))}
-                <span style={{ fontSize: 11.5, color: '#999' }}>
-                  {list.length > 1 ? `${list.length} مقاولين` : 'مقاول واحد'}
-                </span>
+                {w.parts.length > 1 && (
+                  <span style={{ fontSize: 11.5, color: '#999' }}>{w.parts.length} مقاولين</span>
+                )}
               </div>
             ))}
           </div>
@@ -358,13 +426,12 @@ export default function TimesheetWeek() {
       )}
 
       {err && <div className="msg err" style={{ marginBottom: 12 }}>{err}</div>}
-      {msg && <div className="msg ok" style={{ marginBottom: 12 }}>{msg}</div>}
 
-      {weekId && laborers.length > 0 && (
+      {opened && laborers.length > 0 && (
         <>
           <div className="section">
             <header>
-              <h2>الحضور</h2>
+              <h2>الحضور — {nameOf(contractorId)}</h2>
               <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
                 {CYCLE.map((k) => (
                   <span key={k} style={{
@@ -387,10 +454,8 @@ export default function TimesheetWeek() {
                         <th key={d} style={{ padding: '6px 4px', minWidth: 78 }}>
                           <div>{DAY_AR[dt.getDay()]}</div>
                           <div style={{ fontSize: 11, opacity: .7, direction: 'ltr' }}>{d.slice(5)}</div>
-                          <button type="button" onClick={() => setColumn(d, 'full')}
-                                  style={miniBtn}>حضور الكل</button>
-                          <button type="button" onClick={() => setColumn(d, 'absent')}
-                                  style={miniBtn}>تصفير</button>
+                          <button type="button" onClick={() => setColumn(d, 'full')} style={miniBtn}>حضور الكل</button>
+                          <button type="button" onClick={() => setColumn(d, 'absent')} style={miniBtn}>تصفير</button>
                         </th>
                       );
                     })}
@@ -405,7 +470,7 @@ export default function TimesheetWeek() {
                       <tr key={l.id}>
                         <td style={{ padding: '6px 10px' }}>
                           <div>{l.full_name}</div>
-                          <button type="button" onClick={() => setRow(l.id, 'full')} style={miniBtn}>
+                          <button type="button" onClick={() => setRow(l, 'full')} style={miniBtn}>
                             حاضر كل الأسبوع
                           </button>
                         </td>
@@ -416,7 +481,7 @@ export default function TimesheetWeek() {
                           const st = marks[`${l.id}|${d}`] || DEFAULT_ST;
                           return (
                             <td key={d} style={{ padding: 3, textAlign: 'center' }}>
-                              <button type="button" onClick={() => cycle(l.id, d)} title={STATUS[st].ar}
+                              <button type="button" onClick={() => cycle(l, d)} title={STATUS[st].ar}
                                       style={{
                                         width: '100%', padding: '7px 0', cursor: 'pointer',
                                         border: '1px solid rgba(0,0,0,.08)', borderRadius: 5,
@@ -456,7 +521,12 @@ export default function TimesheetWeek() {
           </div>
 
           <div className="section">
-            <header><h2>البند والإنتاج اليومي</h2></header>
+            <header>
+              <h2>البند والإنتاج اليومي</h2>
+              <span style={{ fontSize: 12.5, color: '#777' }}>
+                البند والمنجز يخصّان هذا المقاول — وملاحظة اليوم مشتركة بين الجميع
+              </span>
+            </header>
             <div style={{ overflowX: 'auto', padding: '0 4px 10px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -478,7 +548,7 @@ export default function TimesheetWeek() {
                         </td>
                         <td style={{ padding: '6px 10px' }}>
                           <select value={itemOf[d] || ''} style={{ width: '100%' }}
-                                  onChange={(e) => setItemOf((x) => ({ ...x, [d]: e.target.value }))}>
+                                  onChange={(e) => changeItem(d, e.target.value)}>
                             <option value="">— بلا بند —</option>
                             {items.map((it) => (
                               <option key={it.id} value={it.id}>{it.description_ar}</option>
@@ -486,13 +556,14 @@ export default function TimesheetWeek() {
                           </select>
                         </td>
                         <td style={{ padding: '6px' }}>
-                          <input type="number" step="any" dir="ltr" style={{ width: '100%', textAlign: 'center' }}
+                          <input type="number" step="any" dir="ltr"
+                                 style={{ width: '100%', textAlign: 'center' }}
                                  value={output[d] ?? ''}
-                                 onChange={(e) => setOutput((x) => ({ ...x, [d]: e.target.value }))} />
+                                 onChange={(e) => changeOutput(d, e.target.value)} />
                         </td>
                         <td style={{ padding: '6px 10px' }}>
                           <input value={dayNote[d] || ''} style={{ width: '100%' }}
-                                 onChange={(e) => setDayNote((x) => ({ ...x, [d]: e.target.value }))} />
+                                 onChange={(e) => changeNote(d, e.target.value)} />
                         </td>
                       </tr>
                     );
@@ -503,20 +574,20 @@ export default function TimesheetWeek() {
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '4px 0 30px' }}>
-            <button className="btn" onClick={save} disabled={busy}>
-              {busy ? 'جارٍ الحفظ…' : 'حفظ الأسبوع'}
-            </button>
-            <button className="btn ghost" onClick={() => setAll('absent')} disabled={busy}>
+            <button className="btn ghost" onClick={() => setAll('absent')}>
               تصفير الأسبوع (الكل غياب)
             </button>
+            <button className="btn ghost" onClick={() => openWeek()}>
+              تحديث من القاعدة
+            </button>
             <span style={{ fontSize: 12.5, color: '#777' }}>
-              الحفظ يستبدل حضور هذا الأسبوع بالكامل بما تراه الآن
+              كل تغيير يُحفظ فور وقوعه، ولا يمس عمال المقاولين الآخرين في اليوم نفسه
             </span>
           </div>
         </>
       )}
 
-      {weekId && laborers.length === 0 && (
+      {opened && laborers.length === 0 && (
         <div className="empty">
           <h3>لا عمالة مسجّلة لهذا المقاول</h3>
           <p>سجّل العمال والصنايعية في ملف المقاول أولاً، ثم افتح الأسبوع من جديد.</p>
@@ -530,3 +601,11 @@ const miniBtn = {
   marginTop: 4, fontSize: 10.5, padding: '1px 6px', cursor: 'pointer',
   border: '1px solid #ddd', borderRadius: 4, background: '#fff', color: '#777',
 };
+
+function pill(on) {
+  return {
+    fontSize: 12.5, padding: '4px 12px', cursor: 'pointer', borderRadius: 5,
+    background: '#fff', border: '1px solid ' + (on ? MAROON : '#ddd'),
+    color: on ? MAROON : '#444',
+  };
+}
