@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ============================================================
-//  الاستعراض الأسبوعي : الأيام تُدخل والأسابيع تُقرأ
+//  الاستعراض والطباعة : الأيام تُدخل والفترات تُقرأ
+//  يقرأ من العروض المحسوبة : v_day_attendance و v_day_output
 //  المسار : /dashboard/timesheet/report
 // ============================================================
 
@@ -21,12 +22,13 @@ const COLS = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 
 
 const KINDS = {
   attendance: 'الحضور والغياب',
+  output:     'الإنتاج اليومي',
   expense:    'مصروفات المقاول',
   claim:      'المستخلصات',
   settlement: 'تسويات المقاولين',
   material:   'المواد',
-  output:     'الإنتاج',
 };
+const EVENT_KINDS = ['expense', 'claim', 'settlement', 'material'];
 
 const CLASS_AR = {
   worker: 'عمال', technician: 'صنايعية', foreman: 'مراقبون',
@@ -47,8 +49,10 @@ export default function WeeklyReport() {
   const [from, setFrom] = useState(satOf(iso(new Date())));
   const [to, setTo] = useState(addDays(satOf(iso(new Date())), 5));
   const [kind, setKind] = useState('attendance');
+  const [showAll, setShowAll] = useState(true);   // إظهار من لم يُسجَّل له حضور
 
   const [events, setEvents] = useState([]);
+  const [outputs, setOutputs] = useState([]);
   const [grid, setGrid] = useState({ workers: [], marks: {} });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -62,100 +66,156 @@ export default function WeeklyReport() {
   }, []);
 
   // أسابيع المدى : تبدأ كلها من السبت
-  const weeks = (() => {
+  const weeks = useMemo(() => {
     if (!from || !to || to < from) return [];
     const out = []; let cur = satOf(from); let guard = 0;
     while (cur <= to && guard++ < 120) { out.push(cur); cur = addDays(cur, 7); }
     return out;
-  })();
+  }, [from, to]);
 
   const quick = (n) => {
     const s = satOf(iso(new Date()));
-    const start = addDays(s, -7 * (n - 1));
-    setFrom(start); setTo(addDays(s, 5));
+    setFrom(addDays(s, -7 * (n - 1))); setTo(addDays(s, 5));
+  };
+  const thisMonth = () => {
+    const d = new Date();
+    setFrom(iso(new Date(d.getFullYear(), d.getMonth(), 1)));
+    setTo(iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)));
   };
 
+  // ---------- التحميل ----------
   const run = useCallback(async () => {
+    if (!projectId) return;
     setLoading(true); setErr(''); setRan(true);
+    const lo = satOf(from), hi = to;
     try {
       if (kind === 'attendance') {
-        const { data: days } = await supabase.from('timesheet_days')
-          .select('id, work_date').eq('project_id', projectId)
-          .gte('work_date', satOf(from)).lte('work_date', to);
-        const ids = (days || []).map((d) => d.id);
-        const dateOf = Object.fromEntries((days || []).map((d) => [d.id, d.work_date]));
+        let q = supabase.from('v_day_attendance')
+          .select('laborer_id, laborer_name, trade, labor_class, contractor_id, contractor_name, work_date, status, rate_used')
+          .eq('project_id', projectId).gte('work_date', lo).lte('work_date', hi);
+        if (contractorId) q = q.eq('contractor_id', contractorId);
+        const { data: att, error } = await q;
+        if (error) throw error;
 
-        let marks = {}; const wmap = {};
-        if (ids.length) {
-          const { data: att } = await supabase.from('attendance')
-            .select('day_id, status, amount, laborer_id, laborers(full_name, trade, labor_class, contractor_id, daily_rate)')
-            .in('day_id', ids);
-          (att || []).forEach((a) => {
-            if (contractorId && a.laborers?.contractor_id !== contractorId) return;
-            marks[`${a.laborer_id}|${dateOf[a.day_id]}`] = a.status;
-            if (!wmap[a.laborer_id]) {
-              wmap[a.laborer_id] = {
-                id: a.laborer_id,
-                name: a.laborers?.full_name || '—',
-                trade: a.laborers?.trade || a.laborers?.labor_class || '',
-                cls: a.laborers?.labor_class || 'other',
-                rate: Number(a.laborers?.daily_rate || 0),
+        const marks = {}; const wmap = {};
+        (att || []).forEach((a) => {
+          marks[`${a.laborer_id}|${a.work_date}`] = a.status;
+          if (!wmap[a.laborer_id]) {
+            wmap[a.laborer_id] = {
+              id: a.laborer_id,
+              name: a.laborer_name || '—',
+              trade: a.trade || a.labor_class || '',
+              cls: a.labor_class || 'other',
+              rate: Number(a.rate_used || 0),
+              contractor: a.contractor_name || '',
+            };
+          }
+        });
+
+        // كشف كامل : من لم يُسجَّل له حضور يظهر غائباً كما في الورقة
+        if (showAll) {
+          let cids = contractorId ? [contractorId] : null;
+          if (!cids) {
+            const { data: pc } = await supabase.from('project_contractors')
+              .select('contractor_id').eq('project_id', projectId);
+            cids = (pc || []).map((x) => x.contractor_id).filter(Boolean);
+          }
+          if (cids.length) {
+            const { data: labs } = await supabase.from('laborers')
+              .select('id, full_name, trade, labor_class, daily_rate, contractor_id')
+              .in('contractor_id', cids).eq('is_active', true);
+            const cname = Object.fromEntries(contractors.map((c) => [c.id, c.name_ar]));
+            (labs || []).forEach((l) => {
+              if (wmap[l.id]) return;
+              wmap[l.id] = {
+                id: l.id, name: l.full_name || '—',
+                trade: l.trade || l.labor_class || '',
+                cls: l.labor_class || 'other',
+                rate: Number(l.daily_rate || 0),
+                contractor: cname[l.contractor_id] || '',
               };
-            }
-          });
+            });
+          }
         }
-        setGrid({ workers: Object.values(wmap), marks });
-        setEvents([]);
+
+        const workers = Object.values(wmap).sort((a, b) =>
+          (a.contractor || '').localeCompare(b.contractor || '', 'ar') ||
+          (a.cls || '').localeCompare(b.cls || '') ||
+          (a.name || '').localeCompare(b.name || '', 'ar'));
+
+        setGrid({ workers, marks });
+        setEvents([]); setOutputs([]);
+      } else if (kind === 'output') {
+        let q = supabase.from('v_day_output')
+          .select('work_date, item_description, unit, contractor_id, contractor_name, group_output, notes')
+          .eq('project_id', projectId).gte('work_date', lo).lte('work_date', hi)
+          .order('work_date');
+        if (contractorId) q = q.eq('contractor_id', contractorId);
+        const { data, error } = await q;
+        if (error) throw error;
+        setOutputs(data || []);
+        setGrid({ workers: [], marks: {} }); setEvents([]);
       } else {
-        const { data } = await supabase.from('v_day_events')
+        const { data, error } = await supabase.from('v_day_events')
           .select('*').eq('project_id', projectId).eq('kind', kind)
-          .gte('event_date', satOf(from)).lte('event_date', to)
-          .order('event_date');
+          .gte('event_date', lo).lte('event_date', hi).order('event_date');
+        if (error) throw error;
         const cname = contractors.find((c) => c.id === contractorId)?.name_ar;
         setEvents(cname ? (data || []).filter((r) => r.party === cname) : (data || []));
-        setGrid({ workers: [], marks: {} });
+        setGrid({ workers: [], marks: {} }); setOutputs([]);
       }
     } catch (e) {
       setErr('تعذّر التحميل: ' + (e.message || e));
     }
     setLoading(false);
-  }, [projectId, from, to, kind, contractorId, contractors]);
+  }, [projectId, from, to, kind, contractorId, contractors, showAll]);
 
   const projName = projects.find((p) => p.id === projectId)?.name_ar || '';
   const ctrName = contractors.find((c) => c.id === contractorId)?.name_ar || '';
   const head = ctrName ? `${projName} — ${ctrName}` : projName;
-  const pages = (arr) => {
+
+  const pages = useCallback((arr) => {
     const out = [];
     for (let i = 0; i < arr.length; i += PER_PAGE) out.push(arr.slice(i, i + PER_PAGE));
     return out.length ? out : [[]];
-  };
+  }, []);
   const daysOf = (w) => Array.from({ length: 6 }, (_, i) => addDays(w, i));
   const inRange = (d) => d >= from && d <= to;
 
-  // ملخص الأسبوع بحسب الفئة أو المهنة
-  const summarize = (w, by) => {
-    const acc = {};
-    grid.workers.forEach((wk) => {
-      const key = by === 'cls' ? (wk.cls || 'other') : (wk.trade || '—');
-      const d = workerWeekDays(wk.id, w);
-      acc[key] = acc[key] || { key, people: 0, attended: 0, days: 0, value: 0 };
-      acc[key].people += 1;
-      if (d > 0) acc[key].attended += 1;
-      acc[key].days += d;
-      acc[key].value += d * Number(wk.rate || 0);
-    });
-    return Object.values(acc).sort((a, b) => b.days - a.days);
-  };
-
-  const workerWeekDays = (wid, w) =>
+  const workerWeekDays = useCallback((wid, w) =>
     daysOf(w).filter(inRange)
-      .reduce((t, d) => t + (ST[grid.marks[`${wid}|${d}`]]?.f ?? 0), 0);
+      .reduce((t, d) => t + (ST[grid.marks[`${wid}|${d}`]]?.f ?? 0), 0),
+    [grid.marks, from, to]);
+
+  // ملخصات كل أسبوع تُحسب مرة واحدة لا في كل خلية
+  const summaries = useMemo(() => {
+    const out = {};
+    weeks.forEach((w) => {
+      const byCls = {}, byTrade = {};
+      grid.workers.forEach((wk) => {
+        const d = daysOf(w).filter(inRange)
+          .reduce((t, dd) => t + (ST[grid.marks[`${wk.id}|${dd}`]]?.f ?? 0), 0);
+        [[byCls, wk.cls || 'other'], [byTrade, wk.trade || '—']].forEach(([acc, key]) => {
+          acc[key] = acc[key] || { key, people: 0, attended: 0, days: 0, value: 0 };
+          acc[key].people += 1;
+          if (d > 0) acc[key].attended += 1;
+          acc[key].days += d;
+          acc[key].value += d * Number(wk.rate || 0);
+        });
+      });
+      const sort = (o) => Object.values(o).sort((a, b) => b.days - a.days);
+      out[w] = { cls: sort(byCls), trade: sort(byTrade) };
+    });
+    return out;
+  }, [weeks, grid, from, to]);
+
+  const pageList = useMemo(() => pages(grid.workers), [grid.workers, pages]);
 
   return (
     <div dir="rtl">
       <div className="page-head no-print">
         <div>
-          <h1>الاستعراض الأسبوعي</h1>
+          <h1>الاستعراض والطباعة</h1>
           <p>اختر المدى ونوع التقرير — كل أسبوع يخرج في ورقة مستقلة عند الطباعة</p>
         </div>
       </div>
@@ -195,14 +255,21 @@ export default function WeeklyReport() {
           </button>
           <button className="btn ghost" onClick={() => window.print()} disabled={!ran}>طباعة</button>
         </div>
-        <div style={{ display: 'flex', gap: 8, padding: '0 16px 14px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12.5, color: '#777', alignSelf: 'center' }}>مدد سريعة:</span>
+        <div style={{ display: 'flex', gap: 8, padding: '0 16px 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12.5, color: '#777' }}>مدد سريعة:</span>
           <button className="btn ghost" style={sm} onClick={() => quick(1)}>هذا الأسبوع</button>
           <button className="btn ghost" style={sm} onClick={() => quick(2)}>أسبوعان</button>
-          <button className="btn ghost" style={sm} onClick={() => quick(3)}>ثلاثة أسابيع</button>
+          <button className="btn ghost" style={sm} onClick={() => quick(4)}>أربعة أسابيع</button>
+          <button className="btn ghost" style={sm} onClick={thisMonth}>هذا الشهر</button>
           <button className="btn ghost" style={sm}
                   onClick={() => { const t = iso(new Date()); setFrom(t); setTo(t); }}>اليوم فقط</button>
-          <span style={{ fontSize: 12.5, color: '#999', alignSelf: 'center' }}>
+          {kind === 'attendance' && (
+            <label style={{ fontSize: 12.5, color: '#555', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+              إظهار من لم يُسجَّل له حضور (كشف كامل)
+            </label>
+          )}
+          <span style={{ fontSize: 12.5, color: '#999' }}>
             {weeks.length ? `${weeks.length} أسبوعاً في المدى` : ''}
           </span>
         </div>
@@ -210,13 +277,14 @@ export default function WeeklyReport() {
 
       {err && <div className="msg err no-print">{err}</div>}
 
+      {/* ============ الحضور والغياب ============ */}
       {ran && kind === 'attendance' && grid.workers.length > 0 && weeks.map((w) =>
-        pages(grid.workers).map((chunk, pi) => (
-          <div key={w + pi} className="wk section" style={{ pageBreakAfter: 'always' }}>
+        pageList.map((chunk, pi) => (
+          <div key={w + '|' + pi} className="wk section" style={{ pageBreakAfter: 'always' }}>
             <header>
               <h2>{head} — أسبوع {w} إلى {addDays(w, 5)}</h2>
               <span style={{ fontSize: 12.5, color: '#777' }}>
-                {pages(grid.workers).length > 1 ? `ورقة ${pi + 1} من ${pages(grid.workers).length}` : ''}
+                {pageList.length > 1 ? `ورقة ${pi + 1} من ${pageList.length}` : ''}
               </span>
             </header>
             <div style={{ overflowX: 'auto', padding: '0 4px 10px' }}>
@@ -224,6 +292,7 @@ export default function WeeklyReport() {
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'right', padding: '7px 10px', minWidth: 150 }}>الاسم</th>
+                    {!contractorId && <th style={{ padding: '7px 4px' }}>المقاول</th>}
                     <th style={{ padding: '7px 4px' }}>المهنة</th>
                     {daysOf(w).map((d, i) => (
                       <th key={d} style={{ padding: '5px 3px', minWidth: 56, opacity: inRange(d) ? 1 : .4 }}>
@@ -238,12 +307,16 @@ export default function WeeklyReport() {
                   {chunk.map((wk) => (
                     <tr key={wk.id}>
                       <td style={{ padding: '5px 10px' }}>{wk.name}</td>
+                      {!contractorId && (
+                        <td style={{ padding: '5px', textAlign: 'center', fontSize: 11.5, opacity: .8 }}>
+                          {wk.contractor}
+                        </td>
+                      )}
                       <td style={{ padding: '5px', textAlign: 'center', fontSize: 11.5, opacity: .8 }}>
                         {wk.trade}
                       </td>
                       {daysOf(w).map((d) => {
-                        const st = grid.marks[`${wk.id}|${d}`];
-                        const cfg = ST[st] || ST.absent;
+                        const cfg = ST[grid.marks[`${wk.id}|${d}`]] || ST.absent;
                         return (
                           <td key={d} style={{ padding: 2, textAlign: 'center', opacity: inRange(d) ? 1 : .35 }}>
                             <div style={{
@@ -258,6 +331,7 @@ export default function WeeklyReport() {
                   ))}
                   <tr style={{ background: '#faf8f8', fontWeight: 500 }}>
                     <td style={{ padding: '7px 10px' }}>مجموع الحاضرين</td>
+                    {!contractorId && <td />}
                     <td />
                     {daysOf(w).map((d) => (
                       <td key={d} style={{ textAlign: 'center' }}>
@@ -272,71 +346,137 @@ export default function WeeklyReport() {
               </table>
             </div>
 
-            <div style={{ padding: '4px 10px 14px' }}>
-              <div style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 6, color: MAROON }}>
-                ملخص الأسبوع
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'right', padding: '6px 10px' }}>الفئة</th>
-                    <th style={{ padding: '6px' }}>عدد الأفراد</th>
-                    <th style={{ padding: '6px' }}>منهم حضر</th>
-                    <th style={{ padding: '6px' }}>مجموع اليوميات</th>
-                    <th style={{ padding: '6px' }}>القيمة</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summarize(w, 'cls').map((r) => (
-                    <tr key={r.key}>
-                      <td style={{ padding: '5px 10px' }}>{clsAr(r.key)}</td>
-                      <td style={{ textAlign: 'center' }}>{r.people}</td>
-                      <td style={{ textAlign: 'center' }}>{r.attended}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 500 }}>{r.days}</td>
-                      <td style={{ textAlign: 'center', direction: 'ltr' }}>{money(r.value)}</td>
+            {pi === pageList.length - 1 && (
+              <div style={{ padding: '4px 10px 14px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 6, color: MAROON }}>
+                  ملخص الأسبوع
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'right', padding: '6px 10px' }}>الفئة</th>
+                      <th style={{ padding: '6px' }}>عدد الأفراد</th>
+                      <th style={{ padding: '6px' }}>منهم حضر</th>
+                      <th style={{ padding: '6px' }}>مجموع اليوميات</th>
+                      <th style={{ padding: '6px' }}>القيمة</th>
                     </tr>
-                  ))}
-                  <tr style={{ background: '#faf8f8', fontWeight: 500 }}>
-                    <td style={{ padding: '6px 10px' }}>الإجمالي</td>
-                    <td style={{ textAlign: 'center' }}>{grid.workers.length}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      {summarize(w, 'cls').reduce((t, r) => t + r.attended, 0)}
-                    </td>
-                    <td style={{ textAlign: 'center', color: MAROON }}>
-                      {summarize(w, 'cls').reduce((t, r) => t + r.days, 0)}
-                    </td>
-                    <td style={{ textAlign: 'center', direction: 'ltr', color: MAROON }}>
-                      {money(summarize(w, 'cls').reduce((t, r) => t + r.value, 0))}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(summaries[w]?.cls || []).map((r) => (
+                      <tr key={r.key}>
+                        <td style={{ padding: '5px 10px' }}>{clsAr(r.key)}</td>
+                        <td style={{ textAlign: 'center' }}>{r.people}</td>
+                        <td style={{ textAlign: 'center' }}>{r.attended}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 500 }}>{r.days}</td>
+                        <td style={{ textAlign: 'center', direction: 'ltr' }}>{money(r.value)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#faf8f8', fontWeight: 500 }}>
+                      <td style={{ padding: '6px 10px' }}>الإجمالي</td>
+                      <td style={{ textAlign: 'center' }}>{grid.workers.length}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        {(summaries[w]?.cls || []).reduce((t, r) => t + r.attended, 0)}
+                      </td>
+                      <td style={{ textAlign: 'center', color: MAROON }}>
+                        {(summaries[w]?.cls || []).reduce((t, r) => t + r.days, 0)}
+                      </td>
+                      <td style={{ textAlign: 'center', direction: 'ltr', color: MAROON }}>
+                        {money((summaries[w]?.cls || []).reduce((t, r) => t + r.value, 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
 
-              <div style={{ fontSize: 12.5, fontWeight: 500, margin: '12px 0 6px', color: MAROON }}>
-                بحسب المهنة
+                <div style={{ fontSize: 12.5, fontWeight: 500, margin: '12px 0 6px', color: MAROON }}>
+                  بحسب المهنة
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                  <tbody>
+                    {(summaries[w]?.trade || []).map((r) => (
+                      <tr key={r.key}>
+                        <td style={{ padding: '5px 10px' }}>{r.key || '—'}</td>
+                        <td style={{ textAlign: 'center', width: 110 }}>{r.attended} حضر</td>
+                        <td style={{ textAlign: 'center', width: 130, fontWeight: 500 }}>{r.days} يومية</td>
+                        <td style={{ textAlign: 'center', width: 130, direction: 'ltr' }}>{money(r.value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      {/* ============ الإنتاج اليومي ============ */}
+      {ran && kind === 'output' && weeks.map((w) => {
+        const rows = outputs.filter((r) => r.work_date >= w && r.work_date <= addDays(w, 5)
+          && r.work_date >= from && r.work_date <= to);
+        if (!rows.length) return null;
+        const byItem = {};
+        rows.forEach((r) => {
+          const k = (r.item_description || '—') + '|' + (r.contractor_name || '—');
+          byItem[k] = byItem[k] || {
+            item: r.item_description || '—', contractor: r.contractor_name || '—',
+            unit: r.unit || '', qty: 0,
+          };
+          byItem[k].qty += Number(r.group_output || 0);
+        });
+        return (
+          <div key={w} className="wk section" style={{ pageBreakAfter: 'always' }}>
+            <header>
+              <h2>{head} — الإنتاج — أسبوع {w} إلى {addDays(w, 5)}</h2>
+            </header>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'right', padding: '8px 10px', width: 110 }}>التاريخ</th>
+                  <th style={{ textAlign: 'right', padding: '8px 10px' }}>البند</th>
+                  <th style={{ textAlign: 'right', padding: '8px 10px', width: 150 }}>المقاول</th>
+                  <th style={{ padding: '8px 10px', width: 110 }}>المنجز</th>
+                  <th style={{ padding: '8px 10px', width: 80 }}>الوحدة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ padding: '6px 10px', direction: 'ltr' }}>{r.work_date}</td>
+                    <td style={{ padding: '6px 10px' }}>{r.item_description || '—'}</td>
+                    <td style={{ padding: '6px 10px' }}>{r.contractor_name || '—'}</td>
+                    <td style={{ padding: '6px 10px', textAlign: 'center', direction: 'ltr' }}>
+                      {r.group_output == null ? '—' : money(r.group_output)}
+                    </td>
+                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>{r.unit || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ padding: '10px 10px 14px' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 6, color: MAROON }}>
+                مجموع الأسبوع بحسب البند والمقاول
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                 <tbody>
-                  {summarize(w, 'trade').map((r) => (
-                    <tr key={r.key}>
-                      <td style={{ padding: '5px 10px' }}>{r.key || '—'}</td>
-                      <td style={{ textAlign: 'center', width: 110 }}>{r.attended} حضر</td>
-                      <td style={{ textAlign: 'center', width: 130, fontWeight: 500 }}>
-                        {r.days} يومية
+                  {Object.values(byItem).map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: '5px 10px' }}>{r.item}</td>
+                      <td style={{ padding: '5px 10px', width: 160 }}>{r.contractor}</td>
+                      <td style={{ textAlign: 'center', width: 120, fontWeight: 500, direction: 'ltr' }}>
+                        {money(r.qty)}
                       </td>
-                      <td style={{ textAlign: 'center', width: 130, direction: 'ltr' }}>
-                        {money(r.value)}
-                      </td>
+                      <td style={{ textAlign: 'center', width: 70 }}>{r.unit}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
-        ))
-      )}
+        );
+      })}
 
-      {ran && kind !== 'attendance' && weeks.map((w) => {
+      {/* ============ الوقائع المالية ============ */}
+      {ran && EVENT_KINDS.includes(kind) && weeks.map((w) => {
         const rows = events.filter((e) => e.event_date >= w && e.event_date <= addDays(w, 5));
         if (!rows.length) return null;
         const total = rows.reduce((t, r) => t + Number(r.amount || 0), 0);
@@ -381,7 +521,11 @@ export default function WeeklyReport() {
         <div className="empty"><h3>لا حضور مسجّل في هذا المدى</h3>
           <p>غيّر التواريخ أو أدخل الأيام أولاً.</p></div>
       )}
-      {ran && !loading && kind !== 'attendance' && events.length === 0 && (
+      {ran && !loading && kind === 'output' && outputs.length === 0 && (
+        <div className="empty"><h3>لا إنتاج مسجّل في هذا المدى</h3>
+          <p>سجّل البند والمنجز في شاشة اليوم أو شاشة الأسبوع.</p></div>
+      )}
+      {ran && !loading && EVENT_KINDS.includes(kind) && events.length === 0 && (
         <div className="empty"><h3>لا سجلات من نوع {KINDS[kind]} في هذا المدى</h3></div>
       )}
 
