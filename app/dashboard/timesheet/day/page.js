@@ -1,9 +1,11 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // ============================================================
 //  صفحة اليوم : كل ما حدث في هذا التاريخ لهذا المشروع
+//  اليوم يُنشأ عند أول إدخال فيه — لا أيام فارغة
+//  الحفظ تلقائي، مشروط، ومتسلسل : لا تزاحم ولا تكرار
 //  المسار : /dashboard/timesheet/day
 // ============================================================
 
@@ -33,18 +35,25 @@ export default function DayEntry() {
   const [groups, setGroups] = useState([]);       // مقاول ← عماله
   const [marks, setMarks] = useState({});
   const [items, setItems] = useState([]);
-  const [lines, setLines] = useState([]);         // بنود اليوم وإنتاجها
+  const [lines, setLines] = useState([]);         // بنود اليوم : {id, item, contractor, qty, unit}
   const [note, setNote] = useState('');
   const [machinery, setMachinery] = useState('');
   const [events, setEvents] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [sync, setSync] = useState('idle');       // idle | saving | saved | error
   const [err, setErr] = useState('');
 
+  // مراجع حيّة تتجاوز البيانات القديمة المحتجزة أثناء الحفظ
+  const dayIdRef  = useRef(null);
+  const linesRef  = useRef([]);
+  const chainRef  = useRef(Promise.resolve());
+  const timers    = useRef({});
+
+  useEffect(() => { linesRef.current = lines; }, [lines]);
+  useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), []);
+
   useEffect(() => {
-    // استقبال المشروع والتاريخ من الرابط عند القدوم من قائمة الأيام
     try {
       const q = new URLSearchParams(window.location.search);
       if (q.get('p')) setProjectId(q.get('p'));
@@ -65,11 +74,11 @@ export default function DayEntry() {
       .then(({ data }) => setItems(data || []));
   }, [projectId]);
 
+  // ---------- فتح اليوم ----------
   const openDay = useCallback(async () => {
     if (!projectId || !date) return;
-    setLoading(true); setErr(''); setMsg('');
+    setLoading(true); setErr(''); setSync('idle');
     try {
-      // مقاولو المشروع وعمالهم
       const { data: pc } = await supabase.from('project_contractors')
         .select('contractor_id').eq('project_id', projectId);
       let cids = (pc || []).map((x) => x.contractor_id).filter(Boolean);
@@ -88,31 +97,40 @@ export default function DayEntry() {
         ...c, workers: (labs || []).filter((l) => l.contractor_id === c.id),
       })).filter((g) => g.workers.length));
 
-      // اليوم
       const { data: day } = await supabase.from('timesheet_days')
         .select('id, notes, machinery').eq('project_id', projectId)
         .eq('work_date', date).maybeSingle();
 
       const m = {};
       if (day) {
+        dayIdRef.current = day.id;
         setDayId(day.id); setNote(day.notes || ''); setMachinery(day.machinery || '');
+
         const { data: att } = await supabase.from('attendance')
           .select('laborer_id, status').eq('day_id', day.id);
         (att || []).forEach((a) => { m[a.laborer_id] = a.status; });
+
         const { data: di } = await supabase.from('day_items')
-          .select('project_item_id, group_output, unit').eq('day_id', day.id);
-        setLines((di || []).map((x) => ({
-          item: x.project_item_id || '', qty: x.group_output ?? '', unit: x.unit || '',
-        })));
+          .select('id, project_item_id, contractor_id, group_output, unit')
+          .eq('day_id', day.id);
+        const ls = (di || []).map((x) => ({
+          id: x.id,
+          item: x.project_item_id || '',
+          contractor: x.contractor_id || '',
+          qty: x.group_output ?? '',
+          unit: x.unit || '',
+        }));
+        linesRef.current = ls; setLines(ls);
       } else {
-        setDayId(null); setNote(''); setMachinery(''); setLines([]);
+        dayIdRef.current = null;
+        setDayId(null); setNote(''); setMachinery('');
+        linesRef.current = []; setLines([]);
       }
       setMarks(m);
 
       const { data: ev } = await supabase.from('v_day_events')
         .select('*').eq('project_id', projectId).eq('event_date', date);
       setEvents(ev || []);
-      setMsg('');
     } catch (e) {
       setErr('تعذّر فتح اليوم: ' + (e.message || e));
     }
@@ -121,74 +139,155 @@ export default function DayEntry() {
 
   useEffect(() => { if (projectId && date) openDay(); }, [projectId, date, openDay]);
 
-  const cycle = (lid) => {
-    const cur = marks[lid] || DEF;
-    setMarks((m) => ({ ...m, [lid]: CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length] }));
+  // ---------- محرك الحفظ ----------
+  const runSave = useCallback((fn) => {
+    setSync('saving');
+    chainRef.current = chainRef.current
+      .then(fn)
+      .then(() => {
+        setErr(''); setSync('saved');
+        setTimeout(() => setSync((x) => (x === 'saved' ? 'idle' : x)), 1800);
+      })
+      .catch((e) => {
+        setErr('تعذّر الحفظ: ' + (e.message || e));
+        setSync('error');
+      });
+    return chainRef.current;
+  }, []);
+
+  // اليوم يُخلق لحظة أول إدخال فيه
+  const ensureDay = useCallback(async () => {
+    if (dayIdRef.current) return dayIdRef.current;
+    const { data, error } = await supabase.rpc('fn_get_or_create_day', {
+      p_project_id: projectId, p_date: date,
+    });
+    if (error) throw error;
+    dayIdRef.current = data; setDayId(data);
+    return data;
+  }, [projectId, date]);
+
+  const debounce = useCallback((key, fn, ms = 700) => {
+    clearTimeout(timers.current[key]);
+    setSync('saving');
+    timers.current[key] = setTimeout(fn, ms);
+  }, []);
+
+  // ---------- الحضور ----------
+  const persistMarks = useCallback((pairs) => runSave(async () => {
+    const id = await ensureDay();
+    const rows = pairs.map(([w, st]) => ({
+      day_id: id, laborer_id: w.id, status: st, rate_used: Number(w.daily_rate || 0),
+    }));
+    const { error } = await supabase.from('attendance')
+      .upsert(rows, { onConflict: 'day_id,laborer_id' });
+    if (error) throw error;
+  }), [runSave, ensureDay]);
+
+  const cycle = (w) => {
+    const cur = marks[w.id] || DEF;
+    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+    setMarks((m) => ({ ...m, [w.id]: next }));
+    persistMarks([[w, next]]);
   };
-  const setGroup = (g, st) =>
-    setMarks((m) => { const n = { ...m }; g.workers.forEach((w) => { n[w.id] = st; }); return n; });
+  const setGroup = (g, st) => {
+    setMarks((m) => {
+      const n = { ...m }; g.workers.forEach((w) => { n[w.id] = st; }); return n;
+    });
+    persistMarks(g.workers.map((w) => [w, st]));
+  };
 
-  async function save() {
-    setBusy(true); setErr(''); setMsg('');
-    try {
-      let id = dayId;
-      if (!id) {
-        const ins = await supabase.from('timesheet_days')
-          .insert({ project_id: projectId, work_date: date, notes: note, machinery })
-          .select('id').single();
-        if (ins.error) throw ins.error;
-        id = ins.data.id; setDayId(id);
-      } else {
-        await supabase.from('timesheet_days')
-          .update({ notes: note, machinery }).eq('id', id);
+  // ---------- بنود اليوم ----------
+  const persistLine = useCallback((idx) => runSave(async () => {
+    const l = linesRef.current[idx];
+    if (!l || !l.item) return;              // سطر بلا بند لا يُحفظ
+    const id = await ensureDay();
+    const payload = {
+      day_id: id,
+      project_item_id: l.item,
+      contractor_id: l.contractor || null,
+      group_output: l.qty === '' || l.qty == null ? null : Number(l.qty),
+      unit: l.unit || null,
+    };
+    if (l.id) {
+      const { error } = await supabase.from('day_items').update(payload).eq('id', l.id);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase.from('day_items')
+        .insert(payload).select('id').single();
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('هذا البند مسجّل لهذا المقاول في هذا اليوم — عدّل السطر الموجود');
+        }
+        throw error;
       }
-
-      const rows = [];
-      groups.forEach((g) => g.workers.forEach((w) => {
-        const st = marks[w.id] || DEF;
-        const rate = Number(w.daily_rate || 0);
-        rows.push({
-          day_id: id, laborer_id: w.id, status: st, rate_used: rate,
-        });
-      }));
-      await supabase.from('attendance').delete().eq('day_id', id);
-      if (rows.length) {
-        const { error } = await supabase.from('attendance').insert(rows);
-        if (error) throw error;
-      }
-
-      await supabase.from('day_items').delete().eq('day_id', id);
-      const dis = lines.filter((l) => l.item).map((l) => ({
-        day_id: id, project_item_id: l.item,
-        group_output: l.qty === '' ? null : Number(l.qty),
-        unit: l.unit || null,
-      }));
-      if (dis.length) {
-        const { error } = await supabase.from('day_items').insert(dis);
-        if (error) throw error;
-      }
-
-      setMsg('حُفظ يوم ' + date);
-      openDay();
-    } catch (e) {
-      setErr('تعذّر الحفظ: ' + (e.message || e));
+      const next = [...linesRef.current];
+      next[idx] = { ...next[idx], id: data.id };
+      linesRef.current = next; setLines(next);
     }
-    setBusy(false);
-  }
+  }), [runSave, ensureDay]);
 
+  const editLine = (idx, patch, immediate = false) => {
+    const next = linesRef.current.map((y, j) => (j === idx ? { ...y, ...patch } : y));
+    linesRef.current = next; setLines(next);
+    if (immediate) persistLine(idx);
+    else debounce('line' + idx, () => persistLine(idx));
+  };
+
+  const addLine = () => {
+    const next = [...linesRef.current, { id: null, item: '', contractor: '', qty: '', unit: '' }];
+    linesRef.current = next; setLines(next);
+  };
+
+  const removeLine = (idx) => {
+    const l = linesRef.current[idx];
+    const next = linesRef.current.filter((_, j) => j !== idx);
+    linesRef.current = next; setLines(next);
+    if (l?.id) runSave(async () => {
+      const { error } = await supabase.from('day_items').delete().eq('id', l.id);
+      if (error) throw error;
+    });
+  };
+
+  // ---------- ملاحظات اليوم ----------
+  const persistDay = useCallback((patch) => runSave(async () => {
+    const id = await ensureDay();
+    const { error } = await supabase.from('timesheet_days').update(patch).eq('id', id);
+    if (error) throw error;
+  }), [runSave, ensureDay]);
+
+  const changeNote = (v) => {
+    setNote(v);
+    debounce('note', () => persistDay({ notes: v || null }));
+  };
+  const changeMachinery = (v) => {
+    setMachinery(v);
+    debounce('mach', () => persistDay({ machinery: v || null }));
+  };
+
+  // ---------- الإجماليات ----------
   const dayValue = groups.reduce((t, g) => t + g.workers.reduce((s, w) =>
     s + Number(w.daily_rate || 0) * STATUS[marks[w.id] || DEF].factor, 0), 0);
   const presentCount = groups.reduce((t, g) => t + g.workers
     .filter((w) => ['full','half','stopped'].includes(marks[w.id] || DEF)).length, 0);
   const dt = new Date(date + 'T00:00:00');
+  const nameOfContractor = (cid) => groups.find((g) => g.id === cid)?.name_ar || '';
 
   return (
     <div dir="rtl">
       <div className="page-head">
         <div>
           <h1>يوم العمل</h1>
-          <p>كل ما حدث في هذا التاريخ — حضور كل المقاولين والإنتاج والوقائع</p>
+          <p>كل ما حدث في هذا التاريخ — حضور كل المقاولين والإنتاج والوقائع. الحفظ تلقائي.</p>
         </div>
+        {projectId && (
+          <span style={{
+            fontSize: 13, padding: '6px 14px', borderRadius: 6,
+            background: sync === 'error' ? '#FBECEC' : sync === 'saving' ? '#FDF3DF' : '#E8F3EA',
+            color: sync === 'error' ? '#A32B24' : sync === 'saving' ? '#8A6100' : '#2E6B3A',
+          }}>
+            {sync === 'saving' ? 'يُحفظ…' : sync === 'error' ? 'لم يُحفظ' : 'محفوظ تلقائياً'}
+          </span>
+        )}
       </div>
 
       <div className="section" style={{ marginTop: 0 }}>
@@ -210,12 +309,15 @@ export default function DayEntry() {
           <button className="btn ghost" onClick={() => setDate(shift(date, 1))}>اليوم التالي</button>
           <button className="btn ghost" onClick={() => setDate(iso(new Date()))}>اليوم</button>
           {dayId && <span style={{ fontSize: 12.5, color: '#2E6B3A' }}>يوم مسجّل</span>}
-          {!dayId && projectId && <span style={{ fontSize: 12.5, color: '#8A6100' }}>يوم جديد</span>}
+          {!dayId && projectId && (
+            <span style={{ fontSize: 12.5, color: '#8A6100' }}>
+              يوم جديد — يُنشأ عند أول إدخال
+            </span>
+          )}
         </div>
       </div>
 
       {err && <div className="msg err" style={{ marginBottom: 12 }}>{err}</div>}
-      {msg && <div className="msg ok" style={{ marginBottom: 12 }}>{msg}</div>}
       {loading && <div className="empty">جارٍ التحميل…</div>}
 
       {projectId && !loading && groups.map((g) => (
@@ -231,7 +333,7 @@ export default function DayEntry() {
             {g.workers.map((w) => {
               const st = marks[w.id] || DEF;
               return (
-                <button key={w.id} type="button" onClick={() => cycle(w.id)}
+                <button key={w.id} type="button" onClick={() => cycle(w)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 8,
                           padding: '8px 12px', cursor: 'pointer', borderRadius: 6,
@@ -253,36 +355,42 @@ export default function DayEntry() {
           <div className="section">
             <header>
               <h2>البنود المنفَّذة اليوم</h2>
-              <button className="btn ghost" style={sm}
-                      onClick={() => setLines((l) => [...l, { item: '', qty: '', unit: '' }])}>
-                إضافة بند
-              </button>
+              <button className="btn ghost" style={sm} onClick={addLine}>إضافة بند</button>
             </header>
             <div style={{ padding: 16 }}>
               {lines.length === 0 && (
                 <div style={{ fontSize: 13, color: '#888' }}>لم يُسجَّل بند لهذا اليوم بعد.</div>
               )}
               {lines.map((l, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-                  <select value={l.item} style={{ flex: 1 }}
-                          onChange={(e) => setLines((x) =>
-                            x.map((y, j) => j === i ? { ...y, item: e.target.value } : y))}>
+                <div key={l.id || 'new' + i}
+                     style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select value={l.item} style={{ flex: 1, minWidth: 200 }}
+                          onChange={(e) => editLine(i, { item: e.target.value }, true)}>
                     <option value="">— اختر البند —</option>
                     {items.map((it) => (
                       <option key={it.id} value={it.id}>{it.description_ar}</option>
                     ))}
                   </select>
+                  <select value={l.contractor} style={{ width: 170 }}
+                          onChange={(e) => editLine(i, { contractor: e.target.value }, true)}>
+                    <option value="">— المقاول —</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name_ar}</option>
+                    ))}
+                  </select>
                   <input type="number" step="any" dir="ltr" placeholder="المنجز"
-                         style={{ width: 120, textAlign: 'center' }} value={l.qty}
-                         onChange={(e) => setLines((x) =>
-                           x.map((y, j) => j === i ? { ...y, qty: e.target.value } : y))} />
-                  <input placeholder="الوحدة" style={{ width: 90 }} value={l.unit}
-                         onChange={(e) => setLines((x) =>
-                           x.map((y, j) => j === i ? { ...y, unit: e.target.value } : y))} />
-                  <button className="btn ghost" style={sm}
-                          onClick={() => setLines((x) => x.filter((_, j) => j !== i))}>حذف</button>
+                         style={{ width: 110, textAlign: 'center' }} value={l.qty}
+                         onChange={(e) => editLine(i, { qty: e.target.value })} />
+                  <input placeholder="الوحدة" style={{ width: 85 }} value={l.unit}
+                         onChange={(e) => editLine(i, { unit: e.target.value })} />
+                  <button className="btn ghost" style={sm} onClick={() => removeLine(i)}>حذف</button>
                 </div>
               ))}
+              {lines.length > 0 && (
+                <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                  البند والمنجز يُنسبان للمقاول المختار — فإن اشتغل مقاولان على البند نفسه، سجّل سطراً لكل منهما.
+                </div>
+              )}
             </div>
           </div>
 
@@ -291,11 +399,11 @@ export default function DayEntry() {
             <div style={{ padding: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div className="field" style={{ flex: 1, minWidth: 260 }}>
                 <label>تعقيدات وطلبات وأحداث</label>
-                <input value={note} onChange={(e) => setNote(e.target.value)} />
+                <input value={note} onChange={(e) => changeNote(e.target.value)} />
               </div>
               <div className="field" style={{ flex: 1, minWidth: 200 }}>
                 <label>الآليات والمعدات</label>
-                <input value={machinery} onChange={(e) => setMachinery(e.target.value)} />
+                <input value={machinery} onChange={(e) => changeMachinery(e.target.value)} />
               </div>
             </div>
           </div>
@@ -336,12 +444,8 @@ export default function DayEntry() {
             display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap',
             margin: '4px 0 30px',
           }}>
-            <button className="btn" onClick={save} disabled={busy}>
-              {busy ? 'جارٍ الحفظ…' : 'حفظ اليوم'}
-            </button>
-            <span style={{ fontSize: 13 }}>
-              الحاضرون: <b>{presentCount}</b>
-            </span>
+            <button className="btn ghost" onClick={openDay}>تحديث من القاعدة</button>
+            <span style={{ fontSize: 13 }}>الحاضرون: <b>{presentCount}</b></span>
             <span style={{ fontSize: 13 }}>
               قيمة اليوم: <b style={{ color: MAROON, direction: 'ltr' }}>{money(dayValue)}</b>
             </span>
