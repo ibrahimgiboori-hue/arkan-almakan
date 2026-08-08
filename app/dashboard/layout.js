@@ -14,12 +14,14 @@ const NAV = [
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
   ]},
   { group: 'المشاريع والتسعير', items: [
+    { href: '/dashboard/entities', label: 'العملاء والجهات' },
     { href: '/dashboard/projects', label: 'المشاريع' },
     { href: '/dashboard/quotes', label: 'عروض الأسعار وجداول الكميات' },
     { href: '/dashboard/contractors', label: 'المقاولون' },
   ]},
   { group: 'التنفيذ', items: [
     { href: '/dashboard/timesheet', label: 'التايم شيت' },
+    { href: '/dashboard/timesheet/settlement', label: 'تسوية المقاولين' },
     { href: '/dashboard/labor', label: 'الأيدي العاملة' },
   ]},
   { group: 'المستندات', items: [
@@ -78,6 +80,17 @@ export default function DashboardLayout({ children }) {
 
   const emp = me.employees;
 
+  // الرابط يُضاء إن كان هو الصفحة أو أحد فروعها — مع استثناء الفروع
+  // التي لها رابط خاص بها في القائمة نفسها
+  const isOn = (href) => {
+    if (pathname === href) return true;
+    if (href === '/dashboard') return false;
+    if (!pathname.startsWith(href + '/')) return false;
+    const deeper = NAV.flatMap((g) => g.items.map((i) => i.href))
+      .filter((h) => h !== href && h.startsWith(href + '/'));
+    return !deeper.some((h) => pathname === h || pathname.startsWith(h + '/'));
+  };
+
   return (
     <div className="shell">
       <aside className="side">
@@ -93,7 +106,7 @@ export default function DashboardLayout({ children }) {
               <div className="nav-group">{g.group}</div>
               {g.items.map((it) => (
                 <Link key={it.href} href={it.href}
-                      className={pathname === it.href ? 'on' : ''}>
+                      className={isOn(it.href) ? 'on' : ''}>
                   {it.label}
                 </Link>
               ))}
