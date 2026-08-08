@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 
 // ============================================================
 //  إدخال بحسب العامل : تختار الفرد فترى كل أسابيعه دفعة واحدة
+//  اليوم هو المحور — يُنشأ عند أول إدخال فيه
+//  الحفظ تلقائي، مشروط، ومتسلسل : لا تزاحم ولا تكرار
 //  المسار : /dashboard/timesheet/worker
 // ============================================================
 
@@ -50,6 +52,17 @@ export default function TimesheetByWorker() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [sync, setSync] = useState('idle');           // idle | saving | saved | error
+
+  // مراجع : تتجاوز البيانات القديمة المحتجزة داخل الإغلاق أثناء الحفظ
+  const marksRef  = useRef({});
+  const dayIdRef  = useRef({});
+  const chainRef  = useRef(Promise.resolve());   // طابور الحفظ المتسلسل
+  const pending   = useRef(new Set());
+  const timer     = useRef(null);
+
+  useEffect(() => { marksRef.current = marks; }, [marks]);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   useEffect(() => {
     (async () => {
@@ -103,7 +116,6 @@ export default function TimesheetByWorker() {
     if (!projectId) { setErr('اختر المشروع أولاً — الحضور يُسجَّل في مشروع محدد'); return; }
     setErr(''); setMsg(''); setLoading(true); setWorker(w);
     try {
-      // أيام المشروع المسجّلة
       const { data: dys } = await supabase.from('timesheet_days')
         .select('id, work_date').eq('project_id', projectId).order('work_date');
 
@@ -128,6 +140,8 @@ export default function TimesheetByWorker() {
         const dateOf = Object.fromEntries(Object.entries(dmap).map(([k, v]) => [v, k]));
         (att || []).forEach((a) => { m[dateOf[a.day_id]] = a.status; });
       }
+      dayIdRef.current = dmap;
+      marksRef.current = m;
       setDayIds(dmap); setMarks(m);
       setMsg(`${w.full_name} — ${starts.length} أسبوعاً منذ ${starts[0]}`);
     } catch (e) {
@@ -136,87 +150,95 @@ export default function TimesheetByWorker() {
     setLoading(false);
   }, [projectId, projects]);
 
-  const cycle = (d) => {
-    const cur = marks[d] || DEF;
-    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
-    setMarks((m) => ({ ...m, [d]: next }));
-    marksRef.current = { ...marksRef.current, [d]: next };
-    queue([d]);
-  };
-  const setWeek = (sd, st) => {
-    const dates = Array.from({ length: 6 }, (_, i) => addDays(sd, i));
-    setMarks((m) => {
-      const n = { ...m }; dates.forEach((d) => { n[d] = st; }); return n;
+  // ---------- أدوات الحفظ ----------
+  // اليوم يُنشأ عند أول إدخال فيه فقط — عبر دالة القاعدة الآمنة
+  const ensureDay = useCallback(async (pid, d) => {
+    if (dayIdRef.current[d]) return dayIdRef.current[d];
+    const { data, error } = await supabase.rpc('fn_get_or_create_day', {
+      p_project_id: pid, p_date: d,
     });
-    marksRef.current = { ...marksRef.current };
-    dates.forEach((d) => { marksRef.current[d] = st; });
-    queue(dates);
-  };
+    if (error) throw error;
+    dayIdRef.current = { ...dayIdRef.current, [d]: data };
+    setDayIds(dayIdRef.current);
+    return data;
+  }, []);
+
+  // ربط اليوم بالبند لهذا المقاول — سطر واحد لا يتكرر
+  const ensureDayItem = useCallback(async (dayId, iid, cid) => {
+    if (!iid) return;
+    let q = supabase.from('day_items').select('id')
+      .eq('day_id', dayId).eq('project_item_id', iid);
+    q = cid ? q.eq('contractor_id', cid) : q.is('contractor_id', null);
+    const { data: has } = await q.maybeSingle();
+    if (has) return;
+    const { error } = await supabase.from('day_items').insert({
+      day_id: dayId, project_item_id: iid, contractor_id: cid || null,
+    });
+    // تجاهل تصادم التزامن : سطر مطابق أُنشئ في اللحظة نفسها
+    if (error && error.code !== '23505') throw error;
+  }, []);
 
   // ---------- الحفظ التلقائي ----------
-  const pending = useRef(new Set());
-  const timer = useRef(null);
-  const [sync, setSync] = useState('idle');   // idle | saving | saved | error
-
-  const flush = useCallback(async () => {
-    if (!worker) return;
-    if (!projectId) { setErr('اختر المشروع أولاً'); setSync('error'); return; }
+  const flush = useCallback(() => {
     const dates = Array.from(pending.current);
     pending.current = new Set();
     if (!dates.length) return;
 
+    const w = worker, pid = projectId, iid = itemId, cid = contractorId;
+    if (!w) return;
+    if (!pid) { setErr('اختر المشروع أولاً'); setSync('error'); return; }
+
     setSync('saving');
-    try {
-      const rate = Number(worker.daily_rate || 0);
-      const dmap = { ...dayIds };
-
-      for (const d of dates) {
-        // اليوم يُنشأ عند الحاجة — بلا أسبوع
-        if (!dmap[d]) {
-          const { data: found } = await supabase.from('timesheet_days')
-            .select('id').eq('project_id', projectId).eq('work_date', d).maybeSingle();
-          if (found) dmap[d] = found.id;
-          else {
-            const ins = await supabase.from('timesheet_days')
-              .insert({ project_id: projectId, work_date: d })
-              .select('id').single();
-            if (ins.error) throw ins.error;
-            dmap[d] = ins.data.id;
-          }
+    // كل حفظ ينتظر سابقه — لا تتداخل عمليتان على اليوم نفسه
+    chainRef.current = chainRef.current
+      .then(async () => {
+        const rate = Number(w.daily_rate || 0);
+        for (const d of dates) {
+          const dayId = await ensureDay(pid, d);
+          await ensureDayItem(dayId, iid, cid);
+          const st = marksRef.current[d] || DEF;
+          // كتابة مشروطة : تُحدِّث إن وُجد السطر وتُنشئه إن لم يوجد
+          const { error } = await supabase.from('attendance').upsert({
+            day_id: dayId, laborer_id: w.id, status: st, rate_used: rate,
+          }, { onConflict: 'day_id,laborer_id' });
+          if (error) throw error;
         }
-        // ربط اليوم بالبند المختار (بلا تكرار)
-        if (itemId) {
-          const { data: has } = await supabase.from('day_items')
-            .select('id').eq('day_id', dmap[d]).eq('project_item_id', itemId).maybeSingle();
-          if (!has) await supabase.from('day_items')
-            .insert({ day_id: dmap[d], project_item_id: itemId });
-        }
+      })
+      .then(() => {
+        setErr(''); setSync('saved');
+        setTimeout(() => setSync((x) => (x === 'saved' ? 'idle' : x)), 1800);
+      })
+      .catch((e) => {
+        setErr('تعذّر الحفظ: ' + (e.message || e));
+        setSync('error');
+      });
+  }, [worker, projectId, itemId, contractorId, ensureDay, ensureDayItem]);
 
-        const st = marksRef.current[d] || DEF;
-        await supabase.from('attendance')
-          .delete().eq('laborer_id', worker.id).eq('day_id', dmap[d]);
-        const { error } = await supabase.from('attendance').insert({
-          day_id: dmap[d], laborer_id: worker.id, status: st, rate_used: rate,
-        });
-        if (error) throw error;
-      }
+  const flushRef = useRef(flush);
+  useEffect(() => { flushRef.current = flush; }, [flush]);
 
-      setDayIds(dmap);
-      setSync('saved');
-      setTimeout(() => setSync((x) => (x === 'saved' ? 'idle' : x)), 1800);
-    } catch (e) {
-      setErr('تعذّر الحفظ: ' + (e.message || e));
-      setSync('error');
-    }
-  }, [worker, dayIds, projectId, itemId]);
-
-  const marksRef = useRef({});
-  useEffect(() => { marksRef.current = marks; }, [marks]);
-
-  const queue = (dates) => {
+  const queue = useCallback((dates) => {
     dates.forEach((d) => pending.current.add(d));
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { flush(); }, 700);
+    clearTimeout(timer.current);
+    setSync('saving');
+    timer.current = setTimeout(() => flushRef.current(), 600);
+  }, []);
+
+  // ---------- التبديل ----------
+  const cycle = (d) => {
+    const cur = marksRef.current[d] || DEF;
+    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+    marksRef.current = { ...marksRef.current, [d]: next };
+    setMarks(marksRef.current);
+    queue([d]);
+  };
+  const setWeek = (sd, st) => {
+    const dates = Array.from({ length: 6 }, (_, i) => addDays(sd, i));
+    const n = { ...marksRef.current };
+    dates.forEach((d) => { n[d] = st; });
+    marksRef.current = n;
+    setMarks(n);
+    queue(dates);
   };
 
   const shown = laborers.filter((l) =>
