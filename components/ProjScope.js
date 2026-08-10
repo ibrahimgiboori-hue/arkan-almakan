@@ -11,6 +11,10 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [execs, setExecs] = useState([]);
   const [cons, setCons] = useState([]);
   const [decideFor, setDecideFor] = useState(null);
+  const [editExec, setEditExec] = useState(null);
+  const [tots, setTots] = useState([]);
+  const [endFor, setEndFor] = useState(null);
+  const [endF, setEndF] = useState({});
   const [budgetFor, setBudgetFor] = useState(null);
   const [buds, setBuds] = useState([]);
   const [states, setStates] = useState([]);
@@ -22,23 +26,31 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const [i, e, c, bg, st] = await Promise.all([
+    const [i, e, c, bg, st, tt] = await Promise.all([
       supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
-      supabase.from('item_execution').select('*'),
+      supabase.from('item_execution').select('*').order('decided_at', { ascending: true }),
       supabase.from('contractors').select('id, name_ar, worker_daily, tech_daily')
         .eq('is_active', true).order('name_ar'),
       supabase.from('v_item_budget').select('*').eq('project_id', projectId),
       supabase.from('v_item_execution_state').select('*').eq('project_id', projectId),
+      supabase.from('v_item_assignment_totals').select('*').eq('project_id', projectId),
     ]);
     setItems(i.data || []); setExecs(e.data || []); setCons(c.data || []);
-    setBuds(bg.data || []); setStates(st.data || []);
+    setBuds(bg.data || []); setStates(st.data || []); setTots(tt.data || []);
     onChange?.();
   }
 
   useEffect(() => { load(); }, [projectId]);
   useLiveRefresh(load, ['scope','budget','exec','all']);
 
-  const execOf = (id) => execs.find((x) => x.project_item_id === id);
+  const execsOf = (id) => execs.filter((x) => x.project_item_id === id);
+  const execOf = (id) => execsOf(id)[0];
+  const totOf = (id) => tots.find((x) => x.project_item_id === id) || {};
+
+  const END_AR = {
+    completed: 'اكتمال', mutual: 'اتفاق', underperformance: 'تقصير',
+    dispute: 'خلاف', other: 'أخرى',
+  };
 
   async function addLine(kind) {
     const order = (items.length ? Math.max(...items.map((l)=>l.sort_order)) : 0) + 1;
@@ -104,12 +116,15 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     load();
   }
 
-  function openDecide(item) {
-    const ex = execOf(item.id);
+  function openDecide(item, ex) {
+    const t = totOf(item.id);
     setDecideFor(item);
+    setEditExec(ex || null);
     setD(ex ? { ...ex } : {
       mode: 'piecework', contractor_id: '', agreed_rate: '', worker_daily: '',
-      tech_daily: '', target_output: '', shortfall_deduction: '', planned_cost: '', notes: '',
+      tech_daily: '', target_output: '', shortfall_deduction: '', planned_cost: '',
+      share_qty: t.qty_remaining != null ? String(t.qty_remaining) : '',
+      start_date: '', notes: '',
     });
     setErr(''); setMsg('');
   }
@@ -126,45 +141,59 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       target_output: d.target_output === '' ? null : Number(d.target_output),
       shortfall_deduction: d.shortfall_deduction === '' ? null : Number(d.shortfall_deduction),
       planned_cost: d.planned_cost === '' ? null : Number(d.planned_cost),
+      share_qty: d.share_qty === '' || d.share_qty == null ? null : Number(d.share_qty),
+      start_date: d.start_date || null,
       notes: d.notes || null,
     };
-    const ex = execOf(decideFor.id);
-    const res = ex
-      ? await supabase.from('item_execution').update(payload).eq('id', ex.id)
+    const res = editExec
+      ? await supabase.from('item_execution').update(payload).eq('id', editExec.id)
       : await supabase.from('item_execution').insert(payload);
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
-    setMsg('سُجّل قرار التنفيذ'); setDecideFor(null);
+    setMsg(editExec ? 'حُدّث الإسناد' : 'أُضيف الإسناد');
+    setDecideFor(null); setEditExec(null);
     await load(); notifyChange('exec'); onChange?.();
   }
 
-  async function startExec(item, date) {
-    setStarting(item.id); setErr(''); setMsg('');
-    const { data, error } = await supabase.rpc('start_item_execution',
-      { p_item: item.id, p_start_date: date || null });
+  async function startExec(ex, date) {
+    setStarting(ex.id); setErr(''); setMsg('');
+    const { data, error } = await supabase.rpc('start_item_assignment',
+      { p_exec: ex.id, p_start_date: date || null });
     setStarting(null);
     if (error) { setErr(error.message); return; }
     const parts = ['بدأ التنفيذ'];
     if (data?.created_agreement) parts.push('وأُنشئ اتفاق المقاول');
-    if (data?.created_week) parts.push('وفُتح أسبوع تايم شيت');
     setMsg(parts.join(' ') + '.');
     setAskStart(null);
     load();
-    if (data?.week_id) {
-      setTimeout(()=>{ window.open(`/dashboard/timesheet/${data.week_id}`, '_blank'); }, 400);
-    }
   }
 
-  async function finishExec(item) {
-    if (!window.confirm('إنهاء تنفيذ هذا البند؟')) return;
-    const { error } = await supabase.rpc('finish_item_execution', { p_item: item.id });
-    if (error) setErr(error.message); else { setMsg('أُنهي البند'); load(); }
+  function openEnd(ex, item) {
+    setEndFor({ ex, item });
+    setEndF({ date: new Date().toISOString().slice(0,10), reason: 'completed', qty: '' });
+    setErr(''); setMsg('');
   }
 
-  async function delDecision(item) {
-    const ex = execOf(item.id);
-    if (!ex || !window.confirm('حذف قرار التنفيذ لهذا البند؟')) return;
-    await supabase.from('item_execution').delete().eq('id', ex.id);
-    load();
+  async function submitEnd(e) {
+    e.preventDefault(); setErr('');
+    const { error } = await supabase.rpc('end_item_assignment', {
+      p_exec: endFor.ex.id,
+      p_end_date: endF.date,
+      p_end_reason: endF.reason,
+      p_closing_qty: endF.qty === '' ? null : Number(endF.qty),
+      p_notes: endF.notes || null,
+    });
+    if (error) { setErr(error.message); return; }
+    setMsg('أُقفل الإسناد وتحرّرت الكمية المتبقية.');
+    setEndFor(null);
+    await load(); notifyChange('exec'); onChange?.();
+  }
+
+  async function delDecision(ex) {
+    if (!ex || !window.confirm('حذف هذا الإسناد؟')) return;
+    if (ex.end_date) { setErr('الإسناد المنتهي لا يُحذف — التاريخ يبقى.'); return; }
+    const { error } = await supabase.from('item_execution').delete().eq('id', ex.id);
+    if (error) setErr('تعذّر الحذف: ' + error.message);
+    else load();
   }
 
   if (!items) return <div className="empty">جارٍ التحميل…</div>;
@@ -190,7 +219,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
       {noDecision > 0 && (
         <div className="msg err" style={{marginBottom:12}}>
-          {noDecision} بنداً بلا قرار تنفيذ — لا يبدأ التنفيذ قبل تسجيل القرار
+          {noDecision} بنداً بلا إسناد — لا يبدأ التنفيذ قبل إسناد منفّذ
         </div>
       )}
 
@@ -217,7 +246,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
               <th style={{width:100}} className="num">فئة البيع</th>
               <th style={{width:100}} className="num">تكلفة مخططة</th>
               <th style={{width:110}} className="num">قيمة البند</th>
-              <th style={{width:190}}>قرار التنفيذ</th>
+              <th style={{width:260}}>الإسنادات</th>
               <th style={{width:120}}>—</th>
             </tr>
           </thead>
@@ -296,58 +325,99 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                       );
                     })()}
                     {(() => {
+                      const list = execsOf(l.id);
+                      const t = totOf(l.id);
                       const st = states.find((x)=>x.project_item_id===l.id);
-                      if (!ex) return <span className="pill bad" style={{fontSize:11.5}}>بلا قرار</span>;
-                      const S = st?.status || 'planned';
-                      const SAR = { planned:'جاهز للتنفيذ', active:'قيد التنفيذ',
-                                    paused:'متوقف', done:'منتهٍ' };
-                      const SCLS = { planned:'warn', active:'ok', paused:'', done:'' };
+                      if (!list.length) {
+                        return (
+                          <div>
+                            <span className="pill bad" style={{fontSize:11.5}}>بلا إسناد</span>
+                            {canWrite && (
+                              <div style={{marginTop:4}}>
+                                <button className="btn" style={{padding:'3px 9px',fontSize:11.5}}
+                                        onClick={()=>openDecide(l, null)}>+ إسناد مقاول</button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      const over = Number(t.budget_remaining || 0) < 0;
                       return (
                         <div className="exec-cell">
-                          <div className="rowsplit" style={{gap:4}}>
-                            <span className="pill" style={{fontSize:11}}>{MODE_AR[ex.mode]}</span>
-                            <span className={`pill ${SCLS[S]}`} style={{fontSize:11}}>{SAR[S]}</span>
+                          {list.map((a) => {
+                            const c = cons.find((x)=>x.id===a.contractor_id);
+                            const ended = !!a.end_date;
+                            const active = !ended && !!a.start_date && (a.is_active !== false);
+                            const S = ended ? 'done' : active ? 'active' : 'planned';
+                            const SAR = { planned:'جاهز للبدء', active:'قيد التنفيذ', done:'منتهٍ' };
+                            const SCLS = { planned:'warn', active:'ok', done:'' };
+                            return (
+                              <div key={a.id} style={{borderTop:'1px solid var(--hair)',padding:'5px 0',
+                                                      opacity: ended ? 0.72 : 1}}>
+                                <div className="rowsplit" style={{gap:4}}>
+                                  <span className="pill" style={{fontSize:11}}>{MODE_AR[a.mode]}</span>
+                                  <span className={`pill ${SCLS[S]}`} style={{fontSize:11}}>{SAR[S]}</span>
+                                </div>
+                                <div className="ec-line" style={{fontWeight:600}}>
+                                  {c?.name_ar || 'بلا منفّذ'}
+                                </div>
+                                {a.agreed_rate ? (
+                                  <div className="ec-line">{money(a.agreed_rate)} / {l.unit}</div>
+                                ) : a.worker_daily ? (
+                                  <div className="ec-line">
+                                    عامل {money(a.worker_daily)} · صنايعي {money(a.tech_daily)}
+                                  </div>
+                                ) : null}
+                                <div className="ec-line">
+                                  {a.share_qty ? `حصة ${Number(a.share_qty).toLocaleString('en-US')} ${l.unit || ''}` : 'حصة مفتوحة'}
+                                  {a.planned_cost ? ` · مخطط ${money(a.planned_cost)}` : ''}
+                                </div>
+                                {(a.start_date || a.end_date) && (
+                                  <div className="ec-line" dir="ltr" style={{textAlign:'right'}}>
+                                    {a.start_date || '—'} → {a.end_date || '…'}
+                                  </div>
+                                )}
+                                {ended && (
+                                  <div className="ec-line">
+                                    أُقفل على {Number(a.closing_qty||0).toLocaleString('en-US')} {l.unit || ''}
+                                    {a.end_reason ? ` · ${END_AR[a.end_reason] || a.end_reason}` : ''}
+                                  </div>
+                                )}
+                                {canWrite && !ended && (
+                                  <div className="rowsplit" style={{gap:4,marginTop:3}}>
+                                    {!a.start_date && (
+                                      <button className="btn" style={{padding:'3px 9px',fontSize:11.5}}
+                                              disabled={starting === a.id}
+                                              onClick={()=>{ setAskStart({ ex:a, item:l });
+                                                             setSDate(new Date().toISOString().slice(0,10)); }}>
+                                        {starting === a.id ? 'جارٍ…' : 'ابدأ'}
+                                      </button>
+                                    )}
+                                    <button className="btn ghost" style={{padding:'3px 9px',fontSize:11.5}}
+                                            onClick={()=>openDecide(l, a)}>تعديل</button>
+                                    <button className="btn ghost" style={{padding:'3px 9px',fontSize:11.5}}
+                                            onClick={()=>openEnd(a, l)}>إنهاء</button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          <div style={{borderTop:'1px solid var(--hair)',marginTop:4,paddingTop:5,
+                                       fontSize:11.5,color: over ? 'var(--bad)' : 'var(--ink-soft)'}}>
+                            متبقٍ {Number(t.qty_remaining || 0).toLocaleString('en-US')} {l.unit || ''}
+                            {' · '}ميزانية متبقية {money(t.budget_remaining || 0)}
                           </div>
-                          {st?.contractor_name && (
-                            <div className="ec-line">{st.contractor_name}</div>
-                          )}
-                          {ex.agreed_rate ? (
-                            <div className="ec-line">{money(ex.agreed_rate)} / {l.unit}</div>
-                          ) : ex.worker_daily ? (
-                            <div className="ec-line">
-                              عامل {money(ex.worker_daily)} · صنايعي {money(ex.tech_daily)}
-                            </div>
-                          ) : null}
                           {Number(st?.days_worked || 0) > 0 && (
                             <div className="ec-line">
-                              {st.days_worked} يوم عمل ·
+                              فعلياً: {st.days_worked} يوم ·
                               {' '}{Number(st.output_from_timesheet||0).toLocaleString('en-US')} {l.unit}
                             </div>
                           )}
-                          {canWrite && (
-                            <div className="rowsplit" style={{gap:4,marginTop:3}}>
-                              {S === 'planned' && (
-                                <button className="btn" style={{padding:'3px 9px',fontSize:11.5}}
-                                        disabled={starting === l.id}
-                                        onClick={()=>{
-                                          setAskStart(l);
-                                          setSDate(new Date().toISOString().slice(0,10));
-                                        }}>
-                                  {starting === l.id ? 'جارٍ…' : 'ابدأ التنفيذ'}
-                                </button>
-                              )}
-                              {S === 'active' && (
-                                <>
-                                  {st?.open_week_id && (
-                                    <a className="btn" style={{padding:'3px 9px',fontSize:11.5}}
-                                       href={`/dashboard/timesheet/${st.open_week_id}`}>
-                                      التايم شيت
-                                    </a>
-                                  )}
-                                  <button className="btn ghost" style={{padding:'3px 9px',fontSize:11.5}}
-                                          onClick={()=>finishExec(l)}>إنهاء</button>
-                                </>
-                              )}
+                          {canWrite && Number(t.qty_remaining || 0) > 0 && (
+                            <div style={{marginTop:4}}>
+                              <button className="btn" style={{padding:'3px 9px',fontSize:11.5}}
+                                      onClick={()=>openDecide(l, null)}>+ إسناد مقاول</button>
                             </div>
                           )}
                         </div>
@@ -361,10 +431,10 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                           <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
                                   onClick={()=>{setBudgetFor(l); setDecideFor(null);}}>ميزانية</button>
                           <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
-                                  onClick={()=>openDecide(l)}>{ex ? 'تعديل القرار' : 'قرار'}</button>
-                          {ex && (
+                                  onClick={()=>openDecide(l, null)}>+ إسناد</button>
+                          {ex && !ex.end_date && (
                             <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
-                                    onClick={()=>delDecision(l)}>إلغاء</button>
+                                    onClick={()=>delDecision(ex)}>إلغاء</button>
                           )}
                           <button className="btn" style={{padding:'3px 7px',fontSize:11.5}}
                                   title="إدراج بند بعده" onClick={()=>insertAfter(l.sort_order,'item')}>+</button>
@@ -410,22 +480,62 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
       {askStart && (
         <div className="section" style={{borderColor:'var(--maroon)'}}>
-          <header><h2>بدء تنفيذ: {askStart.description_ar}</h2></header>
+          <header><h2>بدء إسناد: {askStart.item?.description_ar}</h2></header>
           <div style={{padding:18}}>
             <div className="field" style={{maxWidth:280}}>
               <label>تاريخ بدء التنفيذ الفعلي *</label>
               <input type="date" dir="ltr" value={sDate}
                      onChange={(e)=>setSDate(e.target.value)} />
-              <span className="hint">منه يُبنى أول أسبوع تايم شيت</span>
+              <span className="hint">منه تُحتسب يوميات هذا المنفّذ</span>
             </div>
             <div className="rowsplit">
-              <button className="btn" disabled={starting === askStart.id}
-                      onClick={()=>startExec(askStart, sDate)}>
-                {starting === askStart.id ? 'جارٍ…' : 'ابدأ التنفيذ'}
+              <button className="btn" disabled={starting === askStart.ex?.id}
+                      onClick={()=>startExec(askStart.ex, sDate)}>
+                {starting === askStart.ex?.id ? 'جارٍ…' : 'ابدأ التنفيذ'}
               </button>
               <button className="btn ghost" onClick={()=>setAskStart(null)}>إلغاء</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {endFor && (
+        <div className="section" style={{borderColor:'var(--maroon)'}}>
+          <header><h2>إنهاء إسناد: {cons.find((c)=>c.id===endFor.ex.contractor_id)?.name_ar || 'منفّذ'}</h2></header>
+          <form onSubmit={submitEnd} style={{padding:18}}>
+            <div className="form-grid">
+              <div className="field">
+                <label>تاريخ الإنهاء *</label>
+                <input type="date" dir="ltr" required value={endF.date || ''}
+                       onChange={(e)=>setEndF({...endF, date:e.target.value})} />
+                <span className="hint">لا يُحتسب لهذا المنفّذ عمل بعد هذا التاريخ</span>
+              </div>
+              <div className="field">
+                <label>سبب الإنهاء *</label>
+                <select value={endF.reason || 'completed'}
+                        onChange={(e)=>setEndF({...endF, reason:e.target.value})}>
+                  {Object.entries(END_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>الكمية المنفَّذة حتى التاريخ *</label>
+                <input type="number" step="any" dir="ltr" required value={endF.qty ?? ''}
+                       onChange={(e)=>setEndF({...endF, qty:e.target.value})} />
+                <span className="hint">
+                  الرقم الموقَّع في المحضر — يُقفل ولا يُعدَّل، ومنه تُحسب الكمية المتبقية
+                </span>
+              </div>
+              <div className="field span2">
+                <label>ملاحظات (عيوب، أعمال ناقصة، اتفاقات)</label>
+                <input value={endF.notes || ''}
+                       onChange={(e)=>setEndF({...endF, notes:e.target.value})} />
+              </div>
+            </div>
+            <div className="rowsplit">
+              <button className="btn" type="submit">إنهاء وإقفال</button>
+              <button className="btn ghost" type="button" onClick={()=>setEndFor(null)}>إلغاء</button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -438,7 +548,9 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
       {decideFor && (
         <div className="section">
-          <header><h2>قرار تنفيذ: {decideFor.description_ar || 'بند'}</h2></header>
+          <header><h2>
+            {editExec ? 'تعديل إسناد' : 'إسناد منفّذ'}: {decideFor.description_ar || 'بند'}
+          </h2></header>
           <form onSubmit={saveDecision} style={{padding:18}}>
             <div className="form-grid">
               <div className="field">
@@ -496,10 +608,27 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
               )}
 
               <div className="field">
+                <label>حصته من الكمية</label>
+                <input type="number" step="any" dir="ltr" value={d.share_qty ?? ''}
+                       onChange={(e)=>setD({...d, share_qty:e.target.value})} />
+                <span className="hint">
+                  المتبقي من البند {Number(totOf(decideFor.id).qty_remaining || 0).toLocaleString('en-US')}
+                  {' '}{decideFor.unit || ''} — اتركها فارغة لحصة مفتوحة
+                </span>
+              </div>
+              <div className="field">
+                <label>تاريخ بدء عمله</label>
+                <input type="date" dir="ltr" value={d.start_date || ''}
+                       onChange={(e)=>setD({...d, start_date:e.target.value})} />
+              </div>
+              <div className="field">
                 <label>التكلفة الكلية المخططة</label>
                 <input type="number" step="0.01" dir="ltr" value={d.planned_cost ?? ''}
                        onChange={(e)=>setD({...d, planned_cost:e.target.value})} />
-                <span className="hint">ميزانية البند {money(decideFor.budget_value)}</span>
+                <span className="hint">
+                  ميزانية البند {money(decideFor.budget_value)} · المتبقي منها
+                  {' '}{money(totOf(decideFor.id).budget_remaining || 0)}
+                </span>
               </div>
               <div className="field span2">
                 <label>ملاحظات</label>
@@ -507,8 +636,11 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
               </div>
             </div>
             <div className="rowsplit">
-              <button className="btn" type="submit">حفظ القرار</button>
-              <button className="btn ghost" type="button" onClick={()=>setDecideFor(null)}>إلغاء</button>
+              <button className="btn" type="submit">
+                {editExec ? 'حفظ التعديل' : 'حفظ الإسناد'}
+              </button>
+              <button className="btn ghost" type="button"
+                      onClick={()=>{ setDecideFor(null); setEditExec(null); }}>إلغاء</button>
             </div>
           </form>
         </div>
