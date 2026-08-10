@@ -28,6 +28,7 @@ export default function ProjectCard() {
   const { id } = useParams();
   const [p, setP] = useState(null);
   const [fin, setFin] = useState(null);
+  const [tot, setTot] = useState(null);
   const [emps, setEmps] = useState([]);
   const [ents, setEnts] = useState([]);
   const [role, setRole] = useState(null);
@@ -36,9 +37,12 @@ export default function ProjectCard() {
   const [msg, setMsg] = useState('');
 
   const loadFin = useCallback(async () => {
-    const { data } = await supabase.from('v_project_financials')
-      .select('*').eq('project_id', id).maybeSingle();
-    setFin(data || null);
+    const [fr, tr] = await Promise.all([
+      supabase.from('v_project_financials').select('*').eq('project_id', id).maybeSingle(),
+      supabase.from('v_project_totals').select('*').eq('project_id', id).maybeSingle(),
+    ]);
+    setFin(fr.data || null);
+    setTot(tr.data || null);
   }, [id]);
 
   const load = useCallback(async () => {
@@ -64,11 +68,27 @@ export default function ProjectCard() {
     else { setMsg('حُفظ'); setTimeout(()=>setMsg(''), 1200); loadFin(); notifyChange('project'); }
   }
 
+  async function approveContractValue() {
+    const { data, error } = await supabase.rpc('approve_project_contract_value', { p_project_id: id });
+    if (error) { setErr('تعذّر الاعتماد: ' + error.message); return; }
+    setMsg('اعتُمدت قيمة العقد ' + money(data));
+    setTimeout(()=>setMsg(''), 1800);
+    load(); notifyChange('project');
+  }
+
   if (err && !p) return <div className="msg err">{err}</div>;
   if (!p) return <div className="empty">جارٍ التحميل…</div>;
 
   const canWrite = ['ceo','hr','accountant'].includes(role);
   const f = fin || {};
+  const t = tot || {};
+  // قيمة العقد المعروضة: المعتمدة في projects إن وُجدت، وإلا المحسوبة من البنود
+  const contractValue = Number(
+    t.contract_value_effective !== undefined && t.contract_value_effective !== null
+      ? t.contract_value_effective
+      : (p.contract_value || 0)
+  );
+  const contractApproved = !!t.contract_value_approved;
   const profit = Number(f.current_profit || 0);
   const daysLeft = f.days_remaining;
 
@@ -144,8 +164,28 @@ export default function ProjectCard() {
               <header><h2>الإيرادات</h2></header>
               <table>
                 <tbody>
-                  {[['قيمة العقد', p.contract_value],
-                    ['القيمة المكتسبة من الإنجاز', f.earned_value],
+                  <tr>
+                    <td style={{color:'var(--ink-soft)'}}>
+                      قيمة العقد
+                      {!contractApproved && contractValue > 0 && (
+                        <span style={{marginInlineStart:8,fontSize:11.5,padding:'1px 7px',
+                                      border:'1px solid var(--ink-soft)',borderRadius:4,
+                                      color:'var(--ink-soft)'}}>
+                          محسوبة من البنود — غير معتمدة
+                        </span>
+                      )}
+                    </td>
+                    <td className="num">{money(contractValue)}</td>
+                  </tr>
+                  {t.contract_value_mismatch && (
+                    <tr>
+                      <td colSpan={2} style={{color:'var(--bad)',fontSize:12.5}}>
+                        المعتمد {money(t.contract_value_signed)} يخالف مجموع البنود {money(t.items_contract_value)}
+                        {' '}— سجّل أمر تغيير مرقّماً بالفرق أو أعد الاعتماد
+                      </td>
+                    </tr>
+                  )}
+                  {[['القيمة المكتسبة من الإنجاز', f.earned_value],
                     ['إجمالي المستخلصات', f.claimed_gross],
                     ['المحصَّل', f.collected],
                     ['مستحق لم يُحصَّل', f.pending_collection],
@@ -160,6 +200,16 @@ export default function ProjectCard() {
                   ))}
                 </tbody>
               </table>
+              {canWrite && !contractApproved && Number(t.items_contract_value || 0) > 0 && (
+                <div style={{padding:'12px 18px'}}>
+                  <button className="btn" onClick={approveContractValue}>
+                    اعتماد قيمة البنود كقيمة عقد
+                  </button>
+                  <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:6}}>
+                    بعد الاعتماد لا تتغير قيمة العقد إلا بأمر تغيير مرقّم
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="section" style={{marginTop:0}}>
