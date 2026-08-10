@@ -13,6 +13,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [decideFor, setDecideFor] = useState(null);
   const [editExec, setEditExec] = useState(null);
   const [tots, setTots] = useState([]);
+  const [acts, setActs] = useState([]);
   const [endFor, setEndFor] = useState(null);
   const [endF, setEndF] = useState({});
   const [budgetFor, setBudgetFor] = useState(null);
@@ -26,7 +27,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const [i, e, c, bg, st, tt] = await Promise.all([
+    const [i, e, c, bg, st, tt, ac] = await Promise.all([
       supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
       supabase.from('item_execution').select('*').order('decided_at', { ascending: true }),
       supabase.from('contractors').select('id, name_ar, worker_daily, tech_daily')
@@ -34,9 +35,11 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       supabase.from('v_item_budget').select('*').eq('project_id', projectId),
       supabase.from('v_item_execution_state').select('*').eq('project_id', projectId),
       supabase.from('v_item_assignment_totals').select('*').eq('project_id', projectId),
+      supabase.from('v_item_assignment_actuals').select('*'),
     ]);
     setItems(i.data || []); setExecs(e.data || []); setCons(c.data || []);
     setBuds(bg.data || []); setStates(st.data || []); setTots(tt.data || []);
+    setActs(ac.data || []);
     onChange?.();
   }
 
@@ -46,6 +49,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const execsOf = (id) => execs.filter((x) => x.project_item_id === id);
   const execOf = (id) => execsOf(id)[0];
   const totOf = (id) => tots.find((x) => x.project_item_id === id) || {};
+  const actOf = (execId) => acts.find((x) => x.exec_id === execId) || {};
 
   const END_AR = {
     completed: 'اكتمال', mutual: 'اتفاق', underperformance: 'تقصير',
@@ -377,6 +381,17 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                                     {a.start_date || '—'} → {a.end_date || '…'}
                                   </div>
                                 )}
+                                {(() => {
+                                  const ac = actOf(a.id);
+                                  if (!Number(ac.days_worked || 0)) return null;
+                                  return (
+                                    <div className="ec-line" style={{color:'var(--maroon-dark)'}}>
+                                      فعلياً {Number(ac.actual_output||0).toLocaleString('en-US')} {l.unit || ''}
+                                      {' · '}{ac.days_worked} يوم
+                                      {' · '}منصرف {money(ac.actual_cost||0)}
+                                    </div>
+                                  );
+                                })()}
                                 {ended && (
                                   <div className="ec-line">
                                     أُقفل على {Number(a.closing_qty||0).toLocaleString('en-US')} {l.unit || ''}
@@ -405,13 +420,16 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
                           <div style={{borderTop:'1px solid var(--hair)',marginTop:4,paddingTop:5,
                                        fontSize:11.5,color: over ? 'var(--bad)' : 'var(--ink-soft)'}}>
-                            متبقٍ {Number(t.qty_remaining || 0).toLocaleString('en-US')} {l.unit || ''}
+                            متبقٍ مخططاً {Number(t.qty_remaining || 0).toLocaleString('en-US')} {l.unit || ''}
                             {' · '}ميزانية متبقية {money(t.budget_remaining || 0)}
                           </div>
-                          {Number(st?.days_worked || 0) > 0 && (
-                            <div className="ec-line">
-                              فعلياً: {st.days_worked} يوم ·
-                              {' '}{Number(st.output_from_timesheet||0).toLocaleString('en-US')} {l.unit}
+                          {Number(t.actual_cost || 0) > 0 && (
+                            <div style={{fontSize:11.5,
+                                         color: Number(t.budget_remaining_actual||0) < 0
+                                                ? 'var(--bad)' : 'var(--ink-soft)'}}>
+                              فعلياً {Number(t.actual_output||0).toLocaleString('en-US')} {l.unit || ''}
+                              {' · '}منصرف {money(t.actual_cost || 0)}
+                              {' · '}من الميزانية بقي {money(t.budget_remaining_actual || 0)}
                             </div>
                           )}
                           {canWrite && Number(t.qty_remaining || 0) > 0 && (
