@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
+import { useLiveRefresh } from '@/lib/live';
 
 const PAYER_AR = {
   contractor: 'المقاول من جيبه',
@@ -84,6 +85,19 @@ export default function ExpensesPage() {
   useEffect(() => { loadItems(); }, [loadItems]);
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // تحديث تلقائي: عند أي تغيير في التايم شيت أو غيره، وعند العودة إلى الصفحة
+  useLiveRefresh(loadAll, ['timesheet', 'exec', 'scope', 'settlement', 'all']);
+
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState === 'visible') loadAll(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [loadAll]);
+
   function reset(t) {
     setTab(t); setErr(''); setMsg('');
     if (t === 'expense') setF({ expense_date: today(), payer: 'contractor', charge_to: 'arkan', category: 'وجبات' });
@@ -156,7 +170,11 @@ export default function ExpensesPage() {
 
       {acct && (
         <div className="section" style={{ marginTop: 0 }}>
-          <header><h2>الحساب الجاري</h2></header>
+          <header>
+            <h2>الحساب الجاري</h2>
+            <button className="btn ghost" style={{ padding: '3px 10px', fontSize: 12 }}
+                    onClick={loadAll}>تحديث</button>
+          </header>
           <table>
             <tbody>
               {[
