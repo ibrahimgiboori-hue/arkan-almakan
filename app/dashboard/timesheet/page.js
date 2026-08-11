@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useLiveRefresh } from '@/lib/live';
 
 // ============================================================
 //  التايم شيت — الصفحة الرئيسية
@@ -44,6 +45,19 @@ export default function TimesheetHome() {
   }, [projectId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // تحديث تلقائي عند تغيّر أي بيانات مرتبطة، وعند العودة إلى الصفحة
+  useLiveRefresh(load, ['timesheet', 'exec', 'scope', 'all']);
+
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState === 'visible') load(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [load]);
 
   const today = iso(new Date());
   const dayHref = (dt) => `/dashboard/timesheet/day?p=${projectId}&d=${dt}`;
