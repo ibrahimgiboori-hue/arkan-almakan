@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { MODE_AR } from '@/lib/projects';
 import ItemBudget from '@/components/ItemBudget';
+import HelpButton from '@/components/HelpButton';
 import { notifyChange, useLiveRefresh } from '@/lib/live';
 
 export default function ProjScope({ projectId, canWrite, onChange }) {
@@ -250,7 +251,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
               <th style={{width:100}} className="num">فئة البيع</th>
               <th style={{width:100}} className="num">تكلفة مخططة</th>
               <th style={{width:110}} className="num">قيمة البند</th>
-              <th style={{width:260}}>الإسنادات</th>
+              <th style={{width:260}}>الإسنادات <HelpButton k="item.assign" /></th>
               <th style={{width:120}}>—</th>
             </tr>
           </thead>
@@ -519,7 +520,10 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
       {endFor && (
         <div className="section" style={{borderColor:'var(--maroon)'}}>
-          <header><h2>إنهاء إسناد: {cons.find((c)=>c.id===endFor.ex.contractor_id)?.name_ar || 'منفّذ'}</h2></header>
+          <header><h2>
+            إنهاء إسناد: {cons.find((c)=>c.id===endFor.ex.contractor_id)?.name_ar || 'منفّذ'}
+            <HelpButton k="item.assignment.end" />
+          </h2></header>
           <form onSubmit={submitEnd} style={{padding:18}}>
             <div className="form-grid">
               <div className="field">
