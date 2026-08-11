@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 // ============================================================
 //  إدخال بحسب العامل : تختار الفرد فترى كل أسابيعه دفعة واحدة
 //  اليوم هو المحور — يُنشأ عند أول إدخال فيه
-//  الحفظ تلقائي، مشروط، ومتسلسل : لا تزاحم ولا تكرار
+//  الحفظ يدوي : التغييرات تبقى في الشاشة حتى تضغط حفظ أو تغادر العامل
 //  المسار : /dashboard/timesheet/worker
 // ============================================================
 
@@ -54,15 +54,26 @@ export default function TimesheetByWorker() {
   const [err, setErr] = useState('');
   const [sync, setSync] = useState('idle');           // idle | saving | saved | error
 
+  const [dirty, setDirty] = useState(0);              // عدد التغييرات غير المحفوظة
+  const [ask, setAsk] = useState(null);               // { label, run } — إجراء ينتظر الحفظ
+
   // مراجع : تتجاوز البيانات القديمة المحتجزة داخل الإغلاق أثناء الحفظ
   const marksRef  = useRef({});
   const dayIdRef  = useRef({});
-  const chainRef  = useRef(Promise.resolve());   // طابور الحفظ المتسلسل
-  const pending   = useRef(new Set());
-  const timer     = useRef(null);
+  const dirtyRef  = useRef(new Set());               // التواريخ المعدَّلة ولم تُحفظ
+  const savedRef  = useRef({});                      // آخر حالة محفوظة لكل تاريخ
 
   useEffect(() => { marksRef.current = marks; }, [marks]);
-  useEffect(() => () => clearTimeout(timer.current), []);
+
+  // تحذير المتصفح عند الإغلاق وفيه تغييرات معلّقة
+  useEffect(() => {
+    const onLeave = (e) => {
+      if (dirtyRef.current.size === 0) return;
+      e.preventDefault(); e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onLeave);
+    return () => window.removeEventListener('beforeunload', onLeave);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -142,6 +153,9 @@ export default function TimesheetByWorker() {
       }
       dayIdRef.current = dmap;
       marksRef.current = m;
+      savedRef.current = { ...m };
+      dirtyRef.current = new Set();
+      setDirty(0); setSync('idle');
       setDayIds(dmap); setMarks(m);
       setMsg(`${w.full_name} — ${starts.length} أسبوعاً منذ ${starts[0]}`);
     } catch (e) {
@@ -178,68 +192,81 @@ export default function TimesheetByWorker() {
     if (error && error.code !== '23505') throw error;
   }, []);
 
-  // ---------- الحفظ التلقائي ----------
-  const flush = useCallback(() => {
-    const dates = Array.from(pending.current);
-    pending.current = new Set();
-    if (!dates.length) return;
+  // ---------- الحفظ اليدوي ----------
+  // لا شيء يُكتب في القاعدة حتى تضغط حفظ أو تغادر العامل
+  const saveNow = useCallback(async () => {
+    const dates = Array.from(dirtyRef.current);
+    if (!dates.length) return true;
 
     const w = worker, pid = projectId, iid = itemId, cid = contractorId;
-    if (!w) return;
-    if (!pid) { setErr('اختر المشروع أولاً'); setSync('error'); return; }
+    if (!w)  { setErr('لا يوجد عامل مفتوح'); return false; }
+    if (!pid) { setErr('اختر المشروع أولاً'); setSync('error'); return false; }
 
-    setSync('saving');
-    // كل حفظ ينتظر سابقه — لا تتداخل عمليتان على اليوم نفسه
-    chainRef.current = chainRef.current
-      .then(async () => {
-        const rate = Number(w.daily_rate || 0);
-        for (const d of dates) {
-          const dayId = await ensureDay(pid, d);
-          await ensureDayItem(dayId, iid, cid);
-          const st = marksRef.current[d] || DEF;
-          // كتابة مشروطة : تُحدِّث إن وُجد السطر وتُنشئه إن لم يوجد
-          const { error } = await supabase.from('attendance').upsert({
-            day_id: dayId, laborer_id: w.id, status: st, rate_used: rate,
-          }, { onConflict: 'day_id,laborer_id' });
-          if (error) throw error;
-        }
-      })
-      .then(() => {
-        setErr(''); setSync('saved');
-        setTimeout(() => setSync((x) => (x === 'saved' ? 'idle' : x)), 1800);
-      })
-      .catch((e) => {
-        setErr('تعذّر الحفظ: ' + (e.message || e));
-        setSync('error');
-      });
+    setSync('saving'); setErr('');
+    const rate = Number(w.daily_rate || 0);
+    try {
+      for (const d of dates) {
+        const dayId = await ensureDay(pid, d);
+        await ensureDayItem(dayId, iid, cid);
+        const st = marksRef.current[d] || DEF;
+        const { error } = await supabase.from('attendance').upsert({
+          day_id: dayId, laborer_id: w.id, status: st, rate_used: rate,
+        }, { onConflict: 'day_id,laborer_id' });
+        if (error) throw error;
+        savedRef.current = { ...savedRef.current, [d]: st };
+      }
+      dirtyRef.current = new Set();
+      setDirty(0); setSync('saved');
+      setMsg(`حُفظ ${dates.length} يوماً لـ ${w.full_name}`);
+      setTimeout(() => setSync((x) => (x === 'saved' ? 'idle' : x)), 2200);
+      return true;
+    } catch (e) {
+      // التغييرات تبقى في الشاشة — لا تضيع لأن الحفظ فشل
+      setErr('تعذّر الحفظ: ' + (e.message || e));
+      setSync('error');
+      return false;
+    }
   }, [worker, projectId, itemId, contractorId, ensureDay, ensureDayItem]);
 
-  const flushRef = useRef(flush);
-  useEffect(() => { flushRef.current = flush; }, [flush]);
-
-  const queue = useCallback((dates) => {
-    dates.forEach((d) => pending.current.add(d));
-    clearTimeout(timer.current);
-    setSync('saving');
-    timer.current = setTimeout(() => flushRef.current(), 600);
+  // أي انتقال يمرّ من هنا: إن كان هناك غير محفوظ يُسأل أولاً
+  const guard = useCallback((label, run) => {
+    if (dirtyRef.current.size === 0) { run(); return; }
+    setAsk({ label, run });
   }, []);
 
-  // ---------- التبديل ----------
-  const cycle = (d) => {
-    const cur = marksRef.current[d] || DEF;
-    const next = CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
-    marksRef.current = { ...marksRef.current, [d]: next };
+  async function askSaveThen() {
+    const ok = await saveNow();
+    if (!ok) return;                 // فشل الحفظ: نبقى مكاننا ولا نفقد شيئاً
+    const run = ask?.run; setAsk(null); run?.();
+  }
+  function askDiscardThen() {
+    marksRef.current = { ...savedRef.current };
     setMarks(marksRef.current);
-    queue([d]);
-  };
-  const setWeek = (sd, st) => {
-    const dates = Array.from({ length: 6 }, (_, i) => addDays(sd, i));
+    dirtyRef.current = new Set(); setDirty(0); setSync('idle');
+    const run = ask?.run; setAsk(null); run?.();
+  }
+
+  // ---------- التبديل ----------
+  const touch = (dates, next) => {
     const n = { ...marksRef.current };
-    dates.forEach((d) => { n[d] = st; });
+    dates.forEach((d) => { n[d] = typeof next === 'function' ? next(d) : next; });
     marksRef.current = n;
     setMarks(n);
-    queue(dates);
+    dates.forEach((d) => {
+      if ((savedRef.current[d] || DEF) === (n[d] || DEF)) dirtyRef.current.delete(d);
+      else dirtyRef.current.add(d);
+    });
+    setDirty(dirtyRef.current.size);
+    if (sync !== 'error') setSync('idle');
   };
+
+  const cycle = (d) => touch([d], (x) => {
+    const cur = marksRef.current[x] || DEF;
+    return CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length];
+  });
+
+  const setWeek = (sd, st) =>
+    touch(Array.from({ length: 6 }, (_, i) => addDays(sd, i)), st);
 
   const shown = laborers.filter((l) =>
     !search || (l.full_name || '').includes(search) || (l.iqama_no || '').includes(search));
@@ -263,7 +290,9 @@ export default function TimesheetByWorker() {
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', padding: 16, alignItems: 'flex-end' }}>
           <div className="field" style={{ minWidth: 220 }}>
             <label>المشروع</label>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <select value={projectId}
+                    onChange={(e) => { const v = e.target.value;
+                      guard('تغيير المشروع', () => setProjectId(v)); }}>
               <option value="">— اختر —</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.project_no} — {p.name_ar}</option>
@@ -273,7 +302,8 @@ export default function TimesheetByWorker() {
           <div className="field" style={{ minWidth: 230 }}>
             <label>البند الجاهز للتنفيذ</label>
             <select value={itemId} disabled={!projectId}
-                    onChange={(e) => { setItemId(e.target.value); setContractorId(''); }}>
+                    onChange={(e) => { const v = e.target.value;
+                      guard('تغيير البند', () => { setItemId(v); setContractorId(''); }); }}>
               <option value="">— اختر —</option>
               {itemsReady.map((it) => (
                 <option key={it.id} value={it.id}>{it.name}</option>
@@ -288,7 +318,8 @@ export default function TimesheetByWorker() {
           <div className="field" style={{ minWidth: 200 }}>
             <label>المقاول</label>
             <select value={contractorId} disabled={!itemId}
-                    onChange={(e) => setContractorId(e.target.value)}>
+                    onChange={(e) => { const v = e.target.value;
+                      guard('تغيير المقاول', () => setContractorId(v)); }}>
               <option value="">— اختر —</option>
               {itemContractors.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -319,7 +350,8 @@ export default function TimesheetByWorker() {
         {contractorId && projectId && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '0 16px 16px' }}>
             {shown.map((l) => (
-              <button key={l.id} type="button" onClick={() => openWorker(l)}
+              <button key={l.id} type="button"
+                      onClick={() => guard(`الانتقال إلى ${l.full_name}`, () => openWorker(l))}
                       style={{
                         fontSize: 13, padding: '7px 14px', cursor: 'pointer', borderRadius: 6,
                         background: worker?.id === l.id ? MAROON : '#fff',
@@ -414,18 +446,75 @@ export default function TimesheetByWorker() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '4px 0 30px' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center',
+                        flexWrap: 'wrap', margin: '4px 0 30px' }}>
+            <button type="button" onClick={saveNow}
+                    disabled={dirty === 0 || sync === 'saving'}
+                    style={{
+                      fontSize: 13.5, padding: '8px 22px', borderRadius: 6, cursor: 'pointer',
+                      border: '1px solid ' + (dirty ? MAROON : '#ddd'),
+                      background: dirty ? MAROON : '#f4f4f4',
+                      color: dirty ? '#fff' : '#999',
+                    }}>
+              {sync === 'saving' ? 'يُحفظ…' : 'حفظ التغييرات'}
+            </button>
+
             <span style={{
               fontSize: 13, padding: '6px 14px', borderRadius: 6,
-              background: sync === 'error' ? '#FBECEC' : sync === 'saving' ? '#FDF3DF' : '#E8F3EA',
-              color: sync === 'error' ? '#A32B24' : sync === 'saving' ? '#8A6100' : '#2E6B3A',
+              background: sync === 'error' ? '#FBECEC' : dirty ? '#FDF3DF' : '#E8F3EA',
+              color:      sync === 'error' ? '#A32B24' : dirty ? '#8A6100' : '#2E6B3A',
             }}>
-              {sync === 'saving' ? 'يُحفظ…' : sync === 'error' ? 'لم يُحفظ' : 'محفوظ تلقائياً'}
+              {sync === 'error' ? 'لم يُحفظ — التغييرات ما زالت أمامك'
+                : dirty ? `${dirty} يوماً غير محفوظ`
+                : 'كل شيء محفوظ'}
             </span>
+
             <span style={{ fontSize: 12.5, color: '#777' }}>
-              كل ضغطة تُحفظ وحدها — لا حاجة لزر حفظ
+              سجّل حضور العامل كاملاً ثم احفظ مرة واحدة
             </span>
           </div>
+
+          {ask && (
+            <div style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,.35)', zIndex: 80,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{
+                background: '#fff', borderRadius: 8, padding: '22px 24px',
+                width: 'min(430px, 92vw)', textAlign: 'right',
+                boxShadow: '0 10px 40px rgba(0,0,0,.25)',
+              }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, color: MAROON }}>
+                  تغييرات غير محفوظة
+                </h3>
+                <p style={{ fontSize: 13.5, color: '#555', lineHeight: 1.8, margin: '0 0 16px' }}>
+                  لديك <b>{dirty}</b> يوماً معدَّلاً على <b>{worker?.full_name}</b> لم يُحفظ بعد.
+                  قبل {ask.label}: احفظها أو تجاهلها.
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={askSaveThen} disabled={sync === 'saving'}
+                          style={{ fontSize: 13.5, padding: '8px 20px', borderRadius: 6,
+                                   cursor: 'pointer', border: '1px solid ' + MAROON,
+                                   background: MAROON, color: '#fff' }}>
+                    {sync === 'saving' ? 'يُحفظ…' : 'احفظ ثم انتقل'}
+                  </button>
+                  <button type="button" onClick={askDiscardThen}
+                          style={{ fontSize: 13.5, padding: '8px 20px', borderRadius: 6,
+                                   cursor: 'pointer', border: '1px solid #ddd',
+                                   background: '#fff', color: '#A32B24' }}>
+                    تجاهل التغييرات
+                  </button>
+                  <button type="button" onClick={() => setAsk(null)}
+                          style={{ fontSize: 13.5, padding: '8px 16px', borderRadius: 6,
+                                   cursor: 'pointer', border: '1px solid #ddd',
+                                   background: '#fff', color: '#666' }}>
+                    ابقَ هنا
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </>
       )}
     </div>
