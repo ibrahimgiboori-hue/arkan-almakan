@@ -23,6 +23,7 @@ const NAV = [
     { href: '/dashboard/timesheet', label: 'التايم شيت' },
     { href: '/dashboard/timesheet/settlement', label: 'تسوية المقاولين' },
     { href: '/dashboard/labor', label: 'الأيدي العاملة' },
+    { href: '/dashboard/expenses', label: 'مصروفات وحسابات المقاولين' },
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/archive', label: 'الأرشيف' },
