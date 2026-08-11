@@ -5,15 +5,15 @@ import { money } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/live';
 
 const PAYER_AR = {
-  contractor: 'المقاول من جيبه',
-  arkan_custody: 'أركان من العهدة',
-  arkan_direct: 'أركان مباشرة',
+  contractor: 'المقاول من حسابه الخاص',
+  arkan_custody: 'أركان — صرف من عهدة',
+  arkan_direct: 'أركان — صرف مباشر',
 };
 
 const CHARGE_AR = {
-  arkan: 'على أركان (تكلفة على البند)',
-  contractor: 'على المقاول (يُخصم من مستحقاته)',
-  owner: 'على المالك (مطالبة تُسترد)',
+  arkan: 'أركان — تُحمَّل على تكلفة البند',
+  contractor: 'المقاول — تُخصم من مستحقاته',
+  owner: 'المالك — مطالبة تُسترد',
 };
 
 const KIND_AR = { settlement: 'سداد كشف', on_account: 'دفعة على الحساب', advance: 'سلفة' };
@@ -36,6 +36,7 @@ export default function ExpensesPage() {
   const [pays, setPays] = useState([]);
 
   const [tab, setTab] = useState('expense');
+  const [editing, setEditing] = useState(null);   // { kind, id }
   const [f, setF] = useState({});
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -99,7 +100,7 @@ export default function ExpensesPage() {
   }, [loadAll]);
 
   function reset(t) {
-    setTab(t); setErr(''); setMsg('');
+    setTab(t); setErr(''); setMsg(''); setEditing(null);
     if (t === 'expense') setF({ expense_date: today(), payer: 'contractor', charge_to: 'arkan', category: 'وجبات' });
     if (t === 'advance') setF({ advance_date: today() });
     if (t === 'payment') setF({ payment_date: today(), kind: 'settlement', source: 'bank' });
@@ -107,37 +108,74 @@ export default function ExpensesPage() {
 
   useEffect(() => { reset('expense'); }, []);
 
+  function openEdit(kind, row) {
+    setErr(''); setMsg('');
+    setTab(kind);
+    setEditing({ kind, id: row.id });
+    setF({ ...row });
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function removeRow(kind, row) {
+    if (kind === 'expense' && row.is_settled) {
+      setErr('هذا المصروف مُدرج في كشف تسوية معتمد — لا يُحذف. سجّل حركة تصحيح.');
+      return;
+    }
+    if (!window.confirm('حذف هذه الحركة نهائياً؟')) return;
+    const table = kind === 'expense' ? 'contractor_expenses'
+                : kind === 'advance' ? 'contractor_advances'
+                : 'contractor_payments';
+    const { error } = await supabase.from(table).delete().eq('id', row.id);
+    if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
+    setMsg('حُذفت الحركة');
+    if (editing?.id === row.id) reset(tab);
+    loadAll();
+  }
+
   async function save(e) {
     e.preventDefault(); setErr(''); setMsg('');
     if (!projectId || !contractorId) { setErr('اختر المشروع والمقاول أولاً'); return; }
 
     let res;
     if (tab === 'expense') {
-      res = await supabase.from('contractor_expenses').insert({
+      if (editing && f.is_settled) {
+        setErr('هذا المصروف مُدرج في كشف تسوية معتمد — لا يُعدَّل.');
+        return;
+      }
+      const payload = {
         project_id: projectId, contractor_id: contractorId,
         project_item_id: f.project_item_id || null,
         expense_date: f.expense_date, amount: Number(f.amount),
         category: f.category || 'أخرى',
         payer: f.payer, charge_to: f.charge_to,
         notes: f.notes || null,
-      });
+      };
+      res = editing
+        ? await supabase.from('contractor_expenses').update(payload).eq('id', editing.id)
+        : await supabase.from('contractor_expenses').insert(payload);
     } else if (tab === 'advance') {
-      res = await supabase.from('contractor_advances').insert({
+      const payload = {
         project_id: projectId, contractor_id: contractorId,
         advance_date: f.advance_date, amount: Number(f.amount),
         notes: f.notes || null,
-      });
+      };
+      res = editing
+        ? await supabase.from('contractor_advances').update(payload).eq('id', editing.id)
+        : await supabase.from('contractor_advances').insert(payload);
     } else {
-      res = await supabase.from('contractor_payments').insert({
+      const payload = {
         project_id: projectId, contractor_id: contractorId,
         payment_date: f.payment_date, amount: Number(f.amount),
         kind: f.kind, source: f.source,
         reference: f.reference || null, notes: f.notes || null,
-      });
+      };
+      res = editing
+        ? await supabase.from('contractor_payments').update(payload).eq('id', editing.id)
+        : await supabase.from('contractor_payments').insert(payload);
     }
 
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
-    setMsg('حُفظت الحركة');
+    setMsg(editing ? 'حُدّثت الحركة' : 'حُفظت الحركة');
     reset(tab);
     loadAll();
   }
@@ -219,6 +257,11 @@ export default function ExpensesPage() {
           <form onSubmit={save} style={{ padding: 18 }}>
             {err && <div className="msg err">{err}</div>}
             {msg && <div className="msg">{msg}</div>}
+            {editing && (
+              <div style={{ fontSize: 12.5, color: 'var(--maroon)', marginBottom: 10 }}>
+                وضع التعديل — تُحدَّث الحركة المختارة ولا تُنشأ حركة جديدة
+              </div>
+            )}
 
             <div className="form-grid">
               {tab === 'expense' && (
@@ -326,7 +369,14 @@ export default function ExpensesPage() {
             </div>
 
             <div className="rowsplit">
-              <button className="btn" type="submit">حفظ</button>
+              <button className="btn" type="submit">
+                {editing ? 'حفظ التعديل' : 'حفظ'}
+              </button>
+              {editing && (
+                <button className="btn ghost" type="button" onClick={() => reset(tab)}>
+                  إلغاء التعديل
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -342,6 +392,7 @@ export default function ExpensesPage() {
                 <th style={{ width: 90 }}>النوع</th>
                 <th>البيان</th>
                 <th style={{ width: 110 }} className="num">المبلغ</th>
+                {canWrite && <th style={{ width: 110 }}>—</th>}
               </tr>
             </thead>
             <tbody>
@@ -356,6 +407,7 @@ export default function ExpensesPage() {
                     {x.notes ? ` · ${x.notes}` : ''}
                   </td>
                   <td className="num">{money(x.amount)}</td>
+                  {canWrite && <Actions kind="expense" row={x} onEdit={openEdit} onDel={removeRow} />}
                 </tr>
               ))}
               {advs.map((x) => (
@@ -364,6 +416,7 @@ export default function ExpensesPage() {
                   <td><span className="pill warn" style={{ fontSize: 11 }}>سلفة</span></td>
                   <td>{x.notes || 'سلفة نقدية على الحساب'}</td>
                   <td className="num">{money(x.amount)}</td>
+                  {canWrite && <Actions kind="advance" row={x} onEdit={openEdit} onDel={removeRow} />}
                 </tr>
               ))}
               {pays.map((x) => (
@@ -375,15 +428,34 @@ export default function ExpensesPage() {
                     {x.reference ? ` · ${x.reference}` : ''}
                   </td>
                   <td className="num">{money(x.amount)}</td>
+                  {canWrite && <Actions kind="payment" row={x} onEdit={openEdit} onDel={removeRow} />}
                 </tr>
               ))}
               {!exps.length && !advs.length && !pays.length && (
-                <tr><td colSpan={4} style={{ color: 'var(--ink-soft)' }}>لا حركات بعد</td></tr>
+                <tr><td colSpan={canWrite ? 5 : 4} style={{ color: 'var(--ink-soft)' }}>لا حركات بعد</td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
     </div>
+  );
+}
+
+function Actions({ kind, row, onEdit, onDel }) {
+  const locked = kind === 'expense' && row.is_settled;
+  return (
+    <td>
+      {locked ? (
+        <span className="pill" style={{ fontSize: 11 }}>مُسوّى</span>
+      ) : (
+        <div className="rowsplit" style={{ gap: 4 }}>
+          <button className="btn ghost" style={{ padding: '2px 8px', fontSize: 11.5 }}
+                  onClick={() => onEdit(kind, row)}>تعديل</button>
+          <button className="btn ghost" style={{ padding: '2px 8px', fontSize: 11.5 }}
+                  onClick={() => onDel(kind, row)}>حذف</button>
+        </div>
+      )}
+    </td>
   );
 }
