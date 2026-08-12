@@ -19,7 +19,8 @@ const CHARGE_AR = {
 const KIND_AR = { settlement: 'سداد كشف', on_account: 'دفعة على الحساب', advance: 'سلفة' };
 const SOURCE_AR = { bank: 'تحويل بنكي', cash: 'نقداً', custody: 'من عهدة' };
 
-const CATEGORIES = ['وجبات', 'ترحيل', 'سكن', 'عدد وأدوات', 'سقالات', 'مواد', 'وقود', 'أخرى'];
+const CATEGORIES = ['وجبات', 'ترحيل', 'سكن', 'عدد وأدوات', 'سقالات', 'مواد', 'وقود',
+                    'تأمين مسترد', 'عهدة', 'تأمين طبي', 'ضيافة', 'أخرى'];
 
 export default function ExpensesPage() {
   const [role, setRole] = useState(null);
@@ -31,6 +32,7 @@ export default function ExpensesPage() {
   const [contractorId, setContractorId] = useState('');
 
   const [acct, setAcct] = useState(null);
+  const [rec, setRec] = useState(null);
   const [exps, setExps] = useState([]);
   const [advs, setAdvs] = useState([]);
   const [pays, setPays] = useState([]);
@@ -65,8 +67,10 @@ export default function ExpensesPage() {
   }, [projectId]);
 
   const loadAll = useCallback(async () => {
-    if (!projectId || !contractorId) { setAcct(null); setExps([]); setAdvs([]); setPays([]); return; }
-    const [a, e, v, p] = await Promise.all([
+    if (!projectId || !contractorId) {
+      setAcct(null); setRec(null); setExps([]); setAdvs([]); setPays([]); return;
+    }
+    const [a, e, v, p, r] = await Promise.all([
       supabase.from('v_contractor_project_account').select('*')
         .eq('project_id', projectId).eq('contractor_id', contractorId).maybeSingle(),
       supabase.from('contractor_expenses').select('*')
@@ -78,8 +82,10 @@ export default function ExpensesPage() {
       supabase.from('contractor_payments').select('*')
         .eq('project_id', projectId).eq('contractor_id', contractorId)
         .order('payment_date', { ascending: false }).limit(40),
+      supabase.from('v_recoverable_balance').select('*')
+        .eq('project_id', projectId).eq('contractor_id', contractorId).maybeSingle(),
     ]);
-    setAcct(a.data || null);
+    setAcct(a.data || null); setRec(r.data || null);
     setExps(e.data || []); setAdvs(v.data || []); setPays(p.data || []);
   }, [projectId, contractorId]);
 
@@ -101,7 +107,8 @@ export default function ExpensesPage() {
 
   function reset(t) {
     setTab(t); setErr(''); setMsg(''); setEditing(null);
-    if (t === 'expense') setF({ expense_date: today(), payer: 'contractor', charge_to: 'arkan', category: 'وجبات' });
+    if (t === 'expense') setF({ expense_date: today(), payer: 'contractor',
+                                charge_to: 'arkan', category: 'وجبات', is_recoverable: false });
     if (t === 'advance') setF({ advance_date: today() });
     if (t === 'payment') setF({ payment_date: today(), kind: 'settlement', source: 'bank' });
   }
@@ -148,6 +155,7 @@ export default function ExpensesPage() {
         expense_date: f.expense_date, amount: Number(f.amount),
         category: f.category || 'أخرى',
         payer: f.payer, charge_to: f.charge_to,
+        is_recoverable: !!f.is_recoverable,
         notes: f.notes || null,
       };
       res = editing
@@ -237,6 +245,11 @@ export default function ExpensesPage() {
               </tr>
             </tbody>
           </table>
+          {Number(rec?.outstanding || 0) > 0 && (
+            <div style={{ padding: '10px 18px', fontSize: 12.5, color: 'var(--ink-soft)' }}>
+              منها تأمينات وعهد قائمة {money(rec.outstanding)} — مستحقة له لكنها ليست تكلفة على البند
+            </div>
+          )}
           {Number(acct.by_item_value || 0) > 0 && (
             <div style={{ padding: '10px 18px', fontSize: 12.5,
                           color: Number(acct.headroom || 0) < 0 ? 'var(--bad)' : 'var(--ink-soft)' }}>
@@ -304,6 +317,17 @@ export default function ExpensesPage() {
                             onChange={(e) => setF({ ...f, charge_to: e.target.value })}>
                       {Object.entries(CHARGE_AR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
+                  </div>
+                  <div className="field">
+                    <label>طبيعة المبلغ</label>
+                    <select value={f.is_recoverable ? '1' : '0'}
+                            onChange={(e) => setF({ ...f, is_recoverable: e.target.value === '1' })}>
+                      <option value="0">مصروف مستهلك — يُحمَّل على تكلفة البند</option>
+                      <option value="1">مسترد أو غير مستهلك — لا يُحمَّل على التكلفة</option>
+                    </select>
+                    <span className="hint">
+                      التأمينات والعهد مال يعود إليك أو لم يُصرف بعد — يُردّ للمقاول ولا يُعدّ تكلفة
+                    </span>
                   </div>
                   <div className="field">
                     <label>البند (اختياري)</label>
@@ -411,6 +435,9 @@ export default function ExpensesPage() {
                   <td><span className="pill" style={{ fontSize: 11 }}>مصروف</span></td>
                   <td>
                     {x.category}
+                    {x.is_recoverable && (
+                      <span className="pill warn" style={{ fontSize: 10.5, marginInlineStart: 6 }}>مسترد</span>
+                    )}
                     {' — '}{PAYER_AR[x.payer] || x.payer}
                     {' · '}{CHARGE_AR[x.charge_to] || x.charge_to}
                     {x.notes ? ` · ${x.notes}` : ''}
