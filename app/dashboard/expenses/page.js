@@ -216,7 +216,7 @@ export default function ExpensesPage() {
           <table>
             <tbody>
               {[
-                ['قيمة أعماله (من التايم شيت)', acct.works_amount],
+                [`قيمة أعماله (${acct.days_worked || 0} يوم عمل · بحسب البند)`, acct.works_amount],
                 ['صرفه وليس عليه — يُردّ له', acct.reimbursable_amount],
                 ['صرفناه وهو عليه — يُخصم منه', -acct.charged_amount],
                 ['سلفه', -acct.advances_amount],
