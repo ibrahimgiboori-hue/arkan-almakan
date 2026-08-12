@@ -216,7 +216,7 @@ export default function ExpensesPage() {
           <table>
             <tbody>
               {[
-                [`قيمة أعماله (${acct.days_worked || 0} يوم عمل · بحسب البند)`, acct.works_amount],
+                [`قيمة أعماله — يوميات فعلية (${acct.days_worked || 0} يوم عمل)`, acct.works_amount],
                 ['صرفه وليس عليه — يُردّ له', acct.reimbursable_amount],
                 ['صرفناه وهو عليه — يُخصم منه', -acct.charged_amount],
                 ['سلفه', -acct.advances_amount],
@@ -237,7 +237,16 @@ export default function ExpensesPage() {
               </tr>
             </tbody>
           </table>
-          <div style={{ padding: '10px 18px', fontSize: 12.5, color: 'var(--ink-soft)' }}>
+          {Number(acct.by_item_value || 0) > 0 && (
+            <div style={{ padding: '10px 18px', fontSize: 12.5,
+                          color: Number(acct.headroom || 0) < 0 ? 'var(--bad)' : 'var(--ink-soft)' }}>
+              السقف المخطط بحسب البند {money(acct.by_item_value)} —
+              {Number(acct.headroom || 0) >= 0
+                ? ` الفعلي دونه بـ ${money(acct.headroom)}، أي أن البند لم يتجاوز المخطط`
+                : ` الفعلي يتجاوزه بـ ${money(Math.abs(Number(acct.headroom)))} — البند تجاوز المخطط`}
+            </div>
+          )}
+          <div style={{ padding: '0 18px 12px', fontSize: 12.5, color: 'var(--ink-soft)' }}>
             الدفعات والسلف حركات خزينة — تنقص رصيده ولا تمسّ ميزانية البند ولا الربح.
           </div>
         </div>
