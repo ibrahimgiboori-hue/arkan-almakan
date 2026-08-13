@@ -154,6 +154,10 @@ export default function QuoteEditor() {
   const numbered = numberLines(lines);
   const subs = titleSubtotals(lines, q.show_qty);
   const t = totals(q, lines);
+
+  // «مقاطعيات»: فئات بلا كميات — فلا إجمالي جزئي ولا مجموع ولا تفقيط
+  const rateOnly = !q.show_qty;
+  const showTotalCol = q.show_line_total && !rateOnly;
   const payPctSum = pays.reduce((s,p)=>s+Number(p.percent||0), 0);
 
   return (
@@ -200,7 +204,7 @@ export default function QuoteEditor() {
                   {q.show_unit && <th style={{width:80}}>الوحدة</th>}
                   {q.show_qty && <th style={{width:100}} className="num">الكمية</th>}
                   {q.show_unit_price && <th style={{width:110}} className="num">الفئة</th>}
-                  {q.show_line_total && <th style={{width:120}} className="num">الإجمالي</th>}
+                  {showTotalCol && <th style={{width:120}} className="num">الإجمالي</th>}
                   <th style={{width:150}}>ترتيب / حذف</th>
                 </tr>
               </thead>
@@ -214,7 +218,7 @@ export default function QuoteEditor() {
                              style={{width:'100%',fontWeight:600,color:'var(--maroon-dark)',
                                      border:'none',background:'transparent',fontSize:14.5,fontFamily:'inherit'}} />
                     </td>
-                    {q.show_line_total && <td className="num" style={{fontWeight:700,color:'var(--maroon-dark)'}}>
+                    {showTotalCol && <td className="num" style={{fontWeight:700,color:'var(--maroon-dark)'}}>
                       {money(subs[l.id] || 0)}</td>}
                     <td>
                       <div className="rowsplit">
@@ -270,7 +274,7 @@ export default function QuoteEditor() {
                                  onChange={(e)=>updLine(l.id,{unit_price:Number(e.target.value||0)})}
                                  style={{width:'100%',border:'1px solid var(--hair)',fontSize:13,padding:'4px',textAlign:'left'}} /></td>
                     )}
-                    {q.show_line_total && <td className="num">{money(lineTotal(l, q.show_qty))}</td>}
+                    {showTotalCol && <td className="num">{money(lineTotal(l, q.show_qty))}</td>}
                     <td>
                       <div className="rowsplit">
                         <button className="btn" style={{padding:'3px 8px',fontSize:12}}
@@ -287,7 +291,7 @@ export default function QuoteEditor() {
                 {lines.length > 0 && (
                   <tr className="addrow">
                     <td colSpan={2 + (q.show_unit?1:0) + (q.show_qty?1:0)
-                                 + (q.show_unit_price?1:0) + (q.show_line_total?1:0) + 1}>
+                                 + (q.show_unit_price?1:0) + (showTotalCol?1:0) + 1}>
                       <div className="rowsplit">
                         <button className="btn" style={{padding:'5px 12px',fontSize:13}}
                                 onClick={()=>addLine('item')}>+ بند جديد</button>
@@ -310,14 +314,26 @@ export default function QuoteEditor() {
             </table>
           </div>
 
-          <div className="grid k4" style={{marginTop:16}}>
-            <div className="card"><h3>مجموع البنود</h3><div className="big">{money(t.linesSum)}</div></div>
-            <div className="card"><h3>الخصم</h3><div className="big">{money(t.discount)}</div></div>
-            <div className="card"><h3>ضريبة القيمة المضافة</h3><div className="big">{money(t.vat)}</div>
-              <div className="foot">{VAT_AR[q.vat_mode]}</div></div>
-            <div className="card"><h3>المجموع شامل الضريبة</h3>
-              <div className="big" style={{color:'var(--maroon)'}}>{money(t.grand)}</div></div>
-          </div>
+          {rateOnly ? (
+            <div className="section" style={{marginTop:16,padding:'14px 18px'}}>
+              <div style={{fontWeight:600,marginBottom:4}}>عرض مقاطعيات — فئات بلا كميات</div>
+              <div style={{fontSize:13,color:'var(--ink-soft)',lineHeight:1.9}}>
+                لا يُعرض إجمالي ولا مجموع ولا تفقيط، لأن جمع فئات وحدات مختلفة لا معنى له.
+                تُحتسب المستحقات على الكميات المنفَّذة فعلاً.
+                <br/>ضريبة القيمة المضافة: {VAT_AR[q.vat_mode]} — تُضاف عند الفوترة على الكميات المنفَّذة.
+                <br/>لإظهار المجاميع: فعّل «عمود الكمية» من تبويب المفاتيح.
+              </div>
+            </div>
+          ) : (
+            <div className="grid k4" style={{marginTop:16}}>
+              <div className="card"><h3>مجموع البنود</h3><div className="big">{money(t.linesSum)}</div></div>
+              <div className="card"><h3>الخصم</h3><div className="big">{money(t.discount)}</div></div>
+              <div className="card"><h3>ضريبة القيمة المضافة</h3><div className="big">{money(t.vat)}</div>
+                <div className="foot">{VAT_AR[q.vat_mode]}</div></div>
+              <div className="card"><h3>المجموع شامل الضريبة</h3>
+                <div className="big" style={{color:'var(--maroon)'}}>{money(t.grand)}</div></div>
+            </div>
+          )}
         </>
       )}
 
@@ -468,6 +484,11 @@ export default function QuoteEditor() {
       {/* ============ الدفعات ============ */}
       {tab === 'pay' && (
         <>
+          {rateOnly && (
+            <div style={{fontSize:12.5,color:'var(--ink-soft)',marginBottom:8}}>
+              عرض مقاطعيات — النسب فقط، فالمبالغ تُحتسب من الكميات المنفَّذة عند كل مستخلص
+            </div>
+          )}
           <div className="rowsplit" style={{marginBottom:12}}>
             <button className="btn" onClick={addPay}>+ دفعة</button>
             <span className="spacer" />
@@ -479,7 +500,8 @@ export default function QuoteEditor() {
             <table>
               <thead>
                 <tr><th style={{width:200}}>الدفعة</th><th style={{width:110}} className="num">النسبة %</th>
-                    <th className="num" style={{width:140}}>المبلغ</th><th>الاستحقاق</th><th style={{width:80}}>—</th></tr>
+                    {!rateOnly && <th className="num" style={{width:140}}>المبلغ</th>}
+                    <th>الاستحقاق</th><th style={{width:80}}>—</th></tr>
               </thead>
               <tbody>
                 {pays.map((p) => (
@@ -489,7 +511,9 @@ export default function QuoteEditor() {
                     <td><input type="number" step="0.01" dir="ltr" value={p.percent ?? ''}
                                onChange={(e)=>updPay(p.id,{percent:Number(e.target.value||0)})}
                                style={{width:'100%',border:'1px solid var(--hair)',padding:'4px',textAlign:'left'}} /></td>
-                    <td className="num">{money((t.grand * Number(p.percent||0)) / 100)}</td>
+                    {!rateOnly && (
+                      <td className="num">{money((t.grand * Number(p.percent||0)) / 100)}</td>
+                    )}
                     <td><input value={p.trigger_note || ''} placeholder="مثال: عند توقيع العقد"
                                onChange={(e)=>updPay(p.id,{trigger_note:e.target.value})}
                                style={{width:'100%',border:'1px solid var(--hair)',padding:'4px',fontSize:13.5,fontFamily:'inherit'}} /></td>
