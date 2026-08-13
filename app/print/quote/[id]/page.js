@@ -42,6 +42,10 @@ export default function QuotePrint() {
   // ---------- بناء قائمة الكتل ----------
   const numbered = q ? numberLines(lines) : [];
   const subs = q ? titleSubtotals(lines, q.show_qty) : {};
+
+  // «مقاطعيات»: فئات بلا كميات — لا إجمالي فرعي ولا مجموع ولا تفقيط
+  const rateOnly = q ? !q.show_qty : false;
+  const showTotalCol = q ? (q.show_line_total && !rateOnly) : false;
   const t = q ? totals(q, lines) : {};
   const terms = (q?.terms_text || '').split('\n').map((s)=>s.trim()).filter(Boolean);
 
@@ -120,7 +124,7 @@ export default function QuotePrint() {
   const validUntil = q.quote_date
     ? new Date(new Date(q.quote_date).getTime() + q.valid_days*86400000) : null;
   const cols = 2 + (q.show_unit?1:0) + (q.show_qty?1:0)
-             + (q.show_unit_price?1:0) + (q.show_line_total?1:0);
+             + (q.show_unit_price?1:0) + (showTotalCol?1:0);
 
   // ---------- السحب ----------
   function startDrag(kind) {
@@ -162,7 +166,7 @@ export default function QuotePrint() {
       {q.show_unit && <col className="c-unit" />}
       {q.show_qty && <col className="c-qty" />}
       {q.show_unit_price && <col className="c-price" />}
-      {q.show_line_total && <col className="c-total" />}
+      {showTotalCol && <col className="c-total" />}
     </colgroup>
   );
 
@@ -174,7 +178,7 @@ export default function QuotePrint() {
         {q.show_unit && <th>الوحدة</th>}
         {q.show_qty && <th className="num">الكمية</th>}
         {q.show_unit_price && <th className="num">الفئة</th>}
-        {q.show_line_total && <th className="num">الإجمالي</th>}
+        {showTotalCol && <th className="num">الإجمالي</th>}
       </tr>
     </thead>
   );
@@ -182,8 +186,8 @@ export default function QuotePrint() {
   const Row = ({ l }) => l.kind === 'title' ? (
     <tr className="trow">
       <td className="mono">{l.number}</td>
-      <td colSpan={cols - 1 - (q.show_line_total?1:0)}>{l.description_ar}</td>
-      {q.show_line_total && <td className="num">{money(subs[l.id] || 0)}</td>}
+      <td colSpan={cols - 1 - (showTotalCol?1:0)}>{l.description_ar}</td>
+      {showTotalCol && <td className="num">{money(subs[l.id] || 0)}</td>}
     </tr>
   ) : l.kind === 'note' ? (
     <tr className="nrow"><td /><td colSpan={cols-1}>{l.description_ar}</td></tr>
@@ -197,7 +201,7 @@ export default function QuotePrint() {
       {q.show_unit && <td className="ctr">{l.unit || '—'}</td>}
       {q.show_qty && <td className="num">{fmtQty(l.qty)}</td>}
       {q.show_unit_price && <td className="num">{money(l.unit_price)}</td>}
-      {q.show_line_total && <td className="num">{money(lineTotal(l, q.show_qty))}</td>}
+      {showTotalCol && <td className="num">{money(lineTotal(l, q.show_qty))}</td>}
     </tr>
   );
 
@@ -233,7 +237,18 @@ export default function QuotePrint() {
         </div>
       );
       case 'intro': return <p className="q-intro" key={b.id}>{q.intro_text}</p>;
-      case 'sum': return (
+      case 'sum': return rateOnly ? (
+        <div className="q-sum rate-only" key={b.id}>
+          <div className="srow">
+            <span>الأسعار المذكورة أعلاه فئات للوحدة، وتُحتسب المستحقات على الكميات المنفَّذة فعلاً</span>
+          </div>
+          {q.vat_mode !== 'none' && (
+            <div className="srow">
+              <span>الفئات لا تشمل ضريبة القيمة المضافة {(Number(q.vat_rate)*100).toFixed(0)}٪ — تُضاف عند إصدار الفاتورة</span>
+            </div>
+          )}
+        </div>
+      ) : (
         <div className="q-sum" key={b.id}>
           {t.discount > 0 && (
             <div className="srow"><span>الخصم</span>
@@ -261,7 +276,7 @@ export default function QuotePrint() {
           <table className="q-pay">
             <thead><tr><th style={{width:'9mm'}}>م</th><th>الدفعة</th>
               <th style={{width:'16mm'}} className="num">النسبة</th>
-              <th style={{width:'28mm'}} className="num">المبلغ</th>
+              {!rateOnly && <th style={{width:'28mm'}} className="num">المبلغ</th>}
               <th>الاستحقاق</th></tr></thead>
             <tbody>
               {pays.map((p,i)=>(
@@ -269,7 +284,9 @@ export default function QuotePrint() {
                   <td className="mono">{i+1}</td>
                   <td>{p.label}</td>
                   <td className="num">{Number(p.percent||0)}٪</td>
-                  <td className="num">{money((t.grand*Number(p.percent||0))/100)}</td>
+                  {!rateOnly && (
+                    <td className="num">{money((t.grand*Number(p.percent||0))/100)}</td>
+                  )}
                   <td>{p.trigger_note || '—'}</td>
                 </tr>
               ))}
