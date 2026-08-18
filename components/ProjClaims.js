@@ -127,7 +127,6 @@ export default function ProjClaims({ project, canWrite, onChange }) {
         gross_amount: Math.round(gross * 100) / 100,
         prev_cumulative: prevCum,
         retention_amount: retention,
-        vat_amount: 0,
         status: 'draft',
       }).select('id').single();
       if (e2) throw new Error(e2.message);
@@ -294,6 +293,7 @@ export default function ProjClaims({ project, canWrite, onChange }) {
         <table>
           <thead>
             <tr><th>الرقم</th><th>الفترة</th><th className="num">قيمة الأعمال</th>
+                <th className="num">الوعاء</th><th className="num">الضريبة</th>
                 <th className="num">محتجزات</th><th className="num">استرداد مقدمة</th>
                 <th className="num">الصافي</th><th>الحالة</th>
                 <th>التوثيق</th><th style={{ width: 280 }}>الإجراءات</th></tr>
@@ -313,6 +313,8 @@ export default function ProjClaims({ project, canWrite, onChange }) {
                     {dateAr(c.period_from)} — {dateAr(c.period_to)}
                   </td>
                   <td className="num">{money(c.gross_amount)}</td>
+                  <td className="num">{money(c.taxable_base)}</td>
+                  <td className="num" style={{ color: '#8B3332' }}>{money(c.vat_amount)}</td>
                   <td className="num">
                     {canWrite && c.status === 'draft' ? (
                       <input type="number" step="0.01" dir="ltr" defaultValue={c.retention_amount}
@@ -395,7 +397,7 @@ export default function ProjClaims({ project, canWrite, onChange }) {
 
                 {open === c.id && (
                   <tr>
-                    <td colSpan={9} style={{ background: '#FCFAFA', padding: '10px 14px' }}>
+                    <td colSpan={11} style={{ background: '#FCFAFA', padding: '10px 14px' }}>
                       <div style={{ fontSize: 12.5, fontWeight: 500, color: MAROON, marginBottom: 8 }}>
                         سجل مستندات {c.claim_no}
                       </div>
@@ -489,7 +491,7 @@ export default function ProjClaims({ project, canWrite, onChange }) {
               );
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={9}>
+              <tr><td colSpan={11}>
                 <div className="empty"><h3>لا مستخلصات</h3>
                   <p>سجّل إنجازاً في تبويب الإنجاز ثم أنشئ مستخلصاً منه.</p></div>
               </td></tr>
