@@ -68,8 +68,11 @@ export default function ProjClaims({ project, canWrite, onChange }) {
   };
 
   // رابط الإصدار لكل مستند صادر
-  const issueHref = (c, code) =>
-    code === 'inv_request' ? `/print/invoice-request/${c.id}` : `/print/claim/${c.id}`;
+  const issueHref = (c, code) => {
+    if (code === 'inv_request')  return `/print/claim/${c.id}?doc=memo`;
+    if (code === 'claim_sheet')  return `/print/claim/${c.id}?doc=measure`;
+    return `/print/claim/${c.id}?doc=demand`;
+  };
 
   // ---------- إنشاء مستخلص ----------
   async function createClaim() {
@@ -293,7 +296,12 @@ export default function ProjClaims({ project, canWrite, onChange }) {
                   </td>
                   <td className="num" style={{ fontWeight: 600 }}>{money(c.net_payable)}</td>
                   <td>
-                    <span className={`pill ${CLAIM_CLASS[c.status]}`}>{CLAIM_AR[c.status]}</span>
+                    <span className={`pill ${CLAIM_CLASS[c.status] || ''}`}>
+                      {stepOf(c.status)?.name_ar || CLAIM_AR[c.status] || c.status}
+                    </span>
+                    <div style={{ fontSize: 10.5, color: '#8a8a8a', marginTop: 2 }}>
+                      المرحلة {stepOf(c.status)?.seq || '?'} من {steps.length || 5}
+                    </div>
                     {c.invoice_no && (
                       <div className="mono" style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
                         {c.invoice_no}
@@ -313,8 +321,22 @@ export default function ProjClaims({ project, canWrite, onChange }) {
                   </td>
                   <td>
                     <div className="rowsplit">
-                      <a className="btn ghost" style={mini} target="_blank" rel="noreferrer"
-                         href={`/print/claim/${c.id}`}>طباعة الكشف</a>
+                      {c.status === 'draft' && (
+                        <a className="btn ghost" style={mini} target="_blank" rel="noreferrer"
+                           href={`/print/claim/${c.id}?doc=measure`}>محضر قياس</a>
+                      )}
+                      {['submitted','owner_approved','invoiced'].includes(c.status) && (
+                        <a className="btn ghost" style={mini} target="_blank" rel="noreferrer"
+                           href={`/print/claim/${c.id}?doc=demand`}>مطالبة مالية</a>
+                      )}
+                      {c.status === 'collected' && (
+                        <>
+                          <a className="btn ghost" style={mini} target="_blank" rel="noreferrer"
+                             href={`/print/claim/${c.id}?doc=receipt`}>خطاب الاستلام</a>
+                          <a className="btn ghost" style={mini} target="_blank" rel="noreferrer"
+                             href={`/print/claim/${c.id}?doc=memo`}>مذكرة المحاسب</a>
+                        </>
+                      )}
                       {canWrite && nx && (
                         <button className="btn" style={{ ...mini,
                                   opacity: ready ? 1 : .5 }}
