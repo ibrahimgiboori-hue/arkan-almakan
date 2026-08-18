@@ -6,6 +6,15 @@ import { CLAIM_AR, CLAIM_CLASS } from '@/lib/projects';
 
 const MAROON = '#8B3332';
 
+// مراحل احتياطية تُستخدم إن تعذّر قراءة الجدول من القاعدة
+const FALLBACK_STAGES = [
+  { stage: 'draft',          seq: 1, name_ar: 'مسودة',        docs: [] },
+  { stage: 'submitted',      seq: 2, name_ar: 'مقدَّم للمالك', docs: [] },
+  { stage: 'owner_approved', seq: 3, name_ar: 'معتمد',         docs: [] },
+  { stage: 'invoiced',       seq: 4, name_ar: 'مفوتر',         docs: [] },
+  { stage: 'collected',      seq: 5, name_ar: 'محصَّل',         docs: [] },
+];
+
 const NEXT = {
   draft:          ['submitted',      'تقديم للمالك'],
   submitted:      ['owner_approved', 'تسجيل اعتماد المالك'],
@@ -16,6 +25,7 @@ const NEXT = {
 export default function ProjClaims({ project, canWrite, onChange }) {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [busyDel, setBusyDel] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -50,7 +60,8 @@ export default function ProjClaims({ project, canWrite, onChange }) {
       ]);
       const byStage = {};
       (dcs.data || []).forEach((d) => { (byStage[d.stage] = byStage[d.stage] || []).push(d); });
-      setSteps((defs.data || []).map((s2) => ({ ...s2, docs: byStage[s2.stage] || [] })));
+      const built = (defs.data || []).map((s2) => ({ ...s2, docs: byStage[s2.stage] || [] }));
+      setSteps(built.length ? built : FALLBACK_STAGES);
     })();
   }, []);
 
@@ -229,6 +240,28 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     if (error) setErr(error.message); else load();
   }
 
+  // حذف من الجذور — متاح في أي مرحلة
+  async function hardDelete(claim) {
+    const typed = window.prompt(
+      `حذف نهائي للمستخلص ${claim.claim_no} بكل مستنداته وبنوده.\n` +
+      'الإنجاز سيعود قابلاً للمطالبة به من جديد.\n\n' +
+      'اكتب: حذف');
+    if (typed === null) return;
+    if (typed.trim() !== 'حذف') { setErr('لم يُحذف — لم تُكتب كلمة التأكيد'); return; }
+
+    setBusyDel(true); setErr(''); setMsg('');
+    try {
+      const { data, error } = await supabase.rpc('delete_claim_deep', { p_claim: claim.id });
+      if (error) throw new Error(error.message);
+      const row = Array.isArray(data) ? data[0] : data;
+      const files = row?.files || [];
+      if (files.length) await supabase.storage.from('docs').remove(files);
+      setMsg(`حُذف ${row?.deleted_no || claim.claim_no} نهائياً`);
+      load();
+    } catch (e) { setErr('تعذّر الحذف: ' + e.message); }
+    setBusyDel(false);
+  }
+
   async function del(claim) {
     if (!window.confirm(`حذف ${claim.claim_no}؟ سيعود إنجازه قابلاً للمطالبة.`)) return;
     await supabase.from('progress_entries')
@@ -300,7 +333,7 @@ export default function ProjClaims({ project, canWrite, onChange }) {
                       {stepOf(c.status)?.name_ar || CLAIM_AR[c.status] || c.status}
                     </span>
                     <div style={{ fontSize: 10.5, color: '#8a8a8a', marginTop: 2 }}>
-                      المرحلة {stepOf(c.status)?.seq || '?'} من {steps.length || 5}
+                      المرحلة {stepOf(c.status)?.seq || '—'} من {steps.length || 5}
                     </div>
                     {c.invoice_no && (
                       <div className="mono" style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
@@ -348,10 +381,13 @@ export default function ProjClaims({ project, canWrite, onChange }) {
                                 title="إرجاع المستخلص خطوة للخلف"
                                 onClick={() => goBack(c)}>رجوع خطوة</button>
                       )}
-                      {canWrite && c.status === 'draft' && (
-                        <button className="btn ghost"
+                      {canWrite && (
+                        <button className="btn ghost" disabled={busyDel}
                                 style={{ ...mini, borderColor: '#EBC3C0', color: '#A32B24' }}
-                                onClick={() => del(c)}>حذف</button>
+                                title="حذف نهائي بكل المستندات"
+                                onClick={() => hardDelete(c)}>
+                          {busyDel ? 'جارٍ…' : 'حذف نهائي'}
+                        </button>
                       )}
                     </div>
                   </td>
