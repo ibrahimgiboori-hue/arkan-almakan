@@ -1,216 +1,204 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { money, dateAr } from '@/lib/format';
-import { CLAIM_AR, CLAIM_CLASS } from '@/lib/projects';
+-- ============================================================
+--  الملف 31 : لا خطوة بلا مستند
+--  يمنع تقدّم المستخلص قبل إصدار مستنده أو رفع إثباته
+-- ============================================================
 
-export default function ProjClaims({ project, canWrite, onChange }) {
-  const [rows, setRows] = useState(null);
-  const [lines, setLines] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const [msg, setMsg] = useState('');
+-- ------------------------------------------------------------
+--  ١. مرفقات عامة : تصلح لأي عملية في النظام
+-- ------------------------------------------------------------
+create table if not exists op_attachments (
+  id            uuid primary key default gen_random_uuid(),
+  entity_type   text not null,                -- claim / settlement / expense …
+  entity_id     uuid not null,
+  stage         text,                          -- المرحلة التي رُفع فيها
+  direction     text not null default 'in',    -- in وارد | out صادر
+  title         text,
+  file_path     text,                          -- مسار الملف في التخزين
+  doc_id        uuid,                          -- أو مستند من محرك النماذج
+  ref_no        text,
+  doc_date      date default current_date,
+  amount        numeric(14,2),
+  notes         text,
+  created_at    timestamptz not null default now()
+);
 
-  async function load() {
-    const { data: c } = await supabase.from('progress_claims')
-      .select('*').eq('project_id', project.id).order('seq_no');
-    const ids = (c || []).map((x) => x.id);
-    const { data: l } = ids.length
-      ? await supabase.from('claim_lines').select('*').in('claim_id', ids)
-      : { data: [] };
-    setRows(c || []); setLines(l || []); onChange?.();
-  }
+create index if not exists idx_opatt_entity on op_attachments(entity_type, entity_id);
+create index if not exists idx_opatt_stage  on op_attachments(entity_type, entity_id, stage);
 
-  useEffect(() => { load(); }, [project.id]);
+alter table op_attachments enable row level security;
+do $$
+begin
+  if not exists (select 1 from pg_policies
+                 where schemaname='public' and tablename='op_attachments') then
+    create policy opatt_all on op_attachments
+      for all to authenticated using (true) with check (true);
+  end if;
+end $$;
 
-  // إنشاء مستخلص من الإنجاز غير المطالَب به
-  async function createClaim() {
-    setErr(''); setMsg(''); setBusy(true);
-    try {
-      const { data: items } = await supabase.from('project_items')
-        .select('id, sell_price, description_ar').eq('project_id', project.id).eq('kind','item');
-      const ids = (items || []).map((i) => i.id);
-      if (!ids.length) throw new Error('لا بنود في هذا المشروع');
+-- ------------------------------------------------------------
+--  ٢. مخزن الملفات
+-- ------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('docs', 'docs', false)
+on conflict (id) do nothing;
 
-      const { data: ent } = await supabase.from('progress_entries')
-        .select('*').in('project_item_id', ids).eq('claimed', false);
-      if (!ent?.length) throw new Error('لا إنجاز غير مُطالَب به');
+do $$
+begin
+  if not exists (select 1 from pg_policies
+                 where schemaname='storage' and policyname='docs_rw') then
+    create policy docs_rw on storage.objects
+      for all to authenticated
+      using (bucket_id = 'docs') with check (bucket_id = 'docs');
+  end if;
+end $$;
 
-      const seq = (rows.length ? Math.max(...rows.map((r)=>r.seq_no)) : 0) + 1;
-      const no = await supabase.rpc('next_document_number',
-        { p_doc_type: 'CLAIM', p_prefix: 'CLM' });
-      if (no.error) throw new Error(no.error.message);
+-- ------------------------------------------------------------
+--  ٣. تعريف المراحل : ما المستند المطلوب في كل خطوة
+--     المفاتيح مطابقة لقيم عمود status الموجود
+-- ------------------------------------------------------------
+create table if not exists claim_stage_defs (
+  stage      text primary key,
+  seq        int  not null,
+  name_ar    text not null,
+  direction  text not null,      -- out نُصدره | in نستقبله
+  doc_ar     text not null,
+  required   boolean not null default true
+);
 
-      const byItem = {};
-      ent.forEach((e) => {
-        byItem[e.project_item_id] = (byItem[e.project_item_id] || 0) + Number(e.qty_done || 0);
-      });
+insert into claim_stage_defs (stage, seq, name_ar, direction, doc_ar, required) values
+  ('draft',          1, 'مسودة',         'out', 'كشف المستخلص',                  true),
+  ('submitted',      2, 'مقدَّم للمالك',  'out', 'خطاب تقديم المستخلص',           true),
+  ('owner_approved', 3, 'معتمد',          'in',  'اعتماد المالك أو محضر مراجعة',  true),
+  ('invoiced',       4, 'مفوتر',          'out', 'الفاتورة الضريبية',             true),
+  ('collected',      5, 'محصَّل',          'in',  'إشعار التحويل أو سند القبض',    true)
+on conflict (stage) do update
+  set seq = excluded.seq, name_ar = excluded.name_ar,
+      direction = excluded.direction, doc_ar = excluded.doc_ar,
+      required = excluded.required;
 
-      let gross = 0;
-      const lineRows = Object.entries(byItem).map(([itemId, q]) => {
-        const it = items.find((i) => i.id === itemId);
-        const price = Number(it?.sell_price || 0);
-        gross += q * price;
-        return { project_item_id: itemId, qty_this: q, unit_price: price };
-      });
+-- ------------------------------------------------------------
+--  ٤. الحارس : يمنع التقدم قبل مستند المرحلة الحالية
+-- ------------------------------------------------------------
+create or replace function guard_claim_stage()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare
+  d    record;
+  nd   record;
+  cnt  int;
+begin
+  if new.status is not distinct from old.status then
+    return new;
+  end if;
 
-      const prevCum = rows.reduce((t,r) => t + Number(r.gross_amount || 0), 0);
-      const retention = Math.round(gross * Number(project.retention_pct || 0) * 100) / 100;
-      const dates = ent.map((e) => e.entry_date).sort();
+  select * into d  from claim_stage_defs where stage = old.status;
+  select * into nd from claim_stage_defs where stage = new.status;
 
-      const { data: claim, error: e2 } = await supabase.from('progress_claims').insert({
-        project_id: project.id, claim_no: no.data, seq_no: seq,
-        period_from: dates[0], period_to: dates[dates.length - 1],
-        gross_amount: Math.round(gross * 100) / 100,
-        prev_cumulative: prevCum,
-        retention_amount: retention,
-        vat_amount: 0,
-        status: 'draft',
-      }).select('id').single();
-      if (e2) throw new Error(e2.message);
+  -- الرجوع للخلف مسموح دائماً (تصحيح خطأ)
+  if d.seq is null or nd.seq is null or nd.seq < d.seq then
+    return new;
+  end if;
 
-      const { error: e3 } = await supabase.from('claim_lines')
-        .insert(lineRows.map((l) => ({ ...l, claim_id: claim.id })));
-      if (e3) throw new Error(e3.message);
+  if d.required then
+    select count(*) into cnt from op_attachments
+     where entity_type = 'claim' and entity_id = new.id and stage = old.status;
+    if cnt = 0 then
+      raise exception 'لا يمكن الانتقال إلى «%» قبل % «%» في مرحلة «%»',
+        nd.name_ar,
+        case when d.direction = 'out' then 'إصدار' else 'رفع' end,
+        d.doc_ar, d.name_ar
+        using errcode = 'P0001';
+    end if;
+  end if;
 
-      await supabase.from('progress_entries')
-        .update({ claimed: true, claim_id: claim.id })
-        .in('id', ent.map((e) => e.id));
+  return new;
+end $$;
 
-      setMsg(`أُنشئ المستخلص ${no.data} بقيمة ${money(gross)}`);
-      load();
-    } catch (e) { setErr(e.message); }
-    setBusy(false);
-  }
+drop trigger if exists trg_guard_claim_stage on progress_claims;
+create trigger trg_guard_claim_stage
+  before update on progress_claims
+  for each row execute function guard_claim_stage();
 
-  async function advance(claim, to) {
-    let ref = null, amount = null;
-    if (to === 'owner_approved') ref = window.prompt('مرجع اعتماد المالك (اختياري):') ?? null;
-    if (to === 'invoiced') ref = window.prompt('رقم الفاتورة:') ?? null;
-    if (to === 'collected') {
-      const v = window.prompt('المبلغ المحصَّل:', String(claim.net_payable));
-      if (v === null) return;
-      amount = Number(v);
-    }
-    setErr(''); setMsg('');
-    const { error } = await supabase.rpc('advance_claim',
-      { p_claim: claim.id, p_to: to, p_ref: ref, p_amount: amount });
-    if (error) { setErr(error.message); return; }
-    setMsg('حُدّثت حالة المستخلص'); load();
-  }
+-- ------------------------------------------------------------
+--  ٥. هل يجوز التقدم؟ — للاستعلام من الواجهة قبل المحاولة
+-- ------------------------------------------------------------
+create or replace function claim_can_advance(p_claim uuid)
+returns table (ok boolean, reason text)
+language plpgsql stable security definer set search_path = public
+as $$
+declare cur text; d record; cnt int;
+begin
+  select status into cur from progress_claims where id = p_claim;
+  if cur is null then
+    return query select false, 'المستخلص غير موجود'::text; return;
+  end if;
 
-  async function upd(id, fields) {
-    const { error } = await supabase.from('progress_claims').update(fields).eq('id', id);
-    if (error) setErr(error.message); else load();
-  }
+  select * into d from claim_stage_defs where stage = cur;
+  if d.seq is null then
+    return query select true, 'مرحلة غير معرّفة'::text; return;
+  end if;
+  if d.seq >= (select max(seq) from claim_stage_defs) then
+    return query select false, 'المستخلص في مرحلته الأخيرة'::text; return;
+  end if;
 
-  async function del(claim) {
-    if (!window.confirm(`حذف ${claim.claim_no}؟ سيعود إنجازه قابلاً للمطالبة.`)) return;
-    await supabase.from('progress_entries')
-      .update({ claimed: false, claim_id: null }).eq('claim_id', claim.id);
-    const { error } = await supabase.from('progress_claims').delete().eq('id', claim.id);
-    if (error) setErr(error.message); else { setMsg('حُذف المستخلص'); load(); }
-  }
+  if d.required then
+    select count(*) into cnt from op_attachments
+     where entity_type = 'claim' and entity_id = p_claim and stage = cur;
+    if cnt = 0 then
+      return query select false,
+        ('يلزم ' || case when d.direction = 'out' then 'إصدار ' else 'رفع ' end
+         || d.doc_ar)::text;
+      return;
+    end if;
+  end if;
 
-  if (!rows) return <div className="empty">جارٍ التحميل…</div>;
+  return query select true, 'جاهز'::text;
+end $$;
 
-  const NEXT = {
-    draft: ['submitted','تقديم للمالك'],
-    submitted: ['owner_approved','تسجيل اعتماد المالك'],
-    owner_approved: ['invoiced','إصدار الفاتورة'],
-    invoiced: ['collected','تسجيل التحصيل'],
-  };
+-- ------------------------------------------------------------
+--  ٦. حالة المستندات لكل مستخلص
+-- ------------------------------------------------------------
+drop view if exists v_claim_missing_docs;
+drop view if exists v_claim_docs;
 
-  return (
-    <>
-      {err && <div className="msg err" style={{marginBottom:12}}>{err}</div>}
-      {msg && <div className="msg ok" style={{marginBottom:12}}>{msg}</div>}
+create view v_claim_docs with (security_invoker = true) as
+select
+  c.id                    as claim_id,
+  c.project_id,
+  c.claim_no,
+  c.status,
+  s.stage                 as step,
+  s.seq                   as step_seq,
+  s.name_ar               as step_ar,
+  s.direction,
+  s.doc_ar,
+  s.required,
+  d.seq                   as current_seq,
+  (s.seq <  d.seq)        as passed,
+  (s.seq =  d.seq)        as is_current,
+  (select count(*) from op_attachments a
+    where a.entity_type = 'claim' and a.entity_id = c.id and a.stage = s.stage) as docs
+from progress_claims c
+join claim_stage_defs d on d.stage = c.status
+cross join claim_stage_defs s;
 
-      {canWrite && (
-        <div className="rowsplit" style={{marginBottom:12}}>
-          <button className="btn" onClick={createClaim} disabled={busy}>
-            {busy ? 'جارٍ…' : 'مستخلص جديد من الإنجاز'}
-          </button>
-          <span style={{fontSize:13,color:'var(--ink-soft)'}}>
-            يجمع كل إنجاز لم يُطالَب به ويحسب المحتجزات بنسبة
-            {' '}{(Number(project.retention_pct||0)*100).toFixed(0)}٪
-          </span>
-        </div>
-      )}
+-- المستخلصات التي مرّت مراحل بلا مستند — دَين توثيقي
+create view v_claim_missing_docs with (security_invoker = true) as
+select claim_id, project_id, claim_no, status,
+       string_agg(step_ar || ' (' || doc_ar || ')', ' · ' order by step_seq) as missing,
+       count(*) as missing_count
+from v_claim_docs
+where required and docs = 0 and (passed or is_current)
+group by claim_id, project_id, claim_no, status;
 
-      <div className="section" style={{marginTop:0,overflowX:'auto'}}>
-        <table>
-          <thead>
-            <tr><th>الرقم</th><th>الفترة</th><th className="num">قيمة الأعمال</th>
-                <th className="num">محتجزات</th><th className="num">استرداد مقدمة</th>
-                <th className="num">الصافي</th><th>الحالة</th>
-                <th>الاستحقاق</th><th style={{width:230}}>الإجراءات</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((c) => {
-              const nx = NEXT[c.status];
-              const late = c.due_date && !c.collected_at
-                        && new Date(c.due_date) < new Date();
-              return (
-                <tr key={c.id}>
-                  <td className="mono">{c.claim_no}</td>
-                  <td className="mono" style={{fontSize:12.5}}>
-                    {dateAr(c.period_from)} — {dateAr(c.period_to)}
-                  </td>
-                  <td className="num">{money(c.gross_amount)}</td>
-                  <td className="num">
-                    {canWrite && c.status === 'draft' ? (
-                      <input type="number" step="0.01" dir="ltr" defaultValue={c.retention_amount}
-                             onBlur={(e)=>upd(c.id,{retention_amount:Number(e.target.value||0)})}
-                             style={{width:90,border:'1px solid var(--hair)',padding:'3px',textAlign:'left'}} />
-                    ) : money(c.retention_amount)}
-                  </td>
-                  <td className="num">
-                    {canWrite && c.status === 'draft' ? (
-                      <input type="number" step="0.01" dir="ltr" defaultValue={c.advance_recovery}
-                             onBlur={(e)=>upd(c.id,{advance_recovery:Number(e.target.value||0)})}
-                             style={{width:90,border:'1px solid var(--hair)',padding:'3px',textAlign:'left'}} />
-                    ) : money(c.advance_recovery)}
-                  </td>
-                  <td className="num" style={{fontWeight:600}}>{money(c.net_payable)}</td>
-                  <td>
-                    <span className={`pill ${CLAIM_CLASS[c.status]}`}>{CLAIM_AR[c.status]}</span>
-                    {c.invoice_no && (
-                      <div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>
-                        {c.invoice_no}
-                      </div>
-                    )}
-                  </td>
-                  <td className="mono" style={{fontSize:12.5}}>
-                    {c.due_date ? (
-                      <span className={late ? 'pill bad' : ''}>{dateAr(c.due_date)}</span>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    <div className="rowsplit">
-                      {canWrite && nx && (
-                        <button className="btn" style={{padding:'4px 9px',fontSize:12.5}}
-                                onClick={()=>advance(c, nx[0])}>{nx[1]}</button>
-                      )}
-                      {canWrite && c.status === 'draft' && (
-                        <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,
-                                        borderColor:'#EBC3C0',color:'#A32B24'}}
-                                onClick={()=>del(c)}>حذف</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {rows.length === 0 && (
-              <tr><td colSpan={9}>
-                <div className="empty"><h3>لا مستخلصات</h3>
-                  <p>سجّل إنجازاً في تبويب الإنجاز ثم أنشئ مستخلصاً منه.</p></div>
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
+-- ------------------------------------------------------------
+--  ٧. تحقق
+-- ------------------------------------------------------------
+notify pgrst, 'reload schema';
+
+select
+  (select count(*) from claim_stage_defs)                  as "المراحل",
+  (select count(*) from progress_claims)                   as "المستخلصات",
+  (select count(*) from v_claim_missing_docs)              as "ينقصها توثيق",
+  (select string_agg(name_ar, ' ← ' order by seq)
+     from claim_stage_defs)                                as "الدورة";
