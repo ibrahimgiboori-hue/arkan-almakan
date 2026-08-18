@@ -1,25 +1,44 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { tafqit } from '@/lib/tafqit';
 import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
 
 // ============================================================
-//  طباعة كشف المستخلص
-//  المسار : /print/claim/[id]
+//  مطبوعات المستخلص — النبرة والتنسيق يتبعان المرحلة
+//  المسار : /print/claim/[id]        ويقبل ?doc=
+//    measure  محضر قياس مشترك      (مرحلة التسجيل)
+//    demand   مطالبة مالية          (التقديم والاعتماد)
+//    receipt  خطاب استلام دفعة      (بعد التحصيل)
+//    memo     مذكرة للمحاسب بالفاتورة
 // ============================================================
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
 
+const DOC_BY_STAGE = {
+  draft: 'measure', submitted: 'demand', owner_approved: 'demand',
+  invoiced: 'demand', collected: 'receipt',
+};
+
+const TITLES = {
+  measure: ['محضر قياس وحصر أعمال', 'JOINT MEASUREMENT RECORD'],
+  demand:  ['مطالبة مالية', 'PAYMENT APPLICATION'],
+  receipt: ['إشعار استلام دفعة', 'PAYMENT RECEIPT NOTICE'],
+  memo:    ['مذكرة داخلية — طلب إصدار فاتورة', 'INTERNAL MEMO'],
+};
+
 export default function PrintClaim() {
   const { id } = useParams();
+  const sp = useSearchParams();
   const [claim, setClaim] = useState(null);
   const [rows, setRows] = useState([]);
-  const [project, setProject] = useState(null);
+  const [pr, setPr] = useState(null);
+  const [sup, setSup] = useState('');
   const [cfg, setCfg] = useState({});
   const [stamp, setStamp] = useState(true);
+  const [doc, setDoc] = useState('');
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -30,18 +49,25 @@ export default function PrintClaim() {
         if (error) throw error;
         if (!c) { setErr('المستخلص غير موجود'); return; }
         setClaim(c);
+        setDoc(sp.get('doc') || DOC_BY_STAGE[c.status] || 'demand');
 
         if (c.project_id) {
           const { data: p } = await supabase.from('v_project_client')
             .select('*').eq('project_id', c.project_id).maybeSingle();
-          setProject(p || null);
+          setPr(p || null);
+          const { data: raw } = await supabase.from('projects')
+            .select('supervisor_id').eq('id', c.project_id).maybeSingle();
+          if (raw?.supervisor_id) {
+            const { data: e } = await supabase.from('employees')
+              .select('full_name_ar, job_title').eq('id', raw.supervisor_id).maybeSingle();
+            setSup(e ? `${e.full_name_ar}${e.job_title ? ' — ' + e.job_title : ''}` : '');
+          }
         }
 
-        // بنود المستخلص مع أسماء البنود من المشروع
         const { data: ln } = await supabase.from('claim_lines')
           .select('*').eq('claim_id', id);
         const ids = [...new Set((ln || []).map((l) => l.project_item_id).filter(Boolean))];
-        let names = {};
+        const names = {};
         if (ids.length) {
           const { data: pit } = await supabase.from('project_items')
             .select('id, description_ar, unit').in('id', ids);
@@ -56,57 +82,57 @@ export default function PrintClaim() {
         const { data: s } = await supabase.from('brand_settings')
           .select('*').limit(1).maybeSingle();
         setCfg(s || {});
-      } catch (e) {
-        setErr(e.message || String(e));
-      }
+      } catch (e) { setErr(e.message || String(e)); }
     })();
-  }, [id]);
+  }, [id, sp]);
 
   if (err) return <div style={{ padding: 40, direction: 'rtl' }}>{err}</div>;
   if (!claim) return <div style={{ padding: 40, direction: 'rtl' }}>جارٍ التحميل…</div>;
 
-  const mTop  = cfg.margin_top ?? 47;
-  const mBot  = cfg.margin_bottom ?? 39;
-  const mSide = cfg.margin_side ?? 19;
-
+  const mTop = cfg.margin_top ?? 47, mBot = cfg.margin_bottom ?? 39, mSide = cfg.margin_side ?? 19;
   const sheetStyle = {
     padding: `${mTop}mm ${mSide}mm ${mBot}mm`,
     backgroundImage: cfg.letterhead_image_path
       ? `url(${pub(cfg.letterhead_image_path)})` : 'none',
   };
 
-  // القيم المالية — تُقرأ بمرونة حسب ما هو موجود
-  const val = (...keys) => {
-    for (const k of keys) if (claim[k] != null && claim[k] !== '') return Number(claim[k]);
-    return null;
-  };
-  const gross    = val('gross_amount');
-  const previous = val('prev_cumulative');
-  const retention= val('retention_amount');
-  const advance  = val('advance_recovery');
-  const deduct   = val('other_deductions');
-  const vat      = val('vat_amount');
-  const net      = val('net_payable');
+  const n = (v) => (v == null ? 0 : Number(v));
+  const gross = n(claim.gross_amount);
+  const base  = gross - n(claim.prev_cumulative) - n(claim.retention_amount)
+              - n(claim.advance_recovery) - n(claim.other_deductions);
+  const vat   = n(claim.vat_amount);
+  const net   = n(claim.net_payable) || base + vat;
+  const paid  = n(claim.collected_amount);
+  const diff  = paid ? Math.round((paid - net) * 100) / 100 : 0;
+
+  const [tAr, tEn] = TITLES[doc] || TITLES.demand;
+  const totalQty = rows.reduce((t, r) => t + n(r.qty_this), 0);
 
   const lines = [
     ['قيمة الأعمال المنجزة حتى تاريخه', gross],
-    ['يُخصم: قيمة المستخلصات السابقة', previous],
-    ['يُخصم: المحتجزات', retention],
-    ['يُخصم: استرداد الدفعة المقدمة', advance],
-    ['يُخصم: خصومات أخرى', deduct],
+    ['يُخصم: قيمة المستخلصات السابقة', n(claim.prev_cumulative)],
+    ['يُخصم: المحتجزات', n(claim.retention_amount)],
+    ['يُخصم: استرداد الدفعة المقدمة', n(claim.advance_recovery)],
+    ['يُخصم: خصومات أخرى', n(claim.other_deductions)],
     ['ضريبة القيمة المضافة', vat],
-  ].filter(([, v]) => v != null && v !== 0);
+  ].filter(([, v]) => v);
 
   return (
     <>
       <div className="toolbar">
         <div className="tb-group">
+          {['measure', 'demand', 'receipt', 'memo'].map((k) => (
+            <button key={k} className={doc === k ? 'on' : ''} onClick={() => setDoc(k)}>
+              {TITLES[k][0].split(' — ')[0]}
+            </button>
+          ))}
+        </div>
+        <div className="tb-group">
           <button className={stamp ? 'on' : ''} onClick={() => setStamp(!stamp)}>
             {stamp ? 'الختم ظاهر' : 'الختم مخفي'}
           </button>
-          <span className="tb-warn">الهوامش {mTop}/{mBot}/{mSide} مم</span>
+          <button className="primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
         </div>
-        <button className="primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
       </div>
 
       <div className="sheet-wrap">
@@ -118,39 +144,111 @@ export default function PrintClaim() {
           </div>
 
           <div className="title-block">
-            <h1>مستخلص أعمال</h1>
-            <span className="title-en">PROGRESS CLAIM</span>
+            <h1>{tAr}</h1>
+            <span className="title-en">{tEn}</span>
             <span className="title-rule" />
           </div>
+
+          {doc !== 'memo' && (
+            <div className="ltr-to">
+              <span className="to-name">السادة / {pr?.client_name || '—'}</span>
+              <span className="to-title">المحترمين</span>
+            </div>
+          )}
+          {doc === 'memo' && (
+            <div className="ltr-to">
+              <span className="to-name">إلى / الإدارة المالية — المحاسب</span>
+              <span className="to-title">الموقّر</span>
+            </div>
+          )}
+          <div className="ltr-salut">السلام عليكم ورحمة الله وبركاته،،</div>
+
+          {doc === 'measure' && (
+            <p className="letter-body">
+{`بالإشارة إلى أعمالنا الجارية في مشروع ${pr?.project_name || ''}، نفيدكم بأنه تم بتاريخ ${dateAr(claim.period_to)} النزول الميداني إلى الموقع بواسطة ${sup || 'ممثل إدارة المشاريع لدينا'}، وبحضور ممثليكم ومشرفي الموقع من جانبكم، وجرى قياس وحصر الأعمال المنجزة عن الفترة من ${dateAr(claim.period_from)} إلى ${dateAr(claim.period_to)}.
+
+وقد أسفر القياس المشترك عن النتائج الموضّحة في الجدول أدناه، وهي محل اتفاق الطرفين حال التوقيع على هذا المحضر.`}
+            </p>
+          )}
+
+          {doc === 'demand' && (
+            <p className="letter-body">
+{`إلحاقاً لأعمالنا المنفَّذة في مشروع ${pr?.project_name || ''}، وبناءً على القياس المشترك للأعمال المنجزة خلال الفترة من ${dateAr(claim.period_from)} إلى ${dateAr(claim.period_to)}، نتقدّم إليكم بمطالبتنا المالية رقم ${claim.claim_no} وفق التفصيل الموضّح أدناه.
+
+ونأمل التكرم باعتمادها وصرف مستحقاتها وفق شروط التعاقد.`}
+            </p>
+          )}
+
+          {doc === 'receipt' && (
+            <p className="letter-body">
+{`يسرّنا إفادتكم باستلام الدفعة المالية الخاصة بالمستخلص رقم ${claim.claim_no} عن الفترة من ${dateAr(claim.period_from)} إلى ${dateAr(claim.period_to)}، وذلك بمبلغ ${money(paid || net)} ريال، بموجب التحويل المرجعي رقم ${claim.collect_ref || '—'} بتاريخ ${dateAr(claim.collected_at)}، وقد أُودع في حساب المؤسسة.
+
+ومرفق طيّه إشعار التحويل / كشف الحساب إثباتاً لذلك.${
+  diff < 0 ? `
+
+ونود الإشارة إلى وجود فرق قدره ${money(Math.abs(diff))} ريال بين المبلغ المستحق والمبلغ المحوَّل، ونأمل موافاتنا ببيان أسباب الفرق لتسويته في المستخلص القادم.`
+  : diff > 0 ? `
+
+كما نشكر لكم الزيادة البالغة ${money(diff)} ريال، وستُعالَج محاسبياً وتُخصم من مستحقات المستخلص القادم.`
+  : ''}
+
+ونشكر لكم حسن تعاونكم وسرعة إجراءاتكم، متطلعين إلى استمرار العمل المثمر بيننا.`}
+            </p>
+          )}
+
+          {doc === 'memo' && (
+            <p className="letter-body">
+{`نفيدكم بأن الجهة المالكة (${pr?.client_name || '—'}) قد سدّدت مبلغ ${money(paid || net)} ريال عن المستخلص رقم ${claim.claim_no} للمشروع ${pr?.project_name || ''}، بموجب التحويل المرجعي ${claim.collect_ref || '—'} بتاريخ ${dateAr(claim.collected_at)}.
+
+يُرجى إصدار فاتورة ضريبية بالمبلغ المسدَّد على العميل المذكور، ثم رفع نسخة منها في ملف المستخلص داخل النظام مع تدوين رقمها وتاريخها.${
+  diff !== 0 ? `
+
+تنبيه: المبلغ المسدَّد ${diff < 0 ? 'أقل' : 'أعلى'} من المستحق بمقدار ${money(Math.abs(diff))} ريال — ${diff < 0 ? 'يُعالَج الفرق كرصيد مدين على العميل' : 'تُعالَج الزيادة كرصيد دائن للعميل'} ويُراعى في المستخلص القادم.`
+  : ''}
+
+هذه المذكرة مستند داخلي ولا تُعد فاتورة ضريبية ولا تقوم مقامها.`}
+            </p>
+          )}
 
           <div className="cards">
             <section className="card-doc">
               <div className="card-head">بيانات المشروع</div>
               <table><tbody>
-                <tr><td className="k">المشروع</td>
-                    <td className="v">{project?.project_name || '—'}</td></tr>
-                <tr><td className="k">رقم المشروع</td>
-                    <td className="v mono">{project?.project_no || '—'}</td></tr>
-                <tr><td className="k">الجهة المالكة</td>
-                    <td className="v">{project?.client_name || '—'}</td></tr>
-                <tr><td className="k">الموقع</td>
-                    <td className="v">{project?.client_city || project?.city || '—'}</td></tr>
+                <tr><td className="k">المشروع</td><td className="v">{pr?.project_name || '—'}</td></tr>
+                <tr><td className="k">رقم المشروع</td><td className="v mono">{pr?.project_no || '—'}</td></tr>
+                <tr><td className="k">الموقع</td><td className="v">{pr?.client_city || '—'}</td></tr>
+                {doc === 'memo' && (
+                  <tr><td className="k">الرقم الضريبي للعميل</td>
+                      <td className="v mono">{pr?.client_vat_no || '—'}</td></tr>
+                )}
               </tbody></table>
             </section>
 
             <section className="card-doc">
-              <div className="card-head">بيانات المستخلص</div>
+              <div className="card-head">
+                {doc === 'measure' ? 'بيانات القياس' : 'بيانات المستخلص'}
+              </div>
               <table><tbody>
                 <tr><td className="k">رقم المستخلص</td>
                     <td className="v mono">{claim.claim_no || 'مسودة'}</td></tr>
                 <tr><td className="k">الفترة</td>
-                    <td className="v">
-                      {claim.period_from ? `${dateAr(claim.period_from)} — ${dateAr(claim.period_to)}` : '—'}
-                    </td></tr>
-                <tr><td className="k">تاريخ التقديم</td>
-                    <td className="v">{dateAr(claim.submitted_at) || '—'}</td></tr>
-                <tr><td className="k">تسلسل المستخلص</td>
-                    <td className="v mono">{claim.seq_no ?? '—'}</td></tr>
+                    <td className="v">{dateAr(claim.period_from)} — {dateAr(claim.period_to)}</td></tr>
+                {doc === 'measure' && (
+                  <tr><td className="k">ممثل أركان المكان</td>
+                      <td className="v">{sup || '—'}</td></tr>
+                )}
+                {(doc === 'receipt' || doc === 'memo') && (
+                  <>
+                    <tr><td className="k">تاريخ التحصيل</td>
+                        <td className="v">{dateAr(claim.collected_at) || '—'}</td></tr>
+                    <tr><td className="k">المرجع البنكي</td>
+                        <td className="v mono">{claim.collect_ref || '—'}</td></tr>
+                  </>
+                )}
+                {doc === 'demand' && (
+                  <tr><td className="k">تسلسل المستخلص</td>
+                      <td className="v mono">{claim.seq_no ?? '—'}</td></tr>
+                )}
               </tbody></table>
             </section>
           </div>
@@ -162,7 +260,9 @@ export default function PrintClaim() {
                   <th style={{ width: '6%' }}>م</th>
                   <th>بيان الأعمال</th>
                   <th style={{ width: '10%' }}>الوحدة</th>
-                  <th className="mono" style={{ width: '12%' }}>الكمية</th>
+                  <th className="mono" style={{ width: '13%' }}>
+                    {doc === 'measure' ? 'المقيس' : 'الكمية'}
+                  </th>
                   <th className="mono" style={{ width: '14%' }}>الفئة</th>
                   <th className="mono" style={{ width: '16%' }}>الإجمالي</th>
                 </tr>
@@ -175,40 +275,49 @@ export default function PrintClaim() {
                     <td>{r._unit || '—'}</td>
                     <td className="mono">{fmtQty(r.qty_this)}</td>
                     <td className="mono">{money(r.unit_price)}</td>
-                    <td className="mono">
-                      {money(Number(r.qty_this || 0) * Number(r.unit_price || 0))}
-                    </td>
+                    <td className="mono">{money(n(r.qty_this) * n(r.unit_price))}</td>
                   </tr>
                 ))}
+                <tr>
+                  <td colSpan={3}>الإجمالي</td>
+                  <td className="mono">{fmtQty(totalQty)}</td>
+                  <td />
+                  <td className="mono">{money(gross)}</td>
+                </tr>
               </tbody>
             </table>
           )}
 
-          <table className="amounts">
-            <thead>
-              <tr><th>البيان</th><th className="mono" style={{ width: '32%' }}>المبلغ</th></tr>
-            </thead>
-            <tbody>
-              {lines.map(([label, v]) => (
-                <tr key={label}>
-                  <td>{label}</td>
-                  <td className="mono">{money(v)}</td>
+          {doc !== 'measure' && (
+            <table className="amounts">
+              <thead>
+                <tr><th>البيان</th><th className="mono" style={{ width: '32%' }}>المبلغ</th></tr>
+              </thead>
+              <tbody>
+                {lines.map(([l, v]) => (
+                  <tr key={l}><td>{l}</td><td className="mono">{money(v)}</td></tr>
+                ))}
+                <tr>
+                  <td>{doc === 'receipt' || doc === 'memo' ? 'صافي المستحق' : 'صافي المطالبة'}</td>
+                  <td className="mono">{money(net)} <Riyal /></td>
                 </tr>
-              ))}
-              <tr>
-                <td>صافي المستحق لهذا المستخلص</td>
-                <td className="mono">{money(net)} <Riyal /></td>
-              </tr>
-            </tbody>
-          </table>
-
-          {net != null && (
-            <div className="tafqit">
-              <span className="tf-lbl">وقدره</span>
-              <span className="tf-val">{tafqit(net)}</span>
-              <span className="tf-num">{money(net)}</span>
-            </div>
+                {paid > 0 && (doc === 'receipt' || doc === 'memo') && (
+                  <tr><td>المبلغ المسدَّد فعلياً</td>
+                      <td className="mono">{money(paid)} <Riyal /></td></tr>
+                )}
+                {diff !== 0 && (doc === 'receipt' || doc === 'memo') && (
+                  <tr><td>{diff < 0 ? 'فرق ناقص' : 'فرق زائد'}</td>
+                      <td className="mono">{money(Math.abs(diff))}</td></tr>
+                )}
+              </tbody>
+            </table>
           )}
+
+          <div className="tafqit">
+            <span className="tf-lbl">وقدره</span>
+            <span className="tf-val">{tafqit(paid && doc !== 'demand' ? paid : net)}</span>
+            <span className="tf-num">{money(paid && doc !== 'demand' ? paid : net)}</span>
+          </div>
 
           {claim.notes && (
             <div className="declare">
@@ -217,31 +326,55 @@ export default function PrintClaim() {
             </div>
           )}
 
-          <table className="sigtable">
-            <thead>
-              <tr>
-                <th>أعدّه — أركان المكان</th>
-                <th>راجعه — الاستشاري</th>
-                <th>اعتمده — المالك</th>
-              </tr>
-            </thead>
-            <tbody><tr><td /><td /><td /></tr></tbody>
-          </table>
+          {doc === 'measure' && (
+            <table className="sigtable">
+              <thead>
+                <tr>
+                  <th>ممثل أركان المكان</th>
+                  <th>مشرف الموقع — الجهة المالكة</th>
+                  <th>الاستشاري</th>
+                </tr>
+              </thead>
+              <tbody><tr><td /><td /><td /></tr></tbody>
+            </table>
+          )}
+          {doc === 'demand' && (
+            <table className="sigtable">
+              <thead>
+                <tr><th>أعدّه — أركان المكان</th><th>راجعه — الاستشاري</th><th>اعتمده — المالك</th></tr>
+              </thead>
+              <tbody><tr><td /><td /><td /></tr></tbody>
+            </table>
+          )}
+          {doc === 'memo' && (
+            <table className="sigtable">
+              <thead>
+                <tr><th>إدارة المشاريع</th><th>اعتماد المدير التنفيذي</th><th>استلام المحاسب</th></tr>
+              </thead>
+              <tbody><tr><td /><td /><td /></tr></tbody>
+            </table>
+          )}
+
+          {doc !== 'memo' && (
+            <p className="letter-body" style={{ marginTop: '4mm' }}>
+              وتفضلوا بقبول فائق الاحترام والتقدير.
+            </p>
+          )}
 
           <div className="fill" />
 
           <div className="footer-row">
             {stamp && cfg.stamp_image_path && (
-              <div className="stamp-box">
-                <img src={pub(cfg.stamp_image_path)} alt="" />
-              </div>
+              <div className="stamp-box"><img src={pub(cfg.stamp_image_path)} alt="" /></div>
             )}
             <div className="bank">
               <div className="bank-head">شركة أركان المكان للمقاولات</div>
               <div className="bank-line">
                 سجل تجاري {cfg.cr_no || '1009112888'} · رقم ضريبي {cfg.vat_no || '312577395600003'}
               </div>
-              <div className="bank-line">{cfg.phone || '0596222999'} · {cfg.email || 'info@arkanalmakansa.com'}</div>
+              <div className="bank-line">
+                {cfg.phone || '0596222999'} · {cfg.email || 'info@arkanalmakansa.com'}
+              </div>
             </div>
           </div>
 
