@@ -198,6 +198,29 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     setMsg('حُدّثت حالة المستخلص'); load();
   }
 
+  // الرجوع خطوة للخلف — القاعدة تسمح به لتصحيح الأخطاء
+  async function goBack(claim) {
+    const cur = stepOf(claim.status);
+    if (!cur || cur.seq <= 1) { setErr('المستخلص في أول مرحلة'); return; }
+    const prev = steps.find((x) => x.seq === cur.seq - 1);
+    if (!prev) return;
+    if (!window.confirm(
+      `إرجاع ${claim.claim_no} من «${cur.name_ar}» إلى «${prev.name_ar}»؟\n` +
+      'المستندات الموثّقة تبقى كما هي.')) return;
+
+    setErr(''); setMsg('');
+    const clear = {};
+    if (cur.stage === 'collected')      Object.assign(clear, { collected_at: null, collected_amount: null });
+    if (cur.stage === 'invoiced')       Object.assign(clear, { invoiced_at: null, invoice_no: null });
+    if (cur.stage === 'owner_approved') Object.assign(clear, { owner_approved_at: null, owner_ref: null });
+    if (cur.stage === 'submitted')      Object.assign(clear, { submitted_at: null });
+
+    const { error } = await supabase.from('progress_claims')
+      .update({ status: prev.stage, ...clear }).eq('id', claim.id);
+    if (error) setErr(error.message);
+    else { setMsg(`أُرجع إلى «${prev.name_ar}»`); load(); }
+  }
+
   async function upd(id, fields) {
     const { error } = await supabase.from('progress_claims').update(fields).eq('id', id);
     if (error) setErr(error.message); else load();
@@ -297,6 +320,11 @@ export default function ProjClaims({ project, canWrite, onChange }) {
                                   opacity: ready ? 1 : .5 }}
                                 title={ready ? '' : `يلزم ${need.map((d)=>d.name_ar).join(' و ')}`}
                                 onClick={() => advance(c, nx[0])}>{nx[1]}</button>
+                      )}
+                      {canWrite && c.status !== 'draft' && (
+                        <button className="btn ghost" style={mini}
+                                title="إرجاع المستخلص خطوة للخلف"
+                                onClick={() => goBack(c)}>رجوع خطوة</button>
                       )}
                       {canWrite && c.status === 'draft' && (
                         <button className="btn ghost"
