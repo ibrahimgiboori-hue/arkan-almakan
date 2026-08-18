@@ -98,10 +98,10 @@ export default function PrintClaim() {
 
   const n = (v) => (v == null ? 0 : Number(v));
   const gross = n(claim.gross_amount);
-  const base  = gross - n(claim.prev_cumulative) - n(claim.retention_amount)
-              - n(claim.advance_recovery) - n(claim.other_deductions);
+  const base  = n(claim.taxable_base) || (gross - n(claim.prev_cumulative));
   const vat   = n(claim.vat_amount);
-  const net   = n(claim.net_payable) || base + vat;
+  const rate  = n(claim.vat_rate) || 0.15;
+  const net   = n(claim.net_payable);
   const paid  = n(claim.collected_amount);
   const diff  = paid ? Math.round((paid - net) * 100) / 100 : 0;
 
@@ -109,12 +109,14 @@ export default function PrintClaim() {
   const totalQty = rows.reduce((t, r) => t + n(r.qty_this), 0);
 
   const lines = [
-    ['قيمة الأعمال المنجزة حتى تاريخه', gross],
+    ['قيمة الأعمال المنجزة تراكمياً', gross],
     ['يُخصم: قيمة المستخلصات السابقة', n(claim.prev_cumulative)],
+    ['قيمة أعمال هذه الفترة — الوعاء الخاضع', base],
+    [`ضريبة القيمة المضافة ${(rate * 100).toFixed(0)}٪`, vat],
+    ['إجمالي المستخلص شاملاً الضريبة', base + vat],
     ['يُخصم: المحتجزات', n(claim.retention_amount)],
     ['يُخصم: استرداد الدفعة المقدمة', n(claim.advance_recovery)],
     ['يُخصم: خصومات أخرى', n(claim.other_deductions)],
-    ['ضريبة القيمة المضافة', vat],
   ].filter(([, v]) => v);
 
   return (
@@ -200,7 +202,11 @@ export default function PrintClaim() {
             <p className="letter-body">
 {`نفيدكم بأن الجهة المالكة (${pr?.client_name || '—'}) قد سدّدت مبلغ ${money(paid || net)} ريال عن المستخلص رقم ${claim.claim_no} للمشروع ${pr?.project_name || ''}، بموجب التحويل المرجعي ${claim.collect_ref || '—'} بتاريخ ${dateAr(claim.collected_at)}.
 
-يُرجى إصدار فاتورة ضريبية بالمبلغ المسدَّد على العميل المذكور، ثم رفع نسخة منها في ملف المستخلص داخل النظام مع تدوين رقمها وتاريخها.${
+يُرجى إصدار فاتورة ضريبية على العميل المذكور بقيمة أعمال قدرها ${money(base)} ريال، وضريبة قيمة مضافة ${(rate * 100).toFixed(0)}٪ قدرها ${money(vat)} ريال، بإجمالي ${money(base + vat)} ريال.
+
+ملاحظة: الفاتورة تُصدر على قيمة الأعمال كاملة وضريبتها، أما المحتجزات واسترداد الدفعة المقدمة فتُخصم من المبلغ المحوَّل ولا تُخصم من وعاء الضريبة.
+
+وبعد الإصدار تُرفع نسخة من الفاتورة في ملف المستخلص داخل النظام مع تدوين رقمها وتاريخها.${
   diff !== 0 ? `
 
 تنبيه: المبلغ المسدَّد ${diff < 0 ? 'أقل' : 'أعلى'} من المستحق بمقدار ${money(Math.abs(diff))} ريال — ${diff < 0 ? 'يُعالَج الفرق كرصيد مدين على العميل' : 'تُعالَج الزيادة كرصيد دائن للعميل'} ويُراعى في المستخلص القادم.`
@@ -298,7 +304,8 @@ export default function PrintClaim() {
                   <tr key={l}><td>{l}</td><td className="mono">{money(v)}</td></tr>
                 ))}
                 <tr>
-                  <td>{doc === 'receipt' || doc === 'memo' ? 'صافي المستحق' : 'صافي المطالبة'}</td>
+                  <td>{doc === 'receipt' || doc === 'memo'
+                        ? 'صافي المستحق للتحويل' : 'صافي المطالبة للتحويل'}</td>
                   <td className="mono">{money(net)} <Riyal /></td>
                 </tr>
                 {paid > 0 && (doc === 'receipt' || doc === 'memo') && (
