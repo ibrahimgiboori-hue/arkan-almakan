@@ -19,10 +19,13 @@ export default function PrintFrame({
   signatureSizeMm,
   stampStyle,
   signatureStyle,
+  contentTopMm,
+  contentBottomMm,
+  contentSideMm,
 }) {
-  const top = Number(cfg?.letterhead_top_mm ?? 47);
-  const bottom = Number(cfg?.letterhead_bottom_mm ?? 39);
-  const side = Number(cfg?.letterhead_side_mm ?? 19);
+  const top = Number(contentTopMm ?? cfg?.letterhead_top_mm ?? 47);
+  const bottom = Number(contentBottomMm ?? cfg?.letterhead_bottom_mm ?? 39);
+  const side = Number(contentSideMm ?? cfg?.letterhead_side_mm ?? 19);
 
   const full = showLetterhead ? assetUrl(cfg?.letterhead_image_path) : null;
   const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;

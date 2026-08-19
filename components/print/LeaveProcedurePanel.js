@@ -1,6 +1,5 @@
 'use client';
-import { dateAr } from '@/lib/format';
-import ManualProcedureFields from '@/components/print/ManualProcedureFields';
+import ProcedureStagePanel from '@/components/print/ProcedureStagePanel';
 
 function slotState(approval, { approved='تم', pending='بانتظار الإجراء', rejected='مرفوض' } = {}) {
   if (!approval) return pending;
@@ -52,37 +51,5 @@ export default function LeaveProcedurePanel({
     { label:'الاعتماد النهائي', name:expectedFinalApprover?.full_name_ar || finalApproval?.actor_name || '' },
   ];
 
-  return (
-    <>
-      <div className="procedure-electronic">
-        <div className="xlsx-grid" style={{marginTop:'2.2mm'}}>
-          <div className="xlsx-cell xlsx-section s12">سجل الإجراءات الإلكترونية</div>
-        </div>
-        <div className="procedure-stage-grid" style={{'--procedure-stage-columns': electronic.length}}>
-          {electronic.map((slot) => (
-            <div className="procedure-stage-slot" key={slot.key}>
-              <b className="procedure-stage-action">{slot.action}</b>
-              <strong className="procedure-stage-actor">{slot.actor}</strong>
-              <span className="procedure-stage-title">{slot.title}</span>
-              <small className="procedure-stage-meta">
-                {slot.state}{slot.date ? ` · ${dateAr(slot.date)}` : ''}
-              </small>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="procedure-manual">
-        <div className="procedure-signature-grid" style={{'--procedure-stage-columns': manual.length}}>
-          {manual.map((slot) => (
-            <div className="procedure-signature-slot" key={slot.label}>
-              <b className="procedure-signature-role">{slot.label}</b>
-              {slot.name && <strong className="procedure-signature-name">{slot.name}</strong>}
-              <ManualProcedureFields />
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
-  );
+  return <ProcedureStagePanel electronic={electronic} manual={manual} />;
 }
