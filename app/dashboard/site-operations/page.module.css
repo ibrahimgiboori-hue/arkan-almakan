@@ -28,7 +28,7 @@
 .preview span,.previewWarn span{font-size:13px}
 .preview small{color:var(--ink-soft);font-size:11.5px}
 .preview>div:last-child{display:flex;gap:6px}
-.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .stat{background:#fff;border:1px solid var(--hair);border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .stat span{font-size:11.5px;color:var(--ink-soft)}
 .stat b{font-size:20px;color:#3f4346}
@@ -78,6 +78,15 @@
 .doneGrid{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
 .doneWorker{display:flex;align-items:center;gap:5px;border:1px solid #ece7e6;border-radius:999px;padding:3px 5px;background:#fbfbfb;font-size:10.5px}
 .statusBadge{min-width:25px;color:var(--maroon);font-weight:700}
+.outsideRoster{margin-top:11px;border-top:1px solid #ead8b8;padding-top:9px}
+.outsideHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.outsideHead b{font-size:11.5px;color:#735018}
+.outsideHead span{font-size:10.5px;color:#8a6b38}
+.outsideGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.outsideWorker{border:1px solid #ead8b8;background:#fffaf1;border-radius:7px;padding:7px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;min-width:0}
+.outsideWorker>div{display:flex;flex-direction:column;min-width:0}
+.outsideWorker b{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.outsideWorker span,.outsideWorker small{font-size:9.5px;color:#8a6b38;white-space:nowrap}
 .todayList{display:flex;flex-direction:column}
 .todayList>div{display:flex;justify-content:space-between;gap:9px;padding:7px 0;border-bottom:1px solid #eee}
 .todayList b{font-size:11.5px;color:#5c6264}
@@ -103,7 +112,7 @@
 .movementKinds .on{background:var(--maroon);border-color:var(--maroon);color:#fff}
 @media(max-width:900px){
  .contextBar{top:0}
- .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
  .cardGrid{grid-template-columns:1fr}
  .today{border-right:0;border-top:1px solid var(--hair)}
 }
@@ -126,6 +135,8 @@
  .actions button{width:100%;justify-content:center}
  .blockHead{align-items:flex-start;flex-direction:column}
  .blockHead input{max-width:none;width:100%}
+ .outsideHead{align-items:flex-start;flex-direction:column}
+ .outsideGrid{grid-template-columns:1fr}
  .workerGrid{grid-template-columns:1fr}
  .worker{align-items:flex-start;flex-direction:column}
  .workerButtons{width:100%}

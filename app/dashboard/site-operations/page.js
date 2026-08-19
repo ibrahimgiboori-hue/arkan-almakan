@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { parseSiteCommand, SITE_COMMAND_EXAMPLES } from '@/lib/site-operation-command';
 import { OPERATION_CERTAINTY, receiptLabel } from '@/lib/operation-safety.mjs';
 import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
+import { resolveRosterAssignment } from '@/lib/site-operation-roster.mjs';
 import styles from './page.module.css';
 
 const STATUS={
@@ -131,7 +132,7 @@ export default function SiteOperationsPage(){
         supabase.from('timesheet_days').select('id').eq('project_id',projectId).eq('work_date',date).maybeSingle(),
         supabase.from('project_items').select('id,description_ar,unit,sort_order').eq('project_id',projectId).eq('kind','item').order('sort_order'),
         supabase.from('labor_project_assignments').select('id,laborer_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to').eq('project_id',projectId).lte('valid_from',date).or(`valid_to.is.null,valid_to.gte.${date}`),
-        supabase.from('labor_project_assignments').select('laborer_id,contractor_id,valid_from,valid_to').eq('project_id',projectId),
+        supabase.from('labor_project_assignments').select('id,laborer_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to').eq('project_id',projectId),
         supabase.from('project_contractors').select('id,contractor_id,basis,worker_daily,tech_daily,piece_rate,piece_unit,meals_charge_to,transport_charge_to,housing_charge_to,tools_charge_to,start_date,end_date,is_active').eq('project_id',projectId).eq('is_active',true).lte('start_date',date).or(`end_date.is.null,end_date.gte.${date}`),
         supabase.from('v_item_assignments').select('project_item_id,item_name,unit,contractor_id,contractor_name,is_active,start_date,end_date').eq('project_id',projectId),
         supabase.from('v_contractor_expense_review').select('id').eq('project_id',projectId).not('review_reason','is',null),
@@ -178,7 +179,7 @@ export default function SiteOperationsPage(){
       setBatches(openBatches);
       setBatchId(current=>openBatches.some(x=>x.id===current)?current:'');
 
-      const contractorIds=[...new Set([...pcs.map(x=>x.contractor_id),...assigns.map(x=>x.contractor_id)].filter(Boolean))];
+      const contractorIds=[...new Set([...pcs.map(x=>x.contractor_id),...allAssignments.map(x=>x.contractor_id)].filter(Boolean))];
       let cs=allContractors.filter(c=>contractorIds.includes(c.id));
       const missing=contractorIds.filter(id=>!cs.some(c=>c.id===id));
       if(missing.length){
@@ -200,16 +201,26 @@ export default function SiteOperationsPage(){
       });
       setContractors(cs.sort((a,b)=>naturalCompare(a.name_ar,b.name_ar)));
 
-      const laborerIds=[...new Set(assigns.map(x=>x.laborer_id).filter(Boolean))];
+      const laborerIds=[...new Set(allAssignments.map(x=>x.laborer_id).filter(Boolean))];
       let labs=[];
       if(laborerIds.length){
-        const q=await supabase.from('laborers').select('id,full_name,labor_class,trade,daily_rate,monthly_salary,salary_days,pay_basis,contractor_id,is_active').in('id',laborerIds).eq('is_active',true).order('full_name');
+        const q=await supabase.from('laborers').select('id,full_name,labor_class,trade,daily_rate,monthly_salary,salary_days,pay_basis,contractor_id,is_active').in('id',laborerIds).order('full_name');
         if(q.error)throw q.error;
-        const byId=Object.fromEntries(assigns.map(a=>[a.laborer_id,a]));
         labs=(q.data||[]).map(w=>{
-          const a=byId[w.id];
-          return {...w,contractor_id:a?.contractor_id||w.contractor_id,labor_class:a?.labor_class||w.labor_class,trade:a?.trade||w.trade,daily_rate:a?.daily_rate??w.daily_rate,pay_basis:a?.pay_basis||w.pay_basis,assignment_id:a?.id};
-        });
+          const history=allAssignments.filter(a=>a.laborer_id===w.id);
+          const {assignment:a,eligible}=resolveRosterAssignment(history,date);
+          return {...w,
+            contractor_id:a?.contractor_id||w.contractor_id,
+            labor_class:a?.labor_class||w.labor_class,
+            trade:a?.trade||w.trade,
+            daily_rate:a?.daily_rate??w.daily_rate,
+            pay_basis:a?.pay_basis||w.pay_basis,
+            assignment_id:a?.id,
+            assignment_from:a?.valid_from||null,
+            assignment_to:a?.valid_to||null,
+            date_eligible:eligible,
+          };
+        }).filter(w=>w.assignment_id);
       }
       setWorkers(labs.sort((a,b)=>naturalCompare(a.full_name,b.full_name)));
 
@@ -254,10 +265,12 @@ export default function SiteOperationsPage(){
   },[groups,activeContractor]);
 
   const totals=useMemo(()=>{
-    const done=workers.filter(w=>marks[w.id]).length;
+    const eligible=workers.filter(w=>w.date_eligible);
+    const done=eligible.filter(w=>marks[w.id]).length;
     return {
-      workers:workers.length,
-      pending:Math.max(0,workers.length-done),
+      roster:workers.length,
+      workers:eligible.length,
+      pending:Math.max(0,eligible.length-done),
       done,
       output:outputs.length,
       expenses:expenses.reduce((s,x)=>s+Number(x.amount||0),0),
@@ -305,6 +318,10 @@ export default function SiteOperationsPage(){
     return {...result,data:data||[]};
   }
   async function markWorker(w,status){
+    if(!w.date_eligible){
+      setErr(`${w.full_name} ظاهر للرجوع إليه، لكن إسناده لا يشمل ${displayDate(date)}. اختر تاريخاً داخل الفترة ${displayDate(w.assignment_from)} — ${w.assignment_to?displayDate(w.assignment_to):'مستمرة'}.`);
+      return;
+    }
     setBusy('att-'+w.id);setErr('');
     try{
       const result=await saveAttendanceRows([{worker:w,status}]);
@@ -315,7 +332,7 @@ export default function SiteOperationsPage(){
     setBusy('');
   }
   async function markAll(g,status='full',pendingOnly=true){
-    const list=g.workers.filter(w=>!pendingOnly||!marks[w.id]);
+    const list=g.workers.filter(w=>w.date_eligible&&(!pendingOnly||!marks[w.id]));
     if(!list.length)return;
     setBusy('group-'+g.id);setErr('');
     try{const result=await saveAttendanceRows(list.map(worker=>({worker,status})));setMsg(result.status==='queued'?`حُفظت محاولة تسجيل ${list.length} فرداً على هذا الجهاز وتنتظر الاتصال.`:`تم تسجيل ${list.length} فرداً — ${receiptLabel(result.receipt)}`);}
@@ -323,7 +340,7 @@ export default function SiteOperationsPage(){
     setBusy('');
   }
   async function closeAttendance(g){
-    const pending=g.workers.filter(w=>!marks[w.id]);
+    const pending=g.workers.filter(w=>w.date_eligible&&!marks[w.id]);
     if(!pending.length)return;
     if(!confirm(`سيُسجل ${pending.length} فرداً كغياب. متابعة؟`))return;
     await markAll(g,'absent',true);
@@ -365,11 +382,14 @@ export default function SiteOperationsPage(){
     setBusy('command');setErr('');setMsg('');
     try{
       let writeResult=null;
-      if(preview.kind==='attendance')writeResult=await saveAttendanceRows([{worker:preview.worker,status:preview.status}]);
+      if(preview.kind==='attendance'){
+        if(!preview.worker?.date_eligible)throw new Error(`${preview.worker?.full_name||'العامل'} خارج فترة الإسناد في ${displayDate(date)}. اختر تاريخ الورقة الصحيح أولاً.`);
+        writeResult=await saveAttendanceRows([{worker:preview.worker,status:preview.status}]);
+      }
       if(preview.kind==='bulk_attendance'){
         const g=groups.find(x=>x.id===preview.contractor.id);
         if(!g)throw new Error('المقاول غير موجود في المشروع');
-        const pending=g.workers.filter(w=>!marks[w.id]);
+        const pending=g.workers.filter(w=>w.date_eligible&&!marks[w.id]);
         if(pending.length)writeResult=await saveAttendanceRows(pending.map(worker=>({worker,status:'full'})));
         else setMsg('لا يوجد عمال غير مسجلين لهذا المقاول');
       }
@@ -522,7 +542,8 @@ export default function SiteOperationsPage(){
       </section>
 
       <div className={styles.summary}>
-        <Stat label="العمالة اليوم" value={totals.workers}/>
+        <Stat label="كل عمال المشروع" value={totals.roster}/>
+        <Stat label="متاحون في التاريخ" value={totals.workers}/>
         <Stat label="غير المسجل" value={totals.pending} alert={totals.pending>0}/>
         <Stat label="حركات الإنجاز" value={totals.output}/>
         <Stat label="مصروف اليوم" value={money(totals.expenses)} suffix="ر.س"/>
@@ -531,7 +552,7 @@ export default function SiteOperationsPage(){
       {rosterSummary.outside>0&&<div className={styles.rosterNotice}>
         <div>
           <b>توجد عمالة سابقة بالمشروع خارج التاريخ المختار</b>
-          <span>في هذا المشروع توجد {rosterSummary.total} أسماء مسندة، والظاهر في {displayDate(date)} هو {rosterSummary.current} فقط. اختر تاريخ الورقة لرؤية من كان إسناده سارياً يومها؛ لن يسمح النظام بإظهار العامل في يوم خارج فترة عمله.</span>
+          <span>في هذا المشروع توجد {rosterSummary.total} أسماء مسندة. المتاح للتسجيل في {displayDate(date)} هو {rosterSummary.current}، وستجد بقية الأسماء ظاهرة أسفل كل مقاول مع فترة إسنادها حتى تختار تاريخ الورقة الصحيح.</span>
           <small>الفترة المسجلة للمشروع: {displayDate(rosterSummary.from)} — {rosterSummary.openEnded?'مستمرة':displayDate(rosterSummary.to)}</small>
         </div>
         <div className={styles.rosterBreakdown}>{rosterSummary.byContractor.map(row=>{
@@ -544,7 +565,7 @@ export default function SiteOperationsPage(){
 
       <div className={styles.contractorTabs}>
         <button className={!activeContractor?styles.on:''} onClick={()=>setActiveContractor('')}>كل المقاولين</button>
-        {groups.map(g=><button key={g.id} className={activeContractor===g.id?styles.on:''} onClick={()=>setActiveContractor(g.id)}>{g.operation_alias||g.name_ar}<small>{g.workers.filter(w=>!marks[w.id]).length} غير مسجل</small></button>)}
+        {groups.map(g=>{const pending=g.workers.filter(w=>w.date_eligible&&!marks[w.id]).length,outside=g.workers.filter(w=>!w.date_eligible).length;return <button key={g.id} className={activeContractor===g.id?styles.on:''} onClick={()=>setActiveContractor(g.id)}>{g.operation_alias||g.name_ar}<small>{pending} غير مسجل{outside?` · ${outside} خارج التاريخ`:''}</small></button>;})}
       </div>
 
       {groups.length===0&&<div className="empty"><h3>لا يوجد مقاول مرتبط بالمشروع</h3><p>اضغط «إضافة مقاول للمشروع»، وبعدها أضف العمال دفعة واحدة.</p></div>}
@@ -552,7 +573,7 @@ export default function SiteOperationsPage(){
       {shownGroups.map(g=>{
         const q=workerSearch.trim().toLowerCase();
         const visible=g.workers.filter(w=>!q||[w.full_name,w.trade].filter(Boolean).some(v=>String(v).toLowerCase().includes(q))).sort((a,b)=>naturalCompare(a.full_name,b.full_name));
-        const pending=visible.filter(w=>!marks[w.id]),done=visible.filter(w=>marks[w.id]);
+        const pending=visible.filter(w=>w.date_eligible&&!marks[w.id]),done=visible.filter(w=>w.date_eligible&&marks[w.id]),outside=visible.filter(w=>!w.date_eligible);
         const registeredAll=g.workers.filter(w=>marks[w.id]).length;
         const balance=Number(g.account?.balance_due||0);
         return <section className={styles.contractorCard} key={g.id}>
@@ -562,8 +583,8 @@ export default function SiteOperationsPage(){
           </header>
 
           <div className={styles.actions}>
-            <button className="btn" onClick={()=>{const n=g.workers.filter(w=>!marks[w.id]).length;if(n&&confirm(`تسجيل حضور ${n} فرداً لدى ${g.name_ar}؟`))markAll(g,'full',true);}} disabled={!g.workers.some(w=>!marks[w.id])||busy==='group-'+g.id}>حضور الباقين</button>
-            <button className="btn ghost" onClick={()=>closeAttendance(g)} disabled={!g.workers.some(w=>!marks[w.id])}>غياب غير المسجلين</button>
+            <button className="btn" onClick={()=>{const n=g.workers.filter(w=>w.date_eligible&&!marks[w.id]).length;if(n&&confirm(`تسجيل حضور ${n} فرداً لدى ${g.name_ar}؟`))markAll(g,'full',true);}} disabled={!g.workers.some(w=>w.date_eligible&&!marks[w.id])||busy==='group-'+g.id}>حضور الباقين</button>
+            <button className="btn ghost" onClick={()=>closeAttendance(g)} disabled={!g.workers.some(w=>w.date_eligible&&!marks[w.id])}>غياب غير المسجلين</button>
             {registeredAll>0&&<button className="btn ghost" style={{borderColor:'#d9a8a5',color:'#9d2f2b'}} onClick={()=>clearContractorAttendance(g)} disabled={busy==='clear-'+g.id}>إلغاء تسجيلات اليوم ({registeredAll})</button>}
             <button className="btn ghost" onClick={()=>openWorkers(g)}>إضافة عمال</button>
             <button className="btn ghost" onClick={()=>openOutput(g)}>تسجيل إنجاز</button>
@@ -576,6 +597,7 @@ export default function SiteOperationsPage(){
               {g.workers.length===0?<div className={styles.softEmpty}>لا توجد عمالة مسندة. استخدم «إضافة عمال» والصق قائمة الأسماء مرة واحدة.</div>:<>
                 <div className={styles.workerGrid}>{pending.map(w=><WorkerRow key={w.id} worker={w} busy={busy==='att-'+w.id} onMark={markWorker} onMove={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}/>)}</div>
                 {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent','stopped','leave'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}</span><button type="button" onClick={()=>removeAttendance(w)} disabled={busy==='undo-'+w.id} style={{color:'#9d2f2b'}}>إلغاء</button><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
+                {outside.length>0&&<div className={styles.outsideRoster}><div className={styles.outsideHead}><b>بقية عمال المشروع ({outside.length})</b><span>ظاهرون أمامك، لكن التسجيل يفتح عند اختيار تاريخ داخل فترة الإسناد.</span></div><div className={styles.outsideGrid}>{outside.map(w=><div key={w.id} className={styles.outsideWorker}><div><b>{w.full_name}</b><span>{w.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[w.labor_class]||'—')}</span></div><small>{displayDate(w.assignment_from)} — {w.assignment_to?displayDate(w.assignment_to):'مستمرة'}</small></div>)}</div></div>}
               </>}
             </div>
 
