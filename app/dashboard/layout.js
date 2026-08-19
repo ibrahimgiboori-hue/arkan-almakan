@@ -26,6 +26,7 @@ const NAV = [
   ]},
   { group: 'التنفيذ', items: [
     { href: '/dashboard/site-operations', label: 'مركز التشغيل اليومي' },
+    { href: '/dashboard/site-operations/data-safety', label: 'سلامة بيانات التشغيل' },
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/archive', label: 'الأرشيف' },
