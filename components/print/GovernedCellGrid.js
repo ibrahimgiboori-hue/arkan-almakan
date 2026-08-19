@@ -115,13 +115,16 @@ export default function GovernedCellGrid({
       })}
 
       <style jsx global>{`
-        .governed-cell-grid{width:100%;margin:0 0 2.5mm;border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;break-inside:avoid;page-break-inside:avoid}
+        .governed-cell-grid{width:100%;margin:0 0 2.5mm;border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;break-inside:avoid;page-break-inside:avoid;direction:rtl;text-align:right}
         .governed-cell-row{display:grid;width:100%;min-width:0}
         .governed-cell-row.dragging-row{outline:1px solid rgba(139,51,50,.08);outline-offset:-1px}
-        .governed-cell{position:relative;min-width:0;min-height:6.1mm;display:flex;align-items:center;padding:1.1mm 1.5mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;font-size:8.45pt;line-height:1.35;overflow-wrap:anywhere;background:#fff;color:#222}
+        .governed-cell{position:relative;min-width:0;min-height:6.1mm;display:flex;align-items:center;justify-content:flex-start;padding:1.1mm 1.5mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;font-size:8.45pt;line-height:1.35;overflow-wrap:anywhere;background:#fff;color:#222;text-align:right;direction:rtl}
         .governed-cell-label{font-weight:700;background:#f1f1f1;white-space:nowrap}
         .governed-cell.num{direction:ltr;text-align:left;justify-content:flex-end;font-variant-numeric:tabular-nums;white-space:nowrap}
-        .governed-cell.bank-value{direction:ltr;unicode-bidi:isolate;text-align:left;justify-content:flex-start;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:8.15pt}
+
+        /* الاتجاه الداخلي للرمز لا يحدد محاذاة الخلية. الخلية تتبع محور الكتلة العربية، والرمز نفسه معزول LTR فقط. */
+        .governed-cell.bank-value{direction:rtl;text-align:right;justify-content:flex-start;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:8.15pt;letter-spacing:.12px}
+        .governed-cell .bank-code{display:inline-block;direction:ltr;unicode-bidi:isolate;white-space:nowrap;text-align:left;font-variant-numeric:tabular-nums}
 
         .governed-cell-resizer{position:absolute;left:-9px;top:-2px;bottom:-2px;width:18px;z-index:30;cursor:col-resize;background:transparent;touch-action:none;user-select:none}
         .governed-cell-resizer::after{content:'';position:absolute;left:8.5px;top:0;bottom:0;border-left:1px dashed rgba(139,51,50,.24);transition:border-color .1s,box-shadow .1s}
