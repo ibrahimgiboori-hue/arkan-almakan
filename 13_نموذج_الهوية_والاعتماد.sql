@@ -124,6 +124,7 @@ declare
   v_id uuid;
   v_snapshot record;
   v_step smallint;
+  v_legacy_role user_role;
 begin
   if auth.uid() is null then
     raise exception 'يجب تسجيل الدخول لتسجيل الاعتماد';
@@ -148,6 +149,11 @@ begin
     raise exception 'صاحب الاعتماد غير موجود في سجل الأشخاص';
   end if;
 
+  v_legacy_role := current_app_role();
+  if v_legacy_role is null then
+    raise exception 'مستخدم النظام غير مفعّل';
+  end if;
+
   select coalesce(max(step_order), 0) + 1
     into v_step
     from approvals
@@ -158,7 +164,10 @@ begin
     entity_table,
     entity_id,
     step_order,
+    step_role,
     decision,
+    decided_by,
+    decided_at,
     comment,
     actor_employee_id,
     actor_position_snapshot,
@@ -173,7 +182,10 @@ begin
     p_entity_table,
     p_entity_id,
     v_step,
+    v_legacy_role,
     p_decision,
+    auth.uid(),
+    now(),
     p_comment,
     p_actor_employee_id,
     v_snapshot.board_role,
@@ -218,7 +230,9 @@ select
   au.employee_id as recorded_by_employee_id,
   recorder.full_name_ar as recorded_by_name,
   a.recorded_at,
-  a.source
+  a.source,
+  a.step_role as legacy_step_role,
+  a.decided_by as legacy_decided_by
 from approvals a
 left join employees e on e.id = a.actor_employee_id
 left join app_users au on au.id = a.recorded_by_user_id
@@ -228,6 +242,7 @@ left join employees recorder on recorder.id = au.employee_id;
 -- 7. ملاحظة انتقالية
 -- ------------------------------------------------------------
 -- الحقول القديمة approvals.step_role و approvals.decided_by تبقى مؤقتًا للتوافق.
--- لا تستخدم في أي تطوير جديد لتحديد صاحب القرار الإداري.
--- approved/rejected الحالي في approve_leave و approve_advance سيعاد تصميمه لاحقًا
--- ليستعمل record_manual_approval ثم يطبق أثر العملية بعد تسجيل صاحب القرار الحقيقي.
+-- record_manual_approval يملؤها مؤقتًا بهوية مشغل النظام فقط حتى لا تنكسر القيود الحالية.
+-- المصدر الإداري الصحيح لأي تطوير جديد هو actor_employee_id وحقول الـ snapshot.
+-- approve_leave و approve_advance سيعاد تصميمهما لاحقًا ليستعملا هذا النموذج
+-- ثم يطبقا الأثر المالي أو الإداري بعد تسجيل صاحب القرار الحقيقي.
