@@ -83,7 +83,7 @@
   color:#666;
 }
 
-/* التوقيعات اليدوية: نفس الأطراف بدون تضخيم أو أيقونات. */
+/* التوقيعات اليدوية: الاسم معروف، فيطلب فقط التاريخ والتوقيع. */
 .procedure-signature-grid{
   --procedure-stage-columns:3;
   display:grid;
@@ -95,20 +95,62 @@
 }
 .procedure-signature-slot{
   min-width:0;
-  min-height:17mm;
-  padding:1.2mm 1.15mm;
+  min-height:23.5mm;
+  padding:1.2mm 1.4mm 1.1mm;
   border-left:.2mm solid #a8a8a8;
   border-bottom:.2mm solid #a8a8a8;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:space-between;
   text-align:center;
-  gap:.5mm;
+  gap:.55mm;
 }
-.procedure-signature-role{font-size:7.4pt;font-weight:700;color:#7C2B28;line-height:1.25}
-.procedure-signature-name{font-size:6.9pt;font-weight:600;color:#222;line-height:1.25}
-.procedure-signature-line{width:78%;border-top:.18mm solid #777;padding-top:.8mm;font-size:6.3pt;color:#555}
+.procedure-signature-role{
+  font-size:7.4pt;
+  font-weight:700;
+  color:#7C2B28;
+  line-height:1.25;
+}
+.procedure-signature-name{
+  font-size:6.9pt;
+  font-weight:600;
+  color:#222;
+  line-height:1.25;
+}
+.procedure-signature-fields{
+  width:100%;
+  margin-top:auto;
+  font-size:6.45pt;
+  color:#444;
+  text-align:right;
+  direction:rtl;
+}
+.procedure-signature-date{
+  display:flex;
+  align-items:baseline;
+  gap:.7mm;
+  width:100%;
+  white-space:nowrap;
+}
+.procedure-signature-date-dots{
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+  color:#666;
+  letter-spacing:.08mm;
+  text-align:right;
+}
+.procedure-signature-handwriting-space{
+  height:5.6mm;
+  width:100%;
+}
+.procedure-signature-sign{
+  width:100%;
+  min-height:3mm;
+  text-align:right;
+  font-weight:500;
+  color:#444;
+}
 
 @media print{
   .procedure-electronic{display:none!important}

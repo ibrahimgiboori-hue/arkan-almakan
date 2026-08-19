@@ -1,15 +1,9 @@
 'use client';
 import { dateAr } from '@/lib/format';
 import { getApprovalActionLabel, getWorkflowActions, manualProcedureRoles } from '@/lib/workflow-actions';
+import ManualProcedureFields from '@/components/print/ManualProcedureFields';
 
 function v(x) { return x == null || x === '' ? '—' : x; }
-
-function spanFor(index, count) {
-  if (!count) return 12;
-  const base = Math.floor(12 / count);
-  if (index === count - 1) return 12 - base * (count - 1);
-  return base;
-}
 
 export default function ProcedureTrail({
   approvals = [],
@@ -49,15 +43,11 @@ export default function ProcedureTrail({
 
       {manualRoles.length > 0 && (
         <div className="procedure-manual">
-          <div className="xlsx-grid">
+          <div className="procedure-signature-grid" style={{'--procedure-stage-columns': manualRoles.length}}>
             {manualRoles.map((label, i) => (
-              <div
-                key={`${label}-${i}`}
-                className="xlsx-cell xlsx-sign"
-                style={{gridColumn:`span ${spanFor(i, manualRoles.length)}`}}
-              >
-                <b>{label}</b>
-                <span>الاسم والتوقيع</span>
+              <div className="procedure-signature-slot" key={`${label}-${i}`}>
+                <b className="procedure-signature-role">{label}</b>
+                <ManualProcedureFields />
               </div>
             ))}
           </div>

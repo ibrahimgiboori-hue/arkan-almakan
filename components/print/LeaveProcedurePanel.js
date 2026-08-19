@@ -1,5 +1,6 @@
 'use client';
 import { dateAr } from '@/lib/format';
+import ManualProcedureFields from '@/components/print/ManualProcedureFields';
 
 function slotState(approval, { approved='تم', pending='بانتظار الإجراء', rejected='مرفوض' } = {}) {
   if (!approval) return pending;
@@ -77,7 +78,7 @@ export default function LeaveProcedurePanel({
             <div className="procedure-signature-slot" key={slot.label}>
               <b className="procedure-signature-role">{slot.label}</b>
               {slot.name && <strong className="procedure-signature-name">{slot.name}</strong>}
-              <div className="procedure-signature-line">الاسم والتوقيع</div>
+              <ManualProcedureFields />
             </div>
           ))}
         </div>
