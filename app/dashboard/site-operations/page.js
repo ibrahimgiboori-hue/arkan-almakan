@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { parseSiteCommand, SITE_COMMAND_EXAMPLES } from '@/lib/site-operation-command';
+import { OPERATION_CERTAINTY, receiptLabel } from '@/lib/operation-safety.mjs';
+import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
 import styles from './page.module.css';
 
 const STATUS={
@@ -50,7 +53,6 @@ export default function SiteOperationsPage(){
   const [allContractors,setAllContractors]=useState([]);
   const [projectId,setProjectId]=useState('');
   const [date,setDate]=useState(iso(new Date()));
-  const [dayId,setDayId]=useState(null);
   const [projectLinks,setProjectLinks]=useState([]);
   const [contractors,setContractors]=useState([]);
   const [workers,setWorkers]=useState([]);
@@ -62,6 +64,10 @@ export default function SiteOperationsPage(){
   const [advances,setAdvances]=useState([]);
   const [payments,setPayments]=useState([]);
   const [accounts,setAccounts]=useState([]);
+  const [batches,setBatches]=useState([]);
+  const [batchId,setBatchId]=useState('');
+  const [sourceRef,setSourceRef]=useState('');
+  const [certainty,setCertainty]=useState('confirmed');
   const [reviewCount,setReviewCount]=useState(0);
   const [activeContractor,setActiveContractor]=useState('');
   const [workerSearch,setWorkerSearch]=useState('');
@@ -72,6 +78,10 @@ export default function SiteOperationsPage(){
   const [busy,setBusy]=useState('');
   const [err,setErr]=useState('');
   const [msg,setMsg]=useState('');
+  const [saveProof,setSaveProof]=useState(null);
+  const [pendingCount,setPendingCount]=useState(0);
+  const [online,setOnline]=useState(true);
+  const [syncing,setSyncing]=useState(false);
 
   useEffect(()=>{
     (async()=>{
@@ -79,6 +89,8 @@ export default function SiteOperationsPage(){
         supabase.from('projects').select('id,project_no,name_ar').eq('status','active').order('project_no'),
         supabase.from('contractors').select('id,name_ar,contractor_no,operation_alias,worker_daily,tech_daily,default_basis,meals_charge_to,transport_charge_to,housing_charge_to,tools_charge_to').eq('is_active',true).order('name_ar'),
       ]);
+      const initialError=[p,c].find(x=>x.error)?.error;
+      if(initialError){setErr('تعذر تحميل بيانات التشغيل الأساسية: '+initialError.message);return;}
       setProjects(p.data||[]); setAllContractors(c.data||[]);
       const saved=typeof window!=='undefined'?localStorage.getItem('arkan.site.project'):'';
       if(saved&&(p.data||[]).some(x=>x.id===saved))setProjectId(saved);
@@ -86,21 +98,34 @@ export default function SiteOperationsPage(){
   },[]);
 
   useEffect(()=>{
-    if(typeof window!=='undefined'&&projectId)localStorage.setItem('arkan.site.project',projectId);
-    setDayId(null); setActiveContractor(''); setPreview(null); setPanel(null);
-  },[projectId,date]);
+    const refresh=()=>{
+      setOnline(navigator.onLine!==false);
+      setPendingCount(pendingOperationCount());
+    };
+    const backOnline=()=>refresh();
+    refresh();
+    window.addEventListener('online',backOnline);
+    window.addEventListener('offline',refresh);
+    return ()=>{
+      window.removeEventListener('online',backOnline);
+      window.removeEventListener('offline',refresh);
+    };
+  },[]);
 
-  const ensureDay=useCallback(async()=>{
-    if(dayId)return dayId;
-    const {data,error}=await supabase.rpc('fn_get_or_create_day',{p_project_id:projectId,p_date:date});
-    if(error)throw error; setDayId(data); return data;
-  },[dayId,projectId,date]);
+  useEffect(()=>{
+    if(online&&pendingCount>0&&!syncing)retryPendingWrites();
+  },[online,pendingCount]);
+
+  useEffect(()=>{
+    if(typeof window!=='undefined'&&projectId)localStorage.setItem('arkan.site.project',projectId);
+    setActiveContractor(''); setPreview(null); setPanel(null); setSourceRef('');
+  },[projectId,date]);
 
   const load=useCallback(async()=>{
     if(!projectId||!date)return;
     setLoading(true);setErr('');setMsg('');
     try{
-      const [dayQ,itemsQ,assignQ,pcQ,itemAssignQ,reviewQ,acctQ]=await Promise.all([
+      const [dayQ,itemsQ,assignQ,pcQ,itemAssignQ,reviewQ,acctQ,batchQ]=await Promise.all([
         supabase.from('timesheet_days').select('id').eq('project_id',projectId).eq('work_date',date).maybeSingle(),
         supabase.from('project_items').select('id,description_ar,unit,sort_order').eq('project_id',projectId).eq('kind','item').order('sort_order'),
         supabase.from('labor_project_assignments').select('id,laborer_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to').eq('project_id',projectId).lte('valid_from',date).or(`valid_to.is.null,valid_to.gte.${date}`),
@@ -108,17 +133,23 @@ export default function SiteOperationsPage(){
         supabase.from('v_item_assignments').select('project_item_id,item_name,unit,contractor_id,contractor_name,is_active,start_date,end_date').eq('project_id',projectId),
         supabase.from('v_contractor_expense_review').select('id').eq('project_id',projectId).not('review_reason','is',null),
         supabase.from('v_contractor_project_account').select('*').eq('project_id',projectId),
+        supabase.from('operation_entry_batches').select('id,batch_no,title,certainty,expected_documents,status').or(`project_id.eq.${projectId},project_id.is.null`).in('status',['draft','reconciled']).order('created_at',{ascending:false}),
       ]);
-      if(dayQ.error)throw dayQ.error;
-      const did=dayQ.data?.id||null; setDayId(did);
+      const mainError=[dayQ,itemsQ,assignQ,pcQ,itemAssignQ,reviewQ,acctQ,batchQ].find(x=>x.error)?.error;
+      if(mainError)throw mainError;
+      const did=dayQ.data?.id||null;
       const its=itemsQ.data||[], assigns=assignQ.data||[], pcs=pcQ.data||[], ial=itemAssignQ.data||[];
       setItems(its);setProjectLinks(pcs);setItemLinks(ial);setReviewCount((reviewQ.data||[]).length);setAccounts(acctQ.data||[]);
+      const openBatches=batchQ.data||[];
+      setBatches(openBatches);
+      setBatchId(current=>openBatches.some(x=>x.id===current)?current:'');
 
       const contractorIds=[...new Set([...pcs.map(x=>x.contractor_id),...assigns.map(x=>x.contractor_id)].filter(Boolean))];
       let cs=allContractors.filter(c=>contractorIds.includes(c.id));
       const missing=contractorIds.filter(id=>!cs.some(c=>c.id===id));
       if(missing.length){
         const q=await supabase.from('contractors').select('id,name_ar,contractor_no,operation_alias,worker_daily,tech_daily,default_basis,meals_charge_to,transport_charge_to,housing_charge_to,tools_charge_to').in('id',missing);
+        if(q.error)throw q.error;
         cs=[...cs,...(q.data||[])];
       }
       cs=cs.map(c=>{
@@ -139,6 +170,7 @@ export default function SiteOperationsPage(){
       let labs=[];
       if(laborerIds.length){
         const q=await supabase.from('laborers').select('id,full_name,labor_class,trade,daily_rate,monthly_salary,salary_days,pay_basis,contractor_id,is_active').in('id',laborerIds).eq('is_active',true).order('full_name');
+        if(q.error)throw q.error;
         const byId=Object.fromEntries(assigns.map(a=>[a.laborer_id,a]));
         labs=(q.data||[]).map(w=>{
           const a=byId[w.id];
@@ -153,6 +185,8 @@ export default function SiteOperationsPage(){
           supabase.from('attendance').select('id,laborer_id,status,contractor_id_snapshot,amount,rate_used').eq('day_id',did),
           supabase.from('day_items').select('id,project_item_id,contractor_id,group_output,unit,notes').eq('day_id',did),
         ]);
+        const dayError=[a,o].find(x=>x.error)?.error;
+        if(dayError)throw dayError;
         att=a.data||[];out=o.data||[];
       }
       const [e,a,p]=await Promise.all([
@@ -160,6 +194,8 @@ export default function SiteOperationsPage(){
         supabase.from('contractor_advances').select('id,contractor_id,amount,remaining,notes').eq('project_id',projectId).eq('advance_date',date).order('created_at'),
         supabase.from('contractor_payments').select('id,contractor_id,amount,kind,source,reference,notes').eq('project_id',projectId).eq('payment_date',date).order('created_at'),
       ]);
+      const movementError=[e,a,p].find(x=>x.error)?.error;
+      if(movementError)throw movementError;
       const ex=e.data||[];
       setMarks(Object.fromEntries(att.map(x=>[x.laborer_id,x])));setOutputs(out);setExpenses(ex);setAdvances(a.data||[]);setPayments(p.data||[]);
     }catch(e){setErr('تعذّر فتح دفتر التشغيل: '+(e.message||e));}
@@ -194,27 +230,62 @@ export default function SiteOperationsPage(){
     };
   },[workers,marks,outputs,expenses]);
 
+  function operationSource(){
+    if(batchId&&!sourceRef.trim())throw new Error('اكتب مرجع الورقة داخل الدفعة قبل الحفظ');
+    return {
+      batchId:batchId||null,
+      sourceKind:batchId?'paper':'live',
+      sourceRef:batchId?(sourceRef.trim()||null):null,
+      certainty,
+    };
+  }
+
+  async function writeVerified(operation,payload){
+    const source=operationSource();
+    setSaveProof({status:'saving'});
+    const result=await saveOperationWithQueue({operation,projectId,workDate:date,payload,...source});
+    setPendingCount(result.pendingCount||0);
+    if(result.status==='verified')setSaveProof({status:'verified',receipt:result.receipt});
+    else setSaveProof({status:'queued',requestId:result.requestId});
+    return result;
+  }
+
+  async function retryPendingWrites(){
+    if(syncing||pendingOperationCount()===0)return;
+    setSyncing(true);setErr('');
+    const result=await syncPendingOperations(({status,receipt})=>{
+      if(status==='verified')setSaveProof({status:'verified',receipt});
+    });
+    setPendingCount(result.pendingCount||0);
+    setSyncing(false);
+    if(result.synced){setMsg(`تمت مزامنة ${result.synced} حركة والتحقق منها في الخادم.`);await load();}
+    if(result.failed)setErr(`تعذرت مزامنة ${result.failed} حركة. بقيت محفوظة على هذا الجهاز ولم تُفقد.`);
+  }
+
   async function saveAttendanceRows(rows){
     if(!rows.length)return [];
-    const id=await ensureDay();
-    const payload=rows.map(({worker,status})=>({day_id:id,laborer_id:worker.id,status,rate_used:Number(worker.daily_rate||0)}));
-    const {data,error}=await supabase.from('attendance').upsert(payload,{onConflict:'day_id,laborer_id'}).select('id,laborer_id,status,contractor_id_snapshot,amount,rate_used');
-    if(error)throw error;
+    const result=await writeVerified('attendance',{rows:rows.map(({worker,status})=>({laborer_id:worker.id,status,rate_used:Number(worker.daily_rate||0)}))});
+    if(result.status==='queued')return {...result,data:[]};
+    const data=Array.isArray(result.receipt.entity_snapshot)?result.receipt.entity_snapshot:[];
     setMarks(m=>({...m,...Object.fromEntries((data||[]).map(a=>[a.laborer_id,a]))}));
-    return data||[];
+    return {...result,data:data||[]};
   }
   async function markWorker(w,status){
     setBusy('att-'+w.id);setErr('');
-    try{await saveAttendanceRows([{worker:w,status}]);}
-    catch(e){setErr(e.message||String(e));}
+    try{
+      const result=await saveAttendanceRows([{worker:w,status}]);
+      if(result.status==='queued')setMsg(`حُفظت محاولة تسجيل ${w.full_name} على هذا الجهاز وتنتظر الاتصال.`);
+      else setMsg(`تم تسجيل ${w.full_name} — ${receiptLabel(result.receipt)}`);
+    }
+    catch(e){setSaveProof({status:'error'});setErr(e.message||String(e));}
     setBusy('');
   }
   async function markAll(g,status='full',pendingOnly=true){
     const list=g.workers.filter(w=>!pendingOnly||!marks[w.id]);
     if(!list.length)return;
     setBusy('group-'+g.id);setErr('');
-    try{await saveAttendanceRows(list.map(worker=>({worker,status})));setMsg(`تم تسجيل ${list.length} فرداً`);}
-    catch(e){setErr(e.message||String(e));}
+    try{const result=await saveAttendanceRows(list.map(worker=>({worker,status})));setMsg(result.status==='queued'?`حُفظت محاولة تسجيل ${list.length} فرداً على هذا الجهاز وتنتظر الاتصال.`:`تم تسجيل ${list.length} فرداً — ${receiptLabel(result.receipt)}`);}
+    catch(e){setSaveProof({status:'error'});setErr(e.message||String(e));}
     setBusy('');
   }
   async function closeAttendance(g){
@@ -259,48 +330,43 @@ export default function SiteOperationsPage(){
     if(!preview||['unknown','need','empty'].includes(preview.kind))return;
     setBusy('command');setErr('');setMsg('');
     try{
-      if(preview.kind==='attendance')await saveAttendanceRows([{worker:preview.worker,status:preview.status}]);
+      let writeResult=null;
+      if(preview.kind==='attendance')writeResult=await saveAttendanceRows([{worker:preview.worker,status:preview.status}]);
       if(preview.kind==='bulk_attendance'){
         const g=groups.find(x=>x.id===preview.contractor.id);
         if(!g)throw new Error('المقاول غير موجود في المشروع');
         const pending=g.workers.filter(w=>!marks[w.id]);
-        if(pending.length)await saveAttendanceRows(pending.map(worker=>({worker,status:'full'})));
+        if(pending.length)writeResult=await saveAttendanceRows(pending.map(worker=>({worker,status:'full'})));
         else setMsg('لا يوجد عمال غير مسجلين لهذا المقاول');
       }
-      if(preview.kind==='output')await saveOutput(preview.contractor.id,preview.item.id,preview.qty,preview.notes||'إدخال سريع');
-      if(preview.kind==='expense')await saveExpenseRecord(preview);
+      if(preview.kind==='output')writeResult=await saveOutput(preview.contractor.id,preview.item.id,preview.qty,preview.notes||'إدخال سريع');
+      if(preview.kind==='expense')writeResult=await saveExpenseRecord(preview);
       if(preview.kind==='advance'){
-        const {error}=await supabase.from('contractor_advances').insert({project_id:projectId,contractor_id:preview.contractor.id,advance_date:date,amount:Number(preview.amount),notes:preview.notes||'إدخال سريع'});
-        if(error)throw error;
+        writeResult=await writeVerified('advance',{contractor_id:preview.contractor.id,amount:Number(preview.amount),notes:preview.notes||'إدخال سريع'});
       }
       if(preview.kind==='payment'){
-        const {error}=await supabase.from('contractor_payments').insert({project_id:projectId,contractor_id:preview.contractor.id,payment_date:date,amount:Number(preview.amount),kind:'on_account',source:preview.source||'bank',notes:preview.notes||'إدخال سريع'});
-        if(error)throw error;
+        writeResult=await writeVerified('payment',{contractor_id:preview.contractor.id,amount:Number(preview.amount),kind:'on_account',source:preview.source||'bank',notes:preview.notes||'إدخال سريع'});
       }
       if(preview.kind==='transfer'){
         const {error}=await supabase.rpc('fn_move_laborer',{p_laborer_id:preview.worker.id,p_project_id:projectId,p_contractor_id:preview.contractor.id,p_effective_from:date,p_labor_class:preview.worker.labor_class,p_trade:preview.worker.trade||null,p_pay_basis:preview.worker.pay_basis||'daily',p_daily_rate:preview.worker.daily_rate||null,p_notes:'نقل من مركز التشغيل اليومي'});
         if(error)throw error;
       }
-      setCommand('');setPreview(null);setMsg(m=>m||'تم حفظ الحركة');await load();
-    }catch(e){setErr('تعذر حفظ الحركة: '+(e.message||e));}
+      setCommand('');setPreview(null);
+      if(writeResult?.status==='queued')setMsg('حُفظت الحركة على هذا الجهاز وتنتظر عودة الاتصال. لم تُعتبر مسجلة بعد.');
+      else if(writeResult?.receipt)setMsg(`تم الحفظ والتحقق — ${receiptLabel(writeResult.receipt)}`);
+      else setMsg(m=>m||'تم حفظ الحركة');
+      await load();
+    }catch(e){setSaveProof({status:'error'});setErr('تعذر حفظ الحركة: '+(e.message||e));}
     setBusy('');
   }
 
   async function saveOutput(contractorId,itemId,qty,notes){
-    const id=await ensureDay();
     const item=items.find(x=>x.id===itemId);
-    const old=outputs.find(x=>x.contractor_id===contractorId&&x.project_item_id===itemId);
-    if(old){
-      const {error}=await supabase.from('day_items').update({group_output:Number(old.group_output||0)+Number(qty),notes:notes||old.notes}).eq('id',old.id);
-      if(error)throw error;
-    }else{
-      const {error}=await supabase.from('day_items').insert({day_id:id,project_item_id:itemId,contractor_id:contractorId,group_output:Number(qty),unit:item?.unit||null,notes:notes||null});
-      if(error)throw error;
-    }
+    return writeVerified('output',{contractor_id:contractorId,item_id:itemId,qty:Number(qty),unit:item?.unit||null,notes:notes||null});
   }
   async function saveExpenseRecord(x){
-    const payload={project_id:projectId,contractor_id:x.contractor?.id||x.contractor_id,expense_date:date,amount:Number(x.amount),category:x.category||'أخرى',payer:x.payer||'contractor',charge_to:x.charge_to||'arkan',is_recoverable:!!x.is_recoverable,project_item_id:x.is_recoverable?null:(x.project_item_id||null),notes:x.notes||null};
-    const {error}=await supabase.from('contractor_expenses').insert(payload);if(error)throw error;
+    const payload={contractor_id:x.contractor?.id||x.contractor_id,amount:Number(x.amount),category:x.category||'أخرى',payer:x.payer||'contractor',charge_to:x.charge_to||'arkan',is_recoverable:!!x.is_recoverable,project_item_id:x.is_recoverable?null:(x.project_item_id||null),notes:x.notes||null};
+    return writeVerified('expense',payload);
   }
 
   async function attachContractor(id){
@@ -353,24 +419,25 @@ export default function SiteOperationsPage(){
   async function saveOutputPanel(e){
     e.preventDefault();const f=panel?.form||{};
     setBusy('output');setErr('');
-    try{await saveOutput(panel.contractorId,f.item_id,Number(f.qty),f.notes||'إدخال من مركز التشغيل');setPanel(null);setMsg('حُفظ الإنجاز');await load();}
-    catch(ex){setErr(ex.message||String(ex));}
+    try{const result=await saveOutput(panel.contractorId,f.item_id,Number(f.qty),f.notes||'إدخال من مركز التشغيل');setPanel(null);setMsg(result.status==='queued'?'حُفظ الإنجاز على هذا الجهاز وينتظر الاتصال.':`حُفظ الإنجاز — ${receiptLabel(result.receipt)}`);await load();}
+    catch(ex){setSaveProof({status:'error'});setErr(ex.message||String(ex));}
     setBusy('');
   }
   async function saveMovement(e){
     e.preventDefault();const f=panel?.form||{},cid=panel.contractorId;
     setBusy('movement');setErr('');
     try{
+      let result;
       if(f.kind==='advance'){
-        const {error}=await supabase.from('contractor_advances').insert({project_id:projectId,contractor_id:cid,advance_date:date,amount:Number(f.amount),notes:f.notes||null});if(error)throw error;
+        result=await writeVerified('advance',{contractor_id:cid,amount:Number(f.amount),notes:f.notes||null});
       }else if(f.kind==='payment'){
-        const {error}=await supabase.from('contractor_payments').insert({project_id:projectId,contractor_id:cid,payment_date:date,amount:Number(f.amount),kind:'on_account',source:f.source||'bank',reference:f.reference||null,notes:f.notes||null});if(error)throw error;
+        result=await writeVerified('payment',{contractor_id:cid,amount:Number(f.amount),kind:'on_account',source:f.source||'bank',reference:f.reference||null,notes:f.notes||null});
       }else{
         const c=contractors.find(x=>x.id===cid),cat=f.category||suggestedCategory(f.notes||'');
-        await saveExpenseRecord({contractor_id:cid,amount:f.amount,category:cat,payer:f.payer||'contractor',charge_to:f.charge_to||chargeFor(c,cat),is_recoverable:!!f.is_recoverable,project_item_id:f.project_item_id||null,notes:f.notes||null});
+        result=await saveExpenseRecord({contractor_id:cid,amount:f.amount,category:cat,payer:f.payer||'contractor',charge_to:f.charge_to||chargeFor(c,cat),is_recoverable:!!f.is_recoverable,project_item_id:f.project_item_id||null,notes:f.notes||null});
       }
-      setPanel(null);setMsg('حُفظت الحركة المالية');await load();
-    }catch(ex){setErr(ex.message||String(ex));}
+      setPanel(null);setMsg(result.status==='queued'?'حُفظت الحركة على هذا الجهاز وتنتظر الاتصال.':`حُفظت الحركة المالية — ${receiptLabel(result.receipt)}`);await load();
+    }catch(ex){setSaveProof({status:'error'});setErr(ex.message||String(ex));}
     setBusy('');
   }
 
@@ -392,14 +459,19 @@ export default function SiteOperationsPage(){
   const selectedProject=projects.find(x=>x.id===projectId);
 
   return <div dir="rtl" className={styles.root}>
-    <div className="page-head"><div><h1>مركز التشغيل اليومي</h1><p>هذه هي واجهة التنفيذ المعتمدة: اختر المشروع واليوم ثم سجّل كل ما حدث من نفس الصفحة.</p></div></div>
+    <div className="page-head"><div><h1>مركز التشغيل اليومي</h1><p>هذه هي واجهة التنفيذ المعتمدة: اختر المشروع واليوم ثم سجّل كل ما حدث من نفس الصفحة.</p></div><Link className="btn ghost" href="/dashboard/site-operations/data-safety">سلامة البيانات ودفعات الأوراق</Link></div>
 
     <div className={styles.contextBar}>
       <div className="field"><label>المشروع</label><select value={projectId} onChange={e=>setProjectId(e.target.value)}><option value="">— اختر المشروع —</option>{projects.map(p=><option key={p.id} value={p.id}>{p.project_no} — {p.name_ar}</option>)}</select></div>
       <div className="field"><label>التاريخ</label><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+      <div className="field"><label>دفعة الأوراق</label><select value={batchId} onChange={e=>{const id=e.target.value;setBatchId(id);const b=batches.find(x=>x.id===id);if(b?.certainty)setCertainty(b.certainty);}}><option value="">إدخال يومي مباشر</option>{batches.map(b=><option key={b.id} value={b.id}>{b.batch_no} — {b.title}</option>)}</select></div>
+      {batchId&&<div className="field"><label>مرجع الورقة</label><input value={sourceRef} onChange={e=>setSourceRef(e.target.value)} placeholder="مثال: كشف 07 / ورقة 3"/></div>}
+      <div className="field"><label>حالة البيانات</label><select value={certainty} onChange={e=>setCertainty(e.target.value)}>{Object.entries(OPERATION_CERTAINTY).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
       <button className="btn ghost" disabled={!projectId||loading} onClick={load}>{loading?'جارٍ الفتح…':'تحديث اليوم'}</button>
       {projectId&&<button className="btn ghost" onClick={()=>setPanel({type:'attach'})}>إضافة مقاول للمشروع</button>}
     </div>
+
+    <DataSafetyBar online={online} pendingCount={pendingCount} proof={saveProof} syncing={syncing} onSync={retryPendingWrites}/>
 
     {err&&<div className="msg err" style={{marginBottom:12}}>{err}</div>}
     {msg&&<div className="msg ok" style={{marginBottom:12}}>{msg}</div>}
@@ -512,6 +584,13 @@ export default function SiteOperationsPage(){
 
 function Stat({label,value,suffix='',alert=false}){return <div className={`${styles.stat} ${alert?styles.statAlert:''}`}><span>{label}</span><b>{value}{suffix&&<small> {suffix}</small>}</b></div>;}
 function Field({label,children}){return <div className="field"><label>{label}</label>{children}</div>;}
+function DataSafetyBar({online,pendingCount,proof,syncing,onSync}){
+  const state=proof?.status==='saving'?'جارٍ الحفظ والتحقق…':proof?.status==='verified'?`${receiptLabel(proof.receipt)} · محفوظ في الخادم`:proof?.status==='queued'?'محفوظ مؤقتاً على هذا الجهاز':proof?.status==='error'?'لم يثبت الحفظ':'جاهز للحفظ الموثق';
+  return <div className={`${styles.safetyBar} ${!online||pendingCount?styles.safetyWarn:''}`}>
+    <div className={styles.connection}><span className={online?styles.online:styles.offline}/><b>{online?'متصل بالخادم':'غير متصل'}</b><span>{state}</span></div>
+    <div className={styles.safetyActions}>{pendingCount>0&&<b>{pendingCount} حركة تنتظر المزامنة</b>}{pendingCount>0&&<button type="button" onClick={onSync} disabled={!online||syncing}>{syncing?'جارٍ التحقق…':'مزامنة الآن'}</button>}<Link href="/dashboard/site-operations/data-safety">فتح سجل الإثبات</Link></div>
+  </div>;
+}
 function Drawer({title,onClose,children}){return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><div className={styles.drawer}><header><h2>{title}</h2><button type="button" onClick={onClose}>إغلاق</button></header><div className={styles.drawerBody}>{children}</div></div></div>;}
 function WorkerRow({worker,onMark,onMove,busy}){return <div className={styles.worker}><div><b>{worker.full_name}</b><span>{worker.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[worker.labor_class]||'—')}</span></div><div className={styles.workerButtons}><button disabled={busy} onClick={()=>onMark(worker,'full')}>كامل</button><button disabled={busy} onClick={()=>onMark(worker,'half')}>نصف</button><button disabled={busy} onClick={()=>onMark(worker,'absent')}>غياب</button><button onClick={onMove}>نقل</button></div></div>;}
 function TodayList({group,items}){
