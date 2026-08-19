@@ -27,6 +27,12 @@ export default function ManualDecisionForm({
     );
   }, [employees]);
 
+  const completionLabel = /اعتماد نهائي/.test(stageLabel || '')
+    ? 'اعتماد'
+    : /موافقة/.test(stageLabel || '')
+      ? 'موافقة وإتمام الإجراء'
+      : 'إتمام الإجراء';
+
   async function submit(e) {
     e.preventDefault();
     if (!actorEmployeeId) return;
@@ -42,7 +48,7 @@ export default function ManualDecisionForm({
     <div className="section" style={{ marginTop: 0, marginBottom: 18 }}>
       <header>
         <div>
-          <h2>تسجيل القرار</h2>
+          <h2>تسجيل الإجراء</h2>
           <p style={{ margin: '4px 0 0', color: 'var(--ink-soft)', fontSize: 13 }}>
             {requestLabel}{stageLabel ? ` - ${stageLabel}` : ''}
           </p>
@@ -60,12 +66,12 @@ export default function ManualDecisionForm({
           fontSize: 13,
           lineHeight: 1.8,
         }}>
-          اختر الشخص الذي اتخذ القرار فعليًا. سيحفظ النظام تلقائيًا مستخدم البرنامج الذي قام بتسجيل هذا القرار بصورة مستقلة.
+          اختر الشخص الذي قام بالإجراء فعليًا. يحفظ النظام مستخدم البرنامج الذي سجّل الحركة بصورة مستقلة عن القائم بالإجراء.
         </div>
 
         <div className="form-grid">
           <div className="field">
-            <label>صاحب القرار *</label>
+            <label>القائم بالإجراء *</label>
             <select
               required
               value={actorEmployeeId}
@@ -79,15 +85,15 @@ export default function ManualDecisionForm({
           </div>
 
           <div className="field">
-            <label>القرار *</label>
+            <label>نتيجة الإجراء *</label>
             <select value={decision} onChange={(e) => setDecision(e.target.value)}>
-              <option value="approved">اعتماد</option>
-              <option value="rejected">رفض</option>
+              <option value="approved">{completionLabel}</option>
+              <option value="rejected">رفض / عدم موافقة</option>
             </select>
           </div>
 
           <div className="field">
-            <label>تاريخ القرار *</label>
+            <label>تاريخ الإجراء *</label>
             <input
               type="date"
               dir="ltr"
@@ -109,7 +115,7 @@ export default function ManualDecisionForm({
 
         <div className="rowsplit">
           <button className="btn" type="submit" disabled={busy || !actorEmployeeId}>
-            {busy ? 'جارٍ التسجيل' : 'تسجيل القرار'}
+            {busy ? 'جارٍ التسجيل' : 'تسجيل الإجراء'}
           </button>
           <button className="btn ghost" type="button" onClick={onClose} disabled={busy}>
             إلغاء

@@ -1,0 +1,11 @@
+/* سجل الإجراءات في الشاشة، وخانات التوقيع اليدوي في الطباعة الفعلية. */
+.procedure-electronic{display:block}
+.procedure-manual{display:none}
+
+.procedure-electronic .xlsx-grid,
+.procedure-manual .xlsx-grid{margin-bottom:2.2mm}
+
+@media print{
+  .procedure-electronic{display:none!important}
+  .procedure-manual{display:block!important}
+}

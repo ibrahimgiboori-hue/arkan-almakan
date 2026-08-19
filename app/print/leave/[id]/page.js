@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
 import { LEAVE_AR } from '@/lib/requests';
 import PrintFrame from '@/components/print/PrintFrame';
+import ProcedureTrail from '@/components/print/ProcedureTrail';
 
 function addDay(dateText) {
   if (!dateText) return null;
@@ -14,6 +15,18 @@ function addDay(dateText) {
 }
 
 function v(x) { return x == null || x === '' ? '—' : x; }
+
+function statusLabel(status) {
+  const map = {
+    draft:'مسودة',
+    submitted:'بانتظار الإجراء الأول',
+    hr_reviewed:'بانتظار الاعتماد النهائي',
+    ceo_approved:'معتمد نهائيًا',
+    rejected:'مرفوض',
+    cancelled:'ملغى',
+  };
+  return map[status] || v(status);
+}
 
 export default function LeavePrint() {
   const { id } = useParams();
@@ -56,6 +69,7 @@ export default function LeavePrint() {
     if (!atReturn) return null;
     return Number(atReturn.actual_balance || 0) - (affectsAnnual ? requestDays : 0);
   }, [atReturn, affectsAnnual, requestDays]);
+  const exceptional = affectsAnnual && expectedBalance != null && Number(expectedBalance) < 0;
 
   if (err) return <div style={{padding:40}}>{err}</div>;
   if (!row || !cfg || !before || !atReturn) return <div style={{padding:40}}>جارٍ التحميل…</div>;
@@ -112,7 +126,7 @@ export default function LeavePrint() {
             <div className="xlsx-cell xlsx-label s2">المصدر</div>
             <div className="xlsx-cell xlsx-value s2">{source}</div>
             <div className="xlsx-cell xlsx-label s2">الحالة</div>
-            <div className="xlsx-cell xlsx-value s2">{row.status === 'hr_reviewed' ? 'مراجعة الموارد البشرية' : v(row.status)}</div>
+            <div className="xlsx-cell xlsx-value s2">{statusLabel(row.status)}</div>
 
             {row.reason && <>
               <div className="xlsx-cell xlsx-label s2">السبب</div>
@@ -136,6 +150,12 @@ export default function LeavePrint() {
             <div className="xlsx-cell xlsx-value num s2">{atReturn.accrued_days}</div>
             <div className="xlsx-cell xlsx-label xlsx-strong s2">المتبقي بعد الاعتماد</div>
             <div className="xlsx-cell xlsx-value num xlsx-strong s2">{expectedBalance}</div>
+
+            {exceptional && (
+              <div className="xlsx-cell xlsx-note s12" style={{fontWeight:700,color:'#7C2B28',background:'#f8eeee'}}>
+                حالة استثنائية: سيصبح الرصيد السنوي سالبًا بعد الإجازة؛ لذلك يكون الإجراء الأول إعدادًا وتسجيلًا للطلب، ويُرفع للاستكمال والاعتماد النهائي من صاحب الصلاحية.
+              </div>
+            )}
 
             {Number(before.reserved_days || 0) > 0 && <>
               <div className="xlsx-cell xlsx-label s3">إجازات معتمدة لم تبدأ</div>
@@ -162,27 +182,14 @@ export default function LeavePrint() {
             </div>
           )}
 
-          {approvals.length > 0 && (
-            <div className="xlsx-grid">
-              <div className="xlsx-cell xlsx-section s12">الاعتمادات المسجلة في النظام</div>
-              <div className="xlsx-cell xlsx-head s3">المرحلة</div>
-              <div className="xlsx-cell xlsx-head s3">صاحب القرار</div>
-              <div className="xlsx-cell xlsx-head s4">الصفة</div>
-              <div className="xlsx-cell xlsx-head s2">التاريخ</div>
-              {approvals.map((a)=><div key={a.id} style={{display:'contents'}}>
-                <div className="xlsx-cell xlsx-value s3">{v(a.stage_label_snapshot)}</div>
-                <div className="xlsx-cell xlsx-value s3">{v(a.actor_name)}</div>
-                <div className="xlsx-cell xlsx-value s4">{v(a.actor_title)}</div>
-                <div className="xlsx-cell xlsx-value s2">{dateAr(a.decision_date)}</div>
-              </div>)}
-            </div>
+          {row.record_source !== 'historical_paper' && (
+            <ProcedureTrail
+              approvals={approvals}
+              transactionType="leave"
+              exceptional={exceptional}
+              manualLeadLabel="الموظف"
+            />
           )}
-
-          <div className="xlsx-grid">
-            <div className="xlsx-cell xlsx-sign s4"><b>الموظف</b><span>الاسم والتوقيع</span></div>
-            <div className="xlsx-cell xlsx-sign s4"><b>المراجعة</b><span>الاسم والتوقيع</span></div>
-            <div className="xlsx-cell xlsx-sign s4"><b>الاعتماد</b><span>الاسم والتوقيع</span></div>
-          </div>
         </div>
       </PrintFrame>
     </>
