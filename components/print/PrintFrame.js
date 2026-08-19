@@ -8,6 +8,10 @@ const assetUrl = (path) => path
 
 const MIN_DENSITY = 84;
 const MAX_DENSITY = 104;
+const MIN_SIDE_MM = 10;
+const MAX_SIDE_MM = 24;
+
+const clamp = (v,min,max) => Math.min(max,Math.max(min,Number(v)));
 
 export default function PrintFrame({
   cfg,
@@ -22,10 +26,12 @@ export default function PrintFrame({
   contentTopMm,
   contentBottomMm,
   contentSideMm,
+  layoutEditing = false,
+  onContentSideChange,
 }) {
   const top = Number(contentTopMm ?? cfg?.letterhead_top_mm ?? 47);
   const bottom = Number(contentBottomMm ?? cfg?.letterhead_bottom_mm ?? 39);
-  const side = Number(contentSideMm ?? cfg?.letterhead_side_mm ?? 19);
+  const side = clamp(contentSideMm ?? cfg?.letterhead_side_mm ?? 19, MIN_SIDE_MM, MAX_SIDE_MM);
 
   const full = showLetterhead ? assetUrl(cfg?.letterhead_image_path) : null;
   const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;
@@ -34,6 +40,7 @@ export default function PrintFrame({
   const stamp = showStamp ? assetUrl(cfg?.stamp_image_path) : null;
   const signature = showSignature ? assetUrl(cfg?.signature_image_path) : null;
 
+  const pageRef = useRef(null);
   const mainRef = useRef(null);
   const innerRef = useRef(null);
   const [density, setDensity] = useState(100);
@@ -92,6 +99,30 @@ export default function PrintFrame({
     setDensity(Number(value));
   }
 
+  function startMarginDrag(edge, event) {
+    if (!layoutEditing || !onContentSideChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startSide = side;
+    const pageWidthPx = pageRef.current?.getBoundingClientRect().width || 794;
+    const pxPerMm = pageWidthPx / 210;
+
+    const move = (moveEvent) => {
+      const deltaMm = (moveEvent.clientX - startX) / pxPerMm;
+      const next = edge === 'left'
+        ? startSide + deltaMm
+        : startSide - deltaMm;
+      onContentSideChange(clamp(Math.round(next * 10) / 10, MIN_SIDE_MM, MAX_SIDE_MM));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
   const scale = density / 100;
   const compensatedWidth = `${100 / scale}%`;
 
@@ -122,13 +153,29 @@ export default function PrintFrame({
       </div>
 
       <div className="print-page-wrap">
-        <div className="print-page">
+        <div ref={pageRef} className="print-page">
           <div className="print-assets" aria-hidden="true">
             {full && <img src={full} className="print-master-full" alt="" />}
             {header && <img src={header} className="print-master-header" alt="" style={{height:`${Number(cfg?.header_height_mm || 40)}mm`}} />}
             {footer && <img src={footer} className="print-master-footer" alt="" style={{height:`${Number(cfg?.footer_height_mm || 32)}mm`}} />}
             {watermark && <img src={watermark} className="print-master-watermark" alt="" />}
           </div>
+
+          {layoutEditing && <>
+            <div
+              className="print-margin-guide print-margin-guide-right no-print"
+              style={{right:`${side}mm`,top:`${top}mm`,bottom:`${bottom}mm`}}
+              onPointerDown={(e)=>startMarginDrag('right',e)}
+              title="اسحب لضبط الهامش الجانبي بصورة موزونة"
+            />
+            <div
+              className="print-margin-guide print-margin-guide-left no-print"
+              style={{left:`${side}mm`,top:`${top}mm`,bottom:`${bottom}mm`}}
+              onPointerDown={(e)=>startMarginDrag('left',e)}
+              title="اسحب لضبط الهامش الجانبي بصورة موزونة"
+            />
+          </>}
+
           <main ref={mainRef} className="print-content" style={{padding:`${top}mm ${side}mm ${bottom}mm`}}>
             <div
               ref={innerRef}
@@ -153,7 +200,12 @@ export default function PrintFrame({
         .print-fit-status{margin-top:6px;font-size:12px;font-weight:700}
         .print-fit-status.ok{color:#245c31}
         .print-fit-status.warn{color:#7a2925}
-        @media print{.print-fitbar{display:none!important}}
+        .print-margin-guide{position:absolute;z-index:12;width:9px;cursor:ew-resize;transform:translateX(50%);background:transparent}
+        .print-margin-guide-left{transform:translateX(-50%)}
+        .print-margin-guide::after{content:'';position:absolute;top:0;bottom:0;left:4px;border-left:1px dashed rgba(139,51,50,.34)}
+        .print-margin-guide::before{content:'';position:absolute;top:50%;left:1px;width:7px;height:20mm;transform:translateY(-50%);border-left:2px solid rgba(139,51,50,.34);border-right:2px solid rgba(139,51,50,.34)}
+        .print-margin-guide:hover::after,.print-margin-guide:hover::before{border-color:rgba(139,51,50,.72)}
+        @media print{.print-fitbar,.print-margin-guide{display:none!important}}
       `}</style>
     </>
   );
