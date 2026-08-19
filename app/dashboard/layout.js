@@ -33,6 +33,7 @@ const NAV = [
   ]},
   { group: 'الإعدادات', items: [
     { href: '/dashboard/settings', label: 'بيانات الشركة' },
+    { href: '/dashboard/org-structure', label: 'الهيكل التنظيمي' },
     { href: '/dashboard/backup', label: 'النسخ الاحتياطي' },
   ]},
 ];
@@ -81,8 +82,6 @@ export default function DashboardLayout({ children }) {
 
   const emp = me.employees;
 
-  // الرابط يُضاء إن كان هو الصفحة أو أحد فروعها — مع استثناء الفروع
-  // التي لها رابط خاص بها في القائمة نفسها
   const isOn = (href) => {
     if (pathname === href) return true;
     if (href === '/dashboard') return false;
