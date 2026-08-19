@@ -93,8 +93,8 @@ export default function LeavePrint() {
               <tbody>
                 <tr><th style={{width:'28mm'}}>الموظف</th><td>{emp.full_name_ar}</td><th style={{width:'28mm'}}>الرقم الوظيفي</th><td>{v(emp.employee_no)}</td></tr>
                 <tr><th>المسمى الوظيفي</th><td>{v(emp.job_title)}</td><th>الإدارة</th><td>{v(emp.department)}</td></tr>
-                <tr><th>تاريخ المباشرة</th><td>{dateAr(emp.hire_date)}</td><th>الاستحقاق السنوي</th><td>{Number(emp.annual_leave_days || before.annual_entitlement)} يوم</td></tr>
-                <tr><th>نوع الإجازة</th><td>{LEAVE_AR[row.leave_kind] || row.leave_kind}</td><th>عدد أيام الطلب</th><td>{requestDays} يوم</td></tr>
+                <tr><th>تاريخ المباشرة</th><td>{dateAr(emp.hire_date)}</td><th>الإجازة السنوية</th><td>{Number(emp.annual_leave_days || before.annual_entitlement)} يوم</td></tr>
+                <tr><th>نوع الإجازة</th><td>{LEAVE_AR[row.leave_kind] || row.leave_kind}</td><th>عدد أيام الإجازة</th><td>{requestDays} يوم</td></tr>
                 <tr><th>من</th><td>{dateAr(row.start_date)}</td><th>إلى</th><td>{dateAr(row.end_date)}</td></tr>
                 <tr><th>تاريخ العودة</th><td>{dateAr(returnDate)}</td><th>المصدر</th><td>{row.record_source === 'historical_paper' ? 'ملف ورقي قديم' : 'طلب حالي'}</td></tr>
                 {row.reason && <tr><th>السبب</th><td colSpan={3}>{row.reason}</td></tr>}
@@ -105,18 +105,21 @@ export default function LeavePrint() {
             <table className="r-table" style={{marginBottom:'7mm'}}>
               <thead><tr><th>البيان</th><th className="num">الأيام</th></tr></thead>
               <tbody>
-                <tr><td>الرصيد الكلي المستحق عند بداية الإجازة</td><td className="num">{before.accrued_days}</td></tr>
-                <tr><td>الرصيد المستهلك قبل هذا الطلب</td><td className="num">{before.used_days}</td></tr>
-                {Number(before.reserved_days || 0) > 0 && <tr><td>إجازات سنوية أخرى معتمدة ومحجوزة</td><td className="num">{before.reserved_days}</td></tr>}
-                <tr><td>الرصيد المتاح قبل الطلب</td><td className="num">{before.available_balance}</td></tr>
-                <tr><td>أيام الطلب الحالي المؤثرة على الرصيد</td><td className="num">{affectsAnnual ? requestDays : 0}</td></tr>
-                <tr><td>الرصيد الكلي المستحق عند تاريخ العودة</td><td className="num">{atReturn.accrued_days}</td></tr>
-                <tr className="r-total"><td>الرصيد المتوقع عند العودة بعد هذا الطلب</td><td className="num">{expectedBalance}</td></tr>
+                <tr><td>الرصيد المستحق حتى بداية الإجازة</td><td className="num">{before.accrued_days}</td></tr>
+                <tr><td>الرصيد المستخدم قبل هذه الإجازة</td><td className="num">{before.used_days}</td></tr>
+                {Number(before.reserved_days || 0) > 0 && <tr><td>إجازات سنوية معتمدة لم تبدأ بعد</td><td className="num">{before.reserved_days}</td></tr>}
+                <tr><td>الرصيد المتاح قبل هذه الإجازة</td><td className="num">{before.available_balance}</td></tr>
+                <tr><td>أيام الإجازة المطلوب خصمها من الرصيد</td><td className="num">{affectsAnnual ? requestDays : 0}</td></tr>
+                <tr><td>الرصيد المستحق حتى تاريخ العودة</td><td className="num">{atReturn.accrued_days}</td></tr>
+                <tr>
+                  <td style={{background:'var(--rose-wash)',color:'var(--ink)',fontWeight:700,borderTop:'2px solid var(--maroon)'}}>الرصيد المتبقي عند العودة بعد اعتماد الإجازة</td>
+                  <td className="num" style={{background:'var(--rose-wash)',color:'var(--ink)',fontWeight:700,borderTop:'2px solid var(--maroon)'}}>{expectedBalance}</td>
+                </tr>
               </tbody>
             </table>
 
-            <div style={{fontSize:12.5,lineHeight:1.8,marginBottom:'7mm'}}>
-              يحتسب الاستحقاق تدريجياً من تاريخ المباشرة على أساس الاستحقاق السنوي خلال 365 يوماً، ويقرب أي كسر في الرصيد المستحق إلى يوم كامل. الإجازات غير السنوية لا تخصم من رصيد الإجازة السنوية إلا إذا نصت سياسة المنشأة على خلاف ذلك.
+            <div style={{fontSize:12.5,lineHeight:1.8,marginBottom:'7mm',color:'var(--ink)'}}>
+              يحتسب الرصيد تدريجياً من تاريخ المباشرة على أساس عدد أيام الإجازة السنوية المتفق عليها خلال 365 يوماً، ويقرب أي كسر في الرصيد المستحق إلى يوم كامل. الإجازات غير السنوية لا تخصم من رصيد الإجازة السنوية إلا إذا نصت سياسة المنشأة على خلاف ذلك.
             </div>
 
             {row.record_source === 'historical_paper' && (
