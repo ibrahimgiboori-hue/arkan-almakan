@@ -129,7 +129,9 @@ function IndependentRowEnhancer() {
           ));
           if (!plainCells) return;
 
-          const rowKey = `${family}:${kind}:${tableIndex}:row:${rowIndex}`;
+          // عدد الخلايا جزء من هوية الصف؛ المستند التفاعلي قد يبدل بين
+          // جدول قياس من 6 خلايا ومطالبة مالية من 8 خلايا في المسار نفسه.
+          const rowKey = `${family}:${kind}:${tableIndex}:cells:${cells.length}:row:${rowIndex}`;
           const legacyKey = `${family}:${kind}:${cells.length}`;
           const defaults = defaultRowWeights(family, kind, cells.length, cells);
           const storedLayout = gridLayouts?.[rowKey] ?? gridLayouts?.[legacyKey];

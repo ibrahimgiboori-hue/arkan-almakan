@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { dateAr, dateRange, money, qty, unitLabel } from '@/lib/format';
 import Riyal from '@/components/Riyal';
@@ -26,6 +26,7 @@ function employeeTitle(e) {
 
 export default function ClaimDocumentsPrint() {
   const { id }=useParams();
+  const router=useRouter();
   const sp=useSearchParams();
   const [doc,setDoc]=useState(sp.get('doc') || 'demand');
   const [claim,setClaim]=useState(null);
@@ -230,9 +231,17 @@ export default function ClaimDocumentsPrint() {
     window.print();
   }
 
+  function selectDocument(nextDoc) {
+    if (!DOCS[nextDoc]) return;
+    setDoc(nextDoc);
+    const nextParams=new URLSearchParams(sp.toString());
+    nextParams.set('doc',nextDoc);
+    router.replace(`?${nextParams.toString()}`,{scroll:false});
+  }
+
   return <>
     <div className="print-toolbar no-print">
-      <div className="group">{Object.entries(DOCS).map(([k,v])=><button key={k} className={doc===k?'active':''} onClick={()=>setDoc(k)}>{v}</button>)}</div>
+      <div className="group">{Object.entries(DOCS).map(([k,v])=><button key={k} className={doc===k?'active':''} onClick={()=>selectDocument(k)}>{v}</button>)}</div>
       <div className="group">
         {doc==='memo' && !claim.collected_at && <span className="note">لم يتم تسجيل السداد بعد؛ راجع توقيت إصدار المذكرة قبل الطباعة.</span>}
         {doc==='receipt' && !claim.collected_at && <span className="note">لا يوجد تاريخ سداد مسجل لهذا المستخلص.</span>}
@@ -243,7 +252,7 @@ export default function ClaimDocumentsPrint() {
       </div>
     </div>
 
-    <ConstitutionPrintFrame documentKey="claim_documents" cfg={cfg} showLetterhead={showLetterhead} showStamp={showStamp}>
+    <ConstitutionPrintFrame key={`${doc}:${measurementCount > 0 ? 'measured' : 'plain'}`} documentKey="claim_documents" cfg={cfg} showLetterhead={showLetterhead} showStamp={showStamp}>
       <div className="project-finance-document">
       <div className="doc-meta"><span>{cfg.company_name_ar}</span><span>{dateAr(issueDate)}</span></div>
       <div className="doc-title"><h1>{title}</h1><span className="rule" /></div>
