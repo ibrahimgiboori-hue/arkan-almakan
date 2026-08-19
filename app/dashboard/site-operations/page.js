@@ -513,7 +513,7 @@ export default function SiteOperationsPage(){
   const selectedProject=projects.find(x=>x.id===projectId);
 
   return <div dir="rtl" className={styles.root}>
-    <div className="page-head"><div><h1>مركز التشغيل اليومي</h1><p>هذه هي واجهة التنفيذ المعتمدة: اختر المشروع واليوم ثم سجّل كل ما حدث من نفس الصفحة.</p></div><Link className="btn ghost" href="/dashboard/site-operations/data-safety">سلامة البيانات ودفعات الأوراق</Link></div>
+    <div className="page-head"><div><h1>مركز التشغيل اليومي</h1><p>هذه هي واجهة التنفيذ المعتمدة: اختر المشروع واليوم ثم سجّل كل ما حدث من نفس الصفحة.</p></div><div style={{display:'flex',gap:7,flexWrap:'wrap'}}><Link className="btn ghost" href="/dashboard/site-operations/reports">تقارير التايم شيت</Link><Link className="btn ghost" href="/dashboard/site-operations/data-safety">سلامة البيانات ودفعات الأوراق</Link></div></div>
 
     <div className={styles.contextBar}>
       <div className="field"><label>المشروع</label><select value={projectId} onChange={e=>setProjectId(e.target.value)}><option value="">— اختر المشروع —</option>{projects.map(p=><option key={p.id} value={p.id}>{p.project_no} — {p.name_ar}</option>)}</select></div>
