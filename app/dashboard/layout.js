@@ -10,6 +10,7 @@ const NAV = [
     { href: '/dashboard', label: 'لوحة المتابعة' },
     { href: '/dashboard/employees', label: 'الموظفون' },
     { href: '/dashboard/recruitment', label: 'التوظيف والمرشحون' },
+    { href: '/dashboard/recruitment/offers', label: 'العروض الوظيفية' },
     { href: '/dashboard/board', label: 'مجلس الإدارة' },
     { href: '/dashboard/leaves', label: 'الإجازات' },
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
