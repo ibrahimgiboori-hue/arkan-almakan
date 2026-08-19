@@ -28,13 +28,17 @@ body{font-family:Arial,"Tahoma",sans-serif}
 .salutation{margin-bottom:4mm}
 .letter-body{white-space:pre-line;font-size:10.5pt;line-height:1.95;margin:0 0 6mm;color:#222}
 
-.info-table,.data-table,.summary-table,.sign-table{width:100%;border-collapse:collapse;margin:0 0 6mm}
-.info-table th,.info-table td,.data-table th,.data-table td,.summary-table th,.summary-table td,.sign-table th,.sign-table td{border:.25mm solid #9b9b9b;padding:2mm 2.3mm;vertical-align:middle;color:#222}
+.info-table,.data-table,.summary-table,.sign-table,.payment-table{width:100%;border-collapse:collapse;margin:0 0 6mm}
+.info-table th,.info-table td,.data-table th,.data-table td,.summary-table th,.summary-table td,.sign-table th,.sign-table td,.payment-table th,.payment-table td{border:.25mm solid #9b9b9b;padding:2mm 2.3mm;vertical-align:middle;color:#222}
 .info-table th{width:27mm;background:#f1f1f1;font-weight:700;white-space:nowrap}
 .data-table thead th,.summary-table thead th{background:#8B3332;color:#fff;border-color:#8B3332;font-weight:700;text-align:right}
 .data-table td.num,.data-table th.num,.summary-table td.num,.summary-table th.num{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap}
 .data-table tbody tr:nth-child(even),.summary-table tbody tr:nth-child(even){background:#f8f4f4}
 .summary-table tr.total td{background:#eee5e5;color:#222;font-weight:700;border-top:.55mm solid #8B3332}
+.payment-table{margin-bottom:5mm;table-layout:fixed}
+.payment-table th{width:24mm;background:#f1f1f1;font-weight:700;white-space:nowrap}
+.payment-table td{background:#fff;font-size:9.5pt}
+.payment-table .bank-value{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;letter-spacing:.15px;overflow-wrap:anywhere}
 .section-title{font-weight:700;color:#7C2B28;margin:4mm 0 2mm}
 .note-box{border:.3mm solid #9b9b9b;padding:3mm 3.5mm;margin:5mm 0;color:#222;background:#fff}
 .sign-table{table-layout:fixed;margin-top:8mm}
