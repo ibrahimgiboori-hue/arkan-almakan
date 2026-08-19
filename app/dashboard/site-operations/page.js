@@ -20,6 +20,7 @@ const CHARGE_AR={arkan:'أركان',contractor:'المقاول',owner:'الما�
 const PAYER_AR={contractor:'المقاول',arkan_custody:'أركان من العهدة',arkan_direct:'أركان مباشرة'};
 const SOURCE_AR={bank:'تحويل بنكي',cash:'نقداً',custody:'من عهدة'};
 const iso=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const displayDate=(value='')=>value?String(value).split('-').reverse().join('/'):'—';
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
 const naturalCompare=(a='',b='')=>String(a).localeCompare(String(b),'ar',{numeric:true,sensitivity:'base'});
 
@@ -56,6 +57,7 @@ export default function SiteOperationsPage(){
   const [projectLinks,setProjectLinks]=useState([]);
   const [contractors,setContractors]=useState([]);
   const [workers,setWorkers]=useState([]);
+  const [rosterSummary,setRosterSummary]=useState({total:0,current:0,outside:0,from:null,to:null,openEnded:false,byContractor:[]});
   const [marks,setMarks]=useState({});
   const [items,setItems]=useState([]);
   const [itemLinks,setItemLinks]=useState([]);
@@ -125,20 +127,52 @@ export default function SiteOperationsPage(){
     if(!projectId||!date)return;
     setLoading(true);setErr('');setMsg('');
     try{
-      const [dayQ,itemsQ,assignQ,pcQ,itemAssignQ,reviewQ,acctQ,batchQ]=await Promise.all([
+      const [dayQ,itemsQ,assignQ,historyAssignQ,pcQ,itemAssignQ,reviewQ,acctQ,batchQ]=await Promise.all([
         supabase.from('timesheet_days').select('id').eq('project_id',projectId).eq('work_date',date).maybeSingle(),
         supabase.from('project_items').select('id,description_ar,unit,sort_order').eq('project_id',projectId).eq('kind','item').order('sort_order'),
         supabase.from('labor_project_assignments').select('id,laborer_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to').eq('project_id',projectId).lte('valid_from',date).or(`valid_to.is.null,valid_to.gte.${date}`),
+        supabase.from('labor_project_assignments').select('laborer_id,contractor_id,valid_from,valid_to').eq('project_id',projectId),
         supabase.from('project_contractors').select('id,contractor_id,basis,worker_daily,tech_daily,piece_rate,piece_unit,meals_charge_to,transport_charge_to,housing_charge_to,tools_charge_to,start_date,end_date,is_active').eq('project_id',projectId).eq('is_active',true).lte('start_date',date).or(`end_date.is.null,end_date.gte.${date}`),
         supabase.from('v_item_assignments').select('project_item_id,item_name,unit,contractor_id,contractor_name,is_active,start_date,end_date').eq('project_id',projectId),
         supabase.from('v_contractor_expense_review').select('id').eq('project_id',projectId).not('review_reason','is',null),
         supabase.from('v_contractor_project_account').select('*').eq('project_id',projectId),
         supabase.from('operation_entry_batches').select('id,batch_no,title,certainty,expected_documents,status').or(`project_id.eq.${projectId},project_id.is.null`).in('status',['draft','reconciled']).order('created_at',{ascending:false}),
       ]);
-      const mainError=[dayQ,itemsQ,assignQ,pcQ,itemAssignQ,reviewQ,acctQ,batchQ].find(x=>x.error)?.error;
+      const mainError=[dayQ,itemsQ,assignQ,historyAssignQ,pcQ,itemAssignQ,reviewQ,acctQ,batchQ].find(x=>x.error)?.error;
       if(mainError)throw mainError;
       const did=dayQ.data?.id||null;
       const its=itemsQ.data||[], assigns=assignQ.data||[], pcs=pcQ.data||[], ial=itemAssignQ.data||[];
+      const allAssignments=historyAssignQ.data||[];
+      const allWorkerIds=new Set(allAssignments.map(x=>x.laborer_id).filter(Boolean));
+      const currentWorkerIds=new Set(assigns.map(x=>x.laborer_id).filter(Boolean));
+      const contractorRoster=new Map();
+      for(const assignment of allAssignments){
+        if(!assignment.contractor_id||!assignment.laborer_id)continue;
+        if(!contractorRoster.has(assignment.contractor_id))contractorRoster.set(assignment.contractor_id,{all:new Set(),current:new Set()});
+        contractorRoster.get(assignment.contractor_id).all.add(assignment.laborer_id);
+      }
+      for(const assignment of assigns){
+        if(!assignment.contractor_id||!assignment.laborer_id)continue;
+        if(!contractorRoster.has(assignment.contractor_id))contractorRoster.set(assignment.contractor_id,{all:new Set(),current:new Set()});
+        contractorRoster.get(assignment.contractor_id).current.add(assignment.laborer_id);
+      }
+      const datedFrom=allAssignments.map(x=>x.valid_from).filter(Boolean).sort();
+      const datedTo=allAssignments.map(x=>x.valid_to).filter(Boolean).sort();
+      const openEnded=allAssignments.some(x=>!x.valid_to);
+      setRosterSummary({
+        total:allWorkerIds.size,
+        current:currentWorkerIds.size,
+        outside:Math.max(0,allWorkerIds.size-currentWorkerIds.size),
+        from:datedFrom[0]||null,
+        to:openEnded?null:(datedTo.at(-1)||null),
+        openEnded,
+        byContractor:[...contractorRoster.entries()].map(([contractorId,sets])=>({
+          contractorId,
+          total:sets.all.size,
+          current:sets.current.size,
+          outside:Math.max(0,sets.all.size-sets.current.size),
+        })).filter(x=>x.outside>0),
+      });
       setItems(its);setProjectLinks(pcs);setItemLinks(ial);setReviewCount((reviewQ.data||[]).length);setAccounts(acctQ.data||[]);
       const openBatches=batchQ.data||[];
       setBatches(openBatches);
@@ -493,6 +527,18 @@ export default function SiteOperationsPage(){
         <Stat label="حركات الإنجاز" value={totals.output}/>
         <Stat label="مصروف اليوم" value={money(totals.expenses)} suffix="ر.س"/>
       </div>
+
+      {rosterSummary.outside>0&&<div className={styles.rosterNotice}>
+        <div>
+          <b>توجد عمالة سابقة بالمشروع خارج التاريخ المختار</b>
+          <span>في هذا المشروع توجد {rosterSummary.total} أسماء مسندة، والظاهر في {displayDate(date)} هو {rosterSummary.current} فقط. اختر تاريخ الورقة لرؤية من كان إسناده سارياً يومها؛ لن يسمح النظام بإظهار العامل في يوم خارج فترة عمله.</span>
+          <small>الفترة المسجلة للمشروع: {displayDate(rosterSummary.from)} — {rosterSummary.openEnded?'مستمرة':displayDate(rosterSummary.to)}</small>
+        </div>
+        <div className={styles.rosterBreakdown}>{rosterSummary.byContractor.map(row=>{
+          const contractor=allContractors.find(x=>x.id===row.contractorId);
+          return <span key={row.contractorId}><b>{contractor?.operation_alias||contractor?.name_ar||'مقاول'}</b> {row.outside} خارج هذا التاريخ</span>;
+        })}</div>
+      </div>}
 
       {reviewCount>0&&<div className="msg err" style={{marginBottom:12}}>{reviewCount} مصروف تاريخي يحتاج مراجعة تصنيف. لم يُعدّل النظام أي حركة قديمة تلقائياً.</div>}
 
