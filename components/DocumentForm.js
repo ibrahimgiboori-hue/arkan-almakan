@@ -20,6 +20,9 @@ export default function DocumentForm({ code, docId }) {
   const [parties, setParties] = useState(null);
   const [lang, setLang] = useState('ar');
   const [emps, setEmps] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [employeeId, setEmployeeId] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [issuerEmployeeId, setIssuerEmployeeId] = useState('');
   const [signatoryEmployeeId, setSignatoryEmployeeId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,6 +45,8 @@ export default function DocumentForm({ code, docId }) {
       setLang(d.language || 'ar');
       setIssuerEmployeeId(d.issuer_employee_id || '');
       setSignatoryEmployeeId(d.signatory_employee_id || '');
+      setEmployeeId(d.employee_id || '');
+      setProjectId(d.project_id || '');
       const pl = d.payload || {};
       setRows(pl._rows || []);
       const clean = { ...pl };
@@ -54,7 +59,7 @@ export default function DocumentForm({ code, docId }) {
       .select('*').eq('code', theCode).maybeSingle();
     const js = byCode(theCode);
 
-    if (t?.is_custom && t?.layout?.sections?.length) {
+    if (t?.layout?.sections?.length) {
       setTpl(t);
       if (!docId && t.parties_layout && t.parties_layout !== 'none') {
         const { data: init } = await supabase.rpc('init_parties', {
@@ -80,10 +85,14 @@ export default function DocumentForm({ code, docId }) {
       setErr('هذا النموذج غير معروف.');
     }
 
-    const { data: e } = await supabase.from('employees')
-      .select('id, employee_no, full_name_ar, person_kind, board_role, job_title, id_number, hire_date, mobile, basic_salary, housing_allowance, transport_allowance, other_allowance')
-      .order('employee_no');
-    setEmps(e || []);
+    const [employeeResult, projectResult] = await Promise.all([
+      supabase.from('employees')
+        .select('id, employee_no, full_name_ar, person_kind, board_role, job_title, department, id_number, hire_date, mobile, basic_salary, housing_allowance, transport_allowance, other_allowance')
+        .order('employee_no'),
+      supabase.from('projects').select('*').order('project_no'),
+    ]);
+    setEmps(employeeResult.data || []);
+    setProjects(projectResult.data || []);
   }, [code, docId]);
 
   useEffect(() => { load(); }, [load]);
@@ -115,7 +124,8 @@ export default function DocumentForm({ code, docId }) {
 
   function pickEmployee(e) {
     const emp = emps.find((x)=>x.id===e.target.value);
-    if (!emp) return;
+    setEmployeeId(e.target.value);
+    if (!emp) { setDirty(true); return; }
     const allow = Number(emp.housing_allowance||0) + Number(emp.transport_allowance||0)
       + Number(emp.other_allowance||0);
 
@@ -124,6 +134,7 @@ export default function DocumentForm({ code, docId }) {
       employee_name: emp.full_name_ar,
       employee_no: emp.employee_no,
       job_title: emp.job_title || '',
+      department: emp.department || v.department || '',
       current_title: emp.job_title || '',
       id_number: emp.id_number || '',
       hire_date: emp.hire_date || '',
@@ -143,6 +154,21 @@ export default function DocumentForm({ code, docId }) {
     setDirty(true);
   }
 
+  function pickProject(e) {
+    const selectedId = e.target.value;
+    const project = projects.find((x)=>x.id === selectedId);
+    setProjectId(selectedId);
+    if (!project) { setDirty(true); return; }
+    setV({
+      ...v,
+      project_name: project.name_ar || '',
+      project_no: project.project_no || '',
+      site_location: project.site_address || project.location || project.city || '',
+      client_name: project.client_name || project.customer_name || v.client_name || '',
+    });
+    setDirty(true);
+  }
+
   function changeIssuer(id) {
     setIssuerEmployeeId(id);
     if (!signatoryEmployeeId) setSignatoryEmployeeId(id);
@@ -157,12 +183,12 @@ export default function DocumentForm({ code, docId }) {
     const payload = tpl
       ? { ...computed.payload, _rows: computed.rows }
       : { ...v };
-    const employee_id = payload._employee_id || null;
+    const employee_id = employeeId || payload._employee_id || null;
     delete payload._employee_id;
 
     const name = tpl ? tpl.name_ar : legacy.name;
     const who = payload.letter_title || payload.employee_name || payload.candidate_name
-      || payload.name || payload.contractor || '';
+      || payload.project_name || payload.party_name || payload.name || payload.contractor || '';
     const subject = payload.letter_title || (name + (who ? ' - ' + who : ''));
 
     const documentData = {
@@ -170,6 +196,7 @@ export default function DocumentForm({ code, docId }) {
       language: lang,
       subject,
       employee_id,
+      project_id: projectId || null,
       parties: parties || {},
       issuer_employee_id: issuerEmployeeId || null,
       signatory_employee_id: signatoryEmployeeId || null,
@@ -262,6 +289,14 @@ export default function DocumentForm({ code, docId }) {
   const title = tpl ? tpl.name_ar : legacy.name;
   const isIssued = !!doc?.issued_at;
   const fillFields = tpl?.layout?.fill_fields || [];
+  const relationScope = tpl?.relation_scope || [];
+  const wantsEmployee = !!legacy || relationScope.includes('employee');
+  const wantsProject = relationScope.includes('project');
+  const formGridSpan = (field) => {
+    const columns = Number(tpl?.layout?.gridColumns || 12);
+    const perFormColumn = columns / 3;
+    return Math.min(3, Math.max(1, Math.round(Number(field?.span || perFormColumn) / perFormColumn)));
+  };
 
   const inputFor = (f, value, onChange) => (
     f.type === 'select' ? (
@@ -398,13 +433,24 @@ export default function DocumentForm({ code, docId }) {
               <option value="en">English</option>
             </select>
           </div>
-          {emps.length > 0 && !isIssued && (
-            <div className="field span2">
+          {wantsEmployee && emps.length > 0 && (
+            <div className="field">
               <label>تعبئة سريعة من ملف موظف</label>
-              <select onChange={pickEmployee} defaultValue="">
-                <option value="">اختر موظفًا</option>
+              <select onChange={pickEmployee} value={employeeId} disabled={isIssued}>
+                <option value="">بدون ربط بموظف</option>
                 {emps.map((e)=>(
                   <option key={e.id} value={e.id}>{e.employee_no} - {e.full_name_ar}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {wantsProject && projects.length > 0 && (
+            <div className="field">
+              <label>تعبئة سريعة من المشروع</label>
+              <select onChange={pickProject} value={projectId} disabled={isIssued}>
+                <option value="">بدون ربط بمشروع</option>
+                {projects.map((project)=>(
+                  <option key={project.id} value={project.id}>{project.project_no} - {project.name_ar}</option>
                 ))}
               </select>
             </div>
@@ -421,7 +467,7 @@ export default function DocumentForm({ code, docId }) {
                 <div
                   className="field"
                   key={f.key}
-                  style={{gridColumn:`span ${Math.min(3, Math.max(1, Math.round(Number(f.span||4)/4)))}`}}
+                  style={{gridColumn:`span ${formGridSpan(f)}`}}
                 >
                   <label>{f.label}{f.required ? ' *' : ''}</label>
                   {inputFor(f, computed.payload[f.key], set(f.key))}
@@ -448,7 +494,7 @@ export default function DocumentForm({ code, docId }) {
                   <div
                     className="field"
                     key={f.key}
-                    style={{gridColumn:`span ${Math.min(3, Math.max(1, Math.round(Number(f.span||4)/4)))}`}}
+                    style={{gridColumn:`span ${formGridSpan(f)}`}}
                   >
                     <label>{f.label}{f.required ? ' *' : ''}{f.computed ? ' (محسوب)' : ''}</label>
                     {inputFor(f, computed.payload[f.key], set(f.key))}
