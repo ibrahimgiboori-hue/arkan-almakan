@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function LeaveSubstituteActions({ request, employees = [], consentState = 'not_required', onSaved }) {
   const [open, setOpen] = useState(false);
@@ -13,10 +14,10 @@ export default function LeaveSubstituteActions({ request, employees = [], consen
   async function saveSubstitute() {
     if (closed) return;
     setBusy(true); setErr('');
-    const { supabase } = await import('@/lib/supabase');
-    const { error } = await supabase.from('leave_requests')
-      .update({ substitute_employee_id: substituteId || null })
-      .eq('id', request.id);
+    const { error } = await supabase.rpc('set_leave_substitute', {
+      p_id: request.id,
+      p_substitute_employee_id: substituteId || null,
+    });
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setOpen(false);
@@ -27,7 +28,6 @@ export default function LeaveSubstituteActions({ request, employees = [], consen
     if (!request?.substitute_employee_id || closed) return;
     if (!window.confirm('تسجيل موافقة الموظف البديل على تغطية فترة الإجازة؟')) return;
     setBusy(true); setErr('');
-    const { supabase } = await import('@/lib/supabase');
     const { error } = await supabase.rpc('record_leave_substitute_consent', {
       p_id: request.id,
       p_decision: 'approved',
