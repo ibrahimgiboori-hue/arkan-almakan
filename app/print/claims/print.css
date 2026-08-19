@@ -56,12 +56,22 @@ body{font-family:Arial,"Tahoma",sans-serif}
 .summary-table td{font-size:8.8pt;padding-top:1.15mm;padding-bottom:1.15mm}
 .summary-table tr.total td{background:#eee5e5;color:#222;font-weight:700;border-top:.55mm solid #8B3332;font-size:9.2pt}
 
-/* بيانات السداد تندمج مع الكتلة المالية ولا تحتاج مساحة عنوان مستقلة */
+/* بيانات السداد: شبكة 4 خلايا منضبطة، مع قيم مصرفية LTR مستقلة */
 .summary-table + .section-title{display:none}
-.payment-table{margin-top:-.22mm;margin-bottom:2.5mm;break-inside:avoid;page-break-inside:avoid}
-.payment-table th{width:21mm;background:#f1f1f1;font-weight:700;white-space:nowrap;font-size:8.3pt}
-.payment-table td{background:#fff;font-size:8.35pt}
-.payment-table .bank-value{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;letter-spacing:.1px;overflow-wrap:anywhere}
+.payment-table{margin-top:-.22mm;margin-bottom:2.5mm;break-inside:avoid;page-break-inside:avoid;direction:rtl}
+.payment-table th{background:#f1f1f1;font-weight:700;white-space:nowrap;font-size:8.3pt;text-align:right;padding:1.15mm 1.35mm}
+.payment-table td{background:#fff;font-size:8.35pt;text-align:right;padding:1.15mm 1.6mm;vertical-align:middle}
+.payment-table tr:first-child>th:nth-child(1),
+.payment-table tr:nth-child(2)>th:nth-child(1){width:20mm}
+.payment-table tr:first-child>td:nth-child(2),
+.payment-table tr:nth-child(2)>td:nth-child(2){width:66mm}
+.payment-table tr:first-child>th:nth-child(3),
+.payment-table tr:nth-child(2)>th:nth-child(3){width:20mm}
+.payment-table tr:first-child>td:nth-child(4),
+.payment-table tr:nth-child(2)>td:nth-child(4){width:66mm}
+.payment-table .bank-value{direction:ltr;unicode-bidi:isolate;text-align:left;font-variant-numeric:tabular-nums;font-family:Arial,"Tahoma",sans-serif;font-size:8.15pt;letter-spacing:.12px;white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.payment-table tr:last-child th{width:20mm}
+.payment-table tr:last-child td{font-size:8.25pt}
 
 .section-title{font-weight:700;color:#7C2B28;margin:2.7mm 0 1.2mm;break-after:avoid;page-break-after:avoid}
 .note-box{border:.3mm solid #9b9b9b;padding:2mm 2.5mm;margin:3mm 0;color:#222;background:#fff;break-inside:avoid;page-break-inside:avoid}
