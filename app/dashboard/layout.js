@@ -25,11 +25,7 @@ const NAV = [
     { href: '/dashboard/contractors', label: 'المقاولون' },
   ]},
   { group: 'التنفيذ', items: [
-    { href: '/dashboard/site-operations', label: 'تشغيل الموقع' },
-    { href: '/dashboard/timesheet', label: 'التايم شيت' },
-    { href: '/dashboard/timesheet/settlement', label: 'تسوية المقاولين' },
-    { href: '/dashboard/labor', label: 'الأيدي العاملة' },
-    { href: '/dashboard/expenses', label: 'مصروفات وحسابات المقاولين' },
+    { href: '/dashboard/site-operations', label: 'مركز التشغيل اليومي' },
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/archive', label: 'الأرشيف' },
