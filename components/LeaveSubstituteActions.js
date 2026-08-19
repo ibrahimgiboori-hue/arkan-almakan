@@ -7,13 +7,14 @@ export default function LeaveSubstituteActions({ request, employees = [], consen
   const [substituteId, setSubstituteId] = useState(request?.substitute_employee_id || '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [ok, setOk] = useState('');
 
   const options = useMemo(() => employees.filter((e) => e.id !== request?.employee_id), [employees, request?.employee_id]);
   const closed = ['ceo_approved','rejected','cancelled'].includes(request?.status);
 
   async function saveSubstitute() {
     if (closed) return;
-    setBusy(true); setErr('');
+    setBusy(true); setErr(''); setOk('');
     const { error } = await supabase.rpc('set_leave_substitute', {
       p_id: request.id,
       p_substitute_employee_id: substituteId || null,
@@ -21,13 +22,14 @@ export default function LeaveSubstituteActions({ request, employees = [], consen
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setOpen(false);
+    setOk(substituteId ? 'تم تحديد الموظف البديل.' : 'تم إلغاء تحديد البديل.');
     await onSaved?.();
   }
 
   async function recordConsent() {
     if (!request?.substitute_employee_id || closed) return;
     if (!window.confirm('تسجيل موافقة الموظف البديل على تغطية فترة الإجازة؟')) return;
-    setBusy(true); setErr('');
+    setBusy(true); setErr(''); setOk('');
     const { error } = await supabase.rpc('record_leave_substitute_consent', {
       p_id: request.id,
       p_decision: 'approved',
@@ -37,6 +39,7 @@ export default function LeaveSubstituteActions({ request, employees = [], consen
     });
     setBusy(false);
     if (error) { setErr(error.message); return; }
+    setOk('تم تسجيل موافقة الموظف البديل.');
     await onSaved?.();
   }
 
@@ -63,6 +66,7 @@ export default function LeaveSubstituteActions({ request, employees = [], consen
         </div>
       )}
       {err && <span style={{fontSize:12,color:'#A32B24'}}>{err}</span>}
+      {ok && <span style={{fontSize:12,color:'#18794E'}}>{ok}</span>}
     </div>
   );
 }

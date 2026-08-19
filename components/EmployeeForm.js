@@ -15,13 +15,6 @@ const EMPTY = {
   iban:'', bank_name:'', gosi_number:'', commission_rate:0, duties:'', notes:'',
 };
 
-function addOneDay(value) {
-  if (!value) return '';
-  const d = new Date(`${value}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0,10);
-}
-
 export default function EmployeeForm({ initial, id }) {
   const router = useRouter();
   const [f, setF] = useState({ ...EMPTY, ...(initial || {}) });
@@ -110,7 +103,7 @@ export default function EmployeeForm({ initial, id }) {
     setF((cur) => ({
       ...cur,
       replacement_leave_request_id: requestId,
-      planned_start_date: req ? addOneDay(req.start_date) : '',
+      planned_start_date: req?.start_date || '',
       planned_end_date: req?.end_date || '',
     }));
   }
@@ -180,7 +173,7 @@ export default function EmployeeForm({ initial, id }) {
             <div className="form-grid">
               <div className="field span2"><label>بديل عن *</label><select required value={f.replaces_employee_id || ''} onChange={(e)=>chooseReplacedEmployee(e.target.value)} disabled={!!id}><option value="">اختر الموظف المستبدل</option>{employees.map((e)=><option key={e.id} value={e.id}>{e.employee_no} - {e.full_name_ar}</option>)}</select></div>
               <div className="field span2"><label>طلب الإجازة المرتبط *</label><select required value={f.replacement_leave_request_id || ''} onChange={(e)=>chooseLeaveRequest(e.target.value)} disabled={!f.replaces_employee_id || !!id}><option value="">اختر طلب الإجازة</option>{leaveRequests.map((r)=><option key={r.id} value={r.id}>{r.start_date} إلى {r.end_date} — {r.status === 'hr_reviewed' ? 'بانتظار الاعتماد النهائي' : r.status === 'ceo_approved' ? 'معتمد نهائيًا' : 'قيد الإجراء'}</option>)}</select></div>
-              <div className="field"><label>المباشرة المتوقعة</label><input value={f.planned_start_date || ''} readOnly dir="ltr" /><span className="hint">اليوم التالي لبدء إجازة الموظف المستبدل.</span></div>
+              <div className="field"><label>المباشرة المتوقعة</label><input value={f.planned_start_date || ''} readOnly dir="ltr" /><span className="hint">أول يوم في فترة إجازة الموظف المستبدل.</span></div>
               <div className="field"><label>نهاية التغطية المتوقعة</label><input value={f.planned_end_date || ''} readOnly dir="ltr" /></div>
               <div className="field span2"><label>الحالة</label><input value="بانتظار الاعتماد النهائي وموعد المباشرة" readOnly /><span className="hint">لن يصبح الموظف على رأس العمل لمجرد إنشاء السجل.</span></div>
               {selectedReplaced && <div className="field span2"><span className="hint">سيتم نسخ المسمى والمهام والأجر والبدلات من {selectedReplaced.full_name_ar}، وتتحقق قاعدة البيانات من ذلك مرة أخرى عند الحفظ.</span></div>}
