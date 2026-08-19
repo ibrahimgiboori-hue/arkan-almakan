@@ -1,9 +1,11 @@
 @page{size:A4;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#ececec;color:#222}
+body{font-family:Arial,"Tahoma",sans-serif}
 
 /* ============================================================
-   نظام الطباعة المشترك — A4 كشبكة خلايا كثيفة شبيهة Excel
-   هذه الطبقة منخفضة المخاطر: لا تمس أصول الترويسة/الختم/التوقيع،
-   وإنما توحّد استغلال المساحة والخلايا والكسور بين جميع مسارات /print.
+   دستور الطباعة المركزي — A4 كشبكة خلايا كثيفة شبيهة Excel.
+   Global → Family → Document Profile. لا يعيد المطبوع تعريف القواعد العليا محليًا.
    ============================================================ */
 
 .print-page-wrap{display:flex;justify-content:center;padding:18px 0 36px}
@@ -20,8 +22,9 @@
 .print-fit-content{width:100%;min-width:0;transform-origin:top right}
 
 .print-toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#fff;border-bottom:1px solid #cfcfcf;direction:rtl}
+.print-toolbar .group{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
 .print-toolbar button{font:inherit;font-size:13px;padding:7px 12px;border:1px solid #b8b8b8;background:#fff;color:#303030;cursor:pointer}
-.print-toolbar button.primary{background:#8B3332;border-color:#8B3332;color:#fff}
+.print-toolbar button.active,.print-toolbar button.primary{background:#8B3332;border-color:#8B3332;color:#fff}
 .print-toolbar .note{font-size:12px;color:#4c4c4c}
 
 /* ---------- شبكة الخلايا المتصلة ---------- */
@@ -47,6 +50,57 @@
 
 .s1{grid-column:span 1}.s2{grid-column:span 2}.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s9{grid-column:span 9}.s10{grid-column:span 10}.s11{grid-column:span 11}.s12{grid-column:span 12}
 
+/* ---------- طبقة العائلة: المشاريع والمالية ---------- */
+.print-family-projects-finance .doc-meta{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:3mm;margin-bottom:2.5mm;font-size:8.6pt;color:#333}
+.print-family-projects-finance .doc-meta span:last-child{text-align:left;direction:ltr}
+.print-family-projects-finance .doc-title{text-align:center;margin-bottom:3.2mm;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .doc-title h1{margin:0;font-size:15pt;font-weight:700;color:#7C2B28;line-height:1.25}
+.print-family-projects-finance .doc-title .rule{display:block;width:25mm;border-top:.55mm solid #8B3332;margin:1.5mm auto 0}
+.print-family-projects-finance .recipient{margin-bottom:1.3mm;font-size:9.8pt;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .salutation{margin-bottom:1.8mm;font-size:9.5pt;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .letter-body{white-space:pre-line;font-size:9.6pt;line-height:1.7;margin:0 0 3mm;color:#222;orphans:3;widows:3}
+
+.print-family-projects-finance .info-table,
+.print-family-projects-finance .data-table,
+.print-family-projects-finance .summary-table,
+.print-family-projects-finance .payment-table{width:100%;border-collapse:collapse;margin:0;table-layout:fixed}
+.print-family-projects-finance .info-table th,.print-family-projects-finance .info-table td,
+.print-family-projects-finance .data-table th,.print-family-projects-finance .data-table td,
+.print-family-projects-finance .summary-table th,.print-family-projects-finance .summary-table td,
+.print-family-projects-finance .payment-table th,.print-family-projects-finance .payment-table td{border:.22mm solid #9b9b9b;padding:1.25mm 1.6mm;vertical-align:middle;color:#222;overflow-wrap:anywhere}
+.print-family-projects-finance .info-table{margin-bottom:2.6mm;break-inside:avoid;page-break-inside:avoid}
+.print-family-projects-finance .info-table th{width:23mm;background:#f1f1f1;font-weight:700;white-space:nowrap;font-size:8.7pt}
+.print-family-projects-finance .info-table td{font-size:8.8pt}
+
+.print-family-projects-finance .data-table{margin-bottom:0}
+.print-family-projects-finance .data-table thead th{background:#8B3332;color:#fff;border-color:#8B3332;font-weight:700;text-align:right}
+.print-family-projects-finance .data-table th,.print-family-projects-finance .data-table td{font-size:8.55pt;padding-top:1.15mm;padding-bottom:1.15mm}
+.print-family-projects-finance .data-table td.num,.print-family-projects-finance .data-table th.num,
+.print-family-projects-finance .summary-table td.num,.print-family-projects-finance .summary-table th.num{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap}
+.print-family-projects-finance .data-table tbody tr:nth-child(even),.print-family-projects-finance .summary-table tbody tr:nth-child(even){background:#f8f4f4}
+.print-family-projects-finance .data-table thead{display:table-header-group}
+.print-family-projects-finance .data-table tr{break-inside:avoid;page-break-inside:avoid}
+.print-family-projects-finance .data-table + .section-title{display:none}
+
+.print-family-projects-finance .summary-table{margin-top:-.22mm;margin-bottom:0;break-inside:avoid;page-break-inside:avoid}
+.print-family-projects-finance .summary-table td{font-size:8.8pt;padding-top:1.15mm;padding-bottom:1.15mm}
+.print-family-projects-finance .summary-table tr.total td{background:#eee5e5;color:#222;font-weight:700;border-top:.55mm solid #8B3332;font-size:9.2pt}
+.print-family-projects-finance .summary-table + .section-title{display:none}
+
+.print-family-projects-finance .payment-table{margin-top:-.22mm;margin-bottom:2.5mm;break-inside:avoid;page-break-inside:avoid;direction:rtl}
+.print-family-projects-finance .payment-table th{background:#f1f1f1;font-weight:700;white-space:nowrap;font-size:8.3pt;text-align:right;padding:1.15mm 1.35mm}
+.print-family-projects-finance .payment-table td{background:#fff;font-size:8.35pt;text-align:right;padding:1.15mm 1.6mm;vertical-align:middle}
+.print-family-projects-finance .payment-table tr:first-child>th:nth-child(1),.print-family-projects-finance .payment-table tr:nth-child(2)>th:nth-child(1){width:20mm}
+.print-family-projects-finance .payment-table tr:first-child>td:nth-child(2),.print-family-projects-finance .payment-table tr:nth-child(2)>td:nth-child(2){width:66mm}
+.print-family-projects-finance .payment-table tr:first-child>th:nth-child(3),.print-family-projects-finance .payment-table tr:nth-child(2)>th:nth-child(3){width:20mm}
+.print-family-projects-finance .payment-table tr:first-child>td:nth-child(4),.print-family-projects-finance .payment-table tr:nth-child(2)>td:nth-child(4){width:66mm}
+.print-family-projects-finance .payment-table .bank-value{direction:ltr;unicode-bidi:isolate;text-align:left;font-variant-numeric:tabular-nums;font-size:8.15pt;letter-spacing:.12px;white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.print-family-projects-finance .payment-table tr:last-child th{width:20mm}
+.print-family-projects-finance .payment-table tr:last-child td{font-size:8.25pt}
+.print-family-projects-finance .section-title{font-weight:700;color:#7C2B28;margin:2.7mm 0 1.2mm;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .info-table,.print-family-projects-finance .summary-table,.print-family-projects-finance .payment-table{break-inside:avoid;page-break-inside:avoid}
+.print-family-projects-finance .section-title,.print-family-projects-finance .recipient,.print-family-projects-finance .salutation,.print-family-projects-finance .doc-title{break-after:avoid;page-break-after:avoid}
+
 /* ---------- تحويل المطبوعات الإدارية القديمة إلى خلايا أكثف ---------- */
 .sheet{--g-gap:0mm!important;--g-row:3mm!important}
 .sheet .cards{gap:0!important;margin-bottom:3mm!important}
@@ -61,22 +115,24 @@
 .sheet .sigtable td,.sheet .sigtable td:empty{height:11mm!important;padding:1mm!important}
 .sheet .letter-body{line-height:1.7!important;margin-bottom:3mm!important}
 
-/* تقارير الموظفين واللوحات القديمة: نفس كثافة الخلايا */
 .r-title{margin-bottom:3mm!important}
 .r-table th{padding:1.1mm 1.35mm!important;font-size:7.8pt!important}
 .r-table td{padding:1mm 1.35mm!important;font-size:8pt!important;line-height:1.35!important}
 .r-sign{margin-top:4mm!important;padding-top:2mm!important}
 
-/* قواعد احترافية للصفحات */
 .xlsx-grid,.xlsx-sign,.card-doc,.amounts,.sigtable,.declare,.tafqit,.plain-card{break-inside:avoid;page-break-inside:avoid}
 .xlsx-title,.xlsx-section{break-after:avoid;page-break-after:avoid}
+p{orphans:3;widows:3}
 
 @media print{
-  html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .no-print,.print-toolbar,.print-fitbar{display:none!important}
   .print-page-wrap{padding:0;display:block}
   .print-page{width:210mm;min-height:297mm;box-shadow:none;overflow:visible}
   .print-assets{position:fixed;width:210mm;height:297mm}
-  .xlsx-grid,.card-doc,.amounts,.sigtable,.declare,.tafqit,.plain-card{break-inside:avoid;page-break-inside:avoid}
+  .data-table thead{display:table-header-group}
+  .xlsx-grid,.card-doc,.amounts,.sigtable,.declare,.tafqit,.plain-card,
+  .print-family-projects-finance .data-table tr,.print-family-projects-finance .info-table,
+  .print-family-projects-finance .summary-table,.print-family-projects-finance .payment-table{break-inside:avoid;page-break-inside:avoid}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-shadow:none!important}
 }

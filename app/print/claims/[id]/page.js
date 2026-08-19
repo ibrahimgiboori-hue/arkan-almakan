@@ -4,8 +4,8 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { dateAr, dateRange, money, qty } from '@/lib/format';
 import Riyal from '@/components/Riyal';
-import PrintFrame from '@/components/print/PrintFrame';
-import '../print.css';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import ManualProcedureGrid from '@/components/print/ManualProcedureGrid';
 
 const DOCS = {
   measure:'محضر قياس وحصر الأعمال',
@@ -23,9 +23,12 @@ function employeeTitle(e) {
   return job;
 }
 
-function Signatures({ labels }) {
-  return <table className="sign-table"><thead><tr>{labels.map(x=><th key={x}>{x}</th>)}</tr></thead><tbody><tr>{labels.map(x=><td key={x}>الاسم والتوقيع</td>)}</tr></tbody></table>;
-}
+const SIGNATURES = {
+  measure: ['ممثل أركان المكان','ممثل الجهة','الاعتماد'],
+  demand: ['إعداد','مراجعة','اعتماد'],
+  receipt: ['إعداد','مراجعة','اعتماد'],
+  memo: ['مقدم الطلب','المراجعة','الاعتماد'],
+};
 
 export default function ClaimDocumentsPrint() {
   const { id }=useParams();
@@ -95,14 +98,13 @@ export default function ClaimDocumentsPrint() {
     })();
   },[id]);
 
+  // المطبوع لا يعيد احتساب المعاملة: يعرض القيم المحفوظة في المستخلص فقط.
   const values=useMemo(()=>{
     if (!claim) return {};
-    const base=n(claim.taxable_base) || n(claim.gross_amount);
-    const vat=n(claim.vat_amount);
-    const invoiceTotal=base+vat;
     return {
-      base,vat,invoiceTotal,
-      net:n(claim.net_payable) || invoiceTotal-n(claim.retention_amount)-n(claim.advance_recovery)-n(claim.other_deductions),
+      base:n(claim.taxable_base ?? claim.gross_amount),
+      vat:n(claim.vat_amount),
+      net:n(claim.net_payable),
       paid:n(claim.collected_amount),
       rate:n(claim.vat_rate) || n(project?.vat_rate) || 0.15,
     };
@@ -134,8 +136,8 @@ export default function ClaimDocumentsPrint() {
     : doc==='demand'
     ? `بالإشارة إلى الأعمال المنفذة في مشروع ${projectName}، وبناءً على محاضر قياس وحصر الأعمال الموضحة أدناه، نتقدم إليكم بالمطالبة المالية وفق الكميات والقيم وفترات القياس المبينة لكل بند.\n\nنأمل التكرم باعتمادها وصرف المستحقات وفق شروط التعاقد، وتحويل المبلغ المستحق إلى الحساب الموضح أدناه مع ذكر رقم المستخلص في مرجع التحويل.`
     : doc==='receipt'
-    ? `نفيدكم باستلام مبلغ ${money(values.paid || values.net)} ريال عن الأعمال المنفذة والمقاسة المدرجة في المستخلص رقم (${claim.seq_no || claim.claim_no})، بقيمة ${money(values.invoiceTotal)} ريال شامل ضريبة القيمة المضافة وفق الأنظمة المرعية، وقد تم إيداع المبلغ في حساب المؤسسة بموجب تحويل بتاريخ ${dateAr(claim.collected_at)}.\n\nومرفق ما يثبت التحويل، شاكرين لكم حسن تعاونكم، ومتطلعين إلى استمرار العمل المثمر بيننا.`
-    : `نفيدكم بسداد السادة / ${clientName} مبلغ ${money(values.paid || values.net)} ريال عن المستخلص رقم (${claim.seq_no || claim.claim_no}) لمشروع ${projectName}، وذلك عن الأعمال المنفذة والمقاسة المبينة بالمستخلص وفق فترات القياس المثبتة لكل بند، وبموجب إيصال التحويل المرفق${claim.collect_ref ? ` رقم ${claim.collect_ref}` : ''}${claim.collected_at ? ` بتاريخ ${dateAr(claim.collected_at)}` : ''}.\n\nنأمل التكرم بإصدار الفاتورة الضريبية من نظام الفوترة الخاص بالمنشأة، وإرسالها إلى الأستاذ / ${clientContact || '(مسؤول التواصل لدى الجهة)'}.\n\nهذه المذكرة داخلية ولا تُعد فاتورة ضريبية ولا تقوم مقامها. وفي حال الحاجة إلى أي معلومات إضافية، نرجو عدم التردد في التواصل معنا.`;
+    ? `نفيدكم باستلام مبلغ ${money(values.paid || values.net)} ريال عن المستخلص رقم (${claim.seq_no || claim.claim_no}) الخاص بالأعمال المنفذة والمقاسة في مشروع ${projectName}${claim.collected_at ? `، بموجب تحويل بتاريخ ${dateAr(claim.collected_at)}` : ''}.\n\nومرفق ما يثبت التحويل، شاكرين لكم حسن تعاونكم.`
+    : `نفيدكم بسداد السادة / ${clientName} مبلغ ${money(values.paid || values.net)} ريال عن المستخلص رقم (${claim.seq_no || claim.claim_no}) لمشروع ${projectName}، وذلك عن الأعمال المنفذة والمقاسة المبينة بالمستخلص وفق فترات القياس المثبتة لكل بند، وبموجب إيصال التحويل المرفق${claim.collect_ref ? ` رقم ${claim.collect_ref}` : ''}${claim.collected_at ? ` بتاريخ ${dateAr(claim.collected_at)}` : ''}.\n\nنأمل التكرم بإصدار الفاتورة الضريبية من نظام الفوترة الخاص بالمنشأة، وإرسالها إلى الأستاذ / ${clientContact || '(مسؤول التواصل لدى الجهة)'}.\n\nهذه المذكرة داخلية ولا تُعد فاتورة ضريبية ولا تقوم مقامها.`;
 
   function printDocument() {
     if (doc==='demand' && !hasBankDetails) {
@@ -158,7 +160,7 @@ export default function ClaimDocumentsPrint() {
       </div>
     </div>
 
-    <PrintFrame cfg={cfg} showLetterhead={showLetterhead} showStamp={showStamp}>
+    <ConstitutionPrintFrame documentKey="claim_documents" cfg={cfg} showLetterhead={showLetterhead} showStamp={showStamp}>
       <div className="doc-meta"><span>{claim.claim_no || 'مسودة'}</span><span>{dateAr(issueDate)}</span></div>
       <div className="doc-title"><h1>{title}</h1><span className="rule" /></div>
 
@@ -188,7 +190,7 @@ export default function ClaimDocumentsPrint() {
               <td>{i+1}</td><td>{r.description}</td>
               {measurementCount>0 && <><td>{r.measurement_no_snapshot || '—'}</td><td className="mono">{r.measurement_id ? dateRange(r.measurement_period_from,r.measurement_period_to) : '—'}</td></>}
               <td>{r.unit}</td><td className="num">{qty(r.qty_this)}</td>
-              {doc==='demand' && <><td className="num">{money(r.unit_price)}</td><td className="num">{money(r.amount || n(r.qty_this)*n(r.unit_price))}</td></>}
+              {doc==='demand' && <><td className="num">{money(r.unit_price)}</td><td className="num">{r.amount == null ? '—' : money(r.amount)}</td></>}
             </tr>)}
             {!rows.length && <tr><td colSpan={doc==='demand' ? (measurementCount>0?8:6) : (measurementCount>0?6:4)}>لا توجد بنود مسجلة في هذا المستخلص.</td></tr>}
           </tbody>
@@ -197,13 +199,13 @@ export default function ClaimDocumentsPrint() {
 
       {doc!=='measure' && <>
         <div className="section-title">الملخص المالي</div>
-        <table className="summary-table"><thead><tr><th>البيان</th><th className="num" style={{width:'35%'}}>المبلغ</th></tr></thead><tbody>
+        <table className="summary-table"><tbody>
           <tr><td>قيمة الأعمال لهذا المستخلص</td><td className="num">{money(values.base)} <Riyal /></td></tr>
           <tr><td>ضريبة القيمة المضافة {(values.rate*100).toFixed(0)}%</td><td className="num">{money(values.vat)} <Riyal /></td></tr>
-          <tr className="total"><td>إجمالي المستخلص شامل الضريبة</td><td className="num">{money(values.invoiceTotal)} <Riyal /></td></tr>
           {n(claim.retention_amount)>0 && <tr><td>المحتجزات</td><td className="num">{money(claim.retention_amount)} <Riyal /></td></tr>}
           {n(claim.advance_recovery)>0 && <tr><td>استرداد الدفعة المقدمة</td><td className="num">{money(claim.advance_recovery)} <Riyal /></td></tr>}
           {n(claim.other_deductions)>0 && <tr><td>خصومات أخرى</td><td className="num">{money(claim.other_deductions)} <Riyal /></td></tr>}
+          <tr className="total"><td>صافي المستحق</td><td className="num">{money(values.net)} <Riyal /></td></tr>
           {(doc==='receipt' || doc==='memo') && <tr><td>المبلغ المسدد</td><td className="num">{money(values.paid || values.net)} <Riyal /></td></tr>}
         </tbody></table>
       </>}
@@ -217,10 +219,7 @@ export default function ClaimDocumentsPrint() {
         </tbody></table>
       </>}
 
-      {doc==='measure' && <Signatures labels={['ممثل أركان المكان','ممثل الجهة','الاعتماد']} />}
-      {doc==='demand' && <Signatures labels={['إعداد','مراجعة','اعتماد']} />}
-      {doc==='receipt' && <Signatures labels={['إعداد','مراجعة','اعتماد']} />}
-      {doc==='memo' && <Signatures labels={['مقدم الطلب','المراجعة','الاعتماد']} />}
-    </PrintFrame>
+      <ManualProcedureGrid slots={SIGNATURES[doc] || SIGNATURES.demand} />
+    </ConstitutionPrintFrame>
   </>;
 }
