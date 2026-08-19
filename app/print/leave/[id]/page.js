@@ -44,7 +44,7 @@ export default function LeavePrint() {
     (async () => {
       const [r, s, a, subLink, finalPerson] = await Promise.all([
         supabase.from('leave_requests')
-          .select('*, employees(id, employee_no, full_name_ar, job_title, department, hire_date, annual_leave_days)')
+          .select('*, employees:employees!leave_requests_employee_id_fkey(id, employee_no, full_name_ar, job_title, department, hire_date, annual_leave_days)')
           .eq('id', id).single(),
         supabase.from('app_settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('v_approval_register').select('*')
@@ -53,7 +53,11 @@ export default function LeavePrint() {
         supabase.from('employees').select('id,full_name_ar,job_title,board_role')
           .eq('board_role','رئيس مجلس الإدارة').maybeSingle(),
       ]);
-      if (r.error) { setErr(r.error.message); return; }
+      if (r.error) {
+        console.error('Leave print request load failed', r.error);
+        setErr('تعذر تحميل طلب الإجازة. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+        return;
+      }
       setRow(r.data); setCfg(s.data); setApprovals(a.data || []); setFinalApprover(finalPerson.data || null);
 
       if (subLink.data?.substitute_employee_id) {
@@ -69,7 +73,11 @@ export default function LeavePrint() {
         supabase.rpc('leave_balance_snapshot', { p_employee:empId, p_as_of:r.data.start_date, p_exclude_request:id }),
         supabase.rpc('leave_balance_snapshot', { p_employee:empId, p_as_of:returnDate, p_exclude_request:id }),
       ]);
-      if (b.error || ar.error) { setErr((b.error || ar.error).message); return; }
+      if (b.error || ar.error) {
+        console.error('Leave print balance load failed', b.error || ar.error);
+        setErr('تعذر تحميل بيانات رصيد الإجازة. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+        return;
+      }
       setBefore(b.data?.[0] || null); setAtReturn(ar.data?.[0] || null);
     })();
   }, [id]);
