@@ -1,0 +1,82 @@
+@page{size:A4;margin:0}
+
+/* ============================================================
+   نظام الطباعة المشترك — A4 كشبكة خلايا كثيفة شبيهة Excel
+   هذه الطبقة منخفضة المخاطر: لا تمس أصول الترويسة/الختم/التوقيع،
+   وإنما توحّد استغلال المساحة والخلايا والكسور بين جميع مسارات /print.
+   ============================================================ */
+
+.print-page-wrap{display:flex;justify-content:center;padding:18px 0 36px}
+.print-page{position:relative;width:210mm;min-height:297mm;background:#fff;overflow:hidden;box-shadow:0 2px 18px rgba(0,0,0,.16)}
+.print-assets{position:absolute;inset:0;z-index:0;pointer-events:none}
+.print-master-full{position:absolute;inset:0;width:210mm;height:297mm;object-fit:fill;display:block}
+.print-master-header{position:absolute;top:0;right:0;width:210mm;object-fit:fill;display:block}
+.print-master-footer{position:absolute;bottom:0;right:0;width:210mm;object-fit:fill;display:block}
+.print-master-watermark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:120mm;max-height:160mm;object-fit:contain;display:block}
+.print-master-stamp,.print-master-signature{position:absolute;z-index:5;height:auto;object-fit:contain;display:block;pointer-events:none}
+.print-master-stamp{right:20mm;bottom:42mm}
+.print-master-signature{right:50mm;bottom:45mm}
+.print-content{position:relative;z-index:1;width:210mm;height:297mm;direction:rtl;text-align:right;font-size:9pt;line-height:1.45;overflow:visible}
+.print-fit-content{width:100%;min-width:0;transform-origin:top right}
+
+.print-toolbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#fff;border-bottom:1px solid #cfcfcf;direction:rtl}
+.print-toolbar button{font:inherit;font-size:13px;padding:7px 12px;border:1px solid #b8b8b8;background:#fff;color:#303030;cursor:pointer}
+.print-toolbar button.primary{background:#8B3332;border-color:#8B3332;color:#fff}
+.print-toolbar .note{font-size:12px;color:#4c4c4c}
+
+/* ---------- شبكة الخلايا المتصلة ---------- */
+.xlsx-doc{direction:rtl;color:#222}
+.xlsx-title{text-align:center;margin:0 0 2.2mm;break-after:avoid;page-break-after:avoid}
+.xlsx-title h1{margin:0;color:#7C2B28;font-size:14pt;line-height:1.2}
+.xlsx-title .rule{display:block;width:24mm;border-top:.55mm solid #8B3332;margin:1.1mm auto 0}
+.xlsx-meta{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin:0 0 1.8mm;font-size:7.8pt;color:#3d3d3d}
+.xlsx-meta span:last-child{text-align:left;direction:ltr}
+
+.xlsx-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;margin:0 0 2.2mm;break-inside:avoid;page-break-inside:avoid}
+.xlsx-cell{min-height:6.2mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;padding:1.05mm 1.35mm;display:flex;align-items:center;min-width:0;overflow-wrap:anywhere;font-size:8.15pt;line-height:1.35;background:#fff}
+.xlsx-label{font-weight:700;background:#f1f1f1;color:#292929;white-space:nowrap}
+.xlsx-value{color:#222}
+.xlsx-value.num{direction:ltr;text-align:left;justify-content:flex-end;font-variant-numeric:tabular-nums;white-space:nowrap}
+.xlsx-head{background:#8B3332;color:#fff;font-weight:700;border-color:#8B3332!important;font-size:8.15pt}
+.xlsx-section{background:#8B3332;color:#fff;font-weight:700;border-color:#8B3332!important;font-size:8.55pt;min-height:6mm}
+.xlsx-strong{background:#eee5e5;font-weight:700;border-top:.45mm solid #8B3332;color:#222}
+.xlsx-note{font-size:7.35pt;line-height:1.55;color:#333;padding:1.4mm 1.8mm;background:#fff}
+.xlsx-sign{min-height:15mm;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;padding:1.2mm 1.4mm}
+.xlsx-sign b{font-size:8.1pt;color:#7C2B28}
+.xlsx-sign span{font-size:7pt;color:#555;border-top:.2mm solid #777;width:80%;padding-top:1mm}
+
+.s1{grid-column:span 1}.s2{grid-column:span 2}.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s9{grid-column:span 9}.s10{grid-column:span 10}.s11{grid-column:span 11}.s12{grid-column:span 12}
+
+/* ---------- تحويل المطبوعات الإدارية القديمة إلى خلايا أكثف ---------- */
+.sheet{--g-gap:0mm!important;--g-row:3mm!important}
+.sheet .cards{gap:0!important;margin-bottom:3mm!important}
+.sheet .card-doc{border:.22mm solid #9b9b9b!important;border-radius:0!important;background:#fff!important;overflow:hidden!important}
+.sheet .card-head{background:#f1f1f1!important;color:#7C2B28!important;border-bottom:.22mm solid #9b9b9b!important;padding:1mm 1.5mm!important;font-size:8pt!important}
+.sheet .card-doc td{padding:1mm 1.5mm!important;border-bottom:.18mm solid #cfcfcf!important;line-height:1.35!important}
+.sheet .card-doc .k{font-size:8pt!important;color:#444!important}
+.sheet .card-doc .v{font-size:8.3pt!important;color:#222!important}
+.sheet .amounts,.sheet .sigtable,.sheet .declare,.sheet .tafqit,.sheet .plain-card,.sheet .pt-wrap{margin-bottom:3mm!important}
+.sheet .plain-card{width:100%!important;border-color:#9b9b9b!important}
+.sheet .pc-table td{padding:1.05mm 1.6mm!important}
+.sheet .sigtable td,.sheet .sigtable td:empty{height:11mm!important;padding:1mm!important}
+.sheet .letter-body{line-height:1.7!important;margin-bottom:3mm!important}
+
+/* تقارير الموظفين واللوحات القديمة: نفس كثافة الخلايا */
+.r-title{margin-bottom:3mm!important}
+.r-table th{padding:1.1mm 1.35mm!important;font-size:7.8pt!important}
+.r-table td{padding:1mm 1.35mm!important;font-size:8pt!important;line-height:1.35!important}
+.r-sign{margin-top:4mm!important;padding-top:2mm!important}
+
+/* قواعد احترافية للصفحات */
+.xlsx-grid,.xlsx-sign,.card-doc,.amounts,.sigtable,.declare,.tafqit,.plain-card{break-inside:avoid;page-break-inside:avoid}
+.xlsx-title,.xlsx-section{break-after:avoid;page-break-after:avoid}
+
+@media print{
+  html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .no-print,.print-toolbar,.print-fitbar{display:none!important}
+  .print-page-wrap{padding:0;display:block}
+  .print-page{width:210mm;min-height:297mm;box-shadow:none;overflow:visible}
+  .print-assets{position:fixed;width:210mm;height:297mm}
+  .xlsx-grid,.card-doc,.amounts,.sigtable,.declare,.tafqit,.plain-card{break-inside:avoid;page-break-inside:avoid}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-shadow:none!important}
+}

@@ -4,9 +4,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
 import { LEAVE_AR } from '@/lib/requests';
-import '../../employees/emp-report.css';
-
-const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
+import PrintFrame from '@/components/print/PrintFrame';
 
 function addDay(dateText) {
   if (!dateText) return null;
@@ -15,7 +13,7 @@ function addDay(dateText) {
   return d.toISOString().slice(0,10);
 }
 
-function v(x) { return x == null || x === '' ? 'غير محدد' : x; }
+function v(x) { return x == null || x === '' ? '—' : x; }
 
 export default function LeavePrint() {
   const { id } = useParams();
@@ -60,97 +58,133 @@ export default function LeavePrint() {
   }, [atReturn, affectsAnnual, requestDays]);
 
   if (err) return <div style={{padding:40}}>{err}</div>;
-  if (!row || !cfg || !before || !atReturn) return <div style={{padding:40}}>جارٍ التحميل</div>;
+  if (!row || !cfg || !before || !atReturn) return <div style={{padding:40}}>جارٍ التحميل…</div>;
 
   const emp = row.employees || {};
-  const headUrl = pub(cfg.header_image_path);
-  const footUrl = pub(cfg.footer_image_path);
-  const hMm = Number(cfg.header_height_mm || 40);
-  const fMm = Number(cfg.footer_height_mm || 32);
-  const mTop = Number(cfg.letterhead_top_mm || 46);
-  const mBot = Number(cfg.letterhead_bottom_mm || 38);
-  const mSide = Number(cfg.letterhead_side_mm || 20);
+  const source = row.record_source === 'historical_paper' ? 'ملف ورقي قديم' : 'طلب حالي';
 
   return (
     <>
-      <div className="rtoolbar no-print">
+      <div className="print-toolbar no-print">
         <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
-        <span className="rt-note">طلب إجازة: {emp.full_name_ar}</span>
+        <span className="note">طلب إجازة — {emp.full_name_ar}</span>
       </div>
 
-      <div className="pages">
-        <div className="sheet">
-          {headUrl ? <img className="r-head" src={headUrl} alt="" style={{height:`${hMm}mm`}} /> : <div className="r-head" style={{height:`${hMm}mm`}} />}
+      <PrintFrame cfg={cfg} showLetterhead>
+        <div className="xlsx-doc">
+          <div className="xlsx-meta">
+            <span>{cfg.company_name_ar}</span>
+            <span>{dateAr(row.paper_document_date || row.created_at)}</span>
+          </div>
 
-          <div className="content" style={{paddingTop:`${Math.max(0,mTop-hMm)}mm`,paddingBottom:`${Math.max(0,mBot-fMm)}mm`,paddingRight:`${mSide}mm`,paddingLeft:`${mSide}mm`}}>
-            <div className="r-title">
-              <h1>طلب إجازة</h1>
-              <div className="r-meta"><span>{cfg.company_name_ar}</span><span>{dateAr(row.paper_document_date || row.created_at)}</span></div>
-              <span className="r-rule" />
-            </div>
+          <div className="xlsx-title">
+            <h1>طلب إجازة</h1>
+            <span className="rule" />
+          </div>
 
-            <table className="r-table" style={{marginBottom:'6mm'}}>
-              <tbody>
-                <tr><th style={{width:'28mm'}}>الموظف</th><td>{emp.full_name_ar}</td><th style={{width:'28mm'}}>الرقم الوظيفي</th><td>{v(emp.employee_no)}</td></tr>
-                <tr><th>المسمى الوظيفي</th><td>{v(emp.job_title)}</td><th>الإدارة</th><td>{v(emp.department)}</td></tr>
-                <tr><th>تاريخ المباشرة</th><td>{dateAr(emp.hire_date)}</td><th>الإجازة السنوية</th><td>{Number(emp.annual_leave_days || before.annual_entitlement)} يوم</td></tr>
-                <tr><th>نوع الإجازة</th><td>{LEAVE_AR[row.leave_kind] || row.leave_kind}</td><th>عدد أيام الإجازة</th><td>{requestDays} يوم</td></tr>
-                <tr><th>من</th><td>{dateAr(row.start_date)}</td><th>إلى</th><td>{dateAr(row.end_date)}</td></tr>
-                <tr><th>تاريخ العودة</th><td>{dateAr(returnDate)}</td><th>المصدر</th><td>{row.record_source === 'historical_paper' ? 'ملف ورقي قديم' : 'طلب حالي'}</td></tr>
-                {row.reason && <tr><th>السبب</th><td colSpan={3}>{row.reason}</td></tr>}
-              </tbody>
-            </table>
+          <div className="xlsx-grid">
+            <div className="xlsx-cell xlsx-label s2">الموظف</div>
+            <div className="xlsx-cell xlsx-value s4">{emp.full_name_ar}</div>
+            <div className="xlsx-cell xlsx-label s2">الرقم الوظيفي</div>
+            <div className="xlsx-cell xlsx-value s4">{v(emp.employee_no)}</div>
 
-            <div style={{fontWeight:700,marginBottom:'2mm'}}>بيان رصيد الإجازة السنوية</div>
-            <table className="r-table" style={{marginBottom:'7mm'}}>
-              <thead><tr><th>البيان</th><th className="num">الأيام</th></tr></thead>
-              <tbody>
-                <tr><td>الرصيد المستحق حتى بداية الإجازة</td><td className="num">{before.accrued_days}</td></tr>
-                <tr><td>الرصيد المستخدم قبل هذه الإجازة</td><td className="num">{before.used_days}</td></tr>
-                {Number(before.reserved_days || 0) > 0 && <tr><td>إجازات سنوية معتمدة لم تبدأ بعد</td><td className="num">{before.reserved_days}</td></tr>}
-                <tr><td>الرصيد المتاح قبل هذه الإجازة</td><td className="num">{before.available_balance}</td></tr>
-                <tr><td>أيام الإجازة المطلوب خصمها من الرصيد</td><td className="num">{affectsAnnual ? requestDays : 0}</td></tr>
-                <tr><td>الرصيد المستحق حتى تاريخ العودة</td><td className="num">{atReturn.accrued_days}</td></tr>
-                <tr>
-                  <td style={{background:'var(--rose-wash)',color:'var(--ink)',fontWeight:700,borderTop:'2px solid var(--maroon)'}}>الرصيد المتبقي عند العودة بعد اعتماد الإجازة</td>
-                  <td className="num" style={{background:'var(--rose-wash)',color:'var(--ink)',fontWeight:700,borderTop:'2px solid var(--maroon)'}}>{expectedBalance}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="xlsx-cell xlsx-label s2">المسمى الوظيفي</div>
+            <div className="xlsx-cell xlsx-value s4">{v(emp.job_title)}</div>
+            <div className="xlsx-cell xlsx-label s2">الإدارة</div>
+            <div className="xlsx-cell xlsx-value s4">{v(emp.department)}</div>
 
-            <div style={{fontSize:12.5,lineHeight:1.8,marginBottom:'7mm',color:'var(--ink)'}}>
-              يحتسب الرصيد تدريجياً من تاريخ المباشرة على أساس عدد أيام الإجازة السنوية المتفق عليها خلال 365 يوماً، ويقرب أي كسر في الرصيد المستحق إلى يوم كامل. الإجازات غير السنوية لا تخصم من رصيد الإجازة السنوية إلا إذا نصت سياسة المنشأة على خلاف ذلك.
-            </div>
+            <div className="xlsx-cell xlsx-label s2">تاريخ المباشرة</div>
+            <div className="xlsx-cell xlsx-value s2">{dateAr(emp.hire_date)}</div>
+            <div className="xlsx-cell xlsx-label s2">الاستحقاق السنوي</div>
+            <div className="xlsx-cell xlsx-value s2">{Number(emp.annual_leave_days || before.annual_entitlement)} يوم</div>
+            <div className="xlsx-cell xlsx-label s2">نوع الإجازة</div>
+            <div className="xlsx-cell xlsx-value s2">{LEAVE_AR[row.leave_kind] || row.leave_kind}</div>
 
-            {row.record_source === 'historical_paper' && (
-              <table className="r-table" style={{marginBottom:'7mm'}}>
-                <tbody>
-                  <tr><th style={{width:'32mm'}}>مرجع الملف القديم</th><td>{v(row.paper_reference)}</td><th style={{width:'32mm'}}>المعتمد في الورقة</th><td>{v(row.paper_approver_text)}</td></tr>
-                  <tr><th>تاريخ المستند</th><td>{dateAr(row.paper_document_date)}</td><th>تاريخ المباشرة الفعلي</th><td>{dateAr(row.actual_return_date)}</td></tr>
-                </tbody>
-              </table>
-            )}
+            <div className="xlsx-cell xlsx-label s2">من</div>
+            <div className="xlsx-cell xlsx-value s2">{dateAr(row.start_date)}</div>
+            <div className="xlsx-cell xlsx-label s2">إلى</div>
+            <div className="xlsx-cell xlsx-value s2">{dateAr(row.end_date)}</div>
+            <div className="xlsx-cell xlsx-label s2">تاريخ العودة</div>
+            <div className="xlsx-cell xlsx-value s2">{dateAr(returnDate)}</div>
 
-            {approvals.length > 0 && (
-              <div style={{marginBottom:'7mm'}}>
-                <div style={{fontWeight:700,marginBottom:'2mm'}}>الاعتمادات المسجلة في النظام</div>
-                <table className="r-table"><thead><tr><th>المرحلة</th><th>صاحب القرار</th><th>الصفة</th><th>التاريخ</th></tr></thead><tbody>
-                  {approvals.map((a)=><tr key={a.id}><td>{v(a.stage_label_snapshot)}</td><td>{v(a.actor_name)}</td><td>{v(a.actor_title)}</td><td>{dateAr(a.decision_date)}</td></tr>)}
-                </tbody></table>
-              </div>
-            )}
+            <div className="xlsx-cell xlsx-label s2">عدد الأيام</div>
+            <div className="xlsx-cell xlsx-value s2">{requestDays} يوم</div>
+            <div className="xlsx-cell xlsx-label s2">المصدر</div>
+            <div className="xlsx-cell xlsx-value s2">{source}</div>
+            <div className="xlsx-cell xlsx-label s2">الحالة</div>
+            <div className="xlsx-cell xlsx-value s2">{row.status === 'hr_reviewed' ? 'مراجعة الموارد البشرية' : v(row.status)}</div>
 
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8mm',marginTop:'9mm',textAlign:'center'}}>
-              <div><div style={{fontWeight:700}}>الموظف</div><div style={{marginTop:'12mm',borderTop:'1px solid #777',paddingTop:'2mm'}}>الاسم والتوقيع</div></div>
-              <div><div style={{fontWeight:700}}>المراجعة</div><div style={{marginTop:'12mm',borderTop:'1px solid #777',paddingTop:'2mm'}}>الاسم والتوقيع</div></div>
-              <div><div style={{fontWeight:700}}>الاعتماد</div><div style={{marginTop:'12mm',borderTop:'1px solid #777',paddingTop:'2mm'}}>الاسم والتوقيع</div></div>
+            {row.reason && <>
+              <div className="xlsx-cell xlsx-label s2">السبب</div>
+              <div className="xlsx-cell xlsx-value s10">{row.reason}</div>
+            </>}
+          </div>
+
+          <div className="xlsx-grid">
+            <div className="xlsx-cell xlsx-section s12">بيان رصيد الإجازة السنوية</div>
+
+            <div className="xlsx-cell xlsx-label s2">المستحق عند البداية</div>
+            <div className="xlsx-cell xlsx-value num s2">{before.accrued_days}</div>
+            <div className="xlsx-cell xlsx-label s2">المستخدم سابقًا</div>
+            <div className="xlsx-cell xlsx-value num s2">{before.used_days}</div>
+            <div className="xlsx-cell xlsx-label s2">المتاح قبل الطلب</div>
+            <div className="xlsx-cell xlsx-value num s2">{before.available_balance}</div>
+
+            <div className="xlsx-cell xlsx-label s2">الخصم من الرصيد</div>
+            <div className="xlsx-cell xlsx-value num s2">{affectsAnnual ? requestDays : 0}</div>
+            <div className="xlsx-cell xlsx-label s2">المستحق عند العودة</div>
+            <div className="xlsx-cell xlsx-value num s2">{atReturn.accrued_days}</div>
+            <div className="xlsx-cell xlsx-label xlsx-strong s2">المتبقي بعد الاعتماد</div>
+            <div className="xlsx-cell xlsx-value num xlsx-strong s2">{expectedBalance}</div>
+
+            {Number(before.reserved_days || 0) > 0 && <>
+              <div className="xlsx-cell xlsx-label s3">إجازات معتمدة لم تبدأ</div>
+              <div className="xlsx-cell xlsx-value num s1">{before.reserved_days}</div>
+              <div className="xlsx-cell xlsx-note s8">تظهر كرصيد محجوز ولا تخصم مرة ثانية عند اعتماد هذا الطلب.</div>
+            </>}
+
+            <div className="xlsx-cell xlsx-note s12">
+              يحتسب الرصيد تدريجيًا من تاريخ المباشرة على أساس الاستحقاق السنوي خلال 365 يومًا، ويقرب أي كسر في الرصيد المستحق إلى يوم كامل. الإجازات غير السنوية لا تخصم من الرصيد السنوي إلا وفق سياسة المنشأة.
             </div>
           </div>
 
-          <div className="pagenum">صفحة 1 من 1</div>
-          {footUrl ? <img className="r-foot" src={footUrl} alt="" style={{height:`${fMm}mm`}} /> : <div className="r-foot" style={{height:`${fMm}mm`}} />}
+          {row.record_source === 'historical_paper' && (
+            <div className="xlsx-grid">
+              <div className="xlsx-cell xlsx-section s12">بيانات الملف التاريخي</div>
+              <div className="xlsx-cell xlsx-label s2">المرجع</div>
+              <div className="xlsx-cell xlsx-value s4">{v(row.paper_reference)}</div>
+              <div className="xlsx-cell xlsx-label s2">المعتمد في الورقة</div>
+              <div className="xlsx-cell xlsx-value s4">{v(row.paper_approver_text)}</div>
+              <div className="xlsx-cell xlsx-label s2">تاريخ المستند</div>
+              <div className="xlsx-cell xlsx-value s4">{dateAr(row.paper_document_date)}</div>
+              <div className="xlsx-cell xlsx-label s2">المباشرة الفعلية</div>
+              <div className="xlsx-cell xlsx-value s4">{dateAr(row.actual_return_date)}</div>
+            </div>
+          )}
+
+          {approvals.length > 0 && (
+            <div className="xlsx-grid">
+              <div className="xlsx-cell xlsx-section s12">الاعتمادات المسجلة في النظام</div>
+              <div className="xlsx-cell xlsx-head s3">المرحلة</div>
+              <div className="xlsx-cell xlsx-head s3">صاحب القرار</div>
+              <div className="xlsx-cell xlsx-head s4">الصفة</div>
+              <div className="xlsx-cell xlsx-head s2">التاريخ</div>
+              {approvals.map((a)=><div key={a.id} style={{display:'contents'}}>
+                <div className="xlsx-cell xlsx-value s3">{v(a.stage_label_snapshot)}</div>
+                <div className="xlsx-cell xlsx-value s3">{v(a.actor_name)}</div>
+                <div className="xlsx-cell xlsx-value s4">{v(a.actor_title)}</div>
+                <div className="xlsx-cell xlsx-value s2">{dateAr(a.decision_date)}</div>
+              </div>)}
+            </div>
+          )}
+
+          <div className="xlsx-grid">
+            <div className="xlsx-cell xlsx-sign s4"><b>الموظف</b><span>الاسم والتوقيع</span></div>
+            <div className="xlsx-cell xlsx-sign s4"><b>المراجعة</b><span>الاسم والتوقيع</span></div>
+            <div className="xlsx-cell xlsx-sign s4"><b>الاعتماد</b><span>الاسم والتوقيع</span></div>
+          </div>
         </div>
-      </div>
+      </PrintFrame>
     </>
   );
 }
