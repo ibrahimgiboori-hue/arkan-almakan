@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { money, dateAr, qty as fmtQty } from '@/lib/format';
 import { tafqit } from '@/lib/tafqit';
 import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
+import { paginateQuoteBlocks } from '@/lib/quote-pagination.mjs';
 import Riyal from '@/components/Riyal';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import './quote-print.css';
@@ -78,30 +79,16 @@ export default function QuotePrint() {
       h[el.dataset.block] = el.getBoundingClientRect().height + 1;
     });
 
-    const headerH = h['__thead'] || 0;               // رأس الجدول يتكرر
-    const out = [];
-    let cur = [], used = 0, inTable = false;
-
-    const push = () => { if (cur.length) { out.push(cur); cur = []; used = 0; inTable = false; } };
-
-    blocks.forEach((b) => {
-      const bh = h[b.id] || 0;
-      const needsHeader = b.kind === 'row' && !inTable;
-      const extra = needsHeader ? headerH : 0;
-
-      if (used + bh + extra > avail && cur.length) {
-        push();
-        used = b.kind === 'row' ? headerH : 0;
-        inTable = false;
-      }
-      if (b.kind === 'row' && !inTable) { used += headerH; inTable = true; }
-      if (b.kind !== 'row') inTable = false;
-
-      cur.push(b);
-      used += bh;
+    const result = paginateQuoteBlocks({
+      blocks,
+      heights:h,
+      availableHeight:avail,
+      tableHeaderHeight:h['__thead'] || 0,
     });
-    push();
-    setPages(out.length ? out : [[]]);
+    if (result.oversizeBlockIds.length) {
+      console.warn('Quotation blocks exceed one printable page:', result.oversizeBlockIds);
+    }
+    setPages(result.pages);
   }, [q, cfg, lines, pays]);
 
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;

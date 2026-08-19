@@ -75,6 +75,10 @@
 /* ---------- جدول البنود ---------- */
 .q-table{width:100%;border-collapse:collapse;border-spacing:0;font-size:8.5pt;
   margin-bottom:0;table-layout:fixed}
+.q-table tr,.q-table tbody{
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
 /* سماكة واحدة لكل الحدود: أي اختلاف يُزيح الخط الرأسي كسراً من المليمتر */
 .q-table col.c-no{width:9mm}
 .q-table col.c-unit{width:14mm}
@@ -143,6 +147,10 @@ td.mono{unicode-bidi:isolate}
 
 /* ---------- الاعتماد والحساب ---------- */
 .q-foot{display:grid;grid-template-columns:5fr 7fr;gap:var(--g-gap);align-items:stretch}
+.q-block,.q-sum,.q-closing,.q-foot{
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
 .q-sign{border:var(--strict-border);padding:1.4mm 2.6mm;display:flex;
   flex-direction:column;gap:1mm}
 .qs-label{font-size:8pt;color:var(--ink-soft-print)}
