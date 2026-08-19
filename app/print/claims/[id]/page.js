@@ -123,6 +123,7 @@ export default function ClaimDocumentsPrint() {
   const supervisorName=supervisor?.full_name_ar || 'ممثل إدارة المشاريع';
   const financeName=finance?.full_name_ar || 'مسؤول الإدارة المالية';
   const financeTitle=employeeTitle(finance);
+  const hasBankDetails=Boolean(String(cfg.bank_iban || '').trim() && (String(cfg.bank_name_full || '').trim() || String(cfg.bank_account_no || '').trim()));
 
   const measurementWording=measurementCount>1
     ? 'وفق فترات القياس المبينة لكل بند في الجدول أدناه'
@@ -131,10 +132,18 @@ export default function ClaimDocumentsPrint() {
   const letter=doc==='measure'
     ? `بالإشارة إلى الأعمال الجارية في مشروع ${projectName}، نفيدكم بأنه تم قياس وحصر الأعمال الموضحة أدناه بواسطة ${supervisorName}، وبحضور ممثليكم ومشرفي الموقع، ${measurementWording}.\n\nوقد أسفر القياس عن الكميات الموضحة في الجدول أدناه، وتُعد معتمدة ومتفقاً عليها بين الطرفين حال توقيع هذا المحضر.`
     : doc==='demand'
-    ? `بالإشارة إلى الأعمال المنفذة في مشروع ${projectName}، وبناءً على محاضر قياس وحصر الأعمال الموضحة أدناه، نتقدم إليكم بالمطالبة المالية وفق الكميات والقيم وفترات القياس المبينة لكل بند.\n\nنأمل التكرم باعتمادها وصرف المستحقات وفق شروط التعاقد.`
+    ? `بالإشارة إلى الأعمال المنفذة في مشروع ${projectName}، وبناءً على محاضر قياس وحصر الأعمال الموضحة أدناه، نتقدم إليكم بالمطالبة المالية وفق الكميات والقيم وفترات القياس المبينة لكل بند.\n\nنأمل التكرم باعتمادها وصرف المستحقات وفق شروط التعاقد، وتحويل المبلغ المستحق إلى الحساب الموضح أدناه مع ذكر رقم المستخلص في مرجع التحويل.`
     : doc==='receipt'
     ? `نفيدكم باستلام مبلغ ${money(values.paid || values.net)} ريال عن الأعمال المنفذة والمقاسة المدرجة في المستخلص رقم (${claim.seq_no || claim.claim_no})، بقيمة ${money(values.invoiceTotal)} ريال شامل ضريبة القيمة المضافة وفق الأنظمة المرعية، وقد تم إيداع المبلغ في حساب المؤسسة بموجب تحويل بتاريخ ${dateAr(claim.collected_at)}.\n\nومرفق ما يثبت التحويل، شاكرين لكم حسن تعاونكم، ومتطلعين إلى استمرار العمل المثمر بيننا.`
     : `نفيدكم بسداد السادة / ${clientName} مبلغ ${money(values.paid || values.net)} ريال عن المستخلص رقم (${claim.seq_no || claim.claim_no}) لمشروع ${projectName}، وذلك عن الأعمال المنفذة والمقاسة المبينة بالمستخلص وفق فترات القياس المثبتة لكل بند، وبموجب إيصال التحويل المرفق${claim.collect_ref ? ` رقم ${claim.collect_ref}` : ''}${claim.collected_at ? ` بتاريخ ${dateAr(claim.collected_at)}` : ''}.\n\nنأمل التكرم بإصدار الفاتورة الضريبية من نظام الفوترة الخاص بالمنشأة، وإرسالها إلى الأستاذ / ${clientContact || '(مسؤول التواصل لدى الجهة)'}.\n\nهذه المذكرة داخلية ولا تُعد فاتورة ضريبية ولا تقوم مقامها. وفي حال الحاجة إلى أي معلومات إضافية، نرجو عدم التردد في التواصل معنا.`;
+
+  function printDocument() {
+    if (doc==='demand' && !hasBankDetails) {
+      window.alert('لا يمكن طباعة المطالبة المالية قبل استكمال بيانات حساب التحصيل في إعدادات المنشأة.');
+      return;
+    }
+    window.print();
+  }
 
   return <>
     <div className="print-toolbar no-print">
@@ -142,9 +151,10 @@ export default function ClaimDocumentsPrint() {
       <div className="group">
         {doc==='memo' && !claim.collected_at && <span className="note">لم يتم تسجيل السداد بعد؛ راجع توقيت إصدار المذكرة قبل الطباعة.</span>}
         {doc==='receipt' && !claim.collected_at && <span className="note">لا يوجد تاريخ سداد مسجل لهذا المستخلص.</span>}
+        {doc==='demand' && !hasBankDetails && <span className="note">استكمل بيانات حساب التحصيل قبل طباعة المطالبة.</span>}
         <button className={showLetterhead?'active':''} onClick={()=>setShowLetterhead(x=>!x)}>{showLetterhead?'المطبوع ظاهر':'المطبوع مخفي'}</button>
         <button className={showStamp?'active':''} onClick={()=>setShowStamp(x=>!x)}>{showStamp?'الختم ظاهر':'الختم مخفي'}</button>
-        <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
+        <button className="primary" onClick={printDocument}>طباعة أو حفظ PDF</button>
       </div>
     </div>
 
@@ -195,6 +205,15 @@ export default function ClaimDocumentsPrint() {
           {n(claim.advance_recovery)>0 && <tr><td>استرداد الدفعة المقدمة</td><td className="num">{money(claim.advance_recovery)} <Riyal /></td></tr>}
           {n(claim.other_deductions)>0 && <tr><td>خصومات أخرى</td><td className="num">{money(claim.other_deductions)} <Riyal /></td></tr>}
           {(doc==='receipt' || doc==='memo') && <tr><td>المبلغ المسدد</td><td className="num">{money(values.paid || values.net)} <Riyal /></td></tr>}
+        </tbody></table>
+      </>}
+
+      {doc==='demand' && <>
+        <div className="section-title">بيانات السداد</div>
+        <table className="payment-table"><tbody>
+          <tr><th>اسم المستفيد</th><td>{cfg.company_name_ar || '—'}</td><th>البنك</th><td>{cfg.bank_name_full || '—'}</td></tr>
+          <tr><th>رقم الحساب</th><td className="bank-value">{cfg.bank_account_no || '—'}</td><th>الآيبان</th><td className="bank-value">{cfg.bank_iban || '—'}</td></tr>
+          <tr><th>مرجع التحويل</th><td colSpan="3">المستخلص رقم {claim.claim_no || claim.seq_no || '—'}</td></tr>
         </tbody></table>
       </>}
 
