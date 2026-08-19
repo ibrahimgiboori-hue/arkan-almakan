@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const assetUrl = (path) => path
@@ -8,6 +8,7 @@ const assetUrl = (path) => path
 
 const MIN_DENSITY = 84;
 const MAX_DENSITY = 104;
+const CSS_PX_PER_MM = 96 / 25.4;
 const MIN_SIDE_MM = 10;
 const MAX_SIDE_MM = 24;
 
@@ -28,6 +29,7 @@ export default function PrintFrame({
   contentSideMm,
   layoutEditing = false,
   onContentSideChange,
+  balancePolicy = null,
 }) {
   const top = Number(contentTopMm ?? cfg?.letterhead_top_mm ?? 47);
   const bottom = Number(contentBottomMm ?? cfg?.letterhead_bottom_mm ?? 39);
@@ -46,8 +48,16 @@ export default function PrintFrame({
   const [density, setDensity] = useState(100);
   const [autoFit, setAutoFit] = useState(true);
   const [fitsOnePage, setFitsOnePage] = useState(true);
+  const [balanceOffsetPx, setBalanceOffsetPx] = useState(0);
 
-  const evaluateFit = () => {
+  const balanceEnabled = Boolean(balancePolicy);
+  const minDensity = clamp(balancePolicy?.minDensity ?? MIN_DENSITY, 70, 100);
+  const maxDensity = clamp(balancePolicy?.maxDensity ?? MAX_DENSITY, 100, 125);
+  const targetFillRatio = clamp(balancePolicy?.targetFillRatio ?? 0.68, 0.55, 0.9);
+  const maxOffsetPx = clamp(balancePolicy?.maxOffsetMm ?? 18, 0, 30) * CSS_PX_PER_MM;
+  const offsetShare = clamp(balancePolicy?.offsetShare ?? 0.28, 0, 0.5);
+
+  const evaluateFit = useCallback(() => {
     const main = mainRef.current;
     const inner = innerRef.current;
     if (!main || !inner) return;
@@ -57,18 +67,56 @@ export default function PrintFrame({
       - (parseFloat(style.paddingTop) || 0)
       - (parseFloat(style.paddingBottom) || 0);
     const used = inner.getBoundingClientRect().height;
-    const fits = used <= available + 2;
-    setFitsOnePage(fits);
+    const activeOffset = balanceEnabled && autoFit ? balanceOffsetPx : 0;
+    const fits = used + activeOffset <= available + 2;
+    setFitsOnePage(previous => previous === fits ? previous : fits);
 
-    if (autoFit && !fits && density > MIN_DENSITY) {
-      setDensity((v) => Math.max(MIN_DENSITY, v - 2));
+    if (!autoFit) {
+      setBalanceOffsetPx(previous => previous === 0 ? previous : 0);
+      return;
     }
-  };
+
+    if (!fits) {
+      if (balanceOffsetPx > 0) {
+        setBalanceOffsetPx(0);
+        return;
+      }
+      if (density > minDensity) {
+        setDensity(value => Math.max(minDensity, value - 2));
+      }
+      return;
+    }
+
+    if (!balanceEnabled) return;
+
+    const fillRatio = available > 0 ? used / available : 1;
+    if (fillRatio < targetFillRatio - 0.01 && density < maxDensity) {
+      setBalanceOffsetPx(previous => previous === 0 ? previous : 0);
+      setDensity(value => Math.min(maxDensity, value + 2));
+      return;
+    }
+
+    const freeSpace = Math.max(0, available - used);
+    const nextOffset = Math.min(maxOffsetPx, freeSpace * offsetShare);
+    setBalanceOffsetPx(previous => (
+      Math.abs(previous - nextOffset) < 0.5 ? previous : nextOffset
+    ));
+  }, [
+    autoFit,
+    balanceEnabled,
+    balanceOffsetPx,
+    density,
+    maxDensity,
+    maxOffsetPx,
+    minDensity,
+    offsetShare,
+    targetFillRatio,
+  ]);
 
   useLayoutEffect(() => {
     const id = window.requestAnimationFrame(evaluateFit);
     return () => window.cancelAnimationFrame(id);
-  }, [density, autoFit, top, bottom, side]);
+  }, [evaluateFit, top, bottom, side]);
 
   useEffect(() => {
     const inner = innerRef.current;
@@ -78,7 +126,10 @@ export default function PrintFrame({
     resize.observe(inner);
 
     const mutation = new MutationObserver(() => {
-      if (autoFit) setDensity(100);
+      if (autoFit) {
+        setDensity(100);
+        setBalanceOffsetPx(0);
+      }
       window.requestAnimationFrame(evaluateFit);
     });
     mutation.observe(inner, { subtree:true, childList:true, characterData:true });
@@ -87,16 +138,18 @@ export default function PrintFrame({
       resize.disconnect();
       mutation.disconnect();
     };
-  }, [autoFit]);
+  }, [autoFit, evaluateFit]);
 
   function enableAutoFit() {
     setAutoFit(true);
     setDensity(100);
+    setBalanceOffsetPx(0);
   }
 
   function manualDensity(value) {
     setAutoFit(false);
-    setDensity(Number(value));
+    setBalanceOffsetPx(0);
+    setDensity(clamp(value, minDensity, maxDensity));
   }
 
   function startMarginDrag(edge, event) {
@@ -130,13 +183,15 @@ export default function PrintFrame({
     <>
       <div className="print-fitbar no-print" role="region" aria-label="ضبط ملاءمة صفحة الطباعة">
         <div className="print-fitbar-main">
-          <button type="button" className={autoFit ? 'active' : ''} onClick={enableAutoFit}>ملاءمة تلقائية لصفحة واحدة</button>
+          <button type="button" className={autoFit ? 'active' : ''} onClick={enableAutoFit}>
+            {balanceEnabled ? 'موازنة تلقائية لصفحة واحدة' : 'ملاءمة تلقائية لصفحة واحدة'}
+          </button>
           <label htmlFor="print-density">حجم وتباعد المحتوى: <strong>{density}%</strong></label>
           <input
             id="print-density"
             type="range"
-            min={MIN_DENSITY}
-            max={MAX_DENSITY}
+            min={minDensity}
+            max={maxDensity}
             step="1"
             value={density}
             onChange={(e)=>manualDensity(e.target.value)}
@@ -145,8 +200,10 @@ export default function PrintFrame({
         </div>
         <div className={`print-fit-status ${fitsOnePage ? 'ok' : 'warn'}`}>
           {fitsOnePage
-            ? 'المحتوى يتسع في صفحة واحدة'
-            : density <= MIN_DENSITY
+            ? balanceEnabled && autoFit
+              ? 'المحتوى موزون ويتسع في صفحة واحدة'
+              : 'المحتوى يتسع في صفحة واحدة'
+            : density <= minDensity
               ? 'المحتوى ما زال أطول من صفحة واحدة عند الحد الآمن للتصغير'
               : 'جارٍ لملمة المحتوى داخل صفحة واحدة'}
         </div>
@@ -178,11 +235,17 @@ export default function PrintFrame({
 
           <main ref={mainRef} className="print-content" style={{padding:`${top}mm ${side}mm ${bottom}mm`}}>
             <div
-              ref={innerRef}
-              className="print-fit-content"
-              style={{ zoom:scale, width:compensatedWidth }}
+              className={`print-fit-stage ${balanceEnabled ? 'print-balance-enabled' : ''}`.trim()}
+              style={{paddingTop:balanceEnabled && autoFit ? `${balanceOffsetPx}px` : 0}}
+              data-print-balance-offset-mm={balanceEnabled ? (balanceOffsetPx / CSS_PX_PER_MM).toFixed(1) : undefined}
             >
-              {children}
+              <div
+                ref={innerRef}
+                className="print-fit-content"
+                style={{ zoom:scale, width:compensatedWidth }}
+              >
+                {children}
+              </div>
             </div>
           </main>
           {stamp && <img src={stamp} className="print-master-stamp" alt="" style={{width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`, ...(stampStyle || {})}} />}
@@ -200,6 +263,8 @@ export default function PrintFrame({
         .print-fit-status{margin-top:6px;font-size:12px;font-weight:700}
         .print-fit-status.ok{color:#245c31}
         .print-fit-status.warn{color:#7a2925}
+        .print-fit-stage{width:100%;min-width:0}
+        .print-balance-enabled .print-constitution>:only-child{display:flex;flex-direction:column;row-gap:1mm}
         .print-margin-guide{position:absolute;z-index:12;width:9px;cursor:ew-resize;transform:translateX(50%);background:transparent}
         .print-margin-guide-left{transform:translateX(-50%)}
         .print-margin-guide::after{content:'';position:absolute;top:0;bottom:0;left:4px;border-left:1px dashed rgba(139,51,50,.34)}

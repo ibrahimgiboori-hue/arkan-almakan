@@ -190,6 +190,7 @@ export default function ConstitutionPrintFrame({
 
       <PrintFrame
         {...frameProps}
+        balancePolicy={layout.balance}
         contentTopMm={layout.topMm ?? frameProps.contentTopMm}
         contentBottomMm={layout.bottomMm ?? frameProps.contentBottomMm}
         contentSideMm={draft.sideMm}

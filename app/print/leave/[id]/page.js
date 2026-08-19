@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
 import { LEAVE_AR } from '@/lib/requests';
-import PrintFrame from '@/components/print/PrintFrame';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import LeaveProcedurePanel from '@/components/print/LeaveProcedurePanel';
 
 function addDay(dateText) {
@@ -104,7 +104,7 @@ export default function LeavePrint() {
         <span className="note">طلب إجازة — {emp.full_name_ar}</span>
       </div>
 
-      <PrintFrame cfg={cfg} showLetterhead>
+      <ConstitutionPrintFrame documentKey="leave_request" cfg={cfg} showLetterhead>
         <div className="xlsx-doc">
           <div className="xlsx-meta">
             <span>{cfg.company_name_ar}</span>
@@ -208,7 +208,7 @@ export default function LeavePrint() {
             />
           )}
         </div>
-      </PrintFrame>
+      </ConstitutionPrintFrame>
     </>
   );
 }
