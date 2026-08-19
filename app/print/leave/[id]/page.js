@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
 import { LEAVE_AR } from '@/lib/requests';
 import PrintFrame from '@/components/print/PrintFrame';
-import ProcedureTrail from '@/components/print/ProcedureTrail';
+import LeaveProcedurePanel from '@/components/print/LeaveProcedurePanel';
 
 function addDay(dateText) {
   if (!dateText) return null;
@@ -35,21 +35,33 @@ export default function LeavePrint() {
   const [before, setBefore] = useState(null);
   const [atReturn, setAtReturn] = useState(null);
   const [approvals, setApprovals] = useState([]);
+  const [substitute, setSubstitute] = useState(null);
+  const [finalApprover, setFinalApprover] = useState(null);
   const [err, setErr] = useState('');
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [r, s, a] = await Promise.all([
+      const [r, s, a, subLink, finalPerson] = await Promise.all([
         supabase.from('leave_requests')
           .select('*, employees(id, employee_no, full_name_ar, job_title, department, hire_date, annual_leave_days)')
           .eq('id', id).single(),
         supabase.from('app_settings').select('*').eq('id', 1).maybeSingle(),
         supabase.from('v_approval_register').select('*')
           .eq('entity_table','leave_requests').eq('entity_id',id).order('step_order'),
+        supabase.from('leave_request_substitutes').select('substitute_employee_id').eq('request_id',id).maybeSingle(),
+        supabase.from('employees').select('id,full_name_ar,job_title,board_role')
+          .eq('board_role','رئيس مجلس الإدارة').maybeSingle(),
       ]);
       if (r.error) { setErr(r.error.message); return; }
-      setRow(r.data); setCfg(s.data); setApprovals(a.data || []);
+      setRow(r.data); setCfg(s.data); setApprovals(a.data || []); setFinalApprover(finalPerson.data || null);
+
+      if (subLink.data?.substitute_employee_id) {
+        const sub = await supabase.from('employees')
+          .select('id,employee_no,full_name_ar,job_title,department,employment_kind,status,planned_start_date,planned_end_date')
+          .eq('id',subLink.data.substitute_employee_id).maybeSingle();
+        if (!sub.error) setSubstitute(sub.data || null);
+      }
 
       const empId = r.data.employee_id;
       const returnDate = r.data.actual_return_date || addDay(r.data.end_date);
@@ -75,7 +87,7 @@ export default function LeavePrint() {
   if (!row || !cfg || !before || !atReturn) return <div style={{padding:40}}>جارٍ التحميل…</div>;
 
   const emp = row.employees || {};
-  const source = row.record_source === 'historical_paper' ? 'ملف ورقي قديم' : 'طلب حالي';
+  const substituteKind = substitute?.employment_kind === 'temporary_replacement' ? 'بديل مؤقت' : substitute ? 'موظف قائم' : '—';
 
   return (
     <>
@@ -123,10 +135,17 @@ export default function LeavePrint() {
 
             <div className="xlsx-cell xlsx-label s2">عدد الأيام</div>
             <div className="xlsx-cell xlsx-value s2">{requestDays} يوم</div>
-            <div className="xlsx-cell xlsx-label s2">المصدر</div>
-            <div className="xlsx-cell xlsx-value s2">{source}</div>
             <div className="xlsx-cell xlsx-label s2">الحالة</div>
             <div className="xlsx-cell xlsx-value s2">{statusLabel(row.status)}</div>
+            <div className="xlsx-cell xlsx-label s2">الموظف البديل</div>
+            <div className="xlsx-cell xlsx-value s2">{substitute?.full_name_ar || 'غير محدد'}</div>
+
+            {substitute && <>
+              <div className="xlsx-cell xlsx-label s2">نوع البديل</div>
+              <div className="xlsx-cell xlsx-value s2">{substituteKind}</div>
+              <div className="xlsx-cell xlsx-label s2">المسمى</div>
+              <div className="xlsx-cell xlsx-value s6">{v(substitute.job_title)}</div>
+            </>}
 
             {row.reason && <>
               <div className="xlsx-cell xlsx-label s2">السبب</div>
@@ -151,21 +170,11 @@ export default function LeavePrint() {
             <div className="xlsx-cell xlsx-label xlsx-strong s2">المتبقي بعد الاعتماد</div>
             <div className="xlsx-cell xlsx-value num xlsx-strong s2">{expectedBalance}</div>
 
-            {exceptional && (
-              <div className="xlsx-cell xlsx-note s12" style={{fontWeight:700,color:'#7C2B28',background:'#f8eeee'}}>
-                حالة استثنائية: سيصبح الرصيد السنوي سالبًا بعد الإجازة؛ لذلك يكون الإجراء الأول إعدادًا وتسجيلًا للطلب، ويُرفع للاستكمال والاعتماد النهائي من صاحب الصلاحية.
-              </div>
-            )}
-
             {Number(before.reserved_days || 0) > 0 && <>
-              <div className="xlsx-cell xlsx-label s3">إجازات معتمدة لم تبدأ</div>
+              <div className="xlsx-cell xlsx-label s3">رصيد محجوز سابقًا</div>
               <div className="xlsx-cell xlsx-value num s1">{before.reserved_days}</div>
-              <div className="xlsx-cell xlsx-note s8">تظهر كرصيد محجوز ولا تخصم مرة ثانية عند اعتماد هذا الطلب.</div>
+              <div className="xlsx-cell xlsx-value s8">—</div>
             </>}
-
-            <div className="xlsx-cell xlsx-note s12">
-              يحتسب الرصيد تدريجيًا من تاريخ المباشرة على أساس الاستحقاق السنوي خلال 365 يومًا، ويقرب أي كسر في الرصيد المستحق إلى يوم كامل. الإجازات غير السنوية لا تخصم من الرصيد السنوي إلا وفق سياسة المنشأة.
-            </div>
           </div>
 
           {row.record_source === 'historical_paper' && (
@@ -183,11 +192,11 @@ export default function LeavePrint() {
           )}
 
           {row.record_source !== 'historical_paper' && (
-            <ProcedureTrail
+            <LeaveProcedurePanel
               approvals={approvals}
-              transactionType="leave"
               exceptional={exceptional}
-              manualLeadLabel="الموظف"
+              substitute={substitute}
+              expectedFinalApprover={finalApprover}
             />
           )}
         </div>
