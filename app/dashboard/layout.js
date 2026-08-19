@@ -9,6 +9,7 @@ const NAV = [
   { group: 'الموارد البشرية', items: [
     { href: '/dashboard', label: 'لوحة المتابعة' },
     { href: '/dashboard/employees', label: 'الموظفون' },
+    { href: '/dashboard/recruitment', label: 'التوظيف والمرشحون' },
     { href: '/dashboard/board', label: 'مجلس الإدارة' },
     { href: '/dashboard/leaves', label: 'الإجازات' },
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
