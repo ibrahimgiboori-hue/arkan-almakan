@@ -14,7 +14,11 @@ export default function PrintFrame({
   children,
   showLetterhead = true,
   showStamp = false,
+  showSignature = false,
   stampSizeMm,
+  signatureSizeMm,
+  stampStyle,
+  signatureStyle,
 }) {
   const top = Number(cfg?.letterhead_top_mm ?? 47);
   const bottom = Number(cfg?.letterhead_bottom_mm ?? 39);
@@ -25,6 +29,7 @@ export default function PrintFrame({
   const footer = !full && showLetterhead ? assetUrl(cfg?.footer_image_path) : null;
   const watermark = !full && showLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
   const stamp = showStamp ? assetUrl(cfg?.stamp_image_path) : null;
+  const signature = showSignature ? assetUrl(cfg?.signature_image_path) : null;
 
   const mainRef = useRef(null);
   const innerRef = useRef(null);
@@ -130,7 +135,8 @@ export default function PrintFrame({
               {children}
             </div>
           </main>
-          {stamp && <img src={stamp} className="print-master-stamp" alt="" style={{width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`}} />}
+          {stamp && <img src={stamp} className="print-master-stamp" alt="" style={{width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`, ...(stampStyle || {})}} />}
+          {signature && <img src={signature} className="print-master-signature" alt="" style={{width:`${Number(signatureSizeMm ?? cfg?.signature_size_mm ?? 21)}mm`, ...(signatureStyle || {})}} />}
         </div>
       </div>
 
