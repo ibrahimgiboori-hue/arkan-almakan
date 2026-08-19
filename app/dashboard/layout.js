@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { ROLE_AR } from '@/lib/format';
 
 const NAV = [
   { group: 'الموارد البشرية', items: [
@@ -29,7 +28,7 @@ const NAV = [
     { href: '/dashboard/archive', label: 'الأرشيف' },
     { href: '/dashboard/register', label: 'الصادر والوارد' },
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
-    { href: '/dashboard/formbuilder', label: 'محرّر النماذج' },
+    { href: '/dashboard/formbuilder', label: 'محرر النماذج' },
   ]},
   { group: 'الإعدادات', items: [
     { href: '/dashboard/settings', label: 'بيانات الشركة' },
@@ -51,7 +50,7 @@ export default function DashboardLayout({ children }) {
       if (!data.session) { router.replace('/login'); return; }
       const { data: row } = await supabase
         .from('app_users')
-        .select('role, is_active, employees(full_name_ar, employee_no, job_title)')
+        .select('role, is_active, is_system_admin, employees(full_name_ar, employee_no, job_title)')
         .eq('id', data.session.user.id)
         .maybeSingle();
       if (!alive) return;
@@ -66,21 +65,19 @@ export default function DashboardLayout({ children }) {
     router.replace('/login');
   }
 
-  if (!ready) return <div className="empty">جارٍ التحميل…</div>;
+  if (!ready) return <div className="empty">جارٍ التحميل</div>;
 
-  if (!me?.role) return (
+  if (!me?.is_active || !me?.role) return (
     <div className="login-wrap">
       <div className="login">
-        <div className="msg err">
-          حسابك ليس له دور في النظام بعد. تواصل مع المدير التنفيذي لإسناد دور لك.
-        </div>
-        <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}}
-                onClick={signOut}>خروج</button>
+        <div className="msg err">حسابك غير مهيأ لاستخدام النظام حاليًا.</div>
+        <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}} onClick={signOut}>خروج</button>
       </div>
     </div>
   );
 
   const emp = me.employees;
+  const accessLabel = me.is_system_admin ? 'مدير النظام' : 'مستخدم النظام';
 
   const isOn = (href) => {
     if (pathname === href) return true;
@@ -95,7 +92,6 @@ export default function DashboardLayout({ children }) {
     <div className="shell">
       <aside className="side">
         <div className="side-head">
-          <div className="skyline"><i/><i/><i/><i/><i/><i/></div>
           <div className="name">أركان المكان</div>
           <div className="sub">النظام الإداري</div>
         </div>
@@ -105,10 +101,7 @@ export default function DashboardLayout({ children }) {
             <div key={g.group}>
               <div className="nav-group">{g.group}</div>
               {g.items.map((it) => (
-                <Link key={it.href} href={it.href}
-                      className={isOn(it.href) ? 'on' : ''}>
-                  {it.label}
-                </Link>
+                <Link key={it.href} href={it.href} className={isOn(it.href) ? 'on' : ''}>{it.label}</Link>
               ))}
             </div>
           ))}
@@ -116,7 +109,7 @@ export default function DashboardLayout({ children }) {
 
         <div className="side-foot">
           <div className="who">{emp?.full_name_ar || me.email}</div>
-          <div className="role">{ROLE_AR[me.role] || me.role}</div>
+          <div className="role">{accessLabel}</div>
           <button onClick={signOut}>خروج</button>
         </div>
       </aside>
