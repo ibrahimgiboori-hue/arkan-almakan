@@ -35,6 +35,14 @@
 .stat b small{font-size:11px;font-weight:500;color:var(--ink-soft)}
 .statAlert{border-color:#ddb8b6;background:#fffafa}
 .statAlert b{color:var(--maroon)}
+.rosterNotice{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:0 0 12px;padding:11px 13px;border:1px solid #e2c58f;border-radius:9px;background:#fffaf1;color:#735018}
+.rosterNotice>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rosterNotice b{font-size:12.5px}
+.rosterNotice span{font-size:12px;line-height:1.65}
+.rosterNotice small{font-size:10.5px;color:#8a6b38}
+.rosterBreakdown{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
+.rosterBreakdown span{border:1px solid #ead8b8;background:#fff;border-radius:999px;padding:4px 8px;font-size:10.5px;white-space:nowrap}
+.rosterBreakdown b{font-size:10.5px;color:var(--maroon)}
 .contractorTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 9px;margin-bottom:3px}
 .contractorTabs button{flex:0 0 auto;border:1px solid var(--hair);background:#fff;border-radius:8px;padding:7px 10px;text-align:right;font:inherit;font-size:12px;color:#4b5052;cursor:pointer;display:flex;align-items:center;gap:8px}
 .contractorTabs button small{font-size:10.5px;color:#8b7777}
@@ -111,6 +119,8 @@
  .commandRow button{width:100%;justify-content:center}
  .preview{align-items:flex-start;flex-direction:column}
  .summary{grid-template-columns:1fr 1fr}
+ .rosterNotice{flex-direction:column}
+ .rosterBreakdown{justify-content:flex-start;flex:0 1 auto}
  .contractorCard>header{align-items:flex-start}
  .actions{display:grid;grid-template-columns:1fr 1fr}
  .actions button{width:100%;justify-content:center}
