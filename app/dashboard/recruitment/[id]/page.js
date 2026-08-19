@@ -29,7 +29,7 @@ export default function VacancyEditor(){
   async function addReq(e){e.preventDefault(); const {error}=await supabase.from('vacancy_requirements').insert({vacancy_id:id,...r,weight:Number(r.weight||0),expected_value:r.expected_value||null,license_type:r.license_type||null,sort_order:reqs.length+1}); if(error){setErr(error.message);return;} setR({label:'',question_text:'',answer_type:'text',criterion_type:'normal',expected_value:'',weight:0,is_license:false,license_type:''}); load();}
   async function delReq(rid){if(!confirm('حذف هذا الشرط من الشاغر؟'))return; const {error}=await supabase.from('vacancy_requirements').delete().eq('id',rid); if(error)setErr(error.message);else load();}
   async function updateReq(rid,fields){setReqs(reqs.map(x=>x.id===rid?{...x,...fields}:x)); const {error}=await supabase.from('vacancy_requirements').update(fields).eq('id',rid); if(error)setErr(error.message);}
-  async function copyLink(){const url=`${window.location.origin}/jobs/${v.public_token}`; await navigator.clipboard.writeText(url); flash('تم نسخ رابط التقديم');}
+  async function copyLink(){const url=`${window.location.origin}/careers/${v.public_token}`; await navigator.clipboard.writeText(url); flash('تم نسخ رابط التقديم');}
   if(!v)return <div className="empty">جارٍ تحميل الشاغر…</div>;
   const weightSum=reqs.reduce((s,x)=>s+Number(x.weight||0),0);
   return <>
