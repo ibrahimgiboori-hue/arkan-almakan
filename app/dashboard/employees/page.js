@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr, STATUS_AR } from '@/lib/format';
@@ -12,17 +12,44 @@ export default function Employees() {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
-  async function load() {
-    const sess = (await supabase.auth.getSession()).data.session;
-    await supabase.rpc('activate_due_temporary_replacements').catch(()=>{});
-    const [e, u] = await Promise.all([
-      supabase.from('employees').select('*').eq('person_kind', 'employee'),
-      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
-    ]);
-    setRows(e.data || []); setRole(u.data?.role || null);
-  }
+  const load = useCallback(async () => {
+    setErr('');
+    setRows(null);
 
-  useEffect(() => { load(); }, []);
+    try {
+      const { data:sessionData, error:sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      // هذه تهيئة اختيارية لبيانات الاستبدال المؤقت. بعض البيئات لا تحتوي
+      // الدالة بعد؛ فشلها لا يجوز أن يمنع تحميل سجل الموظفين الأساسي.
+      const activation = await supabase.rpc('activate_due_temporary_replacements');
+      if (activation.error && activation.error.code !== 'PGRST202') {
+        console.warn('[employees] temporary replacement activation failed', activation.error);
+      }
+
+      const userId = sessionData.session?.user?.id;
+      const employeesQuery = supabase
+        .from('employees')
+        .select('*')
+        .eq('person_kind', 'employee');
+      const roleQuery = userId
+        ? supabase.from('app_users').select('role').eq('id', userId).maybeSingle()
+        : Promise.resolve({ data:null, error:null });
+      const [employeesResult, userResult] = await Promise.all([employeesQuery, roleQuery]);
+
+      if (employeesResult.error) throw employeesResult.error;
+      if (userResult.error) throw userResult.error;
+      setRows(employeesResult.data || []);
+      setRole(userResult.data?.role || null);
+    } catch (error) {
+      console.error('[employees] load failed', error);
+      setRows([]);
+      setRole(null);
+      setErr(`تعذّر تحميل الموظفين: ${error?.message || 'حدث خطأ غير متوقع'}`);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   async function setStatus(r, status) {
     setErr(''); setMsg('');
@@ -75,7 +102,12 @@ export default function Employees() {
         </div>
       </div>
 
-      {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
+      {err && (
+        <div className="msg err" style={{marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+          <span>{err}</span>
+          <button className="btn ghost" type="button" onClick={load}>إعادة المحاولة</button>
+        </div>
+      )}
       {msg && <div className="msg ok" style={{marginBottom:14}}>{msg}</div>}
 
       <div className="section" style={{marginTop:0}}>

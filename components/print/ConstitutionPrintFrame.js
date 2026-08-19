@@ -1,8 +1,13 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import PrintFrame from '@/components/print/PrintFrame';
 import { PrintLayoutProvider } from '@/components/print/PrintLayoutContext';
+import {
+  PRINT_GRID_COLUMNS,
+  PRINT_GRID_MAJOR_COLUMNS,
+  PRINT_GRID_ROW_MM,
+} from '@/lib/print-grid';
 import {
   PRINT_GOVERNANCE_VERSION,
   getPrintDefinition,
@@ -12,26 +17,9 @@ import {
 
 const MIN_SIDE_MM = 10;
 const MAX_SIDE_MM = 24;
-const MIN_COLUMN_PCT = 4;
 
-const DEFAULT_TABLE_WEIGHTS = {
-  'projects-finance:info-table:4': [13, 37, 13, 37],
-  'projects-finance:data-table:8': [4, 22, 8, 19, 8, 11, 13, 15],
-  'projects-finance:data-table:6': [5, 35, 10, 22, 10, 18],
-  'projects-finance:summary-table:2': [72, 28],
-  'projects-finance:payment-table:4': [12, 38, 10, 40],
-};
-
-function clamp(v, min, max) {
-  return Math.min(max, Math.max(min, Number(v)));
-}
-
-function normalizeWeights(list, count) {
-  const source = Array.isArray(list) && list.length === count
-    ? list.map(Number)
-    : Array.from({ length:count }, () => 100 / count);
-  const total = source.reduce((s, x) => s + (Number.isFinite(x) ? x : 0), 0) || 100;
-  return source.map(x => (Number(x) / total) * 100);
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value)));
 }
 
 function mergeSettings(familySettings = {}, documentSettings = {}) {
@@ -42,16 +30,11 @@ function mergeSettings(familySettings = {}, documentSettings = {}) {
       ...(familySettings.grids || {}),
       ...(documentSettings.grids || {}),
     },
+    rows: {
+      ...(familySettings.rows || {}),
+      ...(documentSettings.rows || {}),
+    },
   };
-}
-
-function tableKind(table) {
-  return ['info-table','data-table','summary-table','payment-table']
-    .find(name => table.classList.contains(name)) || null;
-}
-
-function firstLogicalRow(table) {
-  return table.tHead?.rows?.[0] || table.tBodies?.[0]?.rows?.[0] || null;
 }
 
 export default function ConstitutionPrintFrame({
@@ -61,6 +44,7 @@ export default function ConstitutionPrintFrame({
   ...frameProps
 }) {
   const definition = getPrintDefinition(documentKey);
+  const family = definition.family;
   const layout = getPrintLayoutPolicy(documentKey);
   const classes = printGovernanceClassName(documentKey, className);
   const rootRef = useRef(null);
@@ -71,181 +55,135 @@ export default function ConstitutionPrintFrame({
   );
 
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ sideMm:defaultSide, grids:{} });
+  const [draft, setDraft] = useState({ sideMm:defaultSide, grids:{}, rows:{} });
   const [message, setMessage] = useState('');
 
-  async function loadOverrides() {
+  const loadOverrides = useCallback(async () => {
     const { data, error } = await supabase
       .from('print_layout_overrides')
       .select('scope,scope_key,settings')
-      .in('scope_key', [definition.family, documentKey]);
+      .in('scope_key', [family, documentKey]);
 
     if (error) {
-      setDraft({ sideMm:defaultSide, grids:{} });
+      setDraft({ sideMm:defaultSide, grids:{}, rows:{} });
       return;
     }
 
-    const family = (data || []).find(x => x.scope === 'family' && x.scope_key === definition.family)?.settings || {};
-    const document = (data || []).find(x => x.scope === 'document' && x.scope_key === documentKey)?.settings || {};
-    const merged = mergeSettings(family, document);
+    const familySettings = (data || [])
+      .find(item => item.scope === 'family' && item.scope_key === family)?.settings || {};
+    const documentSettings = (data || [])
+      .find(item => item.scope === 'document' && item.scope_key === documentKey)?.settings || {};
+    const merged = mergeSettings(familySettings, documentSettings);
     setDraft({
       ...merged,
       sideMm:clamp(merged.sideMm ?? defaultSide, MIN_SIDE_MM, MAX_SIDE_MM),
       grids:merged.grids || {},
+      rows:merged.rows || {},
     });
-  }
+  }, [defaultSide, documentKey, family]);
 
-  useEffect(() => {
-    loadOverrides();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentKey, definition.family]);
+  useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
-  const setSideMm = (value) => {
-    setDraft(prev => ({ ...prev, sideMm:clamp(value, MIN_SIDE_MM, MAX_SIDE_MM) }));
-  };
-
-  const setGridWeights = (key, weights) => {
-    setDraft(prev => ({
-      ...prev,
-      grids:{ ...(prev.grids || {}), [key]:weights },
+  const setSideMm = useCallback((value) => {
+    setDraft(previous => ({
+      ...previous,
+      sideMm:clamp(value, MIN_SIDE_MM, MAX_SIDE_MM),
     }));
-  };
+  }, []);
 
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const tables = [...root.querySelectorAll('table.info-table, table.data-table, table.summary-table, table.payment-table')];
-    const cleanup = [];
-
-    tables.forEach((table) => {
-      const kind = tableKind(table);
-      const row = firstLogicalRow(table);
-      if (!kind || !row) return;
-      const cells = [...row.cells].filter(cell => Number(cell.colSpan || 1) === 1);
-      if (cells.length < 2 || cells.length !== row.cells.length) return;
-
-      const key = `${definition.family}:${kind}:${cells.length}`;
-      const defaults = normalizeWeights(DEFAULT_TABLE_WEIGHTS[key], cells.length);
-      const current = normalizeWeights(draft.grids?.[key] || defaults, cells.length);
-      cells.forEach((cell, i) => { cell.style.width = `${current[i]}%`; });
-
-      if (!editing) return;
-
-      cells.forEach((cell, index) => {
-        if (index === cells.length - 1) return;
-        const handle = document.createElement('span');
-        handle.className = 'print-col-resizer no-print';
-        handle.title = 'اسحب لتغيير عرض العمود — نقرتان لإعادة الوزنية';
-        cell.style.position = 'relative';
-        cell.appendChild(handle);
-
-        const onDown = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const startX = event.clientX;
-          const width = table.getBoundingClientRect().width || 1;
-          const start = normalizeWeights(draft.grids?.[key] || defaults, cells.length);
-
-          const onMove = (moveEvent) => {
-            const deltaPct = ((moveEvent.clientX - startX) / width) * 100;
-            let a = start[index] - deltaPct;
-            let b = start[index + 1] + deltaPct;
-            if (a < MIN_COLUMN_PCT) { b -= (MIN_COLUMN_PCT - a); a = MIN_COLUMN_PCT; }
-            if (b < MIN_COLUMN_PCT) { a -= (MIN_COLUMN_PCT - b); b = MIN_COLUMN_PCT; }
-            const next = [...start];
-            next[index] = a;
-            next[index + 1] = b;
-            cells.forEach((c, i) => { c.style.width = `${next[i]}%`; });
-            setGridWeights(key, next);
-          };
-
-          const onUp = () => {
-            window.removeEventListener('pointermove', onMove);
-            window.removeEventListener('pointerup', onUp);
-          };
-          window.addEventListener('pointermove', onMove);
-          window.addEventListener('pointerup', onUp);
-        };
-
-        const onDouble = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          cells.forEach((c, i) => { c.style.width = `${defaults[i]}%`; });
-          setGridWeights(key, defaults);
-        };
-
-        handle.addEventListener('pointerdown', onDown);
-        handle.addEventListener('dblclick', onDouble);
-        cleanup.push(() => {
-          handle.removeEventListener('pointerdown', onDown);
-          handle.removeEventListener('dblclick', onDouble);
-          handle.remove();
-        });
-      });
+  const setGridLayout = useCallback((key, value) => {
+    setDraft(previous => {
+      const grids = { ...(previous.grids || {}) };
+      if (value == null) delete grids[key];
+      else grids[key] = value;
+      return { ...previous, grids };
     });
+  }, []);
 
-    return () => cleanup.forEach(fn => fn());
-  }, [editing, draft.grids, definition.family]);
+  const setRowHeight = useCallback((key, value) => {
+    setDraft(previous => {
+      const rows = { ...(previous.rows || {}) };
+      if (value == null) delete rows[key];
+      else rows[key] = Number(value);
+      return { ...previous, rows };
+    });
+  }, []);
 
   async function saveLayout(scope) {
     setMessage('جارٍ الحفظ...');
-    const scopeKey = scope === 'family' ? definition.family : documentKey;
+    const scopeKey = scope === 'family' ? family : documentKey;
     const { data:{ user } } = await supabase.auth.getUser();
     const payload = {
       scope,
       scope_key:scopeKey,
-      settings:{ sideMm:draft.sideMm, grids:draft.grids || {} },
+      settings:{
+        gridSchemaVersion:2,
+        gridColumns:PRINT_GRID_COLUMNS,
+        gridMajorColumns:PRINT_GRID_MAJOR_COLUMNS,
+        gridRowMm:PRINT_GRID_ROW_MM,
+        sideMm:draft.sideMm,
+        grids:draft.grids || {},
+        rows:draft.rows || {},
+      },
       updated_by_user_id:user?.id || null,
       updated_at:new Date().toISOString(),
     };
-    const { error } = await supabase.from('print_layout_overrides').upsert(payload, { onConflict:'scope,scope_key' });
+    const { error } = await supabase
+      .from('print_layout_overrides')
+      .upsert(payload, { onConflict:'scope,scope_key' });
     if (error) {
       setMessage(`تعذر الحفظ: ${error.message}`);
       return;
     }
     if (scope === 'family') {
-      await supabase.from('print_layout_overrides').delete().eq('scope','document').eq('scope_key',documentKey);
-      setMessage('تم حفظ الوزنية للعائلة');
+      await supabase.from('print_layout_overrides')
+        .delete().eq('scope','document').eq('scope_key',documentKey);
+      setMessage('تم حفظ الشبكة الموحدة للعائلة');
     } else {
-      setMessage('تم حفظ الوزنية لهذا المطبوع');
+      setMessage('تم حفظ الشبكة الموحدة لهذا المطبوع');
     }
     await loadOverrides();
   }
 
   async function followFamily() {
-    setMessage('جارٍ الرجوع لوزنية العائلة...');
+    setMessage('جارٍ الرجوع لشبكة العائلة...');
     const { error } = await supabase.from('print_layout_overrides')
       .delete().eq('scope','document').eq('scope_key',documentKey);
     if (error) setMessage(`تعذر الرجوع: ${error.message}`);
     else {
-      setMessage('أصبح المطبوع يتبع وزنية العائلة');
+      setMessage('أصبح المطبوع يتبع شبكة العائلة');
       await loadOverrides();
     }
   }
 
   function resetDraft() {
-    setDraft({ sideMm:defaultSide, grids:{} });
-    setMessage('تمت إعادة الوزنية الافتراضية في المعاينة؛ احفظها إذا أردت تثبيتها');
+    setDraft({ sideMm:defaultSide, grids:{}, rows:{} });
+    setMessage('عادت الشبكة الافتراضية في المعاينة؛ احفظها إذا أردت تثبيتها');
   }
 
   const contextValue = useMemo(() => ({
     editing,
-    gridWeights:draft.grids || {},
-    setGridWeights,
-  }), [editing, draft.grids]);
+    gridLayouts:draft.grids || {},
+    rowHeights:draft.rows || {},
+    setGridLayout,
+    setRowHeight,
+  }), [draft.grids, draft.rows, editing, setGridLayout, setRowHeight]);
 
   return (
     <PrintLayoutProvider value={contextValue}>
-      <div className="print-layoutbar no-print" role="region" aria-label="ضبط وزنية المطبوع">
-        <button type="button" className={editing ? 'active' : ''} onClick={() => setEditing(v => !v)}>
-          {editing ? 'إنهاء ضبط توزيع الخلايا' : 'ضبط توزيع الخلايا'}
+      <div className="print-layoutbar no-print" role="region" aria-label="ضبط شبكة المطبوع">
+        <button type="button" className={editing ? 'active' : ''} onClick={() => setEditing(value => !value)}>
+          {editing ? 'إنهاء ضبط الشبكة' : 'ضبط شبكة الخلايا'}
         </button>
         {editing && <>
-          <span className="print-layout-value">الهامش الجانبي: <strong>{Number(draft.sideMm).toFixed(1)} مم</strong></span>
+          <span className="print-layout-value">
+            {PRINT_GRID_MAJOR_COLUMNS} عمودًا / {PRINT_GRID_COLUMNS} وحدة · صف {PRINT_GRID_ROW_MM} مم
+          </span>
+          <span className="print-layout-value">الهامش: <strong>{Number(draft.sideMm).toFixed(1)} مم</strong></span>
           <button type="button" onClick={() => saveLayout('document')}>حفظ لهذا المطبوع</button>
           <button type="button" onClick={() => saveLayout('family')}>حفظ للعائلة</button>
-          <button type="button" onClick={followFamily}>استخدام وزنية العائلة</button>
-          <button type="button" onClick={resetDraft}>إعادة الوزنية الافتراضية</button>
+          <button type="button" onClick={followFamily}>استخدام شبكة العائلة</button>
+          <button type="button" onClick={resetDraft}>إعادة الشبكة الافتراضية</button>
         </>}
         {message && <span className="print-layout-message">{message}</span>}
       </div>
@@ -260,9 +198,9 @@ export default function ConstitutionPrintFrame({
       >
         <div
           ref={rootRef}
-          className={classes}
+          className={`${classes} ${editing ? 'print-layout-editing' : ''}`.trim()}
           data-print-document={documentKey}
-          data-print-family={definition.family}
+          data-print-family={family}
           data-print-status={definition.status}
           data-print-governance-version={PRINT_GOVERNANCE_VERSION}
         >
@@ -275,10 +213,7 @@ export default function ConstitutionPrintFrame({
         .print-layoutbar button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}
         .print-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}
         .print-layout-value,.print-layout-message{font-size:11.5px;color:#444}
-        .print-col-resizer{position:absolute;left:-4px;top:-1px;bottom:-1px;width:8px;cursor:col-resize;z-index:8;background:transparent}
-        .print-col-resizer::after{content:'';position:absolute;left:3.5px;top:0;bottom:0;border-left:1px dashed rgba(139,51,50,.32)}
-        .print-col-resizer:hover::after{border-left-color:rgba(139,51,50,.75)}
-        @media print{.print-layoutbar,.print-col-resizer{display:none!important}}
+        @media print{.print-layoutbar{display:none!important}}
       `}</style>
     </PrintLayoutProvider>
   );

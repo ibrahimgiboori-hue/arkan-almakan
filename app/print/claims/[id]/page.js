@@ -244,7 +244,8 @@ export default function ClaimDocumentsPrint() {
     </div>
 
     <ConstitutionPrintFrame documentKey="claim_documents" cfg={cfg} showLetterhead={showLetterhead} showStamp={showStamp}>
-      <div className="doc-meta"><span>{claim.claim_no || 'مسودة'}</span><span>{dateAr(issueDate)}</span></div>
+      <div className="project-finance-document">
+      <div className="doc-meta"><span>{cfg.company_name_ar}</span><span>{dateAr(issueDate)}</span></div>
       <div className="doc-title"><h1>{title}</h1><span className="rule" /></div>
 
       {doc!=='memo'
@@ -305,6 +306,7 @@ export default function ClaimDocumentsPrint() {
       </>}
 
       <ProcedureStagePanel electronic={electronicStages} manual={manualStages} />
+      </div>
     </ConstitutionPrintFrame>
   </>;
 }

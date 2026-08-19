@@ -1,43 +1,83 @@
 'use client';
 import { createContext, useContext, useEffect } from 'react';
+import {
+  PRINT_GRID_COLUMNS,
+  PRINT_GRID_MAJOR_COLUMNS,
+  PRINT_GRID_ROW_MM,
+  majorGuideTracks,
+  moveTrackBoundary,
+  resolveStoredTracks,
+  serializeTracks,
+  tracksToSpans,
+} from '@/lib/print-grid';
 
-const MIN_CELL_PCT = 4;
-const DRAG_SENSITIVITY = 0.72;
-const SNAP_PCT = 0.25;
+const MM_TO_CSS_PX = 96 / 25.4;
 
 const PrintLayoutContext = createContext({
   editing:false,
-  gridWeights:{},
-  setGridWeights:()=>{},
+  gridLayouts:{},
+  rowHeights:{},
+  setGridLayout:()=>{},
+  setRowHeight:()=>{},
 });
 
-function normalize(weights, count, defaults) {
-  const source = Array.isArray(weights) && weights.length === count
-    ? weights.map(Number)
-    : (Array.isArray(defaults) && defaults.length === count
-      ? defaults.map(Number)
-      : Array.from({length:count}, () => 100 / count));
-  const sum = source.reduce((s,x) => s + (Number.isFinite(x) ? x : 0), 0) || 100;
-  return source.map(x => Number(x) / sum * 100);
-}
-
-function snap(value, step = SNAP_PCT) {
-  return Math.round(value / step) * step;
-}
+const TABLE_DEFAULTS = {
+  'projects-finance:info-table:4':[12.5,37.5,12.5,37.5],
+  'projects-finance:data-table:8':[4.1667,25,8.3333,20.8333,8.3333,8.3333,12.5,12.5],
+  'projects-finance:data-table:6':[4.1667,37.5,12.5,12.5,16.6666,16.6667],
+  'projects-finance:summary-table:2':[75,25],
+  'projects-finance:payment-table:4':[12.5,37.5,12.5,37.5],
+};
 
 function tableKind(table) {
   return ['info-table','data-table','summary-table','payment-table','row-resizable-table']
     .find(name => table.classList.contains(name)) || 'governed-table';
 }
 
-function defaultRowWeights(kind, count) {
-  if (kind === 'info-table' && count === 4) return [13,37,13,37];
-  if (kind === 'summary-table' && count === 2) return [72,28];
-  return Array.from({length:count}, () => 100 / count);
+function defaultRowWeights(family, kind, count) {
+  const exact = TABLE_DEFAULTS[`${family}:${kind}:${count}`];
+  if (exact) return exact;
+  if (kind === 'info-table' && count === 4) return [12.5,37.5,12.5,37.5];
+  if (kind === 'summary-table' && count === 2) return [75,25];
+  return Array.from({ length:count }, () => 100 / count);
+}
+
+function formatTrack(track) {
+  return `خط ${track}/${PRINT_GRID_COLUMNS} · عمود ${(track / 2).toFixed(1)}/${PRINT_GRID_MAJOR_COLUMNS}`;
+}
+
+export function collectPageGridGuides(currentKey = '') {
+  const guides = new Set(majorGuideTracks());
+  const rows = document.querySelectorAll('.print-constitution [data-print-grid-tracks]');
+  rows.forEach((row) => {
+    if (row.dataset.printGridKey === currentKey) return;
+    String(row.dataset.printGridTracks || '')
+      .split(',')
+      .map(Number)
+      .filter(Number.isFinite)
+      .forEach(track => guides.add(track));
+  });
+  return [...guides];
+}
+
+function applyTrackLayout(row, cells, tracks) {
+  const spans = tracksToSpans(tracks, cells.length);
+  row.style.gridTemplateColumns = `repeat(${PRINT_GRID_COLUMNS},minmax(0,1fr))`;
+  row.dataset.printGridTracks = tracks.join(',');
+  cells.forEach((cell, index) => {
+    cell.style.gridColumn = `span ${spans[index]}`;
+    cell.dataset.printGridSpan = String(spans[index]);
+  });
 }
 
 function IndependentRowEnhancer() {
-  const { editing, gridWeights, setGridWeights } = usePrintLayout();
+  const {
+    editing,
+    gridLayouts,
+    rowHeights,
+    setGridLayout,
+    setRowHeight,
+  } = usePrintLayout();
 
   useEffect(() => {
     const roots = [...document.querySelectorAll('.print-constitution')];
@@ -58,16 +98,27 @@ function IndependentRowEnhancer() {
           const cells = [...row.cells];
           if (cells.length < 2) return;
 
-          // الصفوف ذات خلية واحدة مدمجة بالكامل لا يوجد فيها حد داخلي قابل للسحب.
-          // أما أي صف فيه خليتان أو أكثر فيمكن موازنته بصرف النظر عن الصفوف الأخرى.
-          const effectiveCells = cells.filter(cell => Number(cell.colSpan || 1) === 1);
-          if (effectiveCells.length !== cells.length) return;
+          // الصف المدمج بالكامل يبقى خلية واحدة. الصفوف المركبة ذات colspan/rowspan
+          // تحفظ بنية HTML الأصلية إلى أن تنتقل صراحة إلى مصفوفة موحدة.
+          const plainCells = cells.every(cell => (
+            Number(cell.colSpan || 1) === 1 && Number(cell.rowSpan || 1) === 1
+          ));
+          if (!plainCells) return;
 
           const rowKey = `${family}:${kind}:${tableIndex}:row:${rowIndex}`;
-          const defaults = normalize(null, cells.length, defaultRowWeights(kind, cells.length));
-          const current = normalize(gridWeights?.[rowKey], cells.length, defaults);
+          const legacyKey = `${family}:${kind}:${cells.length}`;
+          const defaults = defaultRowWeights(family, kind, cells.length);
+          const storedLayout = gridLayouts?.[rowKey] ?? gridLayouts?.[legacyKey];
+          const tracks = resolveStoredTracks(storedLayout, defaults, cells.length);
+
           row.classList.add('governed-independent-row');
-          row.style.gridTemplateColumns = current.map(w => `${w}fr`).join(' ');
+          row.dataset.printGridKey = rowKey;
+          if (rowHeights?.[rowKey]) {
+            row.style.minHeight = `${Number(rowHeights[rowKey]) * PRINT_GRID_ROW_MM}mm`;
+          } else {
+            row.style.removeProperty('min-height');
+          }
+          applyTrackLayout(row, cells, tracks);
 
           cells.forEach((cell, index) => {
             cell.classList.add('governed-independent-cell');
@@ -75,7 +126,7 @@ function IndependentRowEnhancer() {
 
             const handle = document.createElement('span');
             handle.className = 'governed-row-resizer no-print';
-            handle.title = 'اسحب الحد لموازنة الخليتين في هذا الصف فقط — نقرتان لإعادة الصف';
+            handle.title = 'اسحب الحد على شبكة الصفحة الأم — نقرتان لإعادة الصف';
             cell.appendChild(handle);
 
             const bubble = document.createElement('span');
@@ -96,35 +147,30 @@ function IndependentRowEnhancer() {
 
               const startX = event.clientX;
               const width = row.getBoundingClientRect().width || 1;
-              const start = normalize(gridWeights?.[rowKey], cells.length, defaults);
+              const trackWidth = width / PRINT_GRID_COLUMNS;
+              const start = resolveStoredTracks(
+                gridLayouts?.[rowKey] ?? gridLayouts?.[legacyKey],
+                defaults,
+                cells.length,
+              );
+              const guides = collectPageGridGuides(rowKey);
 
               const apply = (clientX) => {
-                const rawDelta = ((clientX - startX) / width) * 100 * DRAG_SENSITIVITY;
-                const delta = snap(rawDelta);
-                let a = start[index] - delta;
-                let b = start[index + 1] + delta;
-
-                if (a < MIN_CELL_PCT) {
-                  b -= MIN_CELL_PCT - a;
-                  a = MIN_CELL_PCT;
-                }
-                if (b < MIN_CELL_PCT) {
-                  a -= MIN_CELL_PCT - b;
-                  b = MIN_CELL_PCT;
-                }
-
-                a = snap(a);
-                b = snap(b);
-                const next = [...start];
-                next[index] = a;
-                next[index + 1] = b;
-                row.style.gridTemplateColumns = next.map(w => `${w}fr`).join(' ');
-                bubble.textContent = `${a.toFixed(2)}% | ${b.toFixed(2)}%`;
-                setGridWeights(rowKey, next);
+                // RTL: تحريك الحد إلى اليمين يصغّر الخلية الواقعة على يمينه.
+                const deltaTracks = Math.round((clientX - startX) / trackWidth);
+                const next = moveTrackBoundary({
+                  tracks:start,
+                  boundaryIndex:index,
+                  desiredTrack:start[index] - deltaTracks,
+                  count:cells.length,
+                  guides,
+                });
+                applyTrackLayout(row, cells, next);
+                bubble.textContent = formatTrack(next[index]);
+                setGridLayout(rowKey, serializeTracks(next, cells.length));
               };
 
-              bubble.textContent = `${start[index].toFixed(2)}% | ${start[index + 1].toFixed(2)}%`;
-
+              bubble.textContent = formatTrack(start[index]);
               const onMove = (moveEvent) => apply(moveEvent.clientX);
               const onUp = () => {
                 handle.classList.remove('dragging');
@@ -139,8 +185,9 @@ function IndependentRowEnhancer() {
             const onDouble = (event) => {
               event.preventDefault();
               event.stopPropagation();
-              row.style.gridTemplateColumns = defaults.map(w => `${w}fr`).join(' ');
-              setGridWeights(rowKey, defaults);
+              const reset = resolveStoredTracks(null, defaults, cells.length);
+              applyTrackLayout(row, cells, reset);
+              setGridLayout(rowKey, null);
             };
 
             handle.addEventListener('pointerenter', onEnter);
@@ -155,32 +202,100 @@ function IndependentRowEnhancer() {
               handle.remove();
             });
           });
+
+          if (editing) {
+            const vertical = document.createElement('span');
+            vertical.className = 'governed-height-resizer no-print';
+            vertical.title = 'اسحب لضبط ارتفاع الصف بوحدات 2 مم — نقرتان لإلغاء الارتفاع المخصص';
+            const verticalBubble = document.createElement('span');
+            verticalBubble.className = 'governed-height-readout no-print';
+            vertical.appendChild(verticalBubble);
+            row.appendChild(vertical);
+
+            const onHeightDown = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const startY = event.clientY;
+              const naturalUnits = Math.max(2, Math.ceil(row.getBoundingClientRect().height / (PRINT_GRID_ROW_MM * MM_TO_CSS_PX)));
+              const startUnits = Number(rowHeights?.[rowKey]) || naturalUnits;
+              vertical.classList.add('dragging');
+              verticalBubble.textContent = `${startUnits * PRINT_GRID_ROW_MM} مم`;
+
+              const onMove = (moveEvent) => {
+                const delta = Math.round((moveEvent.clientY - startY) / (PRINT_GRID_ROW_MM * MM_TO_CSS_PX));
+                const units = Math.max(2, startUnits + delta);
+                row.style.minHeight = `${units * PRINT_GRID_ROW_MM}mm`;
+                verticalBubble.textContent = `${units * PRINT_GRID_ROW_MM} مم`;
+                setRowHeight(rowKey, units);
+              };
+              const onUp = () => {
+                vertical.classList.remove('dragging');
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+              };
+              window.addEventListener('pointermove', onMove);
+              window.addEventListener('pointerup', onUp);
+            };
+            const onHeightDouble = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              row.style.removeProperty('min-height');
+              setRowHeight(rowKey, null);
+            };
+            vertical.addEventListener('pointerdown', onHeightDown);
+            vertical.addEventListener('dblclick', onHeightDouble);
+            cleanup.push(() => {
+              vertical.removeEventListener('pointerdown', onHeightDown);
+              vertical.removeEventListener('dblclick', onHeightDouble);
+              vertical.remove();
+            });
+          }
         });
       });
     });
 
     return () => cleanup.forEach(fn => fn());
-  }, [editing, gridWeights, setGridWeights]);
+  }, [editing, gridLayouts, rowHeights, setGridLayout, setRowHeight]);
 
   return (
     <style jsx global>{`
+      .print-layout-editing.print-constitution{position:relative;isolation:isolate}
+      .print-layout-editing.print-constitution::before{
+        content:'';position:absolute;inset:0;z-index:20;pointer-events:none;
+        background-image:
+          linear-gradient(to left,rgba(139,51,50,.16) 1px,transparent 1px),
+          linear-gradient(to left,rgba(139,51,50,.055) 1px,transparent 1px),
+          linear-gradient(to bottom,rgba(55,55,55,.055) 1px,transparent 1px);
+        background-size:
+          calc(100% / ${PRINT_GRID_MAJOR_COLUMNS}) 100%,
+          calc(100% / ${PRINT_GRID_COLUMNS}) 100%,
+          100% ${PRINT_GRID_ROW_MM}mm;
+      }
       table.governed-row-table{display:block!important;width:100%!important;border-collapse:separate!important;border-spacing:0!important;border-top:.22mm solid #9b9b9b!important;border-right:.22mm solid #9b9b9b!important}
-      table.governed-row-table>tbody,table.governed-row-table>thead{display:block!important;width:100%!important}
-      table.governed-row-table tr.governed-independent-row{display:grid!important;width:100%!important}
+      table.governed-row-table>tbody,table.governed-row-table>thead,table.governed-row-table>tfoot{display:block!important;width:100%!important}
+      table.governed-row-table tr.governed-independent-row{position:relative;display:grid!important;width:100%!important;min-height:${PRINT_GRID_ROW_MM * 3}mm}
       table.governed-row-table tr.governed-independent-row>*{width:auto!important;border:0!important;border-left:.22mm solid #9b9b9b!important;border-bottom:.22mm solid #9b9b9b!important}
       .governed-independent-cell{position:relative!important;min-width:0!important}
 
-      /* الخط المرئي يبقى رفيعاً، لكن منطقة الإمساك أعرض بكثير من الخط نفسه. */
       .governed-row-resizer{position:absolute;left:-9px;top:-2px;bottom:-2px;width:18px;z-index:30;cursor:col-resize;background:transparent;touch-action:none;user-select:none}
-      .governed-row-resizer::after{content:'';position:absolute;left:8.5px;top:0;bottom:0;border-left:1px dashed rgba(139,51,50,.24);transition:border-color .1s,box-shadow .1s}
-      .governed-row-resizer:hover::after,.governed-row-resizer.dragging::after{border-left:2px solid rgba(139,51,50,.78);box-shadow:0 0 0 2px rgba(139,51,50,.07)}
-      .governed-row-hovering,.governed-row-dragging{outline:1px solid rgba(139,51,50,.08);outline-offset:-1px}
-
-      .governed-resize-readout{display:none;position:absolute;left:50%;top:-25px;transform:translateX(-50%);white-space:nowrap;padding:3px 6px;background:#fff;border:1px solid #b9b9b9;color:#333;font-size:10px;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.12);pointer-events:none;direction:ltr}
+      .governed-row-resizer::after{content:'';position:absolute;left:8.5px;top:0;bottom:0;border-left:1px dashed rgba(139,51,50,.32);transition:border-color .1s,box-shadow .1s}
+      .governed-row-resizer:hover::after,.governed-row-resizer.dragging::after{border-left:2px solid rgba(139,51,50,.82);box-shadow:0 0 0 2px rgba(139,51,50,.08)}
+      .governed-row-hovering,.governed-row-dragging{outline:1px solid rgba(139,51,50,.12);outline-offset:-1px}
+      .governed-resize-readout{display:none;position:absolute;left:50%;top:-27px;transform:translateX(-50%);white-space:nowrap;padding:4px 7px;background:#fff;border:1px solid #a9a9a9;color:#222;font-size:10px;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.14);pointer-events:none;direction:rtl}
       .governed-row-resizer.dragging .governed-resize-readout{display:block}
 
+      .governed-height-resizer{position:absolute;right:0;left:0;bottom:-7px;height:14px;z-index:31;cursor:row-resize;touch-action:none;background:transparent}
+      .governed-height-resizer::after{content:'';position:absolute;right:0;left:0;top:6px;border-top:1px dashed rgba(139,51,50,.22)}
+      .governed-height-resizer:hover::after,.governed-height-resizer.dragging::after{border-top:2px solid rgba(139,51,50,.72)}
+      .governed-height-readout{display:none;position:absolute;right:8px;top:10px;padding:4px 7px;background:#fff;border:1px solid #aaa;color:#222;font-size:10px;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.12)}
+      .governed-height-resizer.dragging .governed-height-readout{display:block}
+
       table.governed-row-table .print-col-resizer{display:none!important}
-      @media print{.governed-row-resizer,.governed-resize-readout{display:none!important}}
+      @media print{
+        .print-layout-editing.print-constitution::before,
+        .governed-row-resizer,.governed-resize-readout,
+        .governed-height-resizer,.governed-height-readout{display:none!important}
+      }
     `}</style>
   );
 }
