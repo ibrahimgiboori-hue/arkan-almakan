@@ -7,7 +7,7 @@ import OrgRoleFields from '@/components/OrgRoleFields';
 const EMPTY = {
   employee_no:'', full_name_ar:'', full_name_en:'', nationality:'',
   id_kind:'iqama', id_number:'', id_expiry:'', mobile:'', email:'',
-  job_title:'', department:'', hire_date:'', status:'active',
+  job_title:'', department:'', hire_date:'', status:'active', annual_leave_days:21,
   org_classification_id:'', org_position_id:'', org_job_title_id:'',
   basic_salary:0, housing_allowance:0, transport_allowance:0, other_allowance:0,
   iban:'', bank_name:'', gosi_number:'', commission_rate:0, duties:'', notes:'',
@@ -31,7 +31,7 @@ export default function EmployeeForm({ initial, id }) {
     const payload = { ...f };
     ['id_expiry','hire_date'].forEach((k) => { if (!payload[k]) payload[k] = null; });
     ['org_classification_id','org_position_id','org_job_title_id'].forEach((k) => { if (!payload[k]) payload[k] = null; });
-    ['basic_salary','housing_allowance','transport_allowance','other_allowance','commission_rate']
+    ['basic_salary','housing_allowance','transport_allowance','other_allowance','commission_rate','annual_leave_days']
       .forEach((k) => { payload[k] = Number(payload[k] || 0); });
     delete payload.id; delete payload.created_at; delete payload.updated_at;
 
@@ -78,10 +78,11 @@ export default function EmployeeForm({ initial, id }) {
         </fieldset>
 
         <fieldset>
-          <legend>الهيكل الوظيفي</legend>
+          <legend>الهيكل الوظيفي والاستحقاقات</legend>
           <div className="form-grid">
             <OrgRoleFields value={f} onChange={setOrg} />
-            <div className="field"><label>تاريخ التعيين</label><input type="date" value={f.hire_date || ''} onChange={set('hire_date')} dir="ltr" /></div>
+            <div className="field"><label>تاريخ المباشرة</label><input type="date" value={f.hire_date || ''} onChange={set('hire_date')} dir="ltr" /><span className="hint">يبدأ منه احتساب رصيد الإجازة السنوية.</span></div>
+            <div className="field"><label>الإجازة السنوية المتفق عليها</label><input type="number" min="1" step="1" value={f.annual_leave_days ?? 21} onChange={set('annual_leave_days')} dir="ltr" /><span className="hint">تستحق تدريجياً خلال 365 يوماً ولا تمنح كاملة من أول يوم.</span></div>
             <div className="field"><label>الحالة</label><select value={f.status} onChange={set('status')}><option value="active">على رأس العمل</option><option value="on_leave">في إجازة</option><option value="suspended">موقوف</option><option value="terminated">منتهي</option></select></div>
             <div className="field span2"><label>المهام الوظيفية</label><textarea rows="3" value={f.duties || ''} onChange={set('duties')} placeholder="اكتب المهام الفعلية باختصار" /><span className="hint">المهام لا تحدد صلاحية استخدام البرنامج.</span></div>
             <div className="field"><label>نسبة العمولة</label><input type="number" step="0.001" min="0" max="1" value={f.commission_rate} onChange={set('commission_rate')} dir="ltr" /><span className="hint">0.025 تعني 2.5% من ربح المشاريع التي يجلبها</span></div>
