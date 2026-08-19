@@ -34,9 +34,10 @@ export default function Leaves() {
   const [msg, setMsg] = useState('');
 
   async function load() {
+    setErr('');
     const [r, b, e] = await Promise.all([
       supabase.from('leave_requests')
-        .select('*, employees(full_name_ar, employee_no, hire_date, annual_leave_days, job_title, department)')
+        .select('*, employees:employees!leave_requests_employee_id_fkey(full_name_ar, employee_no, hire_date, annual_leave_days, job_title, department)')
         .order('start_date', { ascending: false })
         .order('created_at', { ascending: false }),
       supabase.from('v_leave_balance_live').select('*').order('employee_no'),
@@ -46,7 +47,10 @@ export default function Leaves() {
         .order('employee_no'),
     ]);
     const firstError = r.error || b.error || e.error;
-    if (firstError) setErr(firstError.message);
+    if (firstError) {
+      console.error('Leaves load failed', firstError);
+      setErr('تعذر تحميل بيانات الإجازات حاليًا. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+    }
     setRows(r.data || []);
     setBal(b.data || []);
     setEmps(e.data || []);
