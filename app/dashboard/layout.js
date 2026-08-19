@@ -11,6 +11,8 @@ const NAV = [
     { href: '/dashboard/employees', label: 'الموظفون' },
     { href: '/dashboard/recruitment', label: 'التوظيف والمرشحون' },
     { href: '/dashboard/recruitment/offers', label: 'العروض الوظيفية' },
+    { href: '/dashboard/recruitment/contracts', label: 'مسودات عقود العمل' },
+    { href: '/dashboard/recruitment/onboarding', label: 'المباشرة والتهيئة' },
     { href: '/dashboard/board', label: 'مجلس الإدارة' },
     { href: '/dashboard/leaves', label: 'الإجازات' },
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
