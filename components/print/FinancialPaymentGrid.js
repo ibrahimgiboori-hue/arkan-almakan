@@ -1,6 +1,10 @@
 'use client';
 import GovernedCellGrid from '@/components/print/GovernedCellGrid';
 
+function BankCode({ value }) {
+  return <span className="bank-code" dir="ltr">{value || '—'}</span>;
+}
+
 export default function FinancialPaymentGrid({
   beneficiary,
   bank,
@@ -24,9 +28,9 @@ export default function FinancialPaymentGrid({
       weights:[12,38,10,40],
       cells:[
         {label:true,content:'رقم الحساب'},
-        {content:accountNo || '—',className:'bank-value'},
+        {content:<BankCode value={accountNo} />,className:'bank-value',dir:'rtl'},
         {label:true,content:'الآيبان'},
-        {content:iban || '—',className:'bank-value'},
+        {content:<BankCode value={iban} />,className:'bank-value',dir:'rtl'},
       ],
     },
     {
