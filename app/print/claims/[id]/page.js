@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { dateAr, money, qty } from '@/lib/format';
+import { dateAr, dateRange, money, qty } from '@/lib/format';
 import Riyal from '@/components/Riyal';
 import PrintFrame from '@/components/print/PrintFrame';
 import '../print.css';
@@ -116,7 +116,7 @@ export default function ClaimDocumentsPrint() {
   const clientName=project?.client_name || '—';
   const measuredRows=rows.filter(r=>r.measurement_id);
   const measurementCount=measuredRows.length;
-  const overallRange=`من ${dateAr(claim.period_from)} إلى ${dateAr(claim.period_to)}`;
+  const overallRange=dateRange(claim.period_from,claim.period_to);
   const issueDate=doc==='receipt' || doc==='memo'
     ? (claim.collected_at || claim.owner_approved_at || claim.period_to)
     : (doc==='measure' ? claim.period_to : (claim.submitted_at || claim.period_to));
@@ -170,7 +170,7 @@ export default function ClaimDocumentsPrint() {
 
       <table className="info-table"><tbody>
         <tr><th>المشروع</th><td>{projectName}</td><th>رقم المشروع</th><td>{project?.project_no || '—'}</td></tr>
-        <tr><th>الموقع</th><td>{project?.site_address || project?.city || '—'}</td><th>نطاق القياسات</th><td>{overallRange}</td></tr>
+        <tr><th>الموقع</th><td>{project?.site_address || project?.city || '—'}</td><th>نطاق القياسات</th><td className="mono">{overallRange}</td></tr>
         <tr><th>رقم المستخلص</th><td>{claim.claim_no || '—'}</td><th>عدد التمتيرات</th><td>{measurementCount || '—'}</td></tr>
       </tbody></table>
 
@@ -186,7 +186,7 @@ export default function ClaimDocumentsPrint() {
           <tbody>
             {rows.map((r,i)=><tr key={r.id || i}>
               <td>{i+1}</td><td>{r.description}</td>
-              {measurementCount>0 && <><td>{r.measurement_no_snapshot || '—'}</td><td className="mono">{r.measurement_id ? `${dateAr(r.measurement_period_from)} - ${dateAr(r.measurement_period_to)}` : '—'}</td></>}
+              {measurementCount>0 && <><td>{r.measurement_no_snapshot || '—'}</td><td className="mono">{r.measurement_id ? dateRange(r.measurement_period_from,r.measurement_period_to) : '—'}</td></>}
               <td>{r.unit}</td><td className="num">{qty(r.qty_this)}</td>
               {doc==='demand' && <><td className="num">{money(r.unit_price)}</td><td className="num">{money(r.amount || n(r.qty_this)*n(r.unit_price))}</td></>}
             </tr>)}
