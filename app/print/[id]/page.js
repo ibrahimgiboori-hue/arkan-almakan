@@ -43,7 +43,7 @@ export default function PrintDoc() {
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
   if (!doc || !cfg) return <div style={{padding:40}}>جارٍ التحميل…</div>;
 
-  const custom = tpl?.is_custom && tpl?.layout?.sections?.length;
+  const custom = !!tpl?.layout?.sections?.length;
   const legacy = byCode(doc.template_code);
   const p = doc.payload || {};
   const rows = p._rows || [];
@@ -222,13 +222,21 @@ export default function PrintDoc() {
 
             if (s.kind === 'table') {
               if (!rows.length) return null;
+              const columns = s.columns || [];
+              const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
               return (
                 <table className="amounts" key={s.id}>
+                  <colgroup>
+                    <col style={{width:'7mm'}} />
+                    {columns.map((column) => (
+                      <col key={column.key} style={{width:`${(Number(column.span || 1) / spanTotal) * 92}%`}} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th style={{width:'9mm'}}>م</th>
-                      {(s.columns || []).map((c) => (
-                        <th key={c.key} className={['money','number'].includes(c.type) ? 'num' : ''}>
+                      <th className="serial-col">م</th>
+                      {columns.map((c) => (
+                        <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
                           {c.label}
                         </th>
                       ))}
@@ -238,11 +246,9 @@ export default function PrintDoc() {
                     {rows.map((r, i) => (
                       <tr key={r._id || i}>
                         <td className="mono">{i+1}</td>
-                        {(s.columns || []).map((c) => (
-                          <td key={c.key} className={['money','number'].includes(c.type) ? 'num' : ''}>
-                            {c.type === 'money' ? money(r[c.key] || 0)
-                              : c.type === 'number' ? fmtQty(r[c.key] || 0)
-                              : (r[c.key] ?? '—')}
+                        {columns.map((c) => (
+                          <td key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
+                            {fmt(c, r[c.key])}
                           </td>
                         ))}
                       </tr>
