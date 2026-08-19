@@ -30,11 +30,11 @@ export default function PrintFrame({
           {header && <img src={header} className="print-master-header" alt="" style={{height:`${Number(cfg?.header_height_mm || 40)}mm`}} />}
           {footer && <img src={footer} className="print-master-footer" alt="" style={{height:`${Number(cfg?.footer_height_mm || 32)}mm`}} />}
           {watermark && <img src={watermark} className="print-master-watermark" alt="" />}
-          {stamp && <img src={stamp} className="print-master-stamp" alt="" style={{width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`}} />}
         </div>
         <main className="print-content" style={{padding:`${top}mm ${side}mm ${bottom}mm`}}>
           {children}
         </main>
+        {stamp && <img src={stamp} className="print-master-stamp" alt="" style={{width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`}} />}
       </div>
     </div>
   );
