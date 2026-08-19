@@ -20,8 +20,8 @@ export default function LeaveParallelActionsPanel() {
         .neq('record_source','historical_paper')
         .order('created_at',{ascending:false}),
       supabase.from('employees')
-        .select('id,employee_no,full_name_ar')
-        .in('status',['active','on_leave'])
+        .select('id,employee_no,full_name_ar,status,employment_kind,replacement_leave_request_id')
+        .in('status',['active','on_leave','pending_start'])
         .order('employee_no'),
       supabase.from('leave_request_substitutes')
         .select('request_id,substitute_employee_id,substitute:employees!leave_request_substitutes_substitute_employee_id_fkey(full_name_ar,employee_no)'),
@@ -76,6 +76,16 @@ export default function LeaveParallelActionsPanel() {
             <tbody>{prepared.map((r)=>{
               const hrDone = r.status === 'hr_reviewed';
               const readyFinal = hrDone && (!r.substitute_employee_id || r.consentState === 'approved');
+              const candidates = emps
+                .filter((e) => e.id !== r.employee_id)
+                .filter((e) => ['active','on_leave'].includes(e.status) || (
+                  e.status === 'pending_start' &&
+                  e.employment_kind === 'temporary_replacement' &&
+                  e.replacement_leave_request_id === r.id
+                ))
+                .map((e) => e.status === 'pending_start'
+                  ? { ...e, full_name_ar: `${e.full_name_ar} — بديل مؤقت مخصص للطلب` }
+                  : e);
               return <tr key={r.id}>
                 <td>{r.employees?.employee_no ? `${r.employees.employee_no} - ` : ''}{r.employees?.full_name_ar || '—'}</td>
                 <td className="mono">{dateAr(r.start_date)} - {dateAr(r.end_date)}</td>
@@ -84,7 +94,7 @@ export default function LeaveParallelActionsPanel() {
                   {readyFinal && <span className="pill warn" style={{marginInlineStart:6}}>بانتظار الاعتماد النهائي</span>}
                 </td>
                 <td>{r.substitute_name || '—'}</td>
-                <td><LeaveSubstituteActions request={r} employees={emps} consentState={r.consentState} onSaved={load} /></td>
+                <td><LeaveSubstituteActions request={r} employees={candidates} consentState={r.consentState} onSaved={load} /></td>
               </tr>;
             })}</tbody>
           </table>
