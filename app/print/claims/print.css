@@ -16,7 +16,7 @@ body{font-family:Arial,"Tahoma",sans-serif}
 .print-master-header{position:absolute;top:0;right:0;width:210mm;object-fit:fill;display:block}
 .print-master-footer{position:absolute;bottom:0;right:0;width:210mm;object-fit:fill;display:block}
 .print-master-watermark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:120mm;max-height:160mm;object-fit:contain;display:block}
-.print-master-stamp{position:absolute;right:20mm;bottom:42mm;height:auto;object-fit:contain;display:block}
+.print-master-stamp{position:absolute;right:20mm;bottom:42mm;z-index:3;height:auto;object-fit:contain;display:block}
 .print-content{position:relative;z-index:1;min-height:297mm;direction:rtl;text-align:right;font-size:10pt;line-height:1.75}
 
 .doc-meta{display:flex;justify-content:space-between;gap:12mm;margin-bottom:5mm;font-size:9pt;color:#333}
