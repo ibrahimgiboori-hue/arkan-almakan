@@ -28,6 +28,7 @@ const NAV = [
     { href: '/dashboard/archive', label: 'الأرشيف' },
     { href: '/dashboard/register', label: 'الصادر والوارد' },
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
+    { href: '/dashboard/approvals', label: 'سجل الاعتمادات' },
     { href: '/dashboard/formbuilder', label: 'محرر النماذج' },
   ]},
   { group: 'الإعدادات', items: [
@@ -68,12 +69,10 @@ export default function DashboardLayout({ children }) {
   if (!ready) return <div className="empty">جارٍ التحميل</div>;
 
   if (!me?.is_active || !me?.role) return (
-    <div className="login-wrap">
-      <div className="login">
-        <div className="msg err">حسابك غير مهيأ لاستخدام النظام حاليًا.</div>
-        <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}} onClick={signOut}>خروج</button>
-      </div>
-    </div>
+    <div className="login-wrap"><div className="login">
+      <div className="msg err">حسابك غير مهيأ لاستخدام النظام حاليًا.</div>
+      <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}} onClick={signOut}>خروج</button>
+    </div></div>
   );
 
   const emp = me.employees;
@@ -91,29 +90,19 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="side-head">
-          <div className="name">أركان المكان</div>
-          <div className="sub">النظام الإداري</div>
-        </div>
-
+        <div className="side-head"><div className="name">أركان المكان</div><div className="sub">النظام الإداري</div></div>
         <nav className="nav">
-          {NAV.map((g) => (
-            <div key={g.group}>
-              <div className="nav-group">{g.group}</div>
-              {g.items.map((it) => (
-                <Link key={it.href} href={it.href} className={isOn(it.href) ? 'on' : ''}>{it.label}</Link>
-              ))}
-            </div>
-          ))}
+          {NAV.map((g)=><div key={g.group}>
+            <div className="nav-group">{g.group}</div>
+            {g.items.map((it)=><Link key={it.href} href={it.href} className={isOn(it.href)?'on':''}>{it.label}</Link>)}
+          </div>)}
         </nav>
-
         <div className="side-foot">
           <div className="who">{emp?.full_name_ar || me.email}</div>
           <div className="role">{accessLabel}</div>
           <button onClick={signOut}>خروج</button>
         </div>
       </aside>
-
       <div className="main">
         <div className="topbar">
           <span className="crumb">شركة أركان المكان للمقاولات</span>
