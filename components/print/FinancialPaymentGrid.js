@@ -15,7 +15,7 @@ export default function FinancialPaymentGrid({
   const rows = [
     {
       key:'beneficiary-bank',
-      weights:[12.5,37.5,12.5,37.5],
+      weights:[6,12,6,24],
       cells:[
         {label:true,content:'اسم المستفيد'},
         {content:beneficiary || '—'},
@@ -25,7 +25,7 @@ export default function FinancialPaymentGrid({
     },
     {
       key:'account-iban',
-      weights:[12.5,37.5,12.5,37.5],
+      weights:[6,12,6,24],
       cells:[
         {label:true,content:'رقم الحساب'},
         {content:<BankCode value={accountNo} />,className:'bank-value',dir:'rtl'},
@@ -43,5 +43,5 @@ export default function FinancialPaymentGrid({
     },
   ];
 
-  return <GovernedCellGrid gridKey="projects-finance:payment" rows={rows} className="financial-payment-grid" />;
+  return <GovernedCellGrid gridKey="projects-finance:payment:aligned-v1" rows={rows} className="financial-payment-grid" />;
 }

@@ -23,6 +23,8 @@ const PrintLayoutContext = createContext({
 
 const TABLE_DEFAULTS = {
   'projects-finance:info-table:4':[12.5,37.5,12.5,37.5],
+  // خطا 18 و24 هما محورا العمود المظلل المشترك مع عمود التمتير.
+  'projects-finance:claim-info-table:4':[6,12,6,24],
   'projects-finance:data-table:8':[4.1667,25,8.3333,20.8333,8.3333,8.3333,12.5,12.5],
   'projects-finance:data-table:6':[4.1667,37.5,12.5,12.5,16.6666,16.6667],
   'projects-finance:summary-table:2':[75,25],
@@ -43,14 +45,25 @@ const SEMANTIC_COLUMN_WEIGHTS = Object.freeze({
   amount:7,
 });
 
+// امتدادات صريحة على شبكة 48 للمصفوفات المعروفة. تحفظ المحاور الرأسية
+// المشتركة بين جدول معلومات المستخلص وجدول البنود وبيانات السداد.
+const SEMANTIC_COLUMN_TRACK_PROFILES = Object.freeze({
+  'row-index|text|measurement-number|date-range|unit|quantity':[2,16,6,16,3,5],
+  'row-index|text|measurement-number|date-range|unit|quantity|unit-price|amount':[2,16,6,10,3,3,3,5],
+  'row-index|text|unit|quantity':[2,37,4,5],
+  'row-index|text|unit|quantity|unit-price|amount':[2,27,4,4,5,6],
+});
+
 function tableKind(table) {
-  return ['claim-lines-table','info-table','data-table','summary-table','payment-table','row-resizable-table']
+  return ['claim-aligned-lines-table','claim-info-table','claim-lines-table','info-table','data-table','summary-table','payment-table','row-resizable-table']
     .find(name => table.classList.contains(name)) || 'governed-table';
 }
 
 function semanticRowWeights(cells) {
   const roles = cells.map(cell => cell.dataset.printColumnRole || '');
   if (!roles.length || roles.some(role => !SEMANTIC_COLUMN_WEIGHTS[role])) return null;
+  const profile = SEMANTIC_COLUMN_TRACK_PROFILES[roles.join('|')];
+  if (profile) return profile;
   const weights = roles.map(role => SEMANTIC_COLUMN_WEIGHTS[role]);
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   return weights.map(weight => (weight / total) * 100);

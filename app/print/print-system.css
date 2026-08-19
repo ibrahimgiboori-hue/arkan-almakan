@@ -86,7 +86,7 @@ body{font-family:Arial,"Tahoma",sans-serif}
 .print-family-projects-finance .claim-lines-table [data-print-column-role="quantity"],
 .print-family-projects-finance .claim-lines-table [data-print-column-role="unit-price"],
 .print-family-projects-finance .claim-lines-table [data-print-column-role="amount"]{white-space:nowrap;overflow-wrap:normal;word-break:keep-all}
-.print-family-projects-finance .claim-lines-table td[data-print-column-role="date-range"]{direction:ltr;unicode-bidi:isolate;text-align:center;font-variant-numeric:tabular-nums}
+.print-family-projects-finance .claim-lines-table td[data-print-column-role="date-range"]{direction:ltr;unicode-bidi:isolate;text-align:right;font-variant-numeric:tabular-nums}
 .print-family-projects-finance .claim-lines-table [data-print-column-role="row-index"],
 .print-family-projects-finance .claim-lines-table [data-print-column-role="measurement-number"],
 .print-family-projects-finance .claim-lines-table [data-print-column-role="unit"]{text-align:center}

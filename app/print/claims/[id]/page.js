@@ -263,7 +263,7 @@ export default function ClaimDocumentsPrint() {
 
       <p className="letter-body">{letter}</p>
 
-      <table className="info-table"><tbody>
+      <table className="info-table claim-info-table"><tbody>
         <tr><th>المشروع</th><td>{projectName}</td><th>رقم المشروع</th><td>{project?.project_no || '—'}</td></tr>
         <tr><th>الموقع</th><td>{project?.site_address || project?.city || '—'}</td><th>نطاق القياسات</th><td className="mono">{overallRange}</td></tr>
         <tr><th>رقم المستخلص</th><td>{claim.claim_no || '—'}</td><th>عدد التمتيرات</th><td>{measurementCount || '—'}</td></tr>
@@ -271,7 +271,7 @@ export default function ClaimDocumentsPrint() {
 
       {(doc==='measure' || doc==='demand') && <>
         <div className="section-title">الأعمال المنفذة والمقاسة</div>
-        <table className="data-table claim-lines-table">
+        <table className="data-table claim-lines-table claim-aligned-lines-table">
           <thead><tr>
             <th data-print-column-role="row-index" style={{width:'6mm'}}>م</th>
             <th data-print-column-role="text">البيان</th>
