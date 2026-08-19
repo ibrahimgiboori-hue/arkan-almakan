@@ -271,6 +271,9 @@ function IndependentRowEnhancer() {
           calc(100% / ${PRINT_GRID_COLUMNS}) 100%,
           100% ${PRINT_GRID_ROW_MM}mm;
       }
+      .print-layout-editing.print-constitution .xlsx-title{
+        z-index:21;background:#fff;
+      }
       table.governed-row-table{display:block!important;width:100%!important;border-collapse:separate!important;border-spacing:0!important;border-top:.22mm solid #9b9b9b!important;border-right:.22mm solid #9b9b9b!important}
       table.governed-row-table>tbody,table.governed-row-table>thead,table.governed-row-table>tfoot{display:block!important;width:100%!important}
       table.governed-row-table tr.governed-independent-row{position:relative;display:grid!important;width:100%!important;min-height:${PRINT_GRID_ROW_MM * 3}mm}
@@ -292,7 +295,9 @@ function IndependentRowEnhancer() {
 
       table.governed-row-table .print-col-resizer{display:none!important}
       @media print{
-        .print-layout-editing.print-constitution::before,
+        .print-layout-editing.print-constitution::before{
+          content:none!important;display:none!important;background:none!important;
+        }
         .governed-row-resizer,.governed-resize-readout,
         .governed-height-resizer,.governed-height-readout{display:none!important}
       }

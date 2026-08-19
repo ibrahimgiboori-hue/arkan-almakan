@@ -29,9 +29,10 @@ body{font-family:Arial,"Tahoma",sans-serif}
 
 /* ---------- شبكة الخلايا المتصلة ---------- */
 .xlsx-doc{direction:rtl;color:#222}
-.xlsx-title{text-align:center;margin:0 0 2.2mm;break-after:avoid;page-break-after:avoid}
+.xlsx-title{position:relative;text-align:center;margin:0 0 2.2mm;break-after:avoid;page-break-after:avoid}
 .xlsx-title h1{margin:0;color:#7C2B28;font-size:14pt;line-height:1.2}
 .xlsx-title .rule{display:block;width:24mm;border-top:.55mm solid #8B3332;margin:1.1mm auto 0}
+.print-constitution .xlsx-title + .xlsx-grid{margin-top:1mm}
 .xlsx-meta{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin:0 0 1.8mm;font-size:7.8pt;color:#3d3d3d}
 .xlsx-meta span:last-child{text-align:left;direction:ltr}
 

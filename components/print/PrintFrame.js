@@ -242,7 +242,7 @@ export default function PrintFrame({
               <div
                 ref={innerRef}
                 className="print-fit-content"
-                style={{ zoom:scale, width:compensatedWidth }}
+                style={{ transform:`scale(${scale})`, width:compensatedWidth }}
               >
                 {children}
               </div>
