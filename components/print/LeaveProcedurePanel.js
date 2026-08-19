@@ -20,7 +20,7 @@ export default function LeaveProcedurePanel({
   const hrAction = exceptional ? 'إعداد وتسجيل الطلب' : 'مراجعة وموافقة';
   const substituteName = substitute?.full_name_ar || 'غير محدد';
   const substituteTitle = substitute?.employment_kind === 'temporary_replacement'
-    ? 'موظف بديل مؤقت'
+    ? 'بديل مؤقت'
     : (substitute?.job_title || 'موظف بديل');
   const hrName = hrApproval?.actor_name || 'الموارد البشرية';
   const hrTitle = hrApproval?.actor_title || 'الموارد البشرية';
@@ -35,7 +35,7 @@ export default function LeaveProcedurePanel({
     },
     {
       key:'hr', action:hrAction, actor:hrName, title:hrTitle,
-      state:slotState(hrApproval,{approved:'تم الإجراء',pending:'بانتظار الإجراء',rejected:'مرفوض'}),
+      state:slotState(hrApproval,{approved:'تم',pending:'بانتظار الإجراء',rejected:'مرفوض'}),
       date:hrApproval?.decision_date,
     },
     {
@@ -53,44 +53,31 @@ export default function LeaveProcedurePanel({
 
   return (
     <>
-      <style>{`
-        .leave-procedure-manual{display:none}
-        .leave-procedure-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;margin-top:2.2mm}
-        .leave-procedure-slot{min-height:23mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;padding:1.4mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.8mm;background:#fff}
-        .leave-procedure-slot b{color:#7C2B28;font-size:8.2pt}
-        .leave-procedure-slot strong{font-size:8.1pt;color:#222}
-        .leave-procedure-slot span,.leave-procedure-slot small{font-size:7.2pt;color:#555}
-        .leave-procedure-manual .leave-procedure-slot{min-height:18mm;justify-content:space-between}
-        .leave-sign-line{width:78%;border-top:.2mm solid #777;padding-top:1mm;margin-top:2mm;font-size:7pt}
-        @media print{
-          .leave-procedure-electronic{display:none!important}
-          .leave-procedure-manual{display:block!important}
-        }
-      `}</style>
-
-      <div className="leave-procedure-electronic">
+      <div className="procedure-electronic">
         <div className="xlsx-grid" style={{marginTop:'2.2mm'}}>
           <div className="xlsx-cell xlsx-section s12">سجل الإجراءات الإلكترونية</div>
         </div>
-        <div className="leave-procedure-grid">
+        <div className="procedure-stage-grid" style={{'--procedure-stage-columns': electronic.length}}>
           {electronic.map((slot) => (
-            <div className="leave-procedure-slot" key={slot.key}>
-              <b>{slot.action}</b>
-              <strong>{slot.actor}</strong>
-              <span>{slot.title}</span>
-              <small>{slot.state}{slot.date ? ` · ${dateAr(slot.date)}` : ''}</small>
+            <div className="procedure-stage-slot" key={slot.key}>
+              <b className="procedure-stage-action">{slot.action}</b>
+              <strong className="procedure-stage-actor">{slot.actor}</strong>
+              <span className="procedure-stage-title">{slot.title}</span>
+              <small className="procedure-stage-meta">
+                {slot.state}{slot.date ? ` · ${dateAr(slot.date)}` : ''}
+              </small>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="leave-procedure-manual">
-        <div className="leave-procedure-grid">
+      <div className="procedure-manual">
+        <div className="procedure-signature-grid" style={{'--procedure-stage-columns': manual.length}}>
           {manual.map((slot) => (
-            <div className="leave-procedure-slot" key={slot.label}>
-              <b>{slot.label}</b>
-              {slot.name && <strong>{slot.name}</strong>}
-              <div className="leave-sign-line">الاسم والتوقيع</div>
+            <div className="procedure-signature-slot" key={slot.label}>
+              <b className="procedure-signature-role">{slot.label}</b>
+              {slot.name && <strong className="procedure-signature-name">{slot.name}</strong>}
+              <div className="procedure-signature-line">الاسم والتوقيع</div>
             </div>
           ))}
         </div>
