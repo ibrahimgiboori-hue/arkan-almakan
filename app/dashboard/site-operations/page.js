@@ -18,6 +18,7 @@ const PAYER_AR={contractor:'المقاول',arkan_custody:'أركان من ال�
 const SOURCE_AR={bank:'تحويل بنكي',cash:'نقداً',custody:'من عهدة'};
 const iso=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+const naturalCompare=(a='',b='')=>String(a).localeCompare(String(b),'ar',{numeric:true,sensitivity:'base'});
 
 function suggestedCategory(text=''){
   if(/بنزين|ديزل|وقود/i.test(text))return 'وقود';
@@ -132,7 +133,7 @@ export default function SiteOperationsPage(){
           project_basis:pc?.basis||null,
         };
       });
-      setContractors(cs.sort((a,b)=>a.name_ar.localeCompare(b.name_ar,'ar')));
+      setContractors(cs.sort((a,b)=>naturalCompare(a.name_ar,b.name_ar)));
 
       const laborerIds=[...new Set(assigns.map(x=>x.laborer_id).filter(Boolean))];
       let labs=[];
@@ -144,7 +145,7 @@ export default function SiteOperationsPage(){
           return {...w,contractor_id:a?.contractor_id||w.contractor_id,labor_class:a?.labor_class||w.labor_class,trade:a?.trade||w.trade,daily_rate:a?.daily_rate??w.daily_rate,pay_basis:a?.pay_basis||w.pay_basis,assignment_id:a?.id};
         });
       }
-      setWorkers(labs);
+      setWorkers(labs.sort((a,b)=>naturalCompare(a.full_name,b.full_name)));
 
       let att=[],out=[];
       if(did){
@@ -169,7 +170,7 @@ export default function SiteOperationsPage(){
 
   const groups=useMemo(()=>contractors.map(c=>({
     ...c,
-    workers:workers.filter(w=>w.contractor_id===c.id),
+    workers:workers.filter(w=>w.contractor_id===c.id).sort((a,b)=>naturalCompare(a.full_name,b.full_name)),
     outputs:outputs.filter(x=>x.contractor_id===c.id),
     expenses:expenses.filter(x=>x.contractor_id===c.id),
     advances:advances.filter(x=>x.contractor_id===c.id),
@@ -221,6 +222,32 @@ export default function SiteOperationsPage(){
     if(!pending.length)return;
     if(!confirm(`سيُسجل ${pending.length} فرداً كغياب. متابعة؟`))return;
     await markAll(g,'absent',true);
+  }
+  async function clearContractorAttendance(g){
+    const registered=g.workers.filter(w=>marks[w.id]);
+    if(!registered.length)return;
+    if(!confirm(`إلغاء تسجيلات الحضور لـ ${registered.length} فرداً لدى ${g.name_ar} في ${date}؟\nسيعودون إلى «غير مسجل».`))return;
+    setBusy('clear-'+g.id);setErr('');setMsg('');
+    try{
+      const {data,error}=await supabase.rpc('fn_clear_contractor_attendance_day',{p_project_id:projectId,p_contractor_id:g.id,p_work_date:date});
+      if(error)throw error;
+      setMsg(`أُلغي ${Number(data||0)} تسجيل حضور/غياب، وعاد الأفراد إلى غير مسجل.`);
+      await load();
+    }catch(e){setErr('تعذّر التراجع: '+(e.message||e));}
+    setBusy('');
+  }
+  async function removeAttendance(w){
+    const row=marks[w.id];
+    if(!row)return;
+    if(!confirm(`إلغاء تسجيل ${w.full_name} لهذا اليوم؟`))return;
+    setBusy('undo-'+w.id);setErr('');
+    try{
+      const {error}=await supabase.rpc('fn_remove_attendance_entry',{p_attendance_id:row.id});
+      if(error)throw error;
+      setMarks(m=>{const next={...m};delete next[w.id];return next;});
+      setMsg(`أُلغي تسجيل ${w.full_name}`);
+    }catch(e){setErr('تعذّر إلغاء التسجيل: '+(e.message||e));}
+    setBusy('');
   }
 
   function parseCommand(){
@@ -365,7 +392,7 @@ export default function SiteOperationsPage(){
   const selectedProject=projects.find(x=>x.id===projectId);
 
   return <div dir="rtl" className={styles.root}>
-    <div className="page-head"><div><h1>مركز التشغيل اليومي</h1><p>اختيار واحد للمشروع والتاريخ، وبعده كل حركة تُسجل من نفس المكان.</p></div></div>
+    <div className="page-head"><div><h1>مركز التشغيل اليومي</h1><p>هذه هي واجهة التنفيذ المعتمدة: اختر المشروع واليوم ثم سجّل كل ما حدث من نفس الصفحة.</p></div></div>
 
     <div className={styles.contextBar}>
       <div className="field"><label>المشروع</label><select value={projectId} onChange={e=>setProjectId(e.target.value)}><option value="">— اختر المشروع —</option>{projects.map(p=><option key={p.id} value={p.id}>{p.project_no} — {p.name_ar}</option>)}</select></div>
@@ -379,7 +406,7 @@ export default function SiteOperationsPage(){
 
     {!projectId?<div className="empty"><h3>اختر المشروع مرة واحدة</h3><p>سيتذكره مركز التشغيل في زيارتك التالية.</p></div>:<>
       <section className={styles.commandBox}>
-        <div className={styles.commandTitle}><div><b>الإدخال السريع</b><span>اكتب الحركة كما تقولها للمشرف</span></div><span>{selectedProject?.name_ar}</span></div>
+        <div className={styles.commandTitle}><div><b>الإدخال السريع</b><span>اكتب الحركة كما تقولها للمشرف — والحفظ لا يتم قبل المعاينة.</span></div><span>{selectedProject?.name_ar}</span></div>
         <div className={styles.commandRow}>
           <input value={command} onChange={e=>{setCommand(e.target.value);setPreview(null);}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();parseCommand();}}} placeholder="مثال: الجساس بنزين 250" />
           <button className="btn" onClick={parseCommand} disabled={!command.trim()}>افهم الحركة</button>
@@ -406,8 +433,9 @@ export default function SiteOperationsPage(){
 
       {shownGroups.map(g=>{
         const q=workerSearch.trim().toLowerCase();
-        const visible=g.workers.filter(w=>!q||[w.full_name,w.trade].filter(Boolean).some(v=>String(v).toLowerCase().includes(q)));
+        const visible=g.workers.filter(w=>!q||[w.full_name,w.trade].filter(Boolean).some(v=>String(v).toLowerCase().includes(q))).sort((a,b)=>naturalCompare(a.full_name,b.full_name));
         const pending=visible.filter(w=>!marks[w.id]),done=visible.filter(w=>marks[w.id]);
+        const registeredAll=g.workers.filter(w=>marks[w.id]).length;
         const balance=Number(g.account?.balance_due||0);
         return <section className={styles.contractorCard} key={g.id}>
           <header>
@@ -416,8 +444,9 @@ export default function SiteOperationsPage(){
           </header>
 
           <div className={styles.actions}>
-            <button className="btn" onClick={()=>markAll(g,'full',true)} disabled={!g.workers.some(w=>!marks[w.id])||busy==='group-'+g.id}>حضور الباقين</button>
+            <button className="btn" onClick={()=>{const n=g.workers.filter(w=>!marks[w.id]).length;if(n&&confirm(`تسجيل حضور ${n} فرداً لدى ${g.name_ar}؟`))markAll(g,'full',true);}} disabled={!g.workers.some(w=>!marks[w.id])||busy==='group-'+g.id}>حضور الباقين</button>
             <button className="btn ghost" onClick={()=>closeAttendance(g)} disabled={!g.workers.some(w=>!marks[w.id])}>غياب غير المسجلين</button>
+            {registeredAll>0&&<button className="btn ghost" style={{borderColor:'#d9a8a5',color:'#9d2f2b'}} onClick={()=>clearContractorAttendance(g)} disabled={busy==='clear-'+g.id}>إلغاء تسجيلات اليوم ({registeredAll})</button>}
             <button className="btn ghost" onClick={()=>openWorkers(g)}>إضافة عمال</button>
             <button className="btn ghost" onClick={()=>openOutput(g)}>تسجيل إنجاز</button>
             <button className="btn ghost" onClick={()=>openMovement(g)}>حركة مالية</button>
@@ -428,7 +457,7 @@ export default function SiteOperationsPage(){
               <div className={styles.blockHead}><div><b>الحضور</b><span>{pending.length} ينتظر التسجيل · {done.length} مكتمل</span></div><input placeholder="بحث سريع بالاسم" value={workerSearch} onChange={e=>setWorkerSearch(e.target.value)}/></div>
               {g.workers.length===0?<div className={styles.softEmpty}>لا توجد عمالة مسندة. استخدم «إضافة عمال» والصق قائمة الأسماء مرة واحدة.</div>:<>
                 <div className={styles.workerGrid}>{pending.map(w=><WorkerRow key={w.id} worker={w} busy={busy==='att-'+w.id} onMark={markWorker} onMove={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}/>)}</div>
-                {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent','stopped','leave'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}</span><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
+                {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent','stopped','leave'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}</span><button type="button" onClick={()=>removeAttendance(w)} disabled={busy==='undo-'+w.id} style={{color:'#9d2f2b'}}>إلغاء</button><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
               </>}
             </div>
 
