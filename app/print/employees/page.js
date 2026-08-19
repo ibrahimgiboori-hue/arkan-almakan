@@ -3,10 +3,13 @@ import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import Riyal from '@/components/Riyal';
+import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
+import { getPrintLayoutPolicy } from '@/lib/print-governance';
 import './emp-report.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
 const MM = 3.7795275591;
+const REPORT_LAYOUT = getPrintLayoutPolicy('employee_report');
 
 export default function EmployeeReport() {
   const [rows, setRows] = useState(null);
@@ -73,14 +76,10 @@ export default function EmployeeReport() {
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
   if (!rows || !cfg) return <div style={{padding:40}}>جارٍ التحميل…</div>;
 
-  const headUrl  = pub(cfg.header_image_path);
-  const footUrl  = pub(cfg.footer_image_path);
   const stampUrl = pub(cfg.stamp_image_path);
-  const hMm   = Number(cfg.header_height_mm || 40);
-  const fMm   = Number(cfg.footer_height_mm || 32);
-  const mTop  = Number(cfg.letterhead_top_mm || 46);
-  const mBot  = Number(cfg.letterhead_bottom_mm || 38);
-  const mSide = Number(cfg.letterhead_side_mm || 20);
+  const mTop  = Number(REPORT_LAYOUT.topMm ?? cfg.letterhead_top_mm ?? 46);
+  const mBot  = Number(REPORT_LAYOUT.bottomMm ?? cfg.letterhead_bottom_mm ?? 38);
+  const mSide = Number(REPORT_LAYOUT.sideMm ?? cfg.letterhead_side_mm ?? 19);
   const stampMm = Number(cfg.stamp_size_mm || 30);
 
   const totalGross = list.reduce((t,r)=>t+Number(r.gross_salary||0), 0);
@@ -203,8 +202,7 @@ export default function EmployeeReport() {
       <div className="measure" ref={measure}
            style={{ width: `${210 - mSide*2}mm` }} aria-hidden="true">
         <div data-m="__head"><Title /></div>
-        <table className="r-table"><Cols /><Head /></table>
-        <div data-m="__th" style={{height:0}} />
+        <div data-m="__th"><table className="r-table"><Cols /><Head /></table></div>
         {list.map((r) => (
           <table className="r-table" key={r.id}>
             <Cols />
@@ -215,21 +213,19 @@ export default function EmployeeReport() {
         <div data-m="__sign"><Sign /></div>
       </div>
 
-      <div className="pages">
+      <ConstitutionPagedFrame
+        documentKey="employee_report"
+        cfg={cfg}
+        contentTopMm={mTop}
+        contentBottomMm={mBot}
+        contentSideMm={mSide}
+      >
         {(pages || []).map((pg, pi) => {
           const startIdx = (pages || []).slice(0, pi)
             .reduce((n, p) => n + p.rows.length, 0);
           const isLast = pi === pages.length - 1;
           return (
-            <div className="sheet" key={pi}>
-              {headUrl
-                ? <img className="r-head" src={headUrl} alt="" style={{height:`${hMm}mm`}} />
-                : <div className="r-head" style={{height:`${hMm}mm`}} />}
-
-              <div className="content"
-                   style={{ paddingTop: `${Math.max(0, mTop - hMm)}mm`,
-                            paddingBottom: `${Math.max(0, mBot - fMm)}mm`,
-                            paddingRight: `${mSide}mm`, paddingLeft: `${mSide}mm` }}>
+            <div className="employee-report-page" key={pi}>
                 {pg.withHead && <Title />}
 
                 <table className="r-table">
@@ -242,17 +238,10 @@ export default function EmployeeReport() {
 
                 {isLast && <Total />}
                 {isLast && <Sign />}
-              </div>
-
-              <div className="pagenum">صفحة {pi+1} من {pages.length}</div>
-
-              {footUrl
-                ? <img className="r-foot" src={footUrl} alt="" style={{height:`${fMm}mm`}} />
-                : <div className="r-foot" style={{height:`${fMm}mm`}} />}
             </div>
           );
         })}
-      </div>
+      </ConstitutionPagedFrame>
     </>
   );
 }

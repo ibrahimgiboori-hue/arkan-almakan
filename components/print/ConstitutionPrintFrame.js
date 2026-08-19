@@ -49,7 +49,7 @@ export default function ConstitutionPrintFrame({
   const classes = printGovernanceClassName(documentKey, className);
   const rootRef = useRef(null);
   const defaultSide = clamp(
-    layout.sideMm ?? frameProps.contentSideMm ?? frameProps.cfg?.letterhead_side_mm ?? 19,
+    frameProps.contentSideMm ?? layout.sideMm ?? frameProps.cfg?.letterhead_side_mm ?? 19,
     MIN_SIDE_MM,
     MAX_SIDE_MM,
   );
@@ -191,8 +191,8 @@ export default function ConstitutionPrintFrame({
       <PrintFrame
         {...frameProps}
         balancePolicy={layout.balance}
-        contentTopMm={layout.topMm ?? frameProps.contentTopMm}
-        contentBottomMm={layout.bottomMm ?? frameProps.contentBottomMm}
+        contentTopMm={frameProps.contentTopMm ?? layout.topMm}
+        contentBottomMm={frameProps.contentBottomMm ?? layout.bottomMm}
         contentSideMm={draft.sideMm}
         layoutEditing={editing}
         onContentSideChange={setSideMm}

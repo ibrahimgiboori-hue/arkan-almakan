@@ -79,6 +79,9 @@
   box-shadow:0 1px 5px rgba(0,0,0,.15);display:flex;flex-direction:column;
   background-size:210mm 297mm;background-repeat:repeat-y;background-position:top center;
 }
+.print-doc-generic_document .governed-document-sheet{
+  width:100%;min-height:0;padding:0;background:none;box-shadow:none;overflow:visible;
+}
 .fill{flex:1;min-height:var(--g-row)}
 
 .title-block{text-align:center;margin-bottom:var(--g-row)}
@@ -167,6 +170,7 @@ td.mono{unicode-bidi:isolate}
   .toolbar{display:none}
   .sheet-wrap{padding:0;background:#fff}
   .sheet{width:auto;min-height:297mm;box-shadow:none}
+  .print-doc-generic_document .governed-document-sheet{width:100%;min-height:0}
   .card-doc,.amounts thead,.sigtable,.declare,.tafqit,.footer-row{page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
