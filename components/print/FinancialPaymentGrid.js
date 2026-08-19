@@ -8,19 +8,25 @@ export default function FinancialPaymentGrid({
   reference,
 }) {
   return (
-    <div className="xlsx-grid financial-payment-grid">
-      <div className="xlsx-cell xlsx-label s2">اسم المستفيد</div>
-      <div className="xlsx-cell xlsx-value s5">{beneficiary || '—'}</div>
-      <div className="xlsx-cell xlsx-label s1">البنك</div>
-      <div className="xlsx-cell xlsx-value s4">{bank || '—'}</div>
-
-      <div className="xlsx-cell xlsx-label s2">رقم الحساب</div>
-      <div className="xlsx-cell xlsx-value num s4">{accountNo || '—'}</div>
-      <div className="xlsx-cell xlsx-label s1">الآيبان</div>
-      <div className="xlsx-cell xlsx-value num s5">{iban || '—'}</div>
-
-      <div className="xlsx-cell xlsx-label s2">مرجع التحويل</div>
-      <div className="xlsx-cell xlsx-value s10">{reference || '—'}</div>
-    </div>
+    <table className="payment-table">
+      <tbody>
+        <tr>
+          <th>اسم المستفيد</th>
+          <td>{beneficiary || '—'}</td>
+          <th>البنك</th>
+          <td>{bank || '—'}</td>
+        </tr>
+        <tr>
+          <th>رقم الحساب</th>
+          <td className="bank-value">{accountNo || '—'}</td>
+          <th>الآيبان</th>
+          <td className="bank-value">{iban || '—'}</td>
+        </tr>
+        <tr>
+          <th>مرجع التحويل</th>
+          <td colSpan="3">{reference || '—'}</td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
