@@ -41,7 +41,7 @@ export default function PrintFrame({
     const available = main.clientHeight
       - (parseFloat(style.paddingTop) || 0)
       - (parseFloat(style.paddingBottom) || 0);
-    const used = inner.scrollHeight;
+    const used = inner.getBoundingClientRect().height;
     const fits = used <= available + 2;
     setFitsOnePage(fits);
 
@@ -59,9 +59,7 @@ export default function PrintFrame({
     const inner = innerRef.current;
     if (!inner) return;
 
-    const resize = new ResizeObserver(() => {
-      window.requestAnimationFrame(evaluateFit);
-    });
+    const resize = new ResizeObserver(() => window.requestAnimationFrame(evaluateFit));
     resize.observe(inner);
 
     const mutation = new MutationObserver(() => {
@@ -85,6 +83,9 @@ export default function PrintFrame({
     setAutoFit(false);
     setDensity(Number(value));
   }
+
+  const scale = density / 100;
+  const compensatedWidth = `${100 / scale}%`;
 
   return (
     <>
@@ -113,7 +114,7 @@ export default function PrintFrame({
       </div>
 
       <div className="print-page-wrap">
-        <div className="print-page" style={{'--print-fit': density / 100}}>
+        <div className="print-page">
           <div className="print-assets" aria-hidden="true">
             {full && <img src={full} className="print-master-full" alt="" />}
             {header && <img src={header} className="print-master-header" alt="" style={{height:`${Number(cfg?.header_height_mm || 40)}mm`}} />}
@@ -121,7 +122,11 @@ export default function PrintFrame({
             {watermark && <img src={watermark} className="print-master-watermark" alt="" />}
           </div>
           <main ref={mainRef} className="print-content" style={{padding:`${top}mm ${side}mm ${bottom}mm`}}>
-            <div ref={innerRef} className="print-fit-content">
+            <div
+              ref={innerRef}
+              className="print-fit-content"
+              style={{ zoom:scale, width:compensatedWidth }}
+            >
               {children}
             </div>
           </main>
