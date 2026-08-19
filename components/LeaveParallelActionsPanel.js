@@ -15,7 +15,7 @@ export default function LeaveParallelActionsPanel() {
     setErr('');
     const [r,e,s,a] = await Promise.all([
       supabase.from('leave_requests')
-        .select('id,employee_id,status,start_date,end_date,record_source,employees(full_name_ar,employee_no)')
+        .select('id,employee_id,status,start_date,end_date,record_source,employees:employees!leave_requests_employee_id_fkey(full_name_ar,employee_no)')
         .in('status',['submitted','hr_reviewed'])
         .neq('record_source','historical_paper')
         .order('created_at',{ascending:false}),
@@ -24,7 +24,7 @@ export default function LeaveParallelActionsPanel() {
         .in('status',['active','on_leave'])
         .order('employee_no'),
       supabase.from('leave_request_substitutes')
-        .select('request_id,substitute_employee_id,substitute:employees(full_name_ar,employee_no)'),
+        .select('request_id,substitute_employee_id,substitute:employees!leave_request_substitutes_substitute_employee_id_fkey(full_name_ar,employee_no)'),
       supabase.from('v_approval_register')
         .select('entity_id,actor_employee_id,decision,recorded_at,step_order')
         .eq('entity_table','leave_requests')
@@ -32,7 +32,11 @@ export default function LeaveParallelActionsPanel() {
         .order('recorded_at',{ascending:true}),
     ]);
     const first = r.error || e.error || s.error || a.error;
-    if (first) { setErr(first.message); return; }
+    if (first) {
+      console.error('Leave parallel actions load failed', first);
+      setErr('تعذر تحميل إجراءات الإجازات حاليًا. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+      return;
+    }
     const sm = {};
     (s.data || []).forEach((x)=>{ sm[x.request_id]=x; });
     const cm = {};
