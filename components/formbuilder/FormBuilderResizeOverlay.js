@@ -36,7 +36,8 @@ function readGroups() {
       const labelInput = cells[0]?.querySelector('input');
       const keyInput = cells[2]?.querySelector('input');
       const typeSelect = cells[3]?.querySelector('select');
-      const span = Math.max(1, Math.min(12, Number(widthInput.value || 1)));
+      const gridColumns = Number(widthInput.dataset.gridColumns || widthInput.max || 12);
+      const span = Math.max(1, Math.min(gridColumns, Number(widthInput.value || 1)));
       items.push({
         key: keyInput?.value || `row_${rowIndex}`,
         label: labelInput?.value || 'حقل بلا تسمية',
@@ -53,6 +54,7 @@ function readGroups() {
       title,
       items,
       bindings,
+      gridColumns: Number(bindings[0]?.dataset.gridColumns || bindings[0]?.max || 12),
       isTable: title.includes('جدول'),
     });
   });
@@ -106,6 +108,7 @@ export default function FormBuilderResizeOverlay() {
             <ResizableLayoutGrid
               items={group.items}
               isTable={group.isTable}
+              gridColumns={group.gridColumns}
               onResize={(index, span) => {
                 const input = group.bindings[index];
                 if (input) nativeSet(input, span);
