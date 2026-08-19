@@ -50,6 +50,10 @@
 .contractorCard{background:#fff;border:1px solid var(--hair);border-radius:11px;margin-bottom:12px;overflow:hidden}
 .contractorCard>header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid var(--hair);background:#fcfbfb}
 .contractorCard h2{font-size:16px;margin:0 0 3px;color:#34393c}
+.rosterComposition{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;border:1px solid #eadcdb;border-radius:7px;background:#fff}
+.rosterComposition>span{font-size:10.5px;color:#806d6d}
+.rosterComposition>b{font-size:12.5px;color:var(--maroon)}
+.rosterComposition>small{font-size:10.5px;color:#5b6860;border-right:1px solid #ddd3d2;padding-right:7px}
 .subline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--ink-soft)}
 .subline button{border:0;background:none;color:var(--maroon);padding:0;font:inherit;font-size:11px;cursor:pointer}
 .accountMini{text-align:left;display:flex;flex-direction:column;gap:1px}

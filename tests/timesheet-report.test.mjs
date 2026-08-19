@@ -9,6 +9,7 @@ import {
   summarizeAttendance,
   workerPeriodDays,
 } from '../lib/timesheet-report.mjs';
+import { laborClassLabel, laborClassSummaryLabel, summarizeLaborClasses } from '../lib/labor-class-summary.mjs';
 
 test('unrecorded is distinct from an explicit absence', () => {
   assert.equal(TIMESHEET_STATUS.unrecorded.short, '—');
@@ -46,4 +47,15 @@ test('date ranges and page chunks do not split their atomic inputs', () => {
   assert.equal(dates.length, 9);
   assert.deepEqual(chunk(dates, 7).map((page) => page.length), [7, 2]);
   assert.equal(dateRange('2026-08-09', '2026-08-01').length, 0);
+});
+
+test('labor roster keeps technicians distinct from workers', () => {
+  const roster = [
+    ...Array.from({ length:10 }, () => ({ laborClass:'technician' })),
+    { laborClass:'worker' },
+  ];
+  const summary = summarizeLaborClasses(roster);
+  assert.deepEqual(summary, { total:11, technician:10, worker:1, foreman:0, other:0 });
+  assert.equal(laborClassSummaryLabel(summary), '10 صنايعية · 1 عامل');
+  assert.equal(laborClassLabel('technician'), 'صنايعي');
 });

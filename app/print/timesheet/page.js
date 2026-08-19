@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import { getPrintLayoutPolicy } from '@/lib/print-governance';
 import {
@@ -172,6 +173,7 @@ export default function TimesheetPrintPage() {
   const dates = useMemo(() => query ? dateRange(query.from, query.to) : [], [query]);
   const attendanceMap = useMemo(() => buildAttendanceMap(attendance), [attendance]);
   const summary = useMemo(() => summarizeAttendance(attendance, workers.map((worker) => worker.id)), [attendance, workers]);
+  const laborClasses = useMemo(() => summarizeLaborClasses(workers), [workers]);
 
   if (loading || !query) return <div className="timesheet-print-loading">جارٍ إعداد التقرير…</div>;
   if (error) return <div className="timesheet-print-loading error">{error}</div>;
@@ -207,6 +209,7 @@ export default function TimesheetPrintPage() {
         <tbody>
           <tr><th>المشروع</th><td>{project.project_no} — {project.name_ar}</td><th>المقاول</th><td>{contractor.name_ar}</td></tr>
           <tr><th>الفترة</th><td className="ltr">{periodLabel(query.from, query.to)}</td><th>نوع الكشف</th><td>{query.mode === 'paper' ? 'ورقي للتسجيل اليدوي' : 'حضور مسجل في النظام'}</td></tr>
+          <tr><th>تركيب العمالة</th><td colSpan={3}>{laborClasses.total} فردًا — {laborClassSummaryLabel(laborClasses)}</td></tr>
         </tbody>
       </table>
       {subline && <div className="ts-page-subline">{subline}</div>}
@@ -215,7 +218,7 @@ export default function TimesheetPrintPage() {
 
   const reportSummary = () => (
     <div className="ts-summary">
-      <span><b>{workers.length}</b> عاملًا</span>
+      <span><b>{laborClasses.total}</b> فردًا</span>
       <span><b>{summary.full}</b> حضور كامل</span>
       <span><b>{summary.half}</b> نصف يوم</span>
       <span><b>{summary.workdays}</b> مجموع اليوميات</span>
@@ -240,7 +243,7 @@ export default function TimesheetPrintPage() {
     <>
       <div className="timesheet-print-toolbar no-print">
         <button type="button" className="primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
-        <span>{title} · {workers.length} عاملًا · {pageModels.length} صفحة</span>
+        <span>{title} · {laborClassSummaryLabel(laborClasses)} · {pageModels.length} صفحة</span>
       </div>
 
       <ConstitutionPagedFrame

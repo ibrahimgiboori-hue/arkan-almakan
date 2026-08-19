@@ -7,6 +7,7 @@ import { parseSiteCommand, SITE_COMMAND_EXAMPLES } from '@/lib/site-operation-co
 import { OPERATION_CERTAINTY, receiptLabel } from '@/lib/operation-safety.mjs';
 import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
 import { resolveRosterAssignment } from '@/lib/site-operation-roster.mjs';
+import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import styles from './page.module.css';
 
 const STATUS={
@@ -575,10 +576,12 @@ export default function SiteOperationsPage(){
         const visible=g.workers.filter(w=>!q||[w.full_name,w.trade].filter(Boolean).some(v=>String(v).toLowerCase().includes(q))).sort((a,b)=>naturalCompare(a.full_name,b.full_name));
         const pending=visible.filter(w=>w.date_eligible&&!marks[w.id]),done=visible.filter(w=>w.date_eligible&&marks[w.id]),outside=visible.filter(w=>!w.date_eligible);
         const registeredAll=g.workers.filter(w=>marks[w.id]).length;
+        const rosterClasses=summarizeLaborClasses(g.workers,'labor_class');
+        const eligibleClasses=summarizeLaborClasses(g.workers.filter(w=>w.date_eligible),'labor_class');
         const balance=Number(g.account?.balance_due||0);
         return <section className={styles.contractorCard} key={g.id}>
           <header>
-            <div><h2>{g.name_ar}</h2><div className={styles.subline}>{g.operation_alias&&<span>اختصار: {g.operation_alias}</span>}<button type="button" onClick={()=>setAlias(g)}>تعديل الاختصار</button><span>{g.project_basis==='piecework'?'بالمتر / مقطوعية':g.project_basis==='salary'?'بالراتب':'باليومية'}</span></div></div>
+            <div><h2>{g.name_ar}</h2><div className={styles.subline}>{g.operation_alias&&<span>اختصار: {g.operation_alias}</span>}<button type="button" onClick={()=>setAlias(g)}>تعديل الاختصار</button><span>{g.project_basis==='piecework'?'بالمتر / مقطوعية':g.project_basis==='salary'?'بالراتب':'باليومية'}</span></div><div className={styles.rosterComposition}><span>سجل الإسناد</span><b>{laborClassSummaryLabel(rosterClasses)}</b><small>المتاح في {displayDate(date)}: {laborClassSummaryLabel(eligibleClasses)}</small></div></div>
             <div className={styles.accountMini}><span>{balance>=0?'مستحق له':'مستحق عليه'}</span><b>{money(Math.abs(balance))} ر.س</b></div>
           </header>
 

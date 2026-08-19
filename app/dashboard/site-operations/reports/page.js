@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { assignmentOverlaps, dateRange, displayDate, isoDate } from '@/lib/timesheet-report.mjs';
+import { laborClassLabel, laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import styles from './page.module.css';
 
 const MODES = Object.freeze({
@@ -137,6 +138,7 @@ export default function TimesheetReportCenter() {
 
   const contractor = contractors.find((row) => row.id === contractorId);
   const selectedProject = projects.find((row) => row.id === projectId);
+  const rosterClasses = useMemo(() => summarizeLaborClasses(roster), [roster]);
 
   function changeMode(nextMode) {
     setMode(nextMode);
@@ -236,7 +238,7 @@ export default function TimesheetReportCenter() {
           <div className={styles.rosterSummary}>
             <div>
               <b>{contractor?.operation_alias || contractor?.name_ar}</b>
-              <span>{roster.length} عاملًا داخل الفترة المختارة</span>
+              <span>{rosterClasses.total} فردًا داخل الفترة: {laborClassSummaryLabel(rosterClasses)}</span>
             </div>
             {mode === 'worker' && roster.length > 0 && (
               <button type="button" onClick={() => setSelected(selected.length === roster.length ? [] : roster.map((worker) => worker.id))}>
@@ -251,7 +253,7 @@ export default function TimesheetReportCenter() {
             {loading ? <div className={styles.empty}>جارٍ تحميل الأسماء…</div> : roster.map((worker) => (
               <label key={worker.id} className={selected.includes(worker.id) ? styles.workerSelected : ''}>
                 <input type="checkbox" checked={selected.includes(worker.id)} onChange={() => toggleWorker(worker.id)} />
-                <span><b>{worker.name}</b><small>{worker.trade || 'عامل'} · {displayDate(worker.from)} — {worker.to ? displayDate(worker.to) : 'مستمرة'}</small></span>
+                <span><b>{worker.name}</b><small>{worker.trade || laborClassLabel(worker.laborClass)} · {displayDate(worker.from)} — {worker.to ? displayDate(worker.to) : 'مستمرة'}</small></span>
               </label>
             ))}
             {!loading && roster.length === 0 && <div className={styles.empty}>لا توجد أسماء لهذا المقاول داخل الفترة المختارة.</div>}
@@ -260,7 +262,7 @@ export default function TimesheetReportCenter() {
 
         {mode === 'paper' && contractorId && roster.length > 0 && (
           <div className={styles.paperNote}>
-            ستخرج الورقة بأسماء {roster.length} عاملًا المتاحين في {displayDate(from)}، وخانة علامة الحضور وخانة الملاحظات وتوقيع المشرف.
+            ستخرج الورقة بأسماء {rosterClasses.total} فردًا ({laborClassSummaryLabel(rosterClasses)}) المتاحين في {displayDate(from)}، وخانة علامة الحضور وخانة الملاحظات وتوقيع المشرف.
           </div>
         )}
 
