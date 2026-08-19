@@ -16,9 +16,14 @@ export default function ProcedureTrail({
   transactionType = 'generic',
   exceptional = false,
   manualLeadLabel = null,
+  parallelManualLabels = [],
 }) {
   const flow = getWorkflowActions(transactionType, { exceptional });
-  const manualRoles = manualProcedureRoles(transactionType, { exceptional, leadLabel:manualLeadLabel });
+  const manualRoles = manualProcedureRoles(transactionType, {
+    exceptional,
+    leadLabel: manualLeadLabel,
+    parallelLabels: parallelManualLabels,
+  });
 
   return (
     <>
