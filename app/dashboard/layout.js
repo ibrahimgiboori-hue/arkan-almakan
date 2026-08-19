@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 
 const NAV = [
   { group: 'الموارد البشرية', items: [
@@ -109,7 +110,10 @@ export default function DashboardLayout({ children }) {
           <span className="crumb">شركة أركان المكان للمقاولات</span>
           <span className="crumb mono">{new Date().toLocaleDateString('ar-SA-u-ca-gregory')}</span>
         </div>
-        <div className="page">{children}</div>
+        <div className="page">
+          {pathname.startsWith('/dashboard/formbuilder/') && <FormBuilderResizeOverlay />}
+          {children}
+        </div>
       </div>
     </div>
   );
