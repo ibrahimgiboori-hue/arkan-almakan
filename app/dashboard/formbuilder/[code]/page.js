@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { OPS, CMP, allKeys, SECTION_KINDS, FIELD_TYPES, uid } from '@/lib/form-engine';
 import PartyCards, { partyGroup } from '@/components/PartyCards';
+import { DOCUMENT_CATEGORY_META } from '@/lib/document-catalog.mjs';
 
 export default function FormBuilder() {
   const { code } = useParams();
@@ -22,6 +23,11 @@ export default function FormBuilder() {
   const flash = (m) => { setMsg(m); setTimeout(()=>setMsg(''), 1500); };
 
   async function save(fields) {
+    const userOwned = t?.template_source === 'user' || String(t?.code || '').startsWith('CUSTOM_');
+    if (!userOwned) {
+      setErr('قالب الكتالوج محمي. أنشئ نسخة مخصصة من شاشة محرر النماذج ثم عدّل النسخة.');
+      return;
+    }
     const next = { ...t, ...fields };
     setT(next);
     const { error } = await supabase.from('document_templates')
@@ -61,7 +67,8 @@ export default function FormBuilder() {
   function addField(sid, isColumn) {
     const s = sections.find((x) => x.id === sid);
     const list = isColumn ? (s.columns || []) : (s.fields || []);
-    const item = { key: 'f_' + uid(), label: 'حقل جديد', type: 'text', span: isColumn ? 2 : 6 };
+    const columns = Number(t?.layout?.gridColumns || 12);
+    const item = { key: 'f_' + uid(), label: 'حقل جديد', type: 'text', span: isColumn ? Math.round(columns / 3) : Math.round(columns / 2) };
     patchSection(sid, isColumn ? { columns: [...list, item] } : { fields: [...list, item] });
   }
 
@@ -94,6 +101,23 @@ export default function FormBuilder() {
   if (err && !t) return <div className="msg err">{err}</div>;
   if (!t) return <div className="empty">جارٍ التحميل…</div>;
 
+  const userOwned = t.template_source === 'user' || String(t.code || '').startsWith('CUSTOM_');
+  if (!userOwned) return (
+    <>
+      <div className="page-head">
+        <div><h1>{t.name_ar}</h1><p className="mono">{t.code}</p></div>
+        <Link className="btn ghost" href="/dashboard/formbuilder">كل النماذج</Link>
+      </div>
+      <div className="msg err" style={{lineHeight:1.9}}>
+        هذا قالب مركزي محمي حتى تبقى جميع المطبوعات متوافقة مع الدستور. من شاشة محرر النماذج استخدم «نسخ للتعديل»، ثم عدّل نسختك الخاصة.
+      </div>
+      <div style={{marginTop:14}}>
+        <Link className="btn" href={`/dashboard/documents/new/${t.code}`}>تعبئة النموذج كما هو</Link>
+      </div>
+    </>
+  );
+
+  const gridColumns = Number(t.layout?.gridColumns || 12);
   const spanTotal = (list) => (list || []).reduce((n,f)=>n+Number(f.span||0),0);
 
   return (
@@ -214,8 +238,8 @@ export default function FormBuilder() {
                         </button>
                         <span className="spacer" />
                         <span style={{fontSize:12.5,
-                                      color: total === 12 ? 'var(--ok)' : total > 12 ? 'var(--bad)' : 'var(--ink-soft)'}}>
-                          مجموع العروض: {total} من ١٢ {total === 12 ? '✓' : total > 12 ? '— تجاوز الشبكة' : ''}
+                                      color: total === gridColumns ? 'var(--ok)' : total > gridColumns ? 'var(--bad)' : 'var(--ink-soft)'}}>
+                          مجموع العروض: {total} من {gridColumns} {total === gridColumns ? '✓' : total > gridColumns ? '— تجاوز الشبكة' : ''}
                         </span>
                       </div>
 
@@ -251,7 +275,7 @@ export default function FormBuilder() {
                                     {Object.entries(FIELD_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}
                                   </select>
                                 </td>
-                                <td><input type="number" min="1" max="12" dir="ltr" value={f.span||1}
+                                <td><input type="number" min="1" max={gridColumns} data-grid-columns={gridColumns} dir="ltr" value={f.span||1}
                                      onChange={(e)=>patchField(s.id,i,isTable,{span:Number(e.target.value)})}
                                      style={{width:'100%',border:'1px solid var(--hair)',padding:'3px 5px',textAlign:'left'}} /></td>
                                 <td style={{textAlign:'center'}}>
@@ -414,12 +438,26 @@ export default function FormBuilder() {
             <div className="field">
               <label>التصنيف</label>
               <select value={t.category || 'custom'} onChange={(e)=>save({category:e.target.value})}>
-                <option value="hr">موارد بشرية</option>
-                <option value="finance">مالية</option>
-                <option value="projects">مشاريع</option>
-                <option value="correspondence">مراسلات</option>
-                <option value="custom">أخرى</option>
+                {Object.entries(DOCUMENT_CATEGORY_META).map(([key, meta])=>(
+                  <option key={key} value={key}>{meta.label}</option>
+                ))}
               </select>
+            </div>
+            <div className="field span2">
+              <label>يرتبط النموذج بـ</label>
+              <div style={{display:'flex',gap:14,flexWrap:'wrap',paddingTop:8}}>
+                {Object.entries({employee:'موظف',project:'مشروع',party:'طرف خارجي',general:'معاملة عامة'}).map(([key,label])=>{
+                  const selected = (t.relation_scope || []).includes(key);
+                  return <label key={key} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                    <input type="checkbox" checked={selected} onChange={(e)=>{
+                      const scope = new Set(t.relation_scope || []);
+                      if (e.target.checked) scope.add(key); else scope.delete(key);
+                      save({relation_scope:[...scope]});
+                    }} />
+                    <span>{label}</span>
+                  </label>;
+                })}
+              </div>
             </div>
             <div className="field span2">
               <label>النص الافتتاحي الافتراضي</label>
