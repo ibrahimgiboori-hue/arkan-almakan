@@ -1,21 +1,11 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { personLabel } from '@/lib/people';
 
 function todayLocal() {
   const now = new Date();
   const shifted = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return shifted.toISOString().slice(0, 10);
-}
-
-function personTitle(person) {
-  if (!person) return '';
-  const boardRole = (person.board_role || '').trim();
-  const jobTitle = (person.job_title || '').trim();
-
-  if (person.person_kind === 'board') {
-    return [boardRole, jobTitle].filter(Boolean).join(' و');
-  }
-  return jobTitle;
 }
 
 export default function ManualDecisionForm({
@@ -82,14 +72,9 @@ export default function ManualDecisionForm({
               onChange={(e) => setActorEmployeeId(e.target.value)}
             >
               <option value="">اختر الشخص</option>
-              {orderedEmployees.map((person) => {
-                const title = personTitle(person);
-                return (
-                  <option key={person.id} value={person.id}>
-                    {person.full_name_ar}{title ? ` - ${title}` : ''}
-                  </option>
-                );
-              })}
+              {orderedEmployees.map((person) => (
+                <option key={person.id} value={person.id}>{personLabel(person)}</option>
+              ))}
             </select>
           </div>
 
@@ -134,5 +119,3 @@ export default function ManualDecisionForm({
     </div>
   );
 }
-
-export { personTitle };
