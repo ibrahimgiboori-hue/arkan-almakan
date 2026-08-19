@@ -104,7 +104,7 @@ export default function ResizableLayoutGrid({ items = [], onResize, isTable = fa
         .layout-resize-wrap{margin:12px 0 16px;border:1px solid var(--hair);background:#faf9f8;padding:12px;direction:rtl}
         .layout-resize-note{font-size:12.5px;line-height:1.7;color:var(--ink-soft);margin-bottom:10px}
         .layout-resize-grid{position:relative;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-flow:row;gap:5px;padding:7px;background-image:linear-gradient(to left,rgba(139,51,50,.09) 1px,transparent 1px);background-size:calc(100% / 12) 100%;border:1px solid #d8caca;min-height:68px;overflow:hidden}
-        .layout-resize-grid.table-grid{grid-auto-flow:column;grid-template-rows:1fr;grid-auto-columns:minmax(0,1fr)}
+        .layout-resize-grid.table-grid{background-color:#f8f5f4}
         .layout-resize-cell{position:relative;min-width:0;min-height:54px;padding:9px 13px 8px 8px;border:1px solid #bfa9a8;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden;transition:border-color .12s,background .12s}
         .layout-resize-cell.active{border-color:#8B3332;background:#fff8f7;z-index:3}
         .layout-resize-cell-label{font-size:13px;font-weight:700;color:#5f2524;line-height:1.4;overflow-wrap:anywhere}
