@@ -29,12 +29,36 @@ const TABLE_DEFAULTS = {
   'projects-finance:payment-table:4':[12.5,37.5,12.5,37.5],
 };
 
+// الأدوار الدلالية تمنع التوزيع المتساوي الأعمى: النص يأخذ المجال الأكبر،
+// الأرقام حقها الوظيفي فقط، والترقيم هو الأضيق. القيم وحدات نسبية
+// وتحوّل أدناه إلى نسب مئوية ثم إلى مسارات شبكة الصفحة الأم.
+const SEMANTIC_COLUMN_WEIGHTS = Object.freeze({
+  'row-index':2,
+  text:20,
+  'measurement-number':3,
+  'date-range':14,
+  unit:3,
+  quantity:4,
+  'unit-price':5,
+  amount:7,
+});
+
 function tableKind(table) {
-  return ['info-table','data-table','summary-table','payment-table','row-resizable-table']
+  return ['claim-lines-table','info-table','data-table','summary-table','payment-table','row-resizable-table']
     .find(name => table.classList.contains(name)) || 'governed-table';
 }
 
-function defaultRowWeights(family, kind, count) {
+function semanticRowWeights(cells) {
+  const roles = cells.map(cell => cell.dataset.printColumnRole || '');
+  if (!roles.length || roles.some(role => !SEMANTIC_COLUMN_WEIGHTS[role])) return null;
+  const weights = roles.map(role => SEMANTIC_COLUMN_WEIGHTS[role]);
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return weights.map(weight => (weight / total) * 100);
+}
+
+function defaultRowWeights(family, kind, count, cells = []) {
+  const semantic = semanticRowWeights(cells);
+  if (semantic) return semantic;
   const exact = TABLE_DEFAULTS[`${family}:${kind}:${count}`];
   if (exact) return exact;
   if (kind === 'info-table' && count === 4) return [12.5,37.5,12.5,37.5];
@@ -107,7 +131,7 @@ function IndependentRowEnhancer() {
 
           const rowKey = `${family}:${kind}:${tableIndex}:row:${rowIndex}`;
           const legacyKey = `${family}:${kind}:${cells.length}`;
-          const defaults = defaultRowWeights(family, kind, cells.length);
+          const defaults = defaultRowWeights(family, kind, cells.length, cells);
           const storedLayout = gridLayouts?.[rowKey] ?? gridLayouts?.[legacyKey];
           const tracks = resolveStoredTracks(storedLayout, defaults, cells.length);
 

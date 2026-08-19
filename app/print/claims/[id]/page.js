@@ -262,19 +262,35 @@ export default function ClaimDocumentsPrint() {
 
       {(doc==='measure' || doc==='demand') && <>
         <div className="section-title">الأعمال المنفذة والمقاسة</div>
-        <table className="data-table">
+        <table className="data-table claim-lines-table">
           <thead><tr>
-            <th style={{width:'7mm'}}>م</th><th>البيان</th>
-            {measurementCount>0 && <><th style={{width:'15mm'}}>التمتير</th><th style={{width:'35mm'}}>فترة القياس</th></>}
-            <th style={{width:'14mm'}}>الوحدة</th><th className="num" style={{width:'20mm'}}>الكمية</th>
-            {doc==='demand' && <><th className="num" style={{width:'23mm'}}>سعر الوحدة</th><th className="num" style={{width:'26mm'}}>القيمة</th></>}
+            <th data-print-column-role="row-index" style={{width:'6mm'}}>م</th>
+            <th data-print-column-role="text">البيان</th>
+            {measurementCount>0 && <>
+              <th data-print-column-role="measurement-number" style={{width:'12mm'}}>التمتير</th>
+              <th data-print-column-role="date-range" style={{width:'43mm'}}>فترة القياس</th>
+            </>}
+            <th data-print-column-role="unit" style={{width:'12mm'}}>الوحدة</th>
+            <th data-print-column-role="quantity" className="num" style={{width:'15mm'}}>الكمية</th>
+            {doc==='demand' && <>
+              <th data-print-column-role="unit-price" className="num" style={{width:'17mm'}}>سعر الوحدة</th>
+              <th data-print-column-role="amount" className="num" style={{width:'21mm'}}>القيمة</th>
+            </>}
           </tr></thead>
           <tbody>
             {rows.map((r,i)=><tr key={r.id || i}>
-              <td>{i+1}</td><td>{r.description}</td>
-              {measurementCount>0 && <><td>{r.measurement_no_snapshot || '—'}</td><td className="mono">{r.measurement_id ? dateRange(r.measurement_period_from,r.measurement_period_to) : '—'}</td></>}
-              <td>{unitLabel(r.unit)}</td><td className="num">{qty(r.qty_this)}</td>
-              {doc==='demand' && <><td className="num">{money(r.unit_price)}</td><td className="num">{r.amount == null ? '—' : money(r.amount)}</td></>}
+              <td data-print-column-role="row-index">{i+1}</td>
+              <td data-print-column-role="text">{r.description}</td>
+              {measurementCount>0 && <>
+                <td data-print-column-role="measurement-number">{r.measurement_no_snapshot || '—'}</td>
+                <td data-print-column-role="date-range" className="mono">{r.measurement_id ? dateRange(r.measurement_period_from,r.measurement_period_to) : '—'}</td>
+              </>}
+              <td data-print-column-role="unit">{unitLabel(r.unit)}</td>
+              <td data-print-column-role="quantity" className="num">{qty(r.qty_this)}</td>
+              {doc==='demand' && <>
+                <td data-print-column-role="unit-price" className="num">{money(r.unit_price)}</td>
+                <td data-print-column-role="amount" className="num">{r.amount == null ? '—' : money(r.amount)}</td>
+              </>}
             </tr>)}
             {!rows.length && <tr><td colSpan={doc==='demand' ? (measurementCount>0?8:6) : (measurementCount>0?6:4)}>لا توجد بنود مسجلة في هذا المستخلص.</td></tr>}
           </tbody>
