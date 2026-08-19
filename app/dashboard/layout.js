@@ -33,6 +33,7 @@ const NAV = [
   ]},
   { group: 'الإعدادات', items: [
     { href: '/dashboard/settings', label: 'بيانات الشركة' },
+    { href: '/dashboard/system-user', label: 'مستخدم النظام' },
     { href: '/dashboard/org-structure', label: 'الهيكل التنظيمي' },
     { href: '/dashboard/backup', label: 'النسخ الاحتياطي' },
   ]},
