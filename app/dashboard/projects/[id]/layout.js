@@ -31,7 +31,7 @@ export default function ProjectWorkspaceLayout({ children }) {
   }
 
   return (
-    <section className={styles.workspaceShell}>
+    <section className={styles.workspaceShell} data-project-workspace="true">
       <header className={styles.projectHeader}>
         <div className={styles.projectIdentity}>
           <Link className={styles.backLink} href="/dashboard/projects">← المشاريع</Link>
