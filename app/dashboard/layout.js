@@ -151,14 +151,16 @@ export default function DashboardLayout({ children }) {
   const current = activeItemFor(pathname);
   const activeArea = current?.area || AREAS[0];
   const currentLabel = current?.label || activeArea.label;
+  const contextItems = activeArea.items.filter((item) => item.href !== activeArea.href);
   const flatItems = useMemo(() => AREAS.flatMap((area) =>
     area.items.map((item) => ({ ...item, meta: area.label }))), []);
 
   const results = useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
     const all = [...QUICK_ACTIONS, ...flatItems];
-    if (!q) return all.slice(0, 9);
-    return all.filter((item) =>
+    const unique = all.filter((item, index) => all.findIndex((candidate) => candidate.href === item.href) === index);
+    if (!q) return unique.slice(0, 9);
+    return unique.filter((item) =>
       `${item.label} ${item.meta || ''}`.toLowerCase().includes(q)).slice(0, 12);
   }, [commandQuery, flatItems]);
 
@@ -246,23 +248,24 @@ export default function DashboardLayout({ children }) {
           <span className={styles.contextCrumb}>{currentLabel} · {displayDate}</span>
         </div>
 
-        <nav className={styles.contextTabs} aria-label={`أدوات ${activeArea.label}`}>
-          {activeArea.items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${styles.contextTab} ${matchesPath(pathname, item.href) ? styles.contextTabActive : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {contextItems.length > 0 && (
+          <nav className={styles.contextTabs} aria-label={`أدوات ${activeArea.label}`}>
+            {contextItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${styles.contextTab} ${matchesPath(pathname, item.href) ? styles.contextTabActive : ''}`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
 
         <div className={styles.contextActions}>
-          {pathname !== '/dashboard' && (
-            <button className={styles.contextAction} onClick={() => setCommandOpen(true)}>بحث سريع</button>
+          {primaryAction.href !== pathname && (
+            <Link className={styles.contextActionPrimary} href={primaryAction.href}>{primaryAction.label}</Link>
           )}
-          <Link className={styles.contextActionPrimary} href={primaryAction.href}>{primaryAction.label}</Link>
         </div>
       </div>
 
@@ -313,7 +316,7 @@ export default function DashboardLayout({ children }) {
                   <span>{area.label}</span><span>←</span>
                 </Link>
                 <div className={styles.mobileLinks}>
-                  {area.items.map((item) => (
+                  {area.items.filter((item) => item.href !== area.href).map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
