@@ -206,7 +206,7 @@ export default function SiteOperationsPage(){
       const laborerIds=[...new Set(allAssignments.map(x=>x.laborer_id).filter(Boolean))];
       let labs=[];
       if(laborerIds.length){
-        const q=await supabase.from('laborers').select('id,full_name,labor_class,trade,daily_rate,monthly_salary,salary_days,pay_basis,contractor_id,is_active').in('id',laborerIds).order('full_name');
+        const q=await supabase.from('laborers').select('id,full_name,labor_class,trade,daily_rate,monthly_salary,salary_days,piece_rate,piece_unit,pay_basis,contractor_id,is_active').in('id',laborerIds).order('full_name');
         if(q.error)throw q.error;
         labs=(q.data||[]).map(w=>{
           const history=allAssignments.filter(a=>a.laborer_id===w.id);
@@ -474,6 +474,46 @@ export default function SiteOperationsPage(){
     }catch(ex){setErr(ex.message||String(ex));}
     setBusy('');
   }
+  function openEditWorker(worker){
+    setPanel({type:'editWorker',worker,form:{
+      full_name:worker.full_name||'',
+      labor_class:worker.labor_class||'worker',
+      trade:worker.trade||'',
+      pay_basis:worker.pay_basis||'daily',
+      daily_rate:worker.daily_rate||'',
+      monthly_salary:worker.monthly_salary||'',
+      salary_days:worker.salary_days||30,
+      piece_rate:worker.piece_rate||'',
+      piece_unit:worker.piece_unit||'م2',
+      valid_from:worker.assignment_from||date,
+      valid_to:worker.assignment_to||'',
+      reason:'',
+    }});
+  }
+  async function saveWorkerEdit(e){
+    e.preventDefault();const f=panel?.form||{},w=panel?.worker;
+    setBusy('edit-worker');setErr('');
+    try{
+      const {error}=await supabase.rpc('fn_update_labor_assignment',{
+        p_assignment_id:w.assignment_id,
+        p_full_name:f.full_name,
+        p_labor_class:f.labor_class,
+        p_trade:f.trade||null,
+        p_pay_basis:f.pay_basis,
+        p_daily_rate:f.pay_basis==='daily'?(Number(f.daily_rate)||null):null,
+        p_monthly_salary:f.pay_basis==='salary'?(Number(f.monthly_salary)||null):null,
+        p_salary_days:Number(f.salary_days||30),
+        p_piece_rate:f.pay_basis==='piecework'?(Number(f.piece_rate)||null):null,
+        p_piece_unit:f.piece_unit||null,
+        p_valid_from:f.valid_from,
+        p_valid_to:f.valid_to||null,
+        p_reason:f.reason,
+      });
+      if(error)throw error;
+      setPanel(null);setMsg(`حُفظ تعديل ${f.full_name} مع الاحتفاظ بالحضور المالي السابق وسجل التعديل.`);await load();
+    }catch(ex){setErr('تعذر تعديل العامل: '+(ex.message||ex));}
+    setBusy('');
+  }
   async function saveOutputPanel(e){
     e.preventDefault();const f=panel?.form||{};
     setBusy('output');setErr('');
@@ -555,9 +595,9 @@ export default function SiteOperationsPage(){
 
       {rosterSummary.outside>0&&<div className={styles.rosterNotice}>
         <div>
-          <b>توجد عمالة سابقة بالمشروع خارج التاريخ المختار</b>
-          <span>في هذا المشروع توجد {rosterSummary.total} أسماء مسندة. المتاح للتسجيل في {displayDate(date)} هو {rosterSummary.current}، وستجد بقية الأسماء ظاهرة أسفل كل مقاول مع فترة إسنادها حتى تختار تاريخ الورقة الصحيح.</span>
-          <small>الفترة المسجلة للمشروع: {displayDate(rosterSummary.from)} — {rosterSummary.openEnded?'مستمرة':displayDate(rosterSummary.to)}</small>
+          <b>توجد عمالة مرتبطة بالمشروع خارج التاريخ المختار</b>
+          <span>في هذا المشروع توجد {rosterSummary.total} أسماء. المتاح للتسجيل في {displayDate(date)} هو {rosterSummary.current}، وتظهر بقية الأسماء أسفل كل مقاول مع تاريخ ارتباطها المسجل. يمكنك تصحيح التاريخ من زر «تعديل» بجوار العامل.</span>
+          <small>سجل ارتباط العمال بالمشروع: {displayDate(rosterSummary.from)} — {rosterSummary.openEnded?'مستمر':displayDate(rosterSummary.to)}</small>
         </div>
         <div className={styles.rosterBreakdown}>{rosterSummary.byContractor.map(row=>{
           const contractor=allContractors.find(x=>x.id===row.contractorId);
@@ -601,9 +641,9 @@ export default function SiteOperationsPage(){
             <div className={styles.attendance}>
               <div className={styles.blockHead}><div><b>الحضور</b><span>{pending.length} ينتظر التسجيل · {done.length} مكتمل</span></div><input placeholder="بحث سريع بالاسم" value={workerSearch} onChange={e=>setWorkerSearch(e.target.value)}/></div>
               {g.workers.length===0?<div className={styles.softEmpty}>لا توجد عمالة مسندة. استخدم «إضافة عمال» والصق قائمة الأسماء مرة واحدة.</div>:<>
-                <div className={styles.workerGrid}>{pending.map(w=><WorkerRow key={w.id} worker={w} busy={busy==='att-'+w.id} onMark={markWorker} onMove={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}/>)}</div>
-                {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}{marks[w.id]?.portal_last_edited_by_name&&<small className={styles.portalEdit}>عُدّل بواسطة {marks[w.id].portal_last_edited_by_name}</small>}</span><button type="button" onClick={()=>removeAttendance(w)} disabled={busy==='undo-'+w.id} style={{color:'#9d2f2b'}}>إلغاء</button><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
-                {outside.length>0&&<div className={styles.outsideRoster}><div className={styles.outsideHead}><b>بقية عمال المشروع ({outside.length})</b><span>ظاهرون أمامك، لكن التسجيل يفتح عند اختيار تاريخ داخل فترة الإسناد.</span></div><div className={styles.outsideGrid}>{outside.map(w=><div key={w.id} className={styles.outsideWorker}><div><b>{w.full_name}</b><span>{w.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[w.labor_class]||'—')}</span></div><small>{displayDate(w.assignment_from)} — {w.assignment_to?displayDate(w.assignment_to):'مستمرة'}</small></div>)}</div></div>}
+                <div className={styles.workerGrid}>{pending.map(w=><WorkerRow key={w.id} worker={w} busy={busy==='att-'+w.id} onMark={markWorker} onEdit={()=>openEditWorker(w)} onMove={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}/>)}</div>
+                {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}{marks[w.id]?.portal_last_edited_by_name&&<small className={styles.portalEdit}>عُدّل بواسطة {marks[w.id].portal_last_edited_by_name}</small>}</span><button type="button" onClick={()=>openEditWorker(w)}>تعديل</button><button type="button" onClick={()=>removeAttendance(w)} disabled={busy==='undo-'+w.id} style={{color:'#9d2f2b'}}>إلغاء</button><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
+                {outside.length>0&&<div className={styles.outsideRoster}><div className={styles.outsideHead}><b>بقية عمال المشروع ({outside.length})</b><span>تظهر للحفظ والمراجعة. اضغط «تعديل» إذا كان العامل لا يزال مستمرًا أو كانت التواريخ غير صحيحة.</span></div><div className={styles.outsideGrid}>{outside.map(w=><div key={w.id} className={styles.outsideWorker}><div><b>{w.full_name}</b><span>{w.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[w.labor_class]||'—')}</span></div><div className={styles.outsideWorkerActions}><small>{displayDate(w.assignment_from)} — {w.assignment_to?displayDate(w.assignment_to):'مستمر'}</small><button type="button" onClick={()=>openEditWorker(w)}>تعديل</button></div></div>)}</div></div>}
               </>}
             </div>
 
@@ -638,6 +678,23 @@ export default function SiteOperationsPage(){
       <div className="field span2"><label>ملاحظة</label><input value={panel.form.notes} onChange={e=>setPanel(p=>({...p,form:{...p.form,notes:e.target.value}}))}/></div>
     </div><div className="msg" style={{marginTop:8}}>لن تتغير الأيام السابقة؛ سيُغلق الإسناد القديم قبل تاريخ النقل.</div><div className="rowsplit"><button className="btn" disabled={busy==='move'}>تأكيد النقل</button></div></form></Drawer>}
 
+    {panel?.type==='editWorker'&&<Drawer title={`تعديل العامل — ${panel.worker.full_name}`} onClose={()=>setPanel(null)}><form onSubmit={saveWorkerEdit}>
+      <div className="form-grid">
+        <Field label="اسم العامل"><input autoFocus required value={panel.form.full_name} onChange={e=>setPanel(p=>({...p,form:{...p.form,full_name:e.target.value}}))}/></Field>
+        <Field label="التصنيف"><select value={panel.form.labor_class} onChange={e=>setPanel(p=>({...p,form:{...p.form,labor_class:e.target.value}}))}><option value="worker">عامل</option><option value="technician">صنايعي</option><option value="foreman">فورمان</option></select></Field>
+        <Field label="التخصص"><input value={panel.form.trade} onChange={e=>setPanel(p=>({...p,form:{...p.form,trade:e.target.value}}))} placeholder="نجار، حداد، سباك…"/></Field>
+        <Field label="أساس الأجر"><select value={panel.form.pay_basis} onChange={e=>setPanel(p=>({...p,form:{...p.form,pay_basis:e.target.value}}))}><option value="daily">يومية</option><option value="salary">راتب شهري</option><option value="piecework">بالوحدة</option></select></Field>
+        {panel.form.pay_basis==='daily'&&<Field label="اليومية"><input required type="number" min="0.01" step="0.01" value={panel.form.daily_rate} onChange={e=>setPanel(p=>({...p,form:{...p.form,daily_rate:e.target.value}}))}/></Field>}
+        {panel.form.pay_basis==='salary'&&<><Field label="الراتب الشهري"><input required type="number" min="0.01" step="0.01" value={panel.form.monthly_salary} onChange={e=>setPanel(p=>({...p,form:{...p.form,monthly_salary:e.target.value}}))}/></Field><Field label="القسمة على"><input required type="number" min="1" max="31" value={panel.form.salary_days} onChange={e=>setPanel(p=>({...p,form:{...p.form,salary_days:e.target.value}}))}/></Field></>}
+        {panel.form.pay_basis==='piecework'&&<><Field label="سعر الوحدة"><input required type="number" min="0.01" step="0.01" value={panel.form.piece_rate} onChange={e=>setPanel(p=>({...p,form:{...p.form,piece_rate:e.target.value}}))}/></Field><Field label="الوحدة"><input required value={panel.form.piece_unit} onChange={e=>setPanel(p=>({...p,form:{...p.form,piece_unit:e.target.value}}))}/></Field></>}
+        <Field label="مرتبط بالمشروع من"><input required type="date" value={panel.form.valid_from} onChange={e=>setPanel(p=>({...p,form:{...p.form,valid_from:e.target.value}}))}/></Field>
+        <Field label="حتى"><input type="date" min={panel.form.valid_from} value={panel.form.valid_to} onChange={e=>setPanel(p=>({...p,form:{...p.form,valid_to:e.target.value}}))}/><small>اتركه فارغًا إذا كان العامل مستمرًا.</small></Field>
+        <div className="field span2"><label>سبب التعديل</label><input required minLength="5" value={panel.form.reason} onChange={e=>setPanel(p=>({...p,form:{...p.form,reason:e.target.value}}))} placeholder="مثال: العامل مستمر — النهاية السابقة مستنتجة من آخر حضور"/></div>
+      </div>
+      <div className="msg" style={{marginTop:8}}>هذا يصحح بطاقة العامل وارتباطه بالمشروع فقط. الحضور والمبالغ القديمة لا تتغير تلقائيًا.</div>
+      <div className="rowsplit"><button className="btn" disabled={busy==='edit-worker'}>{busy==='edit-worker'?'جارٍ الحفظ…':'حفظ التعديل'}</button></div>
+    </form></Drawer>}
+
     {panel?.type==='output'&&<Drawer title={`إنجاز اليوم — ${contractors.find(x=>x.id===panel.contractorId)?.name_ar||''}`} onClose={()=>setPanel(null)}><form onSubmit={saveOutputPanel}><div className="form-grid">
       <div className="field span2"><label>البند</label><select required value={panel.form.item_id} onChange={e=>setPanel(p=>({...p,form:{...p.form,item_id:e.target.value}}))}>{(panel.pool||items).map(i=><option key={i.id} value={i.id}>{i.description_ar} — {i.unit||''}</option>)}</select></div>
       <Field label="الكمية"><input autoFocus required type="number" min="0" step="any" value={panel.form.qty} onChange={e=>setPanel(p=>({...p,form:{...p.form,qty:e.target.value}}))}/></Field>
@@ -666,7 +723,7 @@ function DataSafetyBar({online,pendingCount,proof,syncing,onSync}){
   </div>;
 }
 function Drawer({title,onClose,children}){return <div className={styles.overlay} onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><div className={styles.drawer}><header><h2>{title}</h2><button type="button" onClick={onClose}>إغلاق</button></header><div className={styles.drawerBody}>{children}</div></div></div>;}
-function WorkerRow({worker,onMark,onMove,busy}){return <div className={styles.worker}><div><b>{worker.full_name}</b><span>{worker.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[worker.labor_class]||'—')}</span></div><div className={styles.workerButtons}><button disabled={busy} onClick={()=>onMark(worker,'full')}>كامل</button><button disabled={busy} onClick={()=>onMark(worker,'half')}>نصف</button><button disabled={busy} onClick={()=>onMark(worker,'absent')}>غياب</button><button onClick={onMove}>نقل</button></div></div>;}
+function WorkerRow({worker,onMark,onEdit,onMove,busy}){return <div className={styles.worker}><div><b>{worker.full_name}</b><span>{worker.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[worker.labor_class]||'—')}</span></div><div className={styles.workerButtons}><button disabled={busy} onClick={()=>onMark(worker,'full')}>كامل</button><button disabled={busy} onClick={()=>onMark(worker,'half')}>نصف</button><button disabled={busy} onClick={()=>onMark(worker,'absent')}>غياب</button><button onClick={onEdit}>تعديل</button><button onClick={onMove}>نقل</button></div></div>;}
 function TodayList({group,items}){
   const rows=[
     ...group.outputs.map(x=>({k:'إنجاز',v:`${items.find(i=>i.id===x.project_item_id)?.description_ar||'بند'} — ${x.group_output} ${x.unit||''}`})),

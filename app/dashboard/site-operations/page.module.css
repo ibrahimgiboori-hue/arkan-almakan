@@ -92,6 +92,8 @@
 .outsideWorker>div{display:flex;flex-direction:column;min-width:0}
 .outsideWorker b{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .outsideWorker span,.outsideWorker small{font-size:9.5px;color:#8a6b38;white-space:nowrap}
+.outsideWorkerActions{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.outsideWorkerActions button{border:1px solid #d9bd8c;background:#fff;color:var(--maroon);border-radius:5px;padding:4px 8px;font:inherit;font-size:10.5px;cursor:pointer}
 .todayList{display:flex;flex-direction:column}
 .todayList>div{display:flex;justify-content:space-between;gap:9px;padding:7px 0;border-bottom:1px solid #eee}
 .todayList b{font-size:11.5px;color:#5c6264}
@@ -144,7 +146,9 @@
  .outsideGrid{grid-template-columns:1fr}
  .workerGrid{grid-template-columns:1fr}
  .worker{align-items:flex-start;flex-direction:column}
- .workerButtons{width:100%}
+ .workerButtons{width:100%;flex-wrap:wrap}
  .workerButtons button{flex:1;padding:6px}
+ .outsideWorker{align-items:flex-start;flex-direction:column}
+ .outsideWorkerActions{width:100%;justify-content:space-between}
  .drawer{width:100vw}
 }
