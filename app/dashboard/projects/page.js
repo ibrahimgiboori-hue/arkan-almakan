@@ -27,23 +27,32 @@ export default function Projects() {
   const [busy, setBusy] = useState(false);
 
   async function load() {
+    setErr('');
     const sess = (await supabase.auth.getSession()).data.session;
     const [p, f, e, u] = await Promise.all([
       supabase.from('projects')
-        .select('id, project_no, name_ar, project_ref, city, stage, status, supply_scope, contract_value, supervisor_id, created_at')
+        .select('id, project_no, name_ar, city, stage, status, supply_scope, contract_value, supervisor_id, created_at')
         .order('created_at', { ascending: false }),
       supabase.from('v_project_financials')
         .select('project_id, current_profit, pending_collection, items_without_decision, computed_progress_pct'),
       supabase.from('employees').select('id, full_name_ar, employee_no').order('employee_no'),
       supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
+
+    if (p.error) {
+      setErr('تعذر تحميل المشاريع: ' + p.error.message);
+      setRows([]);
+      return;
+    }
+
     const projectRows = p.data || [];
     setRows(projectRows);
+
     const m = {};
-    (f.data || []).forEach((x) => { m[x.project_id] = x; });
+    if (!f.error) (f.data || []).forEach((x) => { m[x.project_id] = x; });
     setFin(m);
-    setEmps(e.data || []);
-    setRole(u.data?.role || null);
+    setEmps(e.error ? [] : (e.data || []));
+    setRole(u.error ? null : (u.data?.role || null));
     setSelectedId((current) => current && projectRows.some((r) => r.id === current)
       ? current
       : (projectRows[0]?.id || null));
@@ -79,8 +88,8 @@ export default function Projects() {
     await load();
   }
 
-  async function setStage2(r, v) {
-    const { error } = await supabase.from('projects').update({ stage: v }).eq('id', r.id);
+  async function setStage2(r, value) {
+    const { error } = await supabase.from('projects').update({ stage: value }).eq('id', r.id);
     if (error) setErr(error.message); else await load();
   }
 
@@ -89,7 +98,7 @@ export default function Projects() {
     const t = q.trim();
     return rows
       .filter((r) => stage === 'all' || r.stage === stage)
-      .filter((r) => !t || [r.name_ar, r.project_no, r.city, r.project_ref]
+      .filter((r) => !t || [r.name_ar, r.project_no, r.city]
         .filter(Boolean).some((v) => String(v).includes(t)));
   }, [rows, stage, q]);
 
@@ -133,6 +142,7 @@ export default function Projects() {
         </div>
 
         <div className={styles.projectList}>
+          {err && <div className={`${styles.message} ${styles.error}`}>{err}</div>}
           {list.length === 0 ? (
             <div className={styles.emptyList}>لا توجد مشاريع مطابقة للبحث أو الفلتر الحالي.</div>
           ) : list.map((r) => {
@@ -164,9 +174,7 @@ export default function Projects() {
       </aside>
 
       <main className={styles.detail}>
-        {err && <div className={`${styles.message} ${styles.error}`}>{err}</div>}
         {msg && <div className={`${styles.message} ${styles.success}`}>{msg}</div>}
-
         {!selected ? (
           <div className={styles.emptyList}>اختر مشروعًا لعرض مساحة العمل.</div>
         ) : (
@@ -187,9 +195,7 @@ export default function Projects() {
                   </button>
                 )}
                 <Link className={styles.button} href={`/dashboard/projects/${selected.id}`}>فتح التفاصيل الكاملة</Link>
-                {canWrite && (
-                  <button className={`${styles.button} ${styles.deleteButton}`} onClick={() => remove(selected)}>حذف</button>
-                )}
+                {canWrite && <button className={`${styles.button} ${styles.deleteButton}`} onClick={() => remove(selected)}>حذف</button>}
               </div>
             </header>
 
@@ -245,9 +251,9 @@ export default function Projects() {
                     <div className={styles.metric}><strong>{selectedSupervisor?.employee_no || '—'}</strong>الرقم الوظيفي</div>
                   </div>
                   <div className={styles.row}>
-                    <div className={styles.rowTitle}><strong>مرجع المشروع</strong><span>للوصول السريع إلى المستندات والمراسلات ذات الصلة.</span></div>
-                    <div>{selected.project_ref || 'غير محدد'}</div>
-                    <div className={styles.metric}><strong>{selected.project_no || '—'}</strong>رقم المشروع</div>
+                    <div className={styles.rowTitle}><strong>رقم المشروع</strong><span>المرجع الرئيسي للمشروع في المستندات والمراسلات.</span></div>
+                    <div>{selected.project_no || 'غير محدد'}</div>
+                    <div className={styles.metric}><strong>{selected.city || '—'}</strong>المدينة</div>
                   </div>
                 </div>
               </div>
