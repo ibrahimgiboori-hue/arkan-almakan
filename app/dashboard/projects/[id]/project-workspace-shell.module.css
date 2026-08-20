@@ -18,14 +18,19 @@
 }
 
 .projectHeader{
-  min-height:108px;
+  min-height:96px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:24px;
-  padding:18px clamp(18px,2.5vw,42px);
+  padding:14px clamp(18px,2.5vw,42px);
   border-bottom:1px solid var(--border);
-  background:rgba(251,250,247,.72);
+  background:rgba(251,250,247,.74);
+}
+.compactProjectHeader{
+  min-height:76px;
+  padding-top:10px;
+  padding-bottom:10px;
 }
 .projectIdentity{min-width:0}
 .backLink{
@@ -34,37 +39,40 @@
   color:var(--wine);
   font-size:9px;
   font-weight:850;
+  text-decoration:none;
 }
 .projectCode{
-  margin-top:8px;
+  margin-top:5px;
   color:var(--muted);
-  font:700 8px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+  font:700 7.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
   direction:ltr;
   text-align:right;
 }
 .projectIdentity h1{
-  margin:4px 0 4px;
-  font-size:clamp(25px,2.35vw,36px);
-  line-height:1.06;
+  margin:2px 0 2px;
+  font-size:clamp(24px,2vw,32px);
+  line-height:1.04;
   font-weight:900;
-  letter-spacing:-.04em;
+  letter-spacing:-.035em;
 }
+.compactProjectHeader .projectIdentity h1{font-size:clamp(22px,1.75vw,28px)}
 .projectIdentity p{
   margin:0;
   color:var(--muted);
-  font-size:9px;
-  line-height:1.6;
+  font-size:8.5px;
+  line-height:1.45;
 }
 .projectActions{flex:0 0 auto;display:flex;gap:7px;align-items:center}
 .operationButton,.secondaryAction{
-  min-height:36px;
+  min-height:34px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding:0 14px;
-  border-radius:9px;
-  font:800 10px inherit;
+  padding:0 13px;
+  border-radius:8px;
+  font:800 9.5px inherit;
   cursor:pointer;
+  text-decoration:none;
 }
 .operationButton{
   border:1px solid var(--wine);
@@ -80,11 +88,14 @@
 }
 
 .projectBody{
-  padding:18px clamp(18px,2.5vw,42px) 42px;
+  padding:16px clamp(18px,2.5vw,42px) 38px;
+}
+.operationsBody{
+  padding-top:0;
 }
 .projectBody :global(.page-head){display:none}
 .projectBody :global(.tabs){
-  margin:0 0 18px;
+  margin:0 0 16px;
   padding:0;
   border-bottom:1px solid var(--border);
   background:transparent;
@@ -109,13 +120,15 @@
 }
 
 @media (max-width:760px){
-  .projectHeader{
+  .projectHeader,.compactProjectHeader{
+    min-height:auto;
     align-items:flex-start;
     flex-direction:column;
-    padding:15px 13px;
+    gap:10px;
+    padding:12px 13px;
   }
   .projectActions,.operationButton,.secondaryAction{width:100%}
-  .projectBody{padding:14px 13px 30px}
+  .projectBody,.operationsBody{padding:0 13px 28px}
 }
 
 @media (prefers-reduced-motion:reduce){
