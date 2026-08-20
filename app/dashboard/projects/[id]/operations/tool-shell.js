@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { OutputPanel, ExpensePanel, FinancePanel, MovementsPanel } from './operation-panels';
+import { OutputPanel, FinancePanel, MovementsPanel } from './operation-panels';
+import DirectExpensePanel from './direct-expense-panel';
 import styles from './tool-shell.module.css';
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -87,7 +88,7 @@ export default function OperationToolShell({ type }){
 
   const title = {
     output:'الإنجاز اليومي',
-    expenses:'المصروفات والعهد',
+    expenses:'المصروفات',
     finance:'السلف والدفعات',
     movements:'حركات اليوم',
   }[type]||'التشغيل';
@@ -110,7 +111,7 @@ export default function OperationToolShell({ type }){
 
     {loading?<div className={styles.empty}>جارٍ فتح مساحة التشغيل…</div>:!contractor?<div className={styles.empty}>لا يوجد مقاول مرتبط بالمشروع في هذا التاريخ.</div>:<>
       {type==='output'&&<OutputPanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
-      {type==='expenses'&&<ExpensePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
+      {type==='expenses'&&<DirectExpensePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
       {type==='finance'&&<FinancePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
       {type==='movements'&&<MovementsPanel projectId={projectId} date={date} contractor={contractor}/>} 
     </>}
