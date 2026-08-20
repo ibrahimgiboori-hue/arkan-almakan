@@ -7,7 +7,8 @@ import styles from './operations-shell.module.css';
 const TABS = [
   { path:'', label:'الحضور' },
   { path:'/output', label:'الإنجاز اليومي' },
-  { path:'/expenses', label:'المصروفات والعهد' },
+  { path:'/expenses', label:'المصروفات' },
+  { path:'/custody', label:'العهدة' },
   { path:'/finance', label:'السلف والدفعات' },
   { path:'/movements', label:'حركات اليوم' },
 ];
