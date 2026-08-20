@@ -22,6 +22,7 @@ export default function Projects() {
   const [stage, setStage] = useState('all');
   const [q, setQ] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [indexCollapsed, setIndexCollapsed] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -121,8 +122,8 @@ export default function Projects() {
   const totalPending = rows.reduce((sum, r) => sum + Number(fin[r.id]?.pending_collection || 0), 0);
 
   return (
-    <div className={styles.workspace}>
-      <aside className={styles.index}>
+    <div className={`${styles.workspace} ${indexCollapsed ? styles.workspaceCollapsed : ''}`}>
+      <aside className={`${styles.index} ${indexCollapsed ? styles.indexCollapsed : ''}`}>
         <div className={styles.indexHead}>
           <div className={styles.indexTitleRow}>
             <h1 className={styles.indexTitle}>المشاريع</h1>
@@ -152,7 +153,10 @@ export default function Projects() {
               <button
                 key={r.id}
                 className={`${styles.projectItem} ${selected?.id === r.id ? styles.projectItemActive : ''}`}
-                onClick={() => setSelectedId(r.id)}
+                onClick={() => {
+                  setSelectedId(r.id);
+                  setIndexCollapsed(true);
+                }}
               >
                 <div className={styles.projectTop}>
                   <span className={styles.projectName}>{r.name_ar}</span>
@@ -264,10 +268,6 @@ export default function Projects() {
                   <div className={styles.quickItem}><div><strong>بنود بلا قرار تنفيذ</strong><span>لا ينبغي أن يبدأ تنفيذها قبل القرار.</span></div><strong className={`${styles.quickValue} ${undecided ? styles.danger : styles.good}`}>{undecided}</strong></div>
                   <div className={styles.quickItem}><div><strong>مبالغ غير محصلة</strong><span>مستخلصات مقدمة أو مفوترة بحسب المنظور المالي.</span></div><strong className={`${styles.quickValue} ${pending > 0 ? styles.warn : styles.good}`}>{money(pending)}</strong></div>
                   <div className={styles.quickItem}><div><strong>نسبة الإنجاز</strong><span>الإنجاز المحسوب من بيانات المشروع الحالية.</span></div><strong className={styles.quickValue}>{progress.toFixed(0)}%</strong></div>
-                </div>
-                <div className={styles.actions} style={{ marginTop: 14 }}>
-                  <Link className={styles.buttonPrimary} href={`/dashboard/projects/${selected.id}`}>العمل داخل المشروع</Link>
-                  <Link className={styles.button} href="/dashboard/site-operations">التشغيل اليومي</Link>
                 </div>
               </div>
             </section>
