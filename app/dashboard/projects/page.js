@@ -1,11 +1,17 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { money, dateAr } from '@/lib/format';
-import { STAGE_AR, STAGE_CLASS, SCOPE_AR } from '@/lib/projects';
+import { money } from '@/lib/format';
+import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
 import { useLiveRefresh } from '@/lib/live';
+import styles from './projects-redesign.module.css';
+
+function pct(v) {
+  const n = Number(v || 0);
+  return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0));
+}
 
 export default function Projects() {
   const router = useRouter();
@@ -15,6 +21,7 @@ export default function Projects() {
   const [role, setRole] = useState(null);
   const [stage, setStage] = useState('all');
   const [q, setQ] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -22,14 +29,24 @@ export default function Projects() {
   async function load() {
     const sess = (await supabase.auth.getSession()).data.session;
     const [p, f, e, u] = await Promise.all([
-      supabase.from('projects').select('*').order('created_at', { ascending: false }),
-      supabase.from('v_project_financials').select('*'),
+      supabase.from('projects')
+        .select('id, project_no, name_ar, project_ref, city, stage, status, supply_scope, contract_value, supervisor_id, created_at')
+        .order('created_at', { ascending: false }),
+      supabase.from('v_project_financials')
+        .select('project_id, current_profit, pending_collection, items_without_decision, computed_progress_pct'),
       supabase.from('employees').select('id, full_name_ar, employee_no').order('employee_no'),
       supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
-    setRows(p.data || []);
-    const m = {}; (f.data || []).forEach((x) => { m[x.project_id] = x; });
-    setFin(m); setEmps(e.data || []); setRole(u.data?.role || null);
+    const projectRows = p.data || [];
+    setRows(projectRows);
+    const m = {};
+    (f.data || []).forEach((x) => { m[x.project_id] = x; });
+    setFin(m);
+    setEmps(e.data || []);
+    setRole(u.data?.role || null);
+    setSelectedId((current) => current && projectRows.some((r) => r.id === current)
+      ? current
+      : (projectRows[0]?.id || null));
   }
 
   useEffect(() => { load(); }, []);
@@ -42,8 +59,11 @@ export default function Projects() {
     if (e1) { setErr('تعذّر توليد الرقم: ' + e1.message); setBusy(false); return; }
 
     const { data, error } = await supabase.from('projects').insert({
-      project_no: num, name_ar: 'مشروع جديد', stage: 'opportunity',
-      status: 'active', supply_scope: 'labor_only',
+      project_no: num,
+      name_ar: 'مشروع جديد',
+      stage: 'opportunity',
+      status: 'active',
+      supply_scope: 'labor_only',
     }).select('id').single();
 
     setBusy(false);
@@ -52,15 +72,16 @@ export default function Projects() {
   }
 
   async function remove(r) {
-    if (!window.confirm(`حذف مشروع "${r.name_ar}" وكل بنوده ومستخلصاته؟`)) return;
+    if (!window.confirm(`حذف مشروع «${r.name_ar}» وكل بنوده ومستخلصاته؟`)) return;
     const { error } = await supabase.from('projects').delete().eq('id', r.id);
     if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
-    setMsg('حُذف المشروع'); load();
+    setMsg('حُذف المشروع');
+    await load();
   }
 
   async function setStage2(r, v) {
     const { error } = await supabase.from('projects').update({ stage: v }).eq('id', r.id);
-    if (error) setErr(error.message); else load();
+    if (error) setErr(error.message); else await load();
   }
 
   const list = useMemo(() => {
@@ -72,134 +93,181 @@ export default function Projects() {
         .filter(Boolean).some((v) => String(v).includes(t)));
   }, [rows, stage, q]);
 
-  if (!rows) return <div className="empty">جارٍ التحميل…</div>;
+  useEffect(() => {
+    if (!list.length) return;
+    if (!list.some((r) => r.id === selectedId)) setSelectedId(list[0].id);
+  }, [list, selectedId]);
 
-  const canWrite = ['ceo','hr','accountant'].includes(role);
-  const active = rows.filter((r) => r.stage === 'execution');
-  const totalProfit = active.reduce((t,r) => t + Number(fin[r.id]?.current_profit || 0), 0);
-  const totalPending = active.reduce((t,r) => t + Number(fin[r.id]?.pending_collection || 0), 0);
-  const noDecision = active.reduce((t,r) => t + Number(fin[r.id]?.items_without_decision || 0), 0);
+  if (!rows) return <div className="empty">جارٍ تحميل المشاريع…</div>;
+
+  const canWrite = ['ceo', 'hr', 'accountant'].includes(role);
+  const selected = rows.find((r) => r.id === selectedId) || list[0] || null;
+  const sf = selected ? (fin[selected.id] || {}) : {};
+  const selectedSupervisor = selected ? emps.find((e) => e.id === selected.supervisor_id) : null;
+  const progress = pct(sf.computed_progress_pct);
+  const profit = Number(sf.current_profit || 0);
+  const pending = Number(sf.pending_collection || 0);
+  const undecided = Number(sf.items_without_decision || 0);
+  const executionCount = rows.filter((r) => r.stage === 'execution').length;
+  const totalPending = rows.reduce((sum, r) => sum + Number(fin[r.id]?.pending_collection || 0), 0);
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>المشاريع</h1>
-          <p>{active.length} قيد التنفيذ من {rows.length} مشروعاً</p>
-        </div>
-        {canWrite && (
-          <button className="btn" onClick={create} disabled={busy}>
-            {busy ? 'جارٍ…' : 'مشروع جديد'}
-          </button>
-        )}
-      </div>
-
-      {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
-      {msg && <div className="msg ok" style={{marginBottom:14}}>{msg}</div>}
-
-      <div className="grid k4" style={{marginBottom:20}}>
-        <div className="card">
-          <h3>الربح الحالي</h3>
-          <div className="big">{money(totalProfit)}</div>
-          <div className="foot">من المشاريع قيد التنفيذ</div>
-        </div>
-        <div className="card">
-          <h3>مستحق ولم يُحصَّل</h3>
-          <div className="big">{money(totalPending)}</div>
-          <div className="foot">مستخلصات مقدَّمة أو مفوترة</div>
-        </div>
-        <div className="card">
-          <h3>قيد التنفيذ</h3>
-          <div className="big">{active.length}</div>
-          <div className="foot">مشاريع نشطة</div>
-        </div>
-        <div className="card">
-          <h3>بنود بلا قرار تنفيذ</h3>
-          <div className="big" style={{color: noDecision ? 'var(--bad)' : undefined}}>{noDecision}</div>
-          <div className="foot">لا يبدأ تنفيذها قبل القرار</div>
-        </div>
-      </div>
-
-      <div className="section" style={{marginTop:0}}>
-        <header>
-          <h2>السجل</h2>
-          <div className="rowsplit">
-            <select value={stage} onChange={(e)=>setStage(e.target.value)}
-                    style={{fontSize:13,padding:'6px 8px'}}>
-              <option value="all">كل المراحل</option>
-              {Object.entries(STAGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-            </select>
-            <input className="search" placeholder="ابحث بالاسم أو الرقم أو المدينة"
-                   value={q} onChange={(e)=>setQ(e.target.value)} />
+    <div className={styles.workspace}>
+      <aside className={styles.index}>
+        <div className={styles.indexHead}>
+          <div className={styles.indexTitleRow}>
+            <h1 className={styles.indexTitle}>المشاريع</h1>
+            <span className={styles.indexCount}>{executionCount} تنفيذ · {rows.length} إجمالي</span>
           </div>
-        </header>
-
-        {list.length === 0 ? (
-          <div className="empty">
-            <h3>لا مشاريع</h3>
-            <p>أنشئ مشروعاً، أو حوّل عرض سعر مقبول إلى مشروع من شاشة العروض.</p>
+          <input
+            className={styles.search}
+            placeholder="ابحث باسم المشروع أو رقمه أو المدينة"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className={styles.filterRow}>
+            <button className={`${styles.filter} ${stage === 'all' ? styles.filterActive : ''}`} onClick={() => setStage('all')}>الكل</button>
+            <button className={`${styles.filter} ${stage === 'execution' ? styles.filterActive : ''}`} onClick={() => setStage('execution')}>قيد التنفيذ</button>
+            <button className={`${styles.filter} ${stage === 'opportunity' ? styles.filterActive : ''}`} onClick={() => setStage('opportunity')}>فرص</button>
           </div>
+        </div>
+
+        <div className={styles.projectList}>
+          {list.length === 0 ? (
+            <div className={styles.emptyList}>لا توجد مشاريع مطابقة للبحث أو الفلتر الحالي.</div>
+          ) : list.map((r) => {
+            const f = fin[r.id] || {};
+            const p = pct(f.computed_progress_pct);
+            return (
+              <button
+                key={r.id}
+                className={`${styles.projectItem} ${selected?.id === r.id ? styles.projectItemActive : ''}`}
+                onClick={() => setSelectedId(r.id)}
+              >
+                <div className={styles.projectTop}>
+                  <span className={styles.projectName}>{r.name_ar}</span>
+                  <span className={styles.stage}>{STAGE_AR[r.stage] || r.stage}</span>
+                </div>
+                <div className={styles.projectSub}>
+                  <span>{r.project_no || 'بدون رقم'}</span>
+                  <span>{r.city || SCOPE_AR[r.supply_scope] || '—'}</span>
+                </div>
+                <div className={styles.progress}><span style={{ width: `${p}%` }} /></div>
+                <div className={styles.projectMeta}>
+                  <span>{p.toFixed(0)}% إنجاز</span>
+                  <span>{money(f.pending_collection || 0)} مستحق</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <main className={styles.detail}>
+        {err && <div className={`${styles.message} ${styles.error}`}>{err}</div>}
+        {msg && <div className={`${styles.message} ${styles.success}`}>{msg}</div>}
+
+        {!selected ? (
+          <div className={styles.emptyList}>اختر مشروعًا لعرض مساحة العمل.</div>
         ) : (
-          <div style={{overflowX:'auto'}}>
-            <table>
-              <thead>
-                <tr><th>الرقم</th><th>المشروع</th><th>النطاق</th><th>المرحلة</th>
-                    <th className="num">قيمة العقد</th><th className="num">الإنجاز</th>
-                    <th className="num">الربح الحالي</th><th className="num">لم يُحصَّل</th>
-                    <th>المشرف</th><th style={{width:150}}>الإجراءات</th></tr>
-              </thead>
-              <tbody>
-                {list.map((r) => {
-                  const f = fin[r.id] || {};
-                  const sup = emps.find((e) => e.id === r.supervisor_id);
-                  const profit = Number(f.current_profit || 0);
-                  return (
-                    <tr key={r.id}>
-                      <td className="mono">{r.project_no}</td>
-                      <td>
-                        <Link href={`/dashboard/projects/${r.id}`}>{r.name_ar}</Link>
-                        {r.city && <div style={{fontSize:12,color:'var(--ink-soft)'}}>{r.city}</div>}
-                      </td>
-                      <td style={{fontSize:12.5}}>{SCOPE_AR[r.supply_scope]}</td>
-                      <td>
-                        {canWrite ? (
-                          <select value={r.stage} onChange={(e)=>setStage2(r, e.target.value)}
-                                  style={{fontSize:12.5,padding:'2px 4px'}}>
-                            {Object.entries(STAGE_AR).map(([k,v])=>(
-                              <option key={k} value={k}>{v}</option>))}
-                          </select>
-                        ) : (
-                          <span className={`pill ${STAGE_CLASS[r.stage]}`}>{STAGE_AR[r.stage]}</span>
-                        )}
-                      </td>
-                      <td className="num">{money(r.contract_value)}</td>
-                      <td className="num">
-                        {Number(f.computed_progress_pct || 0).toFixed(0)}%
-                      </td>
-                      <td className="num" style={{color: profit < 0 ? 'var(--bad)' : 'var(--ok)'}}>
-                        {money(profit)}
-                      </td>
-                      <td className="num">{money(f.pending_collection || 0)}</td>
-                      <td style={{fontSize:12.5}}>{sup?.full_name_ar || '—'}</td>
-                      <td>
-                        <div className="rowsplit">
-                          <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
-                                href={`/dashboard/projects/${r.id}`}>فتح</Link>
-                          {canWrite && (
-                            <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,
-                                            borderColor:'#EBC3C0',color:'#A32B24'}}
-                                    onClick={()=>remove(r)}>حذف</button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <header className={styles.detailHeader}>
+              <div>
+                <div className={styles.eyebrow}>PROJECT / {selected.project_no || '—'}</div>
+                <h1 className={styles.detailTitle}>{selected.name_ar}</h1>
+                <p className={styles.detailSub}>
+                  {[selected.city, SCOPE_AR[selected.supply_scope], selectedSupervisor?.full_name_ar ? `المشرف: ${selectedSupervisor.full_name_ar}` : null]
+                    .filter(Boolean).join(' · ') || 'بيانات المشروع الأساسية'}
+                </p>
+              </div>
+              <div className={styles.actions}>
+                {canWrite && (
+                  <button className={styles.buttonPrimary} onClick={create} disabled={busy}>
+                    {busy ? 'جارٍ الإنشاء…' : '+ مشروع جديد'}
+                  </button>
+                )}
+                <Link className={styles.button} href={`/dashboard/projects/${selected.id}`}>فتح التفاصيل الكاملة</Link>
+                {canWrite && (
+                  <button className={`${styles.button} ${styles.deleteButton}`} onClick={() => remove(selected)}>حذف</button>
+                )}
+              </div>
+            </header>
+
+            <section className={styles.statStrip}>
+              <div className={styles.stat}><strong className={styles.statValue}>{progress.toFixed(0)}%</strong><span className={styles.statLabel}>الإنجاز المحسوب</span></div>
+              <div className={styles.stat}><strong className={styles.statValue}>{money(selected.contract_value)}</strong><span className={styles.statLabel}>قيمة العقد</span></div>
+              <div className={styles.stat}><strong className={`${styles.statValue} ${pending > 0 ? styles.warn : ''}`}>{money(pending)}</strong><span className={styles.statLabel}>مستحق ولم يُحصّل</span></div>
+              <div className={styles.stat}><strong className={`${styles.statValue} ${undecided ? styles.danger : styles.good}`}>{undecided}</strong><span className={styles.statLabel}>بنود بلا قرار تنفيذ</span></div>
+            </section>
+
+            <section className={styles.heroGrid}>
+              <div className={styles.progressPanel}>
+                <div className={styles.progressTop}>
+                  <strong className={styles.progressBig}>{progress.toFixed(0)}%</strong>
+                  <span className={styles.progressCaption}>صورة الإنجاز الحالية من بيانات المشروع الفعلية</span>
+                </div>
+                <div className={styles.progressRail}><span style={{ width: `${progress}%` }} /></div>
+                <div className={styles.progressFoot}>
+                  <span>المرحلة: {STAGE_AR[selected.stage] || selected.stage}</span>
+                  <span>النطاق: {SCOPE_AR[selected.supply_scope] || 'غير محدد'}</span>
+                </div>
+              </div>
+
+              <div className={styles.financePanel}>
+                <div className={styles.eyebrow}>CURRENT PROFIT</div>
+                <strong className={styles.financeValue}>{money(profit)} ر.س</strong>
+                <span className={styles.financeCopy}>الربح الحالي بحسب منظور المشروع المالي، مع إبقاء الاستحقاقات غير المحصلة منفصلة.</span>
+                <div className={styles.financeRows}>
+                  <div className={styles.financeRow}><span>مستحق ولم يُحصّل</span><strong>{money(pending)}</strong></div>
+                  <div className={styles.financeRow}><span>إجمالي مستحقات كل المشاريع</span><strong>{money(totalPending)}</strong></div>
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.contentGrid}>
+              <div>
+                <div className={styles.sectionTitle}><h2>المشروع الآن</h2><span>معلومات تشغيلية قابلة للتصرف</span></div>
+                <div className={styles.timeline}>
+                  <div className={styles.row}>
+                    <div className={styles.rowTitle}><strong>حالة المشروع</strong><span>يمكن تعديل المرحلة هنا دون مغادرة مساحة العمل.</span></div>
+                    <div>
+                      {canWrite ? (
+                        <select className={styles.stageSelect} value={selected.stage} onChange={(e) => setStage2(selected, e.target.value)}>
+                          {Object.entries(STAGE_AR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                      ) : <span>{STAGE_AR[selected.stage] || selected.stage}</span>}
+                    </div>
+                    <div className={styles.metric}><strong>{selected.status || '—'}</strong>الحالة النظامية</div>
+                  </div>
+                  <div className={styles.row}>
+                    <div className={styles.rowTitle}><strong>المشرف</strong><span>المسؤول المرتبط بالمشروع في السجل الحالي.</span></div>
+                    <div>{selectedSupervisor?.full_name_ar || 'غير محدد'}</div>
+                    <div className={styles.metric}><strong>{selectedSupervisor?.employee_no || '—'}</strong>الرقم الوظيفي</div>
+                  </div>
+                  <div className={styles.row}>
+                    <div className={styles.rowTitle}><strong>مرجع المشروع</strong><span>للوصول السريع إلى المستندات والمراسلات ذات الصلة.</span></div>
+                    <div>{selected.project_ref || 'غير محدد'}</div>
+                    <div className={styles.metric}><strong>{selected.project_no || '—'}</strong>رقم المشروع</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className={styles.sectionTitle}><h2>ما يحتاج انتباهًا</h2><span>حسب بيانات المشروع</span></div>
+                <div className={styles.quickList}>
+                  <div className={styles.quickItem}><div><strong>بنود بلا قرار تنفيذ</strong><span>لا ينبغي أن يبدأ تنفيذها قبل القرار.</span></div><strong className={`${styles.quickValue} ${undecided ? styles.danger : styles.good}`}>{undecided}</strong></div>
+                  <div className={styles.quickItem}><div><strong>مبالغ غير محصلة</strong><span>مستخلصات مقدمة أو مفوترة بحسب المنظور المالي.</span></div><strong className={`${styles.quickValue} ${pending > 0 ? styles.warn : styles.good}`}>{money(pending)}</strong></div>
+                  <div className={styles.quickItem}><div><strong>نسبة الإنجاز</strong><span>الإنجاز المحسوب من بيانات المشروع الحالية.</span></div><strong className={styles.quickValue}>{progress.toFixed(0)}%</strong></div>
+                </div>
+                <div className={styles.actions} style={{ marginTop: 14 }}>
+                  <Link className={styles.buttonPrimary} href={`/dashboard/projects/${selected.id}`}>العمل داخل المشروع</Link>
+                  <Link className={styles.button} href="/dashboard/site-operations">التشغيل اليومي</Link>
+                </div>
+              </div>
+            </section>
+          </>
         )}
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
