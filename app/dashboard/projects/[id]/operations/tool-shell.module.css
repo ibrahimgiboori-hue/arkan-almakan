@@ -1,0 +1,10 @@
+.root{width:100%;min-width:0;color:#11110f}
+.contextBar{display:flex;align-items:center;gap:9px;min-height:54px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #d8d3c8}
+.mode{display:flex;align-items:baseline;gap:7px;flex:0 0 auto}.mode span{font-size:8px;color:#6b6761}.mode strong{font-size:12px}
+.dateNav{display:flex;height:36px;border:1px solid #d8d3c8;border-radius:8px;overflow:hidden;background:#fbfaf7}.dateNav>button{width:38px;border:0;background:transparent;font-size:17px;cursor:pointer}.dateNav>div{position:relative;min-width:220px;display:grid;place-items:center;padding:0 10px;border-right:1px solid #d8d3c8;border-left:1px solid #d8d3c8}.dateNav strong{font-size:9px}.dateNav input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.today{height:32px;padding:0 9px;border:1px solid #d8d3c8;border-radius:7px;background:#fbfaf7;font:750 8.5px inherit;cursor:pointer}
+.contractorSelect{margin-right:auto;display:flex;align-items:center;gap:6px}.contractorSelect span{font-size:8px;color:#6b6761}.contractorSelect select{height:34px;min-width:180px;border:1px solid #d8d3c8;border-radius:8px;background:#fbfaf7;padding:0 8px;font:9px inherit}
+.contextMeta{min-width:120px;text-align:left}.contextMeta strong{display:block;font-size:9px}.contextMeta span{display:block;margin-top:2px;font-size:7.5px;color:#6b6761}
+.error,.pending,.empty{padding:9px 10px;margin-bottom:10px;font-size:9px}.error{border:1px solid #e2b7b3;background:#fff5f4;color:#84201d}.pending{border:1px solid #dfc79a;background:#fff9ef;color:#765116}.empty{text-align:center;color:#6b6761}
+@media(max-width:900px){.contextBar{align-items:flex-start;flex-wrap:wrap}.contractorSelect{margin-right:0}.contextMeta{margin-right:auto}}
+@media(max-width:760px){.mode{width:100%}.dateNav{flex:1}.dateNav>div{min-width:0}.contractorSelect{width:100%}.contractorSelect select{flex:1}.contextMeta{display:none}}
