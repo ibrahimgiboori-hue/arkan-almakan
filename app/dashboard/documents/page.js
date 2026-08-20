@@ -123,8 +123,10 @@ export default function Documents() {
         ) : (
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',
                        gap:1,background:'var(--hair)'}}>
-            {visibleTemplates.map((t) => (
-              <Link key={t.code} href={`/dashboard/documents/new/${t.code}`}
+            {visibleTemplates.map((t) => {
+              const blankTimesheet=t.code==='CAT_PROJECTS_OPERATIONS_CONTRACTOR_DAILY_TIMESHEET';
+              return <Link key={t.code} href={blankTimesheet?'/print/timesheet/blank':`/dashboard/documents/new/${t.code}`}
+                    target={blankTimesheet?'_blank':undefined}
                     style={{background:'#fff',padding:'14px 16px',display:'flex',flexDirection:'column',minHeight:132}}>
                 <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start'}}>
                   <div style={{fontSize:15,color:'#7C2B28',fontWeight:650,lineHeight:1.6}}>{t.name_ar}</div>
@@ -140,9 +142,10 @@ export default function Documents() {
                   <span className="mono" style={{fontSize:10.5,color:'#B98C8E',marginInlineStart:'auto'}}>
                     {t.prefix} · {t.template_source === 'catalog' ? 'دستوري' : t.template_source === 'user' ? 'مخصص' : 'مدمج'}
                   </span>
+                  {blankTimesheet&&<span className="pill ok" style={{fontSize:10.5}}>طباعة فارغة مباشرة</span>}
                 </div>
-              </Link>
-            ))}
+              </Link>;
+            })}
           </div>
         )}
       </div>

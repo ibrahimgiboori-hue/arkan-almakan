@@ -6,20 +6,17 @@ import {
   DOCUMENT_CATALOG_VERSION,
 } from '../lib/document-catalog.mjs';
 
-test('الكتالوج يحتوي 120 نموذجًا إداريًا فعليًا', () => {
-  assert.equal(DOCUMENT_CATALOG.length, 120);
-  assert.equal(new Set(DOCUMENT_CATALOG.map((item) => item.code)).size, 120);
-  assert.equal(new Set(DOCUMENT_CATALOG.map((item) => item.nameAr)).size, 120);
+test('الكتالوج يحتوي 121 نموذجًا إداريًا فعليًا', () => {
+  assert.equal(DOCUMENT_CATALOG.length, 121);
+  assert.equal(new Set(DOCUMENT_CATALOG.map((item) => item.code)).size, 121);
+  assert.equal(new Set(DOCUMENT_CATALOG.map((item) => item.nameAr)).size, 121);
 });
 
 test('كل عائلة جديدة تحتوي عشرة نماذج', () => {
   const newCategories = Object.keys(DOCUMENT_CATEGORY_META).slice(0, 12);
   for (const category of newCategories) {
-    assert.equal(
-      DOCUMENT_CATALOG.filter((item) => item.category === category).length,
-      10,
-      category,
-    );
+    const expected = category === 'projects_operations' ? 11 : 10;
+    assert.equal(DOCUMENT_CATALOG.filter((item) => item.category === category).length, expected, category);
   }
 });
 
