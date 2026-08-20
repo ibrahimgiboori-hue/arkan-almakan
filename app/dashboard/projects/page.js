@@ -13,6 +13,8 @@ function pct(v) {
   return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0));
 }
 
+const PROTECTED_PROJECT_STAGES = new Set(['awarded', 'execution', 'closed']);
+
 export default function Projects() {
   const router = useRouter();
   const [rows, setRows] = useState(null);
@@ -82,6 +84,10 @@ export default function Projects() {
   }
 
   async function remove(r) {
+    if (PROTECTED_PROJECT_STAGES.has(r.stage)) {
+      setErr('لا يمكن حذف مشروع تمت ترسيته أو بدأ تنفيذه أو تم إقفاله.');
+      return;
+    }
     if (!window.confirm(`حذف مشروع «${r.name_ar}» وكل بنوده ومستخلصاته؟`)) return;
     const { error } = await supabase.from('projects').delete().eq('id', r.id);
     if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
@@ -92,6 +98,12 @@ export default function Projects() {
   async function setStage2(r, value) {
     const { error } = await supabase.from('projects').update({ stage: value }).eq('id', r.id);
     if (error) setErr(error.message); else await load();
+  }
+
+  function openOperations(projectId) {
+    if (!projectId) return;
+    if (typeof window !== 'undefined') localStorage.setItem('arkan.site.project', projectId);
+    router.push('/dashboard/site-operations');
   }
 
   const list = useMemo(() => {
@@ -120,6 +132,7 @@ export default function Projects() {
   const undecided = Number(sf.items_without_decision || 0);
   const executionCount = rows.filter((r) => r.stage === 'execution').length;
   const totalPending = rows.reduce((sum, r) => sum + Number(fin[r.id]?.pending_collection || 0), 0);
+  const canDeleteSelected = Boolean(canWrite && selected && !PROTECTED_PROJECT_STAGES.has(selected.stage));
 
   return (
     <div className={`${styles.workspace} ${indexCollapsed ? styles.workspaceCollapsed : ''}`}>
@@ -193,13 +206,14 @@ export default function Projects() {
                 </p>
               </div>
               <div className={styles.actions}>
+                <button className={styles.operationButton} onClick={() => openOperations(selected.id)}>التشغيل اليومي</button>
                 {canWrite && (
                   <button className={styles.buttonPrimary} onClick={create} disabled={busy}>
                     {busy ? 'جارٍ الإنشاء…' : '+ مشروع جديد'}
                   </button>
                 )}
                 <Link className={styles.button} href={`/dashboard/projects/${selected.id}`}>فتح التفاصيل الكاملة</Link>
-                {canWrite && <button className={`${styles.button} ${styles.deleteButton}`} onClick={() => remove(selected)}>حذف</button>}
+                {canDeleteSelected && <button className={`${styles.button} ${styles.deleteButton}`} onClick={() => remove(selected)}>حذف</button>}
               </div>
             </header>
 
