@@ -27,8 +27,8 @@ export default function ProjectWorkspaceLayout({ children }) {
   }, [id]);
 
   return (
-    <section className={styles.workspaceShell} data-project-workspace="true">
-      <header className={styles.projectHeader}>
+    <section className={`${styles.workspaceShell} ${inOperations ? styles.operationsWorkspace : ''}`} data-project-workspace="true">
+      <header className={`${styles.projectHeader} ${inOperations ? styles.compactProjectHeader : ''}`}>
         <div className={styles.projectIdentity}>
           <Link className={styles.backLink} href="/dashboard/projects">← المشاريع</Link>
           <div className={styles.projectCode}>{project?.project_no || 'PROJECT'}</div>
@@ -47,7 +47,7 @@ export default function ProjectWorkspaceLayout({ children }) {
         </div>
       </header>
 
-      <div className={styles.projectBody}>{children}</div>
+      <div className={`${styles.projectBody} ${inOperations ? styles.operationsBody : ''}`}>{children}</div>
     </section>
   );
 }
