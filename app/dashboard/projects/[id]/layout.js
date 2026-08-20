@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
@@ -9,8 +9,9 @@ import styles from './project-workspace-shell.module.css';
 
 export default function ProjectWorkspaceLayout({ children }) {
   const { id } = useParams();
-  const router = useRouter();
+  const pathname = usePathname();
   const [project, setProject] = useState(null);
+  const inOperations = pathname.endsWith('/operations');
 
   useEffect(() => {
     let active = true;
@@ -25,11 +26,6 @@ export default function ProjectWorkspaceLayout({ children }) {
     return () => { active = false; };
   }, [id]);
 
-  function openOperations() {
-    if (typeof window !== 'undefined') localStorage.setItem('arkan.site.project', id);
-    router.push('/dashboard/site-operations');
-  }
-
   return (
     <section className={styles.workspaceShell} data-project-workspace="true">
       <header className={styles.projectHeader}>
@@ -43,7 +39,11 @@ export default function ProjectWorkspaceLayout({ children }) {
           </p>
         </div>
         <div className={styles.projectActions}>
-          <button className={styles.operationButton} onClick={openOperations}>التشغيل اليومي</button>
+          {inOperations ? (
+            <Link className={styles.secondaryAction} href={`/dashboard/projects/${id}`}>ملخص المشروع</Link>
+          ) : (
+            <Link className={styles.operationButton} href={`/dashboard/projects/${id}/operations`}>التشغيل اليومي</Link>
+          )}
         </div>
       </header>
 
