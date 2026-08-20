@@ -35,7 +35,7 @@ export default function MovementsPage(){
       const dayId=dayQ.data?.id||null;
       const [attQ,outQ,expQ,custQ,advQ,payQ]=await Promise.all([
         dayId?supabase.from('attendance').select('id,laborer_id,status').eq('day_id',dayId):Promise.resolve({data:[],error:null}),
-        dayId?supabase.from('day_items').select('id,project_item_id,contractor_id,group_output,unit,notes,created_at').eq('day_id',dayId):Promise.resolve({data:[],error:null}),
+        dayId?supabase.from('day_items').select('id,project_item_id,contractor_id,group_output,unit,notes').eq('day_id',dayId):Promise.resolve({data:[],error:null}),
         supabase.from('contractor_expenses').select('id,contractor_id,category,amount,payer,charge_to,notes,created_at').eq('project_id',projectId).eq('expense_date',date),
         supabase.from('custody_transactions').select('id,custody_id,direction,amount,category,beneficiary,charge_to,contractor_id,notes,created_at').eq('project_id',projectId).eq('trx_date',date),
         supabase.from('contractor_advances').select('id,contractor_id,amount,notes,created_at').eq('project_id',projectId).eq('advance_date',date),
@@ -56,7 +56,7 @@ export default function MovementsPage(){
       const items=Object.fromEntries((itemQ.data||[]).map(x=>[x.id,x]));
       const unified=[];
       for(const x of attQ.data||[])unified.push({id:`a-${x.id}`,type:'attendance',time:null,title:labor[x.laborer_id]||'عامل',detail:STATUS_AR[x.status]||x.status,value:null});
-      for(const x of outQ.data||[]){const item=items[x.project_item_id];unified.push({id:`o-${x.id}`,type:'output',time:x.created_at,title:item?.description_ar||'إنجاز',detail:contractors[x.contractor_id]||'—',value:`${Number(x.group_output||0).toLocaleString('en-US')} ${x.unit||item?.unit||''}`})}
+      for(const x of outQ.data||[]){const item=items[x.project_item_id];unified.push({id:`o-${x.id}`,type:'output',time:null,title:item?.description_ar||'إنجاز',detail:contractors[x.contractor_id]||'—',value:`${Number(x.group_output||0).toLocaleString('en-US')} ${x.unit||item?.unit||''}`})}
       for(const x of expQ.data||[])unified.push({id:`e-${x.id}`,type:'expense',time:x.created_at,title:x.category||'مصروف',detail:`${contractors[x.contractor_id]||'—'}${x.notes?` · ${x.notes}`:''}`,value:`${money(x.amount)} ر.س`});
       for(const x of custQ.data||[])unified.push({id:`c-${x.id}`,type:'custody',time:x.created_at,title:x.direction==='issue'?'تعزيز عهدة':x.direction==='return'?'إرجاع عهدة':'صرف من العهدة',detail:`${x.category||x.beneficiary||x.notes||'—'}${x.charge_to?` · على ${CHARGE_AR[x.charge_to]||x.charge_to}`:''}`,value:`${money(x.amount)} ر.س`});
       for(const x of advQ.data||[])unified.push({id:`v-${x.id}`,type:'advance',time:x.created_at,title:'سلفة مقاول',detail:`${contractors[x.contractor_id]||'—'}${x.notes?` · ${x.notes}`:''}`,value:`${money(x.amount)} ر.س`});
