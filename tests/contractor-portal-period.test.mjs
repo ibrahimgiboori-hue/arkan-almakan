@@ -4,6 +4,7 @@ import {
   buildPeriodWorkers,
   PORTAL_ATTENDANCE_STATUSES,
   shiftIsoDate,
+  sortPortalRoster,
 } from '../lib/contractor-portal.mjs';
 
 test('portal offers only absence, half day, and full day',()=>{
@@ -13,6 +14,16 @@ test('portal offers only absence, half day, and full day',()=>{
 test('day arrows move across month boundaries in the requested direction',()=>{
   assert.equal(shiftIsoDate('2026-08-01',-1),'2026-07-31');
   assert.equal(shiftIsoDate('2026-08-31',1),'2026-09-01');
+});
+
+test('worker numbering uses natural numeric order instead of text order',()=>{
+  const workers=sortPortalRoster([
+    {full_name:'صنايعي 10'},
+    {full_name:'صنايعي 2'},
+    {full_name:'صنايعي 1'},
+  ]);
+
+  assert.deepEqual(workers.map(row=>row.full_name),['صنايعي 1','صنايعي 2','صنايعي 10']);
 });
 
 test('period rows group by worker and treat a missing status as absence',()=>{

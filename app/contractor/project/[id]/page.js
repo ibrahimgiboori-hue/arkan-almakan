@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { laborClassLabel } from '@/lib/labor-class-summary.mjs';
-import { buildPeriodWorkers, PORTAL_ATTENDANCE_LABEL, PORTAL_ATTENDANCE_STATUSES, shiftIsoDate } from '@/lib/contractor-portal.mjs';
+import { buildPeriodWorkers, PORTAL_ATTENDANCE_LABEL, PORTAL_ATTENDANCE_STATUSES, shiftIsoDate, sortPortalRoster } from '@/lib/contractor-portal.mjs';
 
 const isoToday=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const shortDate=iso=>new Date(`${iso}T12:00:00`).toLocaleDateString('ar-SA-u-ca-gregory',{day:'2-digit',month:'2-digit'});
@@ -23,8 +23,9 @@ export default function ContractorProjectTimesheet(){
     setError('');
     const [dashboard,roster]=await Promise.all([supabase.rpc('fn_portal_dashboard'),supabase.rpc('fn_portal_roster',{p_project_id:id,p_work_date:date})]);
     if(dashboard.error||roster.error){setError((dashboard.error||roster.error).message);return;}
-    setContext(dashboard.data);setRows(roster.data||[]);
-    setDraft(Object.fromEntries((roster.data||[]).map(row=>[row.laborer_id,{status:row.attendance_status||'absent',notes:row.attendance_notes||''}])));setDirty(new Set());
+    const sortedRoster=sortPortalRoster(roster.data||[]);
+    setContext(dashboard.data);setRows(sortedRoster);
+    setDraft(Object.fromEntries(sortedRoster.map(row=>[row.laborer_id,{status:row.attendance_status||'absent',notes:row.attendance_notes||''}])));setDirty(new Set());
   },[id,date]);
   useEffect(()=>{load();},[load]);
   function change(workerId,key,value){setDraft(current=>({...current,[workerId]:{...current[workerId],[key]:value}}));setDirty(current=>new Set(current).add(workerId));}
