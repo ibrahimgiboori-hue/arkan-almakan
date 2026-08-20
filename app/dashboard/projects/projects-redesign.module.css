@@ -78,7 +78,6 @@
 .error{color:var(--red);border-color:#e4b9b5;background:#fff5f4}
 .success{color:var(--green);border-color:#bbd7c9;background:#f4fbf7}
 
-statStrip{}
 .statStrip{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   margin-top:20px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
@@ -88,7 +87,6 @@ statStrip{}
 .statValue{display:block;font-size:20px;line-height:1.2;font-weight:860;font-variant-numeric:tabular-nums}
 .statLabel{display:block;margin-top:4px;color:var(--muted);font-size:8.5px}
 
-heroGrid{}
 .heroGrid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(270px,.8fr);gap:12px;margin-top:18px}
 .progressPanel{padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .progressTop{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
