@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { openCustodyEvidence, removeCustodyEvidence, uploadCustodyEvidence } from './custody-evidence';
 import styles from './custody.module.css';
 
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -22,6 +23,10 @@ export default function CustodyPage(){
   const [busy,setBusy] = useState(false);
   const [feedback,setFeedback] = useState(null);
   const [showOpen,setShowOpen] = useState(false);
+  const [evidenceFile,setEvidenceFile] = useState(null);
+  const [openingEvidenceFile,setOpeningEvidenceFile] = useState(null);
+  const [evidenceKey,setEvidenceKey] = useState(0);
+  const [openingEvidenceKey,setOpeningEvidenceKey] = useState(0);
   const [openForm,setOpenForm] = useState({ employee_id:'', opened_at:todayIso(), purpose:'', initial_amount:'' });
   const [form,setForm] = useState({ direction:'spend', trx_date:todayIso(), amount:'', category:'مصروف تشغيلي', beneficiary:'', charge_to:'arkan', contractor_id:'', notes:'' });
 
@@ -73,6 +78,10 @@ export default function CustodyPage(){
   const selected=useMemo(()=>custodies.find(x=>x.id===selectedId)||null,[custodies,selectedId]);
   const totals=useMemo(()=>transactions.reduce((a,x)=>{const v=Number(x.amount||0); if(x.direction==='issue')a.issued+=v; if(x.direction==='spend')a.spent+=v; if(x.direction==='return')a.returned+=v; return a;},{issued:0,spent:0,returned:0}),[transactions]);
 
+  async function openEvidence(path){
+    try{await openCustodyEvidence(path)}catch(e){setFeedback({type:'error',text:'تعذر فتح الإثبات: '+(e.message||e)})}
+  }
+
   async function openCustody(e){
     e.preventDefault();
     if(!openForm.employee_id)return;
@@ -89,12 +98,25 @@ export default function CustodyPage(){
       if(error)throw error;
       const custodyId=data?.custody_id;
       if(!custodyId)throw new Error('لم يعد الخادم بمعرّف العهدة الجديدة');
+
+      let evidenceWarning='';
+      if(openingEvidenceFile&&data?.transaction_id){
+        try{
+          const path=await uploadCustodyEvidence({projectId,custodyId,file:openingEvidenceFile});
+          const link=await supabase.from('custody_transactions').update({document_path:path}).eq('id',data.transaction_id).select('id').single();
+          if(link.error){await removeCustodyEvidence(path);throw link.error;}
+        }catch(evidenceError){
+          evidenceWarning=' تم فتح العهدة، لكن تعذر ربط إثبات الإصدار: '+(evidenceError.message||evidenceError);
+        }
+      }
+
       const proof=await supabase.from('custodies').select('id,custody_no').eq('id',custodyId).single();
       if(proof.error)throw proof.error;
       setSelectedId(custodyId);
       setShowOpen(false);
       setOpenForm(f=>({...f,purpose:'',initial_amount:''}));
-      setFeedback({type:'success',text:`تم فتح العهدة ${proof.data.custody_no}${Number(openForm.initial_amount||0)>0?` وإصدار ${money(openForm.initial_amount)} ر.س`:''}.`});
+      setOpeningEvidenceFile(null);setOpeningEvidenceKey(k=>k+1);
+      setFeedback({type:evidenceWarning?'error':'success',text:`تم فتح العهدة ${proof.data.custody_no}${Number(openForm.initial_amount||0)>0?` وإصدار ${money(openForm.initial_amount)} ر.س`:''}.${evidenceWarning}`});
       await load();
     }catch(e){setFeedback({type:'error',text:'تعذر فتح العهدة: '+(e.message||e)});}
     setBusy(false);
@@ -105,7 +127,9 @@ export default function CustodyPage(){
     if(!selected||!Number(form.amount))return;
     if(typeof navigator!=='undefined'&&navigator.onLine===false){setFeedback({type:'error',text:'حركات العهدة المالية تحتاج اتصالًا مباشرًا حتى نتأكد من الرصيد قبل الحفظ.'});return;}
     setBusy(true); setFeedback(null);
+    let evidencePath=null;
     try{
+      if(evidenceFile)evidencePath=await uploadCustodyEvidence({projectId,custodyId:selected.id,file:evidenceFile});
       const payload={
         custody_id:selected.id,
         direction:form.direction,
@@ -117,15 +141,21 @@ export default function CustodyPage(){
         notes:form.notes||null,
         charge_to:form.direction==='spend'?form.charge_to:null,
         contractor_id:form.direction==='spend'&&form.charge_to==='contractor'?(form.contractor_id||null):null,
+        document_path:evidencePath,
       };
       const ins=await supabase.from('custody_transactions').insert(payload).select('id').single();
       if(ins.error)throw ins.error;
-      const proof=await supabase.from('custody_transactions').select('id,amount,direction,trx_date').eq('id',ins.data.id).single();
+      const proof=await supabase.from('custody_transactions').select('id,amount,direction,trx_date,document_path').eq('id',ins.data.id).single();
       if(proof.error||!proof.data?.id)throw proof.error||new Error('تعذر إثبات حفظ الحركة');
-      setFeedback({type:'success',text:`تم حفظ ${DIRECTION_AR[form.direction]} بمبلغ ${money(form.amount)} ر.س والتحقق منها.`});
+      evidencePath=null;
+      setFeedback({type:'success',text:`تم حفظ ${DIRECTION_AR[form.direction]} بمبلغ ${money(form.amount)} ر.س والتحقق منها${proof.data.document_path?' مع الإثبات':''}.`});
       setForm(f=>({...f,amount:'',beneficiary:'',notes:''}));
+      setEvidenceFile(null);setEvidenceKey(k=>k+1);
       await load(); await loadTransactions();
-    }catch(e){setFeedback({type:'error',text:'تعذر حفظ حركة العهدة: '+(e.message||e)});}
+    }catch(e){
+      if(evidencePath)await removeCustodyEvidence(evidencePath);
+      setFeedback({type:'error',text:'تعذر حفظ حركة العهدة: '+(e.message||e)});
+    }
     setBusy(false);
   }
 
@@ -158,6 +188,7 @@ export default function CustodyPage(){
         <label><span>تاريخ الفتح</span><input type="date" value={openForm.opened_at} onChange={e=>setOpenForm(f=>({...f,opened_at:e.target.value}))}/></label>
         <label><span>المبلغ الأولي</span><input type="number" min="0" step="0.01" value={openForm.initial_amount} onChange={e=>setOpenForm(f=>({...f,initial_amount:e.target.value}))} placeholder="0.00"/></label>
         <label className={styles.wide}><span>الغرض من العهدة</span><input value={openForm.purpose} onChange={e=>setOpenForm(f=>({...f,purpose:e.target.value}))} placeholder="مثال: مصاريف تشغيل الموقع"/></label>
+        <label className={styles.fileField}><span>إثبات الإصدار الأولي</span><input key={openingEvidenceKey} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setOpeningEvidenceFile(e.target.files?.[0]||null)}/><small>يُرفع الملف الأصلي دون ضغط.</small></label>
         <button className={styles.primary} disabled={busy||!openForm.employee_id}>{busy?'جارٍ الفتح…':'فتح العهدة'}</button>
       </form>
     </section>}
@@ -185,6 +216,7 @@ export default function CustodyPage(){
               {form.charge_to==='contractor'&&<label><span>المقاول</span><select required value={form.contractor_id} onChange={e=>setForm(f=>({...f,contractor_id:e.target.value}))}><option value="">اختر المقاول</option>{contractors.map(c=><option key={c.id} value={c.id}>{c.operation_alias||c.name_ar}</option>)}</select></label>}
             </>}
             <label className={styles.wide}><span>ملاحظة</span><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="اختياري"/></label>
+            <label className={styles.fileField}><span>الإثبات</span><input key={evidenceKey} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setEvidenceFile(e.target.files?.[0]||null)}/><small>فاتورة، سند أو صورة أصلية بدون ضغط.</small></label>
             <button className={styles.primary} disabled={busy||selected.status!=='open'}>{busy?'جارٍ الحفظ…':'حفظ الحركة'}</button>
           </form>
           <div className={styles.purpose}><span>الغرض من العهدة</span><p>{selected.purpose||'غير محدد'}</p><small>افتتحت في {selected.opened_at} · الحالة: {selected.status==='open'?'مفتوحة':selected.status==='settled'?'مسوّاة':'مغلقة'}</small></div>
@@ -194,7 +226,10 @@ export default function CustodyPage(){
           <div className={styles.historyHead}><div><span>LEDGER</span><h3>سجل الحركات</h3></div><strong>{transactions.length}</strong></div>
           <div className={styles.list}>{transactions.map(row=><div className={styles.row} key={row.id}>
             <div className={styles.rowMain}><span className={`${styles.dot} ${styles[`dot_${row.direction}`]||''}`}></span><div><strong>{DIRECTION_AR[row.direction]||row.direction}</strong><small>{row.category||row.beneficiary||row.notes||'—'} · {row.trx_date}</small></div></div>
-            <div className={styles.rowAmount}><strong>{money(row.amount)}</strong><small>{row.charge_to?CHARGE_AR[row.charge_to]:'ر.س'}</small></div>
+            <div className={styles.rowActions}>
+              {row.document_path&&<button className={styles.evidenceButton} type="button" onClick={()=>openEvidence(row.document_path)}>الإثبات</button>}
+              <div className={styles.rowAmount}><strong>{money(row.amount)}</strong><small>{row.charge_to?CHARGE_AR[row.charge_to]:'ر.س'}</small></div>
+            </div>
           </div>)}</div>
         </aside>
       </section>
