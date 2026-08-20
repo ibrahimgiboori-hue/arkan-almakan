@@ -1,10 +1,34 @@
 .root{width:100%;min-width:0;color:#11110f}
-.contextBar{display:flex;align-items:center;gap:9px;min-height:54px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #d8d3c8}
-.mode{display:flex;align-items:baseline;gap:7px;flex:0 0 auto}.mode span{font-size:8px;color:#6b6761}.mode strong{font-size:12px}
-.dateNav{display:flex;height:36px;border:1px solid #d8d3c8;border-radius:8px;overflow:hidden;background:#fbfaf7}.dateNav>button{width:38px;border:0;background:transparent;font-size:17px;cursor:pointer}.dateNav>div{position:relative;min-width:220px;display:grid;place-items:center;padding:0 10px;border-right:1px solid #d8d3c8;border-left:1px solid #d8d3c8}.dateNav strong{font-size:9px}.dateNav input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
-.today{height:32px;padding:0 9px;border:1px solid #d8d3c8;border-radius:7px;background:#fbfaf7;font:750 8.5px inherit;cursor:pointer}
-.contractorSelect{margin-right:auto;display:flex;align-items:center;gap:6px}.contractorSelect span{font-size:8px;color:#6b6761}.contractorSelect select{height:34px;min-width:180px;border:1px solid #d8d3c8;border-radius:8px;background:#fbfaf7;padding:0 8px;font:9px inherit}
-.contextMeta{min-width:120px;text-align:left}.contextMeta strong{display:block;font-size:9px}.contextMeta span{display:block;margin-top:2px;font-size:7.5px;color:#6b6761}
+.contextBar{
+  display:grid;
+  grid-template-columns:minmax(260px,360px) auto 1fr minmax(180px,230px) minmax(110px,150px);
+  align-items:center;
+  gap:8px;
+  min-height:48px;
+  margin-bottom:14px;
+  padding:6px 0 10px;
+  border-bottom:1px solid #d8d3c8;
+}
+.mode{display:none}
+.dateNav{display:flex;height:36px;border:1px solid #d8d3c8;border-radius:8px;overflow:hidden;background:#fbfaf7}
+.dateNav>button{width:38px;border:0;background:transparent;font-size:17px;cursor:pointer;color:#11110f}
+.dateNav>button:hover{background:#efebe3}
+.dateNav>div{position:relative;min-width:0;flex:1;display:grid;place-items:center;padding:0 10px;border-right:1px solid #d8d3c8;border-left:1px solid #d8d3c8}
+.dateNav strong{font-size:9.5px;white-space:nowrap}
+.dateNav input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.today{height:34px;padding:0 10px;border:1px solid #d8d3c8;border-radius:8px;background:#fbfaf7;font:750 9px inherit;cursor:pointer;color:#11110f}
+.contractorSelect{grid-column:4;display:flex;align-items:center;gap:6px;min-width:0}
+.contractorSelect span{font-size:8px;color:#6b6761;white-space:nowrap}
+.contractorSelect select{width:100%;height:34px;min-width:0;border:1px solid #d8d3c8;border-radius:8px;background:#fbfaf7;padding:0 9px;font:9px inherit;color:#11110f}
+.contextMeta{grid-column:5;min-width:0;text-align:left}
+.contextMeta strong{display:block;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contextMeta span{display:block;margin-top:2px;font-size:7.5px;color:#6b6761}
 .error,.pending,.empty{padding:9px 10px;margin-bottom:10px;font-size:9px}.error{border:1px solid #e2b7b3;background:#fff5f4;color:#84201d}.pending{border:1px solid #dfc79a;background:#fff9ef;color:#765116}.empty{text-align:center;color:#6b6761}
-@media(max-width:900px){.contextBar{align-items:flex-start;flex-wrap:wrap}.contractorSelect{margin-right:0}.contextMeta{margin-right:auto}}
-@media(max-width:760px){.mode{width:100%}.dateNav{flex:1}.dateNav>div{min-width:0}.contractorSelect{width:100%}.contractorSelect select{flex:1}.contextMeta{display:none}}
+@media(max-width:1050px){
+  .contextBar{grid-template-columns:minmax(230px,1fr) auto minmax(180px,230px);grid-template-areas:"date today contractor" "meta meta meta"}
+  .dateNav{grid-area:date}.today{grid-area:today}.contractorSelect{grid-area:contractor}.contextMeta{grid-area:meta;text-align:right;padding-top:2px}
+}
+@media(max-width:760px){
+  .contextBar{display:flex;align-items:stretch;flex-wrap:wrap;gap:6px}
+  .dateNav{flex:1 1 230px}.today{flex:0 0 auto}.contractorSelect{width:100%}.contractorSelect select{flex:1}.contextMeta{display:none}
+}
