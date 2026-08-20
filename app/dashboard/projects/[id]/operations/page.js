@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { receiptLabel } from '@/lib/operation-safety.mjs';
 import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
+import BulkAttendanceList from './BulkAttendanceList';
 import styles from './operations.module.css';
 
 const STATUS = {
@@ -187,25 +188,27 @@ export default function ProjectDailyOperations() {
     setBusy('');
   }
 
-  async function markRemaining(status) {
-    const groupWorkers = activeContractor
-      ? workers.filter((w) => w.contractor_id === activeContractor)
-      : workers;
-    const remaining = groupWorkers.filter((w) => !marks[w.id]);
-    if (!remaining.length) return;
-    const verb = status === 'full' ? 'حضور كامل' : 'غياب';
-    if (!window.confirm(`سيتم تسجيل ${remaining.length} فردًا كـ ${verb}. متابعة؟`)) return;
-    setBusy('bulk');
+  async function markSelected(selectedWorkers, status) {
+    if (!selectedWorkers.length) return false;
+    setBusy('selection');
     setErr('');
+    setMsg('');
     try {
-      const result = await writeAttendance(remaining.map((worker) => ({ worker, status })));
-      if (result?.status === 'verified') setMsg(`تم تسجيل ${remaining.length} فردًا — ${receiptLabel(result.receipt)}`);
-      else setMsg(`حُفظت ${remaining.length} حركة على الجهاز وتنتظر الاتصال.`);
+      const result = await writeAttendance(selectedWorkers.map((worker) => ({ worker, status })));
+      const label = STATUS[status]?.label || status;
+      if (result?.status === 'verified') {
+        setMsg(`تم تسجيل ${selectedWorkers.length} عاملًا — ${label} · ${receiptLabel(result.receipt)}`);
+      } else {
+        setMsg(`حُفظت ${selectedWorkers.length} حركة ${label} على الجهاز وتنتظر الاتصال.`);
+      }
+      setBusy('');
+      return true;
     } catch (e) {
       setSaveProof({ status: 'error' });
       setErr(e.message || String(e));
+      setBusy('');
+      return false;
     }
-    setBusy('');
   }
 
   async function removeAttendance(worker) {
@@ -352,40 +355,20 @@ export default function ProjectDailyOperations() {
               <div>
                 <span className={styles.eyebrow}>FAST ENTRY</span>
                 <h2>غير المسجلين</h2>
-                <p>بعد اختيار الحالة يختفي العامل من هذه القائمة مباشرة ويبقى في «تم التسجيل» للمراجعة.</p>
+                <p>حدد عاملًا أو عدة عمال ثم سجل حالتهم دفعة واحدة، أو سجل العامل مباشرة من صفه.</p>
               </div>
               <div className={styles.entryTools}>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث بالاسم أو الصفة" />
-                <button type="button" onClick={() => markRemaining('full')} disabled={!pendingWorkers.length || busy === 'bulk'}>حضور الباقين</button>
-                <button type="button" onClick={() => markRemaining('absent')} disabled={!pendingWorkers.length || busy === 'bulk'}>غياب الباقين</button>
               </div>
             </div>
 
-            <div className={styles.workerTable}>
-              <div className={`${styles.workerRow} ${styles.workerHead}`}>
-                <span>#</span><span>العامل</span><span>الصفة</span><span>الحالة</span>
-              </div>
-              {pendingWorkers.length === 0 ? (
-                <div className={styles.completeState}>
-                  <strong>اكتمل تسجيل هذه القائمة</strong>
-                  <span>يمكن مراجعة المسجلين أو الانتقال لليوم التالي.</span>
-                </div>
-              ) : pendingWorkers.map((worker, index) => (
-                <div className={styles.workerRow} key={worker.id}>
-                  <span className={styles.rowNo}>{String(index + 1).padStart(2, '0')}</span>
-                  <div className={styles.workerIdentity}>
-                    <strong>{worker.full_name}</strong>
-                    <small>{worker.trade || LABOR_CLASS[worker.labor_class] || '—'}</small>
-                  </div>
-                  <span className={styles.workerClass}>{LABOR_CLASS[worker.labor_class] || worker.labor_class || '—'}</span>
-                  <div className={styles.statusButtons}>
-                    <button className={styles.fullButton} disabled={busy === `worker-${worker.id}`} onClick={() => markWorker(worker, 'full')}>كامل</button>
-                    <button className={styles.halfButton} disabled={busy === `worker-${worker.id}`} onClick={() => markWorker(worker, 'half')}>نصف يوم</button>
-                    <button className={styles.absentButton} disabled={busy === `worker-${worker.id}`} onClick={() => markWorker(worker, 'absent')}>غياب</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <BulkAttendanceList
+              key={`${date}-${activeContractor}`}
+              workers={pendingWorkers}
+              busy={busy}
+              onMarkWorker={markWorker}
+              onMarkSelected={markSelected}
+            />
           </main>
 
           <aside className={styles.reviewPane}>
