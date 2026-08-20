@@ -147,10 +147,13 @@ export default function DashboardLayout({ children }) {
     router.replace('/login');
   }
 
+  const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+$/.test(pathname);
   const current = activeItemFor(pathname);
   const activeArea = current?.area || AREAS[0];
   const currentLabel = current?.label || activeArea.label;
-  const contextItems = activeArea.items.filter((item) => item.href !== activeArea.href && !item.hidden);
+  const contextItems = isProjectWorkspace
+    ? []
+    : activeArea.items.filter((item) => item.href !== activeArea.href && !item.hidden);
   const flatItems = useMemo(() => AREAS.flatMap((area) =>
     area.items.filter((item) => !item.hidden).map((item) => ({ ...item, meta: area.label }))), []);
 
@@ -241,32 +244,34 @@ export default function DashboardLayout({ children }) {
         </div>
       </header>
 
-      <div className={styles.contextBar}>
-        <div className={styles.contextIdentity}>
-          <span className={styles.contextTitle}>{activeArea.label}</span>
-          <span className={styles.contextCrumb}>{currentLabel} · {displayDate}</span>
-        </div>
+      {!isProjectWorkspace && (
+        <div className={styles.contextBar}>
+          <div className={styles.contextIdentity}>
+            <span className={styles.contextTitle}>{activeArea.label}</span>
+            <span className={styles.contextCrumb}>{currentLabel} · {displayDate}</span>
+          </div>
 
-        {contextItems.length > 0 && (
-          <nav className={styles.contextTabs} aria-label={`أدوات ${activeArea.label}`}>
-            {contextItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.contextTab} ${matchesPath(pathname, item.href) ? styles.contextTabActive : ''}`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        )}
-
-        <div className={styles.contextActions}>
-          {primaryAction && primaryAction.href !== pathname && (
-            <Link className={styles.contextActionPrimary} href={primaryAction.href}>{primaryAction.label}</Link>
+          {contextItems.length > 0 && (
+            <nav className={styles.contextTabs} aria-label={`أدوات ${activeArea.label}`}>
+              {contextItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`${styles.contextTab} ${matchesPath(pathname, item.href) ? styles.contextTabActive : ''}`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
           )}
+
+          <div className={styles.contextActions}>
+            {primaryAction && primaryAction.href !== pathname && (
+              <Link className={styles.contextActionPrimary} href={primaryAction.href}>{primaryAction.label}</Link>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={pathname === '/dashboard' ? styles.homeContent : `page ${styles.legacyContent}`}>
         {pathname.startsWith('/dashboard/formbuilder/') && <FormBuilderResizeOverlay />}
