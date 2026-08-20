@@ -11,13 +11,14 @@ function moveDate(value,days){const [y,m,d]=String(value).split('-').map(Number)
 function dateLabel(value){const [y,m,d]=String(value).split('-').map(Number);return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d))}
 const STATUS_AR={full:'كامل',half:'نصف يوم',absent:'غياب',stopped:'توقف',leave:'إجازة'};
 const CHARGE_AR={arkan:'أركان',contractor:'المقاول',owner:'المالك'};
+const EMPTY_SUMMARY={attendance:0,full:0,half:0,absent:0,outputs:0,expenses:0,custody:0,advances:0,payments:0};
 
 export default function MovementsPage(){
   const {id:projectId}=useParams();
   const dateKey=`arkan.project.ops.date.${projectId}`;
   const [date,setDate]=useState(iso(new Date()));
   const [rows,setRows]=useState([]);
-  const [summary,setSummary]=useState({attendance:0,full:0,half:0,absent:0,outputs:0,expenses:0,custody:0,advances:0,payments:0});
+  const [summary,setSummary]=useState(EMPTY_SUMMARY);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState('');
   const [filter,setFilter]=useState('all');
@@ -27,13 +28,13 @@ export default function MovementsPage(){
 
   const load=useCallback(async()=>{
     if(!projectId||!date)return;
-    setLoading(true);setErr('');
+    setLoading(true);setErr('');setRows([]);setSummary(EMPTY_SUMMARY);
     try{
       const dayQ=await supabase.from('timesheet_days').select('id').eq('project_id',projectId).eq('work_date',date).maybeSingle();
       if(dayQ.error)throw dayQ.error;
       const dayId=dayQ.data?.id||null;
       const [attQ,outQ,expQ,custQ,advQ,payQ]=await Promise.all([
-        dayId?supabase.from('attendance').select('id,laborer_id,status,created_at').eq('day_id',dayId):Promise.resolve({data:[],error:null}),
+        dayId?supabase.from('attendance').select('id,laborer_id,status').eq('day_id',dayId):Promise.resolve({data:[],error:null}),
         dayId?supabase.from('day_items').select('id,project_item_id,contractor_id,group_output,unit,notes,created_at').eq('day_id',dayId):Promise.resolve({data:[],error:null}),
         supabase.from('contractor_expenses').select('id,contractor_id,category,amount,payer,charge_to,notes,created_at').eq('project_id',projectId).eq('expense_date',date),
         supabase.from('custody_transactions').select('id,custody_id,direction,amount,category,beneficiary,charge_to,contractor_id,notes,created_at').eq('project_id',projectId).eq('trx_date',date),
@@ -54,7 +55,7 @@ export default function MovementsPage(){
       const contractors=Object.fromEntries((conQ.data||[]).map(x=>[x.id,x.operation_alias||x.name_ar]));
       const items=Object.fromEntries((itemQ.data||[]).map(x=>[x.id,x]));
       const unified=[];
-      for(const x of attQ.data||[])unified.push({id:`a-${x.id}`,type:'attendance',time:x.created_at,title:labor[x.laborer_id]||'عامل',detail:STATUS_AR[x.status]||x.status,value:null});
+      for(const x of attQ.data||[])unified.push({id:`a-${x.id}`,type:'attendance',time:null,title:labor[x.laborer_id]||'عامل',detail:STATUS_AR[x.status]||x.status,value:null});
       for(const x of outQ.data||[]){const item=items[x.project_item_id];unified.push({id:`o-${x.id}`,type:'output',time:x.created_at,title:item?.description_ar||'إنجاز',detail:contractors[x.contractor_id]||'—',value:`${Number(x.group_output||0).toLocaleString('en-US')} ${x.unit||item?.unit||''}`})}
       for(const x of expQ.data||[])unified.push({id:`e-${x.id}`,type:'expense',time:x.created_at,title:x.category||'مصروف',detail:`${contractors[x.contractor_id]||'—'}${x.notes?` · ${x.notes}`:''}`,value:`${money(x.amount)} ر.س`});
       for(const x of custQ.data||[])unified.push({id:`c-${x.id}`,type:'custody',time:x.created_at,title:x.direction==='issue'?'تعزيز عهدة':x.direction==='return'?'إرجاع عهدة':'صرف من العهدة',detail:`${x.category||x.beneficiary||x.notes||'—'}${x.charge_to?` · على ${CHARGE_AR[x.charge_to]||x.charge_to}`:''}`,value:`${money(x.amount)} ر.س`});
