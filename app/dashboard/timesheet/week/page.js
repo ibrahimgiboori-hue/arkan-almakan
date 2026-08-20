@@ -20,7 +20,7 @@ const STATUS = {
   stopped: { ar: 'توقف',  short: 'ت', factor: 1,   bg: '#EDF0F6', fg: '#3C4A6B' },
   leave:   { ar: 'إجازة', short: 'إ', factor: 0,   bg: '#F2EEF6', fg: '#5B4380' },
 };
-const CYCLE = ['absent', 'full', 'half', 'stopped', 'leave'];
+const CYCLE = ['absent', 'full', 'half'];
 const DEFAULT_ST = 'absent';
 
 const DAY_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];

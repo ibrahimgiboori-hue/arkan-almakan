@@ -11,10 +11,11 @@ import {
 } from '../lib/timesheet-report.mjs';
 import { laborClassLabel, laborClassSummaryLabel, summarizeLaborClasses } from '../lib/labor-class-summary.mjs';
 
-test('unrecorded is distinct from an explicit absence', () => {
-  assert.equal(TIMESHEET_STATUS.unrecorded.short, '—');
+test('missing attendance is treated as absence for daily labor', () => {
+  assert.equal(TIMESHEET_STATUS.unrecorded.short, 'غ');
   assert.equal(TIMESHEET_STATUS.absent.short, 'غ');
-  assert.notEqual(TIMESHEET_STATUS.unrecorded.label, TIMESHEET_STATUS.absent.label);
+  assert.equal(TIMESHEET_STATUS.unrecorded.label, TIMESHEET_STATUS.absent.label);
+  assert.equal(TIMESHEET_STATUS.unrecorded.factor, 0);
 });
 
 test('full and half attendance produce the expected workdays', () => {

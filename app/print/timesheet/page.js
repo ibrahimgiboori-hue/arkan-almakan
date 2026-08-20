@@ -227,8 +227,7 @@ export default function TimesheetPrintPage() {
 
   const legend = () => (
     <div className="ts-legend">
-      <span><b>✓</b> يوم كامل</span><span><b>½</b> نصف يوم</span><span><b>غ</b> غياب مسجل</span>
-      <span><b>ت</b> حاضر والعمل متوقف</span><span><b>إ</b> إجازة</span><span><b>—</b> غير مسجل</span>
+      <span><b>✓</b> يوم كامل</span><span><b>½</b> نصف يوم</span><span><b>غ</b> غياب</span>
     </div>
   );
 
@@ -289,7 +288,7 @@ export default function TimesheetPrintPage() {
                       const record = attendanceMap[`${worker.id}|${date}`];
                       const status = statusDefinition(record?.status);
                       return (
-                        <tr key={date} className={`ts-status-${record?.status || 'unrecorded'}`}>
+                        <tr key={date} className={`ts-status-${record?.status || 'absent'}`}>
                           <td className="ltr">{displayDate(date)}</td><td>{arabicDayName(date)}</td>
                           <td><b className="ts-symbol">{status.short}</b> {status.label}</td><td className="ltr">{status.factor}</td>
                           <td>{record?.notes || record?.stop_reason || '—'}</td>
@@ -320,7 +319,7 @@ export default function TimesheetPrintPage() {
                       {page.dates.map((date) => {
                         const record = attendanceMap[`${worker.id}|${date}`];
                         const status = statusDefinition(record?.status);
-                        return <td key={date} className={`ts-mark ts-status-${record?.status || 'unrecorded'}`} title={status.label}>{status.short}</td>;
+                        return <td key={date} className={`ts-mark ts-status-${record?.status || 'absent'}`} title={status.label}>{status.short}</td>;
                       })}
                       <td className="ts-period-total">{workerPeriodDays(worker.id, attendance)}</td>
                     </tr>

@@ -272,7 +272,7 @@ export default function TimesheetReportCenter() {
           <button type="button" className="btn" onClick={openReport} disabled={loading}>
             {mode === 'paper' ? 'فتح النموذج وطباعته' : 'فتح التقرير وطباعته'}
           </button>
-          <span>✓ يوم كامل · ½ نصف يوم · غ غياب مسجل · — غير مسجل</span>
+          <span>✓ يوم كامل · ½ نصف يوم · غ غياب</span>
         </div>
       </section>
 

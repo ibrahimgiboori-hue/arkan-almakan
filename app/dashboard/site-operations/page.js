@@ -39,7 +39,8 @@ function suggestedCategory(text=''){
   if(/مواد|أسمنت|اسمنت|رمل|بحص/i.test(text))return 'مواد';
   return 'أخرى';
 }
-function isRecoverable(text='',cat=''){
+function isRecoverable(text='',cat='',payer='contractor'){
+  if(payer==='contractor')return false;
   if(cat==='تأمين طبي')return false;
   return ['عهدة','تأمين مسترد'].includes(cat)||/مسترد|ضمان/i.test(text);
 }
@@ -349,12 +350,12 @@ export default function SiteOperationsPage(){
   async function clearContractorAttendance(g){
     const registered=g.workers.filter(w=>marks[w.id]);
     if(!registered.length)return;
-    if(!confirm(`إلغاء تسجيلات الحضور لـ ${registered.length} فرداً لدى ${g.name_ar} في ${date}؟\nسيعودون إلى «غير مسجل».`))return;
+    if(!confirm(`إلغاء تسجيلات الحضور لـ ${registered.length} فرداً لدى ${g.name_ar} في ${date}؟\nسيُعاملون كغياب حتى يُسجل لهم حضور كامل أو نصف يوم.`))return;
     setBusy('clear-'+g.id);setErr('');setMsg('');
     try{
       const {data,error}=await supabase.rpc('fn_clear_contractor_attendance_day',{p_project_id:projectId,p_contractor_id:g.id,p_work_date:date});
       if(error)throw error;
-      setMsg(`أُلغي ${Number(data||0)} تسجيل حضور/غياب، وعاد الأفراد إلى غير مسجل.`);
+      setMsg(`أُلغي ${Number(data||0)} تسجيل حضور، وسيُعامل الأفراد كغياب حتى يُسجل لهم حضور.`);
       await load();
     }catch(e){setErr('تعذّر التراجع: '+(e.message||e));}
     setBusy('');
@@ -392,7 +393,7 @@ export default function SiteOperationsPage(){
         if(!g)throw new Error('المقاول غير موجود في المشروع');
         const pending=g.workers.filter(w=>w.date_eligible&&!marks[w.id]);
         if(pending.length)writeResult=await saveAttendanceRows(pending.map(worker=>({worker,status:'full'})));
-        else setMsg('لا يوجد عمال غير مسجلين لهذا المقاول');
+        else setMsg('لا يوجد عمال باقون لتأكيد غيابهم');
       }
       if(preview.kind==='output')writeResult=await saveOutput(preview.contractor.id,preview.item.id,preview.qty,preview.notes||'إدخال سريع');
       if(preview.kind==='expense')writeResult=await saveExpenseRecord(preview);
@@ -420,7 +421,9 @@ export default function SiteOperationsPage(){
     return writeVerified('output',{contractor_id:contractorId,item_id:itemId,qty:Number(qty),unit:item?.unit||null,notes:notes||null});
   }
   async function saveExpenseRecord(x){
-    const payload={contractor_id:x.contractor?.id||x.contractor_id,amount:Number(x.amount),category:x.category||'أخرى',payer:x.payer||'contractor',charge_to:x.charge_to||'arkan',is_recoverable:!!x.is_recoverable,project_item_id:x.is_recoverable?null:(x.project_item_id||null),notes:x.notes||null};
+    const payer=x.payer||'contractor';
+    const recoverable=payer!=='contractor'&&!!x.is_recoverable;
+    const payload={contractor_id:x.contractor?.id||x.contractor_id,amount:Number(x.amount),category:x.category||'أخرى',payer,charge_to:x.charge_to||'arkan',is_recoverable:recoverable,project_item_id:recoverable?null:(x.project_item_id||null),notes:x.notes||null};
     return writeVerified('expense',payload);
   }
 
@@ -506,7 +509,7 @@ export default function SiteOperationsPage(){
     setPanel({type:'movement',contractorId:g.id,form:{kind:'expense',amount:'',notes:'',category:'أخرى',payer:'contractor',charge_to:'arkan',is_recoverable:false,project_item_id:'',source:'bank',reference:''}});
   }
   function movementDescription(v){
-    const c=contractors.find(x=>x.id===panel.contractorId),cat=suggestedCategory(v),rec=isRecoverable(v,cat);
+    const c=contractors.find(x=>x.id===panel.contractorId),cat=suggestedCategory(v),rec=isRecoverable(v,cat,panel.form.payer);
     setPanel(p=>({...p,form:{...p.form,notes:v,category:cat,is_recoverable:rec,charge_to:chargeFor(c,cat),project_item_id:rec?'':p.form.project_item_id}}));
   }
 
@@ -566,7 +569,7 @@ export default function SiteOperationsPage(){
 
       <div className={styles.contractorTabs}>
         <button className={!activeContractor?styles.on:''} onClick={()=>setActiveContractor('')}>كل المقاولين</button>
-        {groups.map(g=>{const pending=g.workers.filter(w=>w.date_eligible&&!marks[w.id]).length,outside=g.workers.filter(w=>!w.date_eligible).length;return <button key={g.id} className={activeContractor===g.id?styles.on:''} onClick={()=>setActiveContractor(g.id)}>{g.operation_alias||g.name_ar}<small>{pending} غير مسجل{outside?` · ${outside} خارج التاريخ`:''}</small></button>;})}
+        {groups.map(g=>{const pending=g.workers.filter(w=>w.date_eligible&&!marks[w.id]).length,outside=g.workers.filter(w=>!w.date_eligible).length;return <button key={g.id} className={activeContractor===g.id?styles.on:''} onClick={()=>setActiveContractor(g.id)}>{g.operation_alias||g.name_ar}<small>{pending} لم يُراجع{outside?` · ${outside} خارج التاريخ`:''}</small></button>;})}
       </div>
 
       {groups.length===0&&<div className="empty"><h3>لا يوجد مقاول مرتبط بالمشروع</h3><p>اضغط «إضافة مقاول للمشروع»، وبعدها أضف العمال دفعة واحدة.</p></div>}
@@ -587,7 +590,7 @@ export default function SiteOperationsPage(){
 
           <div className={styles.actions}>
             <button className="btn" onClick={()=>{const n=g.workers.filter(w=>w.date_eligible&&!marks[w.id]).length;if(n&&confirm(`تسجيل حضور ${n} فرداً لدى ${g.name_ar}؟`))markAll(g,'full',true);}} disabled={!g.workers.some(w=>w.date_eligible&&!marks[w.id])||busy==='group-'+g.id}>حضور الباقين</button>
-            <button className="btn ghost" onClick={()=>closeAttendance(g)} disabled={!g.workers.some(w=>w.date_eligible&&!marks[w.id])}>غياب غير المسجلين</button>
+            <button className="btn ghost" onClick={()=>closeAttendance(g)} disabled={!g.workers.some(w=>w.date_eligible&&!marks[w.id])}>تأكيد غياب الباقين</button>
             {registeredAll>0&&<button className="btn ghost" style={{borderColor:'#d9a8a5',color:'#9d2f2b'}} onClick={()=>clearContractorAttendance(g)} disabled={busy==='clear-'+g.id}>إلغاء تسجيلات اليوم ({registeredAll})</button>}
             <button className="btn ghost" onClick={()=>openWorkers(g)}>إضافة عمال</button>
             <button className="btn ghost" onClick={()=>openOutput(g)}>تسجيل إنجاز</button>
@@ -599,7 +602,7 @@ export default function SiteOperationsPage(){
               <div className={styles.blockHead}><div><b>الحضور</b><span>{pending.length} ينتظر التسجيل · {done.length} مكتمل</span></div><input placeholder="بحث سريع بالاسم" value={workerSearch} onChange={e=>setWorkerSearch(e.target.value)}/></div>
               {g.workers.length===0?<div className={styles.softEmpty}>لا توجد عمالة مسندة. استخدم «إضافة عمال» والصق قائمة الأسماء مرة واحدة.</div>:<>
                 <div className={styles.workerGrid}>{pending.map(w=><WorkerRow key={w.id} worker={w} busy={busy==='att-'+w.id} onMark={markWorker} onMove={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}/>)}</div>
-                {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent','stopped','leave'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}{marks[w.id]?.portal_last_edited_by_name&&<small className={styles.portalEdit}>عُدّل بواسطة {marks[w.id].portal_last_edited_by_name}</small>}</span><button type="button" onClick={()=>removeAttendance(w)} disabled={busy==='undo-'+w.id} style={{color:'#9d2f2b'}}>إلغاء</button><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
+                {done.length>0&&<details className={styles.done}><summary>تم التسجيل ({done.length})</summary><div className={styles.doneGrid}>{done.map(w=><div key={w.id} className={styles.doneWorker}><button type="button" className={styles.statusBadge} onClick={()=>{const ks=['full','half','absent'],cur=marks[w.id]?.status;markWorker(w,ks[(ks.indexOf(cur)+1)%ks.length]);}}>{STATUS[marks[w.id]?.status]?.short||'؟'}</button><span>{w.full_name}{marks[w.id]?.portal_last_edited_by_name&&<small className={styles.portalEdit}>عُدّل بواسطة {marks[w.id].portal_last_edited_by_name}</small>}</span><button type="button" onClick={()=>removeAttendance(w)} disabled={busy==='undo-'+w.id} style={{color:'#9d2f2b'}}>إلغاء</button><button type="button" onClick={()=>setPanel({type:'move',worker:w,form:{contractor_id:g.id,effective_from:date,notes:''}})}>نقل</button></div>)}</div></details>}
                 {outside.length>0&&<div className={styles.outsideRoster}><div className={styles.outsideHead}><b>بقية عمال المشروع ({outside.length})</b><span>ظاهرون أمامك، لكن التسجيل يفتح عند اختيار تاريخ داخل فترة الإسناد.</span></div><div className={styles.outsideGrid}>{outside.map(w=><div key={w.id} className={styles.outsideWorker}><div><b>{w.full_name}</b><span>{w.trade||({worker:'عامل',technician:'صنايعي',foreman:'فورمان'}[w.labor_class]||'—')}</span></div><small>{displayDate(w.assignment_from)} — {w.assignment_to?displayDate(w.assignment_to):'مستمرة'}</small></div>)}</div></div>}
               </>}
             </div>
@@ -645,7 +648,7 @@ export default function SiteOperationsPage(){
       <div className={styles.movementKinds}>{[['expense','مصروف'],['advance','سلفة'],['payment','دفعة']].map(([k,t])=><button type="button" key={k} className={panel.form.kind===k?styles.on:''} onClick={()=>setPanel(p=>({...p,form:{...p.form,kind:k}}))}>{t}</button>)}</div>
       <div className="form-grid">
         <Field label="المبلغ"><input autoFocus required type="number" min="0" step="0.01" value={panel.form.amount} onChange={e=>setPanel(p=>({...p,form:{...p.form,amount:e.target.value}}))}/></Field>
-        {panel.form.kind==='expense'&&<><div className="field span2"><label>البيان</label><input required value={panel.form.notes} onChange={e=>movementDescription(e.target.value)} placeholder="مثال: بنزين سيارة الموقع"/></div><Field label="التصنيف"><select value={panel.form.category} onChange={e=>{const cat=e.target.value,c=contractors.find(x=>x.id===panel.contractorId);setPanel(p=>({...p,form:{...p.form,category:cat,charge_to:chargeFor(c,cat)}}))}}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="من دفع؟"><select value={panel.form.payer} onChange={e=>setPanel(p=>({...p,form:{...p.form,payer:e.target.value}}))}>{Object.entries(PAYER_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></Field><Field label="على من؟"><select value={panel.form.charge_to} onChange={e=>setPanel(p=>({...p,form:{...p.form,charge_to:e.target.value}}))}>{Object.entries(CHARGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></Field><Field label="طبيعة المبلغ"><select value={panel.form.is_recoverable?'1':'0'} onChange={e=>setPanel(p=>({...p,form:{...p.form,is_recoverable:e.target.value==='1',project_item_id:e.target.value==='1'?'':p.form.project_item_id}}))}><option value="0">مصروف نهائي</option><option value="1">مسترد / تأمين / عهدة</option></select></Field>{!panel.form.is_recoverable&&<Field label="البند إن كان مباشراً"><select value={panel.form.project_item_id} onChange={e=>setPanel(p=>({...p,form:{...p.form,project_item_id:e.target.value}}))}><option value="">لا يربط ببند</option>{items.map(i=><option key={i.id} value={i.id}>{i.description_ar}</option>)}</select></Field>}</>}
+        {panel.form.kind==='expense'&&<><div className="field span2"><label>البيان</label><input required value={panel.form.notes} onChange={e=>movementDescription(e.target.value)} placeholder="مثال: بنزين سيارة الموقع"/></div><Field label="التصنيف"><select value={panel.form.category} onChange={e=>{const cat=e.target.value,c=contractors.find(x=>x.id===panel.contractorId);setPanel(p=>({...p,form:{...p.form,category:cat,charge_to:chargeFor(c,cat),is_recoverable:isRecoverable(p.form.notes,cat,p.form.payer)}}))}}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="من دفع؟"><select value={panel.form.payer} onChange={e=>{const payer=e.target.value;setPanel(p=>({...p,form:{...p.form,payer,is_recoverable:isRecoverable(p.form.notes,p.form.category,payer)}}))}}>{Object.entries(PAYER_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></Field><Field label="على من؟"><select value={panel.form.charge_to} onChange={e=>setPanel(p=>({...p,form:{...p.form,charge_to:e.target.value}}))}>{Object.entries(CHARGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></Field><Field label="طبيعة المبلغ"><select disabled={panel.form.payer==='contractor'} value={panel.form.is_recoverable?'1':'0'} onChange={e=>setPanel(p=>({...p,form:{...p.form,is_recoverable:e.target.value==='1',project_item_id:e.target.value==='1'?'':p.form.project_item_id}}))}><option value="0">{panel.form.payer==='contractor'?'مستحق للمقاول':'مصروف نهائي'}</option><option value="1">قابل للاسترداد لأركان</option></select></Field>{!panel.form.is_recoverable&&<Field label="البند إن كان مباشراً"><select value={panel.form.project_item_id} onChange={e=>setPanel(p=>({...p,form:{...p.form,project_item_id:e.target.value}}))}><option value="">لا يربط ببند</option>{items.map(i=><option key={i.id} value={i.id}>{i.description_ar}</option>)}</select></Field>}</>}
         {panel.form.kind==='advance'&&<div className="field span2"><label>البيان</label><input value={panel.form.notes} onChange={e=>setPanel(p=>({...p,form:{...p.form,notes:e.target.value}}))} placeholder="سبب السلفة أو مرجعها"/></div>}
         {panel.form.kind==='payment'&&<><Field label="طريقة الدفع"><select value={panel.form.source} onChange={e=>setPanel(p=>({...p,form:{...p.form,source:e.target.value}}))}>{Object.entries(SOURCE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></Field><Field label="المرجع"><input value={panel.form.reference} onChange={e=>setPanel(p=>({...p,form:{...p.form,reference:e.target.value}}))}/></Field><div className="field span2"><label>ملاحظة</label><input value={panel.form.notes} onChange={e=>setPanel(p=>({...p,form:{...p.form,notes:e.target.value}}))}/></div></>}
       </div><div className="rowsplit"><button className="btn" disabled={busy==='movement'}>حفظ الحركة</button></div>
