@@ -23,7 +23,7 @@ const AREAS = [
     href: '/dashboard/projects',
     items: [
       { href: '/dashboard/projects', label: 'المشاريع' },
-      { href: '/dashboard/site-operations', label: 'التشغيل اليومي' },
+      { href: '/dashboard/site-operations', label: 'التشغيل اليومي', hidden: true },
       { href: '/dashboard/site-operations/reports', label: 'تقارير التايم شيت' },
       { href: '/dashboard/site-operations/data-safety', label: 'سلامة بيانات التشغيل' },
       { href: '/dashboard/quotes', label: 'عروض الأسعار' },
@@ -79,7 +79,6 @@ const AREAS = [
 ];
 
 const QUICK_ACTIONS = [
-  { label: 'تسجيل حضور اليوم', href: '/dashboard/site-operations', meta: 'تشغيل' },
   { label: 'إضافة موظف', href: '/dashboard/employees/new', meta: 'قوى عاملة' },
   { label: 'فتح المشاريع', href: '/dashboard/projects', meta: 'مشاريع' },
   { label: 'إنشاء مستند', href: '/dashboard/documents', meta: 'مستندات' },
@@ -151,9 +150,9 @@ export default function DashboardLayout({ children }) {
   const current = activeItemFor(pathname);
   const activeArea = current?.area || AREAS[0];
   const currentLabel = current?.label || activeArea.label;
-  const contextItems = activeArea.items.filter((item) => item.href !== activeArea.href);
+  const contextItems = activeArea.items.filter((item) => item.href !== activeArea.href && !item.hidden);
   const flatItems = useMemo(() => AREAS.flatMap((area) =>
-    area.items.map((item) => ({ ...item, meta: area.label }))), []);
+    area.items.filter((item) => !item.hidden).map((item) => ({ ...item, meta: area.label }))), []);
 
   const results = useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
@@ -199,12 +198,12 @@ export default function DashboardLayout({ children }) {
     : activeArea.key === 'documents'
       ? { label: 'إنشاء مستند', href: '/dashboard/documents' }
       : activeArea.key === 'projects'
-        ? { label: 'التشغيل اليومي', href: '/dashboard/site-operations' }
+        ? null
         : activeArea.key === 'finance'
           ? { label: 'السلف والمديونيات', href: '/dashboard/advances' }
           : activeArea.key === 'admin'
             ? { label: 'بيانات الشركة', href: '/dashboard/settings' }
-            : { label: 'تسجيل حضور', href: '/dashboard/site-operations' };
+            : { label: 'فتح المشاريع', href: '/dashboard/projects' };
 
   return (
     <div className={styles.root}>
@@ -263,7 +262,7 @@ export default function DashboardLayout({ children }) {
         )}
 
         <div className={styles.contextActions}>
-          {primaryAction.href !== pathname && (
+          {primaryAction && primaryAction.href !== pathname && (
             <Link className={styles.contextActionPrimary} href={primaryAction.href}>{primaryAction.label}</Link>
           )}
         </div>
@@ -316,7 +315,7 @@ export default function DashboardLayout({ children }) {
                   <span>{area.label}</span><span>←</span>
                 </Link>
                 <div className={styles.mobileLinks}>
-                  {area.items.filter((item) => item.href !== area.href).map((item) => (
+                  {area.items.filter((item) => item.href !== area.href && !item.hidden).map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
