@@ -1,0 +1,36 @@
+.table{border-top:1px solid var(--border)}
+.row{display:grid;grid-template-columns:28px 40px minmax(180px,1.2fr) minmax(90px,.55fr) minmax(265px,.95fr);align-items:center;min-height:53px;gap:10px;padding:0 8px;border-bottom:1px solid var(--border);transition:background 140ms ease,transform 140ms ease,box-shadow 140ms ease}
+.row:hover{background:rgba(255,255,255,.34)}
+.head{min-height:31px;color:var(--muted);background:#ece9e2;font-size:8px}
+.selected{background:rgba(111,37,43,.065);box-shadow:inset -3px 0 0 var(--wine)}
+.selected:hover{background:rgba(111,37,43,.09)}
+.checkWrap{position:relative;width:20px;height:20px;display:grid;place-items:center;cursor:pointer}
+.checkWrap input{position:absolute;opacity:0;pointer-events:none}
+.fakeCheck{width:15px;height:15px;border:1px solid #b8b1a7;border-radius:4px;background:var(--paper);display:block;position:relative;transition:background 120ms ease,border-color 120ms ease,transform 120ms ease}
+.checkWrap:hover .fakeCheck{border-color:var(--wine);transform:scale(1.04)}
+.checkWrap input:checked + .fakeCheck{background:var(--wine);border-color:var(--wine)}
+.checkWrap input:checked + .fakeCheck:after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:900;line-height:1}
+.checkWrap input:disabled + .fakeCheck{opacity:.45;cursor:not-allowed}
+.rowNo{font:8.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:#858078}
+.identity{min-width:0;border:0;background:transparent;padding:0;text-align:right;color:inherit;font:inherit;cursor:pointer}
+.identity strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.identity small{display:block;margin-top:2px;color:var(--muted);font-size:7.5px}
+.identity:disabled{cursor:not-allowed}
+.workerClass{font-size:8.5px;color:#3f3d39}
+.statusButtons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.statusButtons button,.bulkActions button{height:31px;border-radius:7px;font:800 8.5px inherit;cursor:pointer;transition:transform 100ms ease,filter 100ms ease,opacity 100ms ease}
+.statusButtons button:hover,.bulkActions button:hover{transform:translateY(-1px);filter:brightness(.96)}
+.statusButtons button:disabled,.bulkActions button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.full{border:1px solid var(--green);background:var(--green);color:#fff}
+.half{border:1px solid var(--blue);background:var(--blue);color:#fff}
+.absent{border:1px solid var(--red);background:var(--red);color:#fff}
+.bulkBar{display:grid;grid-template-columns:auto auto minmax(250px,1fr) auto;align-items:center;gap:10px;max-height:0;opacity:0;overflow:hidden;padding:0 10px;background:#171716;color:#fff;transition:max-height 180ms ease,opacity 140ms ease,padding 180ms ease}
+.bulkBarOpen{max-height:58px;opacity:1;padding:9px 10px}
+.bulkCount{display:flex;align-items:baseline;gap:5px;white-space:nowrap}.bulkCount strong{font-size:18px}.bulkCount span{font-size:8px;color:#c7c4bd}
+.selectVisible,.clear{height:30px;border:1px solid #4b4a46;border-radius:7px;background:#252522;color:#fff;padding:0 9px;font:750 8px inherit;cursor:pointer;white-space:nowrap}
+.clear{background:transparent;color:#ddd9d1}
+.selectVisible:disabled,.clear:disabled{opacity:.45;cursor:not-allowed}
+.bulkActions{display:grid;grid-template-columns:repeat(3,minmax(80px,110px));justify-content:start;gap:6px}
+.completeState{min-height:150px;display:grid;place-items:center;align-content:center;gap:4px;color:var(--muted);text-align:center}.completeState strong{color:var(--green);font-size:12px}.completeState span{font-size:8.5px}
+@media (max-width:900px){.row{grid-template-columns:28px 34px minmax(130px,1fr) 80px;gap:8px;padding:7px 6px}.row>.statusButtons{grid-column:3/5;width:100%;margin-top:2px;margin-bottom:4px}.head{display:none}.workerClass{font-size:8px}.bulkBar{grid-template-columns:auto 1fr auto}.bulkBarOpen{max-height:110px;align-items:start}.selectVisible{justify-self:start}.bulkActions{grid-column:1/-1;grid-row:2;width:100%;grid-template-columns:repeat(3,1fr)}.clear{grid-column:3;grid-row:1}}
+@media (prefers-reduced-motion:reduce){.row,.fakeCheck,.bulkBar,.statusButtons button,.bulkActions button{transition:none}}
