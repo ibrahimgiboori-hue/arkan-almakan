@@ -11,7 +11,7 @@ export default function ProjectWorkspaceLayout({ children }) {
   const { id } = useParams();
   const pathname = usePathname();
   const [project, setProject] = useState(null);
-  const inOperations = pathname.endsWith('/operations');
+  const inOperations = pathname.includes(`/dashboard/projects/${id}/operations`);
 
   useEffect(() => {
     let active = true;
