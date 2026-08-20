@@ -1,0 +1,113 @@
+:global(.page):has(.workspaceShell){
+  max-width:none;
+  width:100%;
+  margin:0;
+  padding:0;
+}
+
+.workspaceShell{
+  --bg:#f3f0e9;
+  --paper:#fbfaf7;
+  --ink:#11110f;
+  --muted:#66645f;
+  --border:#d8d3c8;
+  --wine:#6f252b;
+  min-height:calc(100vh - 58px);
+  background:var(--bg);
+  color:var(--ink);
+}
+
+.projectHeader{
+  min-height:108px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  padding:18px clamp(18px,2.5vw,42px);
+  border-bottom:1px solid var(--border);
+  background:rgba(251,250,247,.72);
+}
+.projectIdentity{min-width:0}
+.backLink{
+  display:inline-flex;
+  align-items:center;
+  color:var(--wine);
+  font-size:9px;
+  font-weight:850;
+}
+.projectCode{
+  margin-top:8px;
+  color:var(--muted);
+  font:700 8px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+  direction:ltr;
+  text-align:right;
+}
+.projectIdentity h1{
+  margin:4px 0 4px;
+  font-size:clamp(25px,2.35vw,36px);
+  line-height:1.06;
+  font-weight:900;
+  letter-spacing:-.04em;
+}
+.projectIdentity p{
+  margin:0;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.6;
+}
+.projectActions{flex:0 0 auto}
+.operationButton{
+  min-height:36px;
+  padding:0 14px;
+  border:1px solid var(--wine);
+  border-radius:9px;
+  color:#fff;
+  background:var(--wine);
+  font:800 10px inherit;
+  cursor:pointer;
+  transition:transform 150ms ease,background 150ms ease;
+}
+.operationButton:hover{transform:translateY(-1px);background:#5d1e24}
+
+.projectBody{
+  padding:18px clamp(18px,2.5vw,42px) 42px;
+}
+.projectBody :global(.page-head){display:none}
+.projectBody :global(.tabs){
+  margin:0 0 18px;
+  padding:0;
+  border-bottom:1px solid var(--border);
+  background:transparent;
+  overflow-x:auto;
+  white-space:nowrap;
+}
+.projectBody :global(.tabs button){
+  min-height:38px;
+  padding:0 12px;
+  border:0;
+  border-bottom:2px solid transparent;
+  border-radius:0;
+  background:transparent;
+  color:var(--muted);
+  font-size:10px;
+}
+.projectBody :global(.tabs button.on){
+  color:var(--ink);
+  border-bottom-color:var(--wine);
+  background:transparent;
+  font-weight:850;
+}
+
+@media (max-width:760px){
+  .projectHeader{
+    align-items:flex-start;
+    flex-direction:column;
+    padding:15px 13px;
+  }
+  .projectActions,.operationButton{width:100%}
+  .projectBody{padding:14px 13px 30px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .operationButton{transition:none}
+}
