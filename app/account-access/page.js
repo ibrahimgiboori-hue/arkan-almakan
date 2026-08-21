@@ -1,19 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 export default function AccountAccessPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const token = params.get('token') || '';
+  const [token,setToken] = useState('');
   const [identity,setIdentity] = useState('');
   const [password,setPassword] = useState('');
   const [confirm,setConfirm] = useState('');
   const [busy,setBusy] = useState(false);
   const [err,setErr] = useState('');
+
+  useEffect(()=>{
+    const value = new URLSearchParams(window.location.search).get('token') || '';
+    setToken(value);
+  },[]);
 
   async function submit(e) {
     e.preventDefault();
