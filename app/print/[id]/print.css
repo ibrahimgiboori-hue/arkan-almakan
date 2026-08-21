@@ -1,6 +1,6 @@
 /* ============================================================
    نظام تصميم مطبوعات أركان المكان
-   الشبكة  : مساحة المحتوى 170 مم = 12 عموداً بفاصل 3 مم
+   الشبكة  : مساحة المحتوى 170 مم = 12 عموداً مرئياً / 48 وحدة داخلية
    الصف    : 6 مم وكل عنصر يأخذ مضاعفاته
    النمطان : بطاقة معلومات رمادية ناعمة | بطاقة إلزامية شفافة حادة
    ============================================================ */
@@ -79,6 +79,9 @@
   box-shadow:0 1px 5px rgba(0,0,0,.15);display:flex;flex-direction:column;
   background-size:210mm 297mm;background-repeat:repeat-y;background-position:top center;
 }
+.print-doc-generic_document .governed-document-sheet{
+  width:100%;min-height:0;padding:0;background:none;box-shadow:none;overflow:visible;
+}
 .fill{flex:1;min-height:var(--g-row)}
 
 .title-block{text-align:center;margin-bottom:var(--g-row)}
@@ -105,6 +108,10 @@
 .amounts{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:var(--g-row);
   border:var(--strict-border);table-layout:fixed}
 .amounts td{word-wrap:break-word;overflow-wrap:break-word}
+.amounts thead{display:table-header-group}
+.amounts tbody tr{break-inside:avoid;page-break-inside:avoid}
+.amounts .serial-col{width:7mm;text-align:center;white-space:nowrap}
+.amounts .nowrap{white-space:nowrap;overflow-wrap:normal;word-break:normal}
 .amounts th{background:var(--maroon);color:#fff;font-weight:600;font-size:9pt;
   padding:1.4mm 2.2mm;text-align:right;border:.25mm solid var(--maroon)}
 .amounts td{border:.25mm solid #CDBABA;padding:1.3mm 2.2mm;background:transparent;
@@ -167,7 +174,9 @@ td.mono{unicode-bidi:isolate}
   .toolbar{display:none}
   .sheet-wrap{padding:0;background:#fff}
   .sheet{width:auto;min-height:297mm;box-shadow:none}
-  .card-doc,.amounts thead,.sigtable,.declare,.tafqit,.footer-row{page-break-inside:avoid}
+  .print-doc-generic_document .governed-document-sheet{width:100%;min-height:0}
+  .card-doc,.plain-card,.sigtable,.declare,.tafqit,.footer-row,.stampbox-row,.pt-wrap{break-inside:avoid;page-break-inside:avoid}
+  .amounts tbody tr{break-inside:avoid;page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
     box-shadow:none!important}

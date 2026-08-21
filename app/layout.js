@@ -1,5 +1,6 @@
 import './globals.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
+import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 
 const plex = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
@@ -23,7 +24,10 @@ export default function RootLayout({ children }) {
         '--font-body': 'var(--font-plex)',
       }}
     >
-      <body>{children}</body>
+      <body>
+        <QuoteTerminologyFix />
+        {children}
+      </body>
     </html>
   );
 }

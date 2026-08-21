@@ -5,6 +5,7 @@ import { dateAr } from '@/lib/format';
 
 const TABLES = [
   ['app_settings','إعدادات الشركة'],
+  ['app_users','مستخدمي النظام وصلاحياتهم'],
   ['employees','الموظفون'],
   ['employment_contracts','عقود العمل'],
   ['employee_documents','مستندات الموظفين'],
@@ -27,7 +28,70 @@ const TABLES = [
   ['documents','المستندات الصادرة'],
   ['correspondence_register','الصادر والوارد'],
   ['approvals','سجل الاعتمادات'],
+  ['attachments','مراجع المرفقات'],
+  ['notifications','التنبيهات'],
+  ['audit_log','سجل التدقيق الكامل'],
+  ['number_sequences','تسلسلات الأرقام'],
+  ['document_templates','قوالب المستندات'],
+  ['quote_presets','إعدادات عروض الأسعار'],
+  ['contractors','المقاولون'],
+  ['project_items','بنود المشاريع'],
+  ['item_execution','إسنادات تنفيذ البنود'],
+  ['progress_entries','حركات الإنجاز'],
+  ['change_orders','أوامر التغيير'],
+  ['progress_claims','المستخلصات'],
+  ['claim_lines','بنود المستخلصات'],
+  ['retentions','المحتجزات'],
+  ['guarantees','الضمانات'],
+  ['site_documents','مستندات الموقع'],
+  ['project_materials','مواد المشاريع'],
+  ['contractor_expenses','مصروفات المقاولين'],
+  ['contractor_advances','سلف المقاولين'],
+  ['contractor_payments','دفعات المقاولين'],
+  ['project_contractors','مقاولو المشاريع'],
+  ['laborers','العمالة'],
+  ['labor_project_assignments','إسنادات العمالة التاريخية'],
+  ['timesheet_weeks','أسابيع التايم شيت'],
+  ['timesheet_days','أيام التشغيل'],
+  ['day_items','إنجازات الأيام'],
+  ['attendance','الحضور'],
+  ['day_expenses','مصروفات الأيام'],
+  ['contractor_settlements','تصفيات المقاولين'],
+  ['contractor_advance_deductions','خصومات سلف المقاولين'],
+  ['item_budgets','ميزانيات البنود'],
+  ['budget_lines','أسطر الميزانية'],
+  ['help_guides','أدلة المساعدة'],
+  ['op_attachments','مرفقات العمليات'],
+  ['claim_stage_defs','مراحل المستخلص'],
+  ['claim_stage_docs','مستندات مراحل المستخلص'],
+  ['org_classifications','تصنيفات الهيكل'],
+  ['org_positions','المناصب التنظيمية'],
+  ['org_job_titles','المسميات الوظيفية'],
+  ['org_position_job_titles','ربط المناصب بالمسميات'],
+  ['leave_balance_adjustments','تسويات رصيد الإجازات'],
+  ['leave_request_substitutes','بدلاء الإجازات'],
+  ['item_measurements','التمتير'],
+  ['job_vacancies','الشواغر'],
+  ['vacancy_requirements','متطلبات الشواغر'],
+  ['candidates','المرشحون'],
+  ['candidate_applications','طلبات التوظيف'],
+  ['candidate_application_answers','إجابات المرشحين'],
+  ['candidate_documents','مستندات المرشحين'],
+  ['candidate_recommendations','توصيات المرشحين'],
+  ['candidate_interview_reviews','تقييمات المقابلات'],
+  ['job_offers','العروض الوظيفية'],
+  ['employment_contract_drafts','مسودات عقود العمل'],
+  ['candidate_onboarding','ملفات التهيئة'],
+  ['candidate_onboarding_tasks','مهام التهيئة'],
+  ['candidate_probation_reviews','تقييمات فترة التجربة'],
+  ['workflow_action_defs','تعريفات إجراءات الاعتماد'],
+  ['print_layout_overrides','تعديلات تخطيط المطبوعات'],
+  ['operation_entry_batches','دفعات إدخال الأوراق'],
+  ['operation_write_receipts','إثباتات الحفظ التشغيلي'],
 ];
+
+const BACKUP_SCHEMA_VERSION='arkan-data-export-v2-2026-08-20';
+const PAGE_SIZE=1000;
 
 function toCSV(rows) {
   if (!rows.length) return '';
@@ -64,21 +128,42 @@ export default function Backup() {
       setRole(u?.role || null);
 
       const out = {};
-      for (const [t] of TABLES) {
-        const { count } = await supabase.from(t).select('id', { count: 'exact', head: true });
-        out[t] = count ?? 0;
-      }
+      const results=await Promise.all(TABLES.map(async([t])=>{
+        const {count,error}=await supabase.from(t).select('*',{count:'exact',head:true});
+        return [t,error?null:(count??0)];
+      }));
+      for(const [t,count] of results)out[t]=count;
       setCounts(out);
       setLast(localStorage?.getItem?.('arkan_last_backup') || null);
     })();
   }, []);
 
+  async function fetchTableFully(t) {
+    const {count,error:countError}=await supabase.from(t).select('*',{count:'exact',head:true});
+    if(countError)throw new Error(`${t}: ${countError.message}`);
+    const rows=[];
+    for(let from=0;from<(count||0);from+=PAGE_SIZE){
+      const {data,error}=await supabase.from(t).select('*').range(from,from+PAGE_SIZE-1);
+      if(error)throw new Error(`${t}: ${error.message}`);
+      rows.push(...(data||[]));
+    }
+    if(rows.length!==(count||0))throw new Error(`${t}: تم جلب ${rows.length} من أصل ${count||0} سجلاً`);
+    return rows;
+  }
+
   async function fetchAll() {
-    const bundle = { exported_at: new Date().toISOString(), tables: {} };
-    for (const [t] of TABLES) {
-      const { data, error } = await supabase.from(t).select('*');
-      if (error) throw new Error(`${t}: ${error.message}`);
-      bundle.tables[t] = data || [];
+    const bundle = {
+      schema_version:BACKUP_SCHEMA_VERSION,
+      exported_at:new Date().toISOString(),
+      verification:{status:'count_matched',table_count:TABLES.length,row_count:0},
+      manifest:{},
+      tables:{},
+    };
+    for (const [t,label] of TABLES) {
+      const rows=await fetchTableFully(t);
+      bundle.tables[t]=rows;
+      bundle.manifest[t]={label,row_count:rows.length};
+      bundle.verification.row_count+=rows.length;
     }
     return bundle;
   }
@@ -91,7 +176,7 @@ export default function Backup() {
       download(`نسخة-أركان-${stamp}.json`, JSON.stringify(b, null, 1), 'application/json');
       try { localStorage.setItem('arkan_last_backup', new Date().toISOString()); } catch {}
       setLast(new Date().toISOString());
-      setMsg('نُزّلت النسخة الكاملة — ارفعها على جوجل درايف الآن');
+      setMsg(`نُزّلت نسخة بيانات متحققة: ${b.verification.row_count} سجلاً، وتطابق عدد الصفوف في كل جدول.`);
     } catch (e) { setErr('تعذّر التصدير: ' + e.message); }
     setBusy('');
   }
@@ -113,9 +198,9 @@ export default function Backup() {
 
   async function exportTable(t, label) {
     setErr(''); setBusy(t);
-    const { data, error } = await supabase.from(t).select('*');
+    let data;
+    try{data=await fetchTableFully(t);}catch(error){setBusy('');setErr(error.message);return;}
     setBusy('');
-    if (error) { setErr(error.message); return; }
     if (!data?.length) { setErr('لا بيانات في هذا الجدول'); return; }
     download(`${label}.csv`, toCSV(data), 'text/csv;charset=utf-8');
   }
@@ -128,7 +213,7 @@ export default function Backup() {
       <div className="page-head">
         <div>
           <h1>النسخ الاحتياطي والتصدير</h1>
-          <p>بياناتك ملكك — تُنزَّل كاملة في أي وقت بلا اعتماد على أحد</p>
+          <p>تصدير مستقل متحقق من عدد الصفوف — حماية إضافية بجانب نسخة قاعدة البيانات المُدارة</p>
         </div>
         <button className="btn" onClick={exportJson} disabled={busy==='json'}>
           {busy==='json' ? 'جارٍ التحضير…' : 'تنزيل نسخة كاملة'}
@@ -142,7 +227,7 @@ export default function Backup() {
         <div className="card">
           <h3>إجمالي السجلات</h3>
           <div className="big">{total}</div>
-          <div className="foot">في {TABLES.length} جدولاً</div>
+          <div className="foot">في {TABLES.length} جدول أعمال فعلياً</div>
         </div>
         <div className="card">
           <h3>آخر نسخة نزّلتها</h3>
@@ -175,11 +260,11 @@ export default function Backup() {
         <div style={{padding:18,display:'grid',gap:14}}>
           <div style={{border:'1px solid var(--hair)',padding:14}}>
             <div style={{fontWeight:600,color:'var(--maroon-dark)',marginBottom:4}}>
-              نسخة كاملة (JSON)
+              نسخة بيانات متحققة (JSON)
             </div>
             <div style={{fontSize:13.5,color:'var(--ink-soft)',marginBottom:10}}>
-              ملف واحد يحوي كل شيء بالعلاقات بينه — هذا ما يُستعاد منه النظام لو حدث شيء.
-              نزّله أسبوعياً وارفعه على جوجل درايف أو الآيكلاود.
+              ملف واحد يحوي بيانات الجداول وعلاقاتها، ومعه بيان بعدد الصفوف في كل جدول.
+              لا يعلن النظام نجاحه إذا جلب جزءاً فقط من جدول كبير. احفظه في مكان مستقل.
             </div>
             <button className="btn" onClick={exportJson} disabled={busy==='json'}>
               {busy==='json' ? 'جارٍ…' : 'تنزيل'}
@@ -225,13 +310,16 @@ export default function Backup() {
       <div className="section">
         <header><h2>الاستعادة</h2></header>
         <div style={{padding:18,fontSize:13.5,color:'var(--ink-soft)',lineHeight:1.9}}>
-          الاستعادة عملية خطيرة تُكتب فوق بياناتك الحالية، فلم أجعلها بضغطة زر.
-          لو احتجتها يوماً: احتفظ بملف JSON، وسأكتب لك أمر استعادة مخصصاً يُشغَّل مرة واحدة
-          في محرر SQL بعد التحقق من محتوى الملف.
+          هذا الملف تصدير مستقل للبيانات، وليس بديلاً عن نسخة PostgreSQL مُدارة ومجربة الاستعادة.
+          الاستعادة قد تكتب فوق البيانات الحالية، لذلك لم أجعلها بضغطة واحدة. عند الحاجة يُفحص
+          بيان الجداول وعدد الصفوف أولاً، ثم تُستعاد إلى بيئة منفصلة ويُجرى التطابق قبل أي رجوع للإنتاج.
+          <div style={{marginTop:10,color:'var(--warn)'}}>
+            تنبيه: التصدير يحفظ بيانات المرفقات ومساراتها، لكنه لا ينزّل محتوى الملفات المخزنة نفسه.
+          </div>
           {role === 'ceo' && (
             <div style={{marginTop:12,color:'var(--maroon-dark)'}}>
-              نصيحة: فعّل النسخ الاحتياطي التلقائي اليومي من Supabase حين تشترك في الباقة المدفوعة
-              — يجعل هذه الشاشة احتياطاً ثانياً لا وحيداً.
+              قاعدة التشغيل الحالية على الخطة المجانية. هذه الشاشة نسخة بيانات إضافية، ولا يجوز اعتبارها
+              دليلاً على وجود نسخ تلقائية أو نجاح الاستعادة حتى نختبر ذلك بشكل مستقل.
             </div>
           )}
         </div>

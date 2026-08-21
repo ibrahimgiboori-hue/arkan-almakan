@@ -5,7 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { money, dateAr, qty as fmtQty } from '@/lib/format';
 import { tafqit } from '@/lib/tafqit';
 import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
+import { paginateQuoteBlocks } from '@/lib/quote-pagination.mjs';
 import Riyal from '@/components/Riyal';
+import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import './quote-print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
@@ -77,30 +79,16 @@ export default function QuotePrint() {
       h[el.dataset.block] = el.getBoundingClientRect().height + 1;
     });
 
-    const headerH = h['__thead'] || 0;               // رأس الجدول يتكرر
-    const out = [];
-    let cur = [], used = 0, inTable = false;
-
-    const push = () => { if (cur.length) { out.push(cur); cur = []; used = 0; inTable = false; } };
-
-    blocks.forEach((b) => {
-      const bh = h[b.id] || 0;
-      const needsHeader = b.kind === 'row' && !inTable;
-      const extra = needsHeader ? headerH : 0;
-
-      if (used + bh + extra > avail && cur.length) {
-        push();
-        used = b.kind === 'row' ? headerH : 0;
-        inTable = false;
-      }
-      if (b.kind === 'row' && !inTable) { used += headerH; inTable = true; }
-      if (b.kind !== 'row') inTable = false;
-
-      cur.push(b);
-      used += bh;
+    const result = paginateQuoteBlocks({
+      blocks,
+      heights:h,
+      availableHeight:avail,
+      tableHeaderHeight:h['__thead'] || 0,
     });
-    push();
-    setPages(out.length ? out : [[]]);
+    if (result.oversizeBlockIds.length) {
+      console.warn('Quotation blocks exceed one printable page:', result.oversizeBlockIds);
+    }
+    setPages(result.pages);
   }, [q, cfg, lines, pays]);
 
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
@@ -109,14 +97,9 @@ export default function QuotePrint() {
   const mTop  = Number(q.margin_top_mm    ?? cfg.letterhead_top_mm);
   const mBot  = Number(q.margin_bottom_mm ?? cfg.letterhead_bottom_mm);
   const mSide = Number(q.margin_side_mm   ?? cfg.letterhead_side_mm);
-  const hMm   = Number(cfg.header_height_mm || 40);
-  const fMm   = Number(cfg.footer_height_mm || 32);
   const stampMm = Number(q.stamp_size_mm ?? cfg.stamp_size_mm ?? 30);
   const signMm  = Number(q.sign_size_mm ?? cfg.signature_size_mm ?? 20);
 
-  const headUrl  = q.show_letterhead ? pub(cfg.header_image_path) : null;
-  const footUrl  = q.show_letterhead ? pub(cfg.footer_image_path) : null;
-  const markUrl  = q.show_letterhead ? pub(cfg.watermark_image_path) : null;
   const stampUrl = q.show_stamp ? pub(cfg.stamp_image_path) : null;
   const signUrl  = q.show_signature ? pub(cfg.signature_image_path) : null;
 
@@ -130,7 +113,7 @@ export default function QuotePrint() {
   function startDrag(kind) {
     return (e) => {
       e.preventDefault();
-      const page = e.currentTarget.closest('.sheet');
+      const page = e.currentTarget.closest('.constitution-paged-sheet');
       setDrag({ kind, rect: page.getBoundingClientRect() });
     };
   }
@@ -329,17 +312,6 @@ export default function QuotePrint() {
     }
   }
 
-  // الرأس والتذييل صورتان في تدفق الصفحة، والمحتوى بينهما
-  const headPad = Math.max(0, mTop - hMm);
-  const footPad = Math.max(0, mBot - fMm);
-  const contentStyle = {
-    paddingTop: `${headPad}mm`, paddingBottom: `${footPad}mm`,
-    paddingRight: `${mSide}mm`, paddingLeft: `${mSide}mm`,
-    backgroundImage: markUrl ? `url(${markUrl})` : undefined,
-    backgroundSize: '100% 100%',
-    backgroundRepeat: 'no-repeat',
-  };
-
   return (
     <>
       <div className="qtoolbar no-print">
@@ -360,7 +332,7 @@ export default function QuotePrint() {
         </div>
         <span className="qt-note">
           {pages ? `${pages.length} صفحة` : 'جارٍ التقسيم…'} · الهوامش {mTop}/{mBot}/{mSide} مم
-          {!cfg.header_image_path ? ' · لم تُرفع صورة الرأس' : ''}
+          {!cfg.letterhead_image_path && !cfg.header_image_path ? ' · لم تُرفع صورة الرأس' : ''}
         </span>
       </div>
 
@@ -379,14 +351,36 @@ export default function QuotePrint() {
         ))}
       </div>
 
-      <div className="pages" onMouseMove={onMove} onMouseUp={endDrag} onMouseLeave={endDrag}>
+      <ConstitutionPagedFrame
+        documentKey="quotation"
+        cfg={cfg}
+        showLetterhead={q.show_letterhead}
+        contentTopMm={mTop}
+        contentBottomMm={mBot}
+        contentSideMm={mSide}
+        pageClassName={drag ? 'dragging' : ''}
+        onPointerMove={onMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+        renderOverlay={({ pageIndex, pageCount }) => (
+          <>
+            {stampUrl && pos.stamp_x_mm != null && pageIndex === pageCount - 1 && (
+              <img src={stampUrl} alt="ختم" className="float-mark"
+                   onPointerDown={startDrag('stamp')}
+                   style={{height:`${stampMm}mm`, right:`${pos.stamp_x_mm}mm`,
+                           top:`${pos.stamp_y_mm}mm`}} />
+            )}
+            {signUrl && pos.sign_x_mm != null && pageIndex === pageCount - 1 && (
+              <img src={signUrl} alt="توقيع" className="float-mark"
+                   onPointerDown={startDrag('sign')}
+                   style={{height:`${signMm}mm`, right:`${pos.sign_x_mm}mm`,
+                           top:`${pos.sign_y_mm}mm`}} />
+            )}
+          </>
+        )}
+      >
         {(pages || []).map((page, pi) => (
-          <div className={`sheet ${drag ? 'dragging' : ''}`} key={pi}>
-            {headUrl
-              ? <img className="lh-head" src={headUrl} alt="" style={{height:`${hMm}mm`}} />
-              : <div className="lh-head" style={{height:`${hMm}mm`}} />}
-
-            <div className="content" style={contentStyle}>
+          <div className="quote-document-page" key={pi}>
               {(() => {
                 const out = [];
                 let i = 0;
@@ -405,29 +399,9 @@ export default function QuotePrint() {
                 }
                 return out;
               })()}
-            </div>
-
-            <div className="pagenum">صفحة {pi+1} من {pages.length}</div>
-
-            {footUrl
-              ? <img className="lh-foot" src={footUrl} alt="" style={{height:`${fMm}mm`}} />
-              : <div className="lh-foot" style={{height:`${fMm}mm`}} />}
-
-            {stampUrl && pos.stamp_x_mm != null && pi === pages.length - 1 && (
-              <img src={stampUrl} alt="ختم" className="float-mark"
-                   onMouseDown={startDrag('stamp')}
-                   style={{height:`${stampMm}mm`, right:`${pos.stamp_x_mm}mm`,
-                           top:`${pos.stamp_y_mm}mm`}} />
-            )}
-            {signUrl && pos.sign_x_mm != null && pi === pages.length - 1 && (
-              <img src={signUrl} alt="توقيع" className="float-mark"
-                   onMouseDown={startDrag('sign')}
-                   style={{height:`${signMm}mm`, right:`${pos.sign_x_mm}mm`,
-                           top:`${pos.sign_y_mm}mm`}} />
-            )}
           </div>
         ))}
-      </div>
+      </ConstitutionPagedFrame>
     </>
   );
 }

@@ -3,12 +3,17 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { ROLE_AR } from '@/lib/format';
+import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
+import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
 
 const NAV = [
   { group: 'الموارد البشرية', items: [
     { href: '/dashboard', label: 'لوحة المتابعة' },
     { href: '/dashboard/employees', label: 'الموظفون' },
+    { href: '/dashboard/recruitment', label: 'التوظيف والمرشحون' },
+    { href: '/dashboard/recruitment/offers', label: 'العروض الوظيفية' },
+    { href: '/dashboard/recruitment/contracts', label: 'مسودات عقود العمل' },
+    { href: '/dashboard/recruitment/onboarding', label: 'المباشرة والتهيئة' },
     { href: '/dashboard/board', label: 'مجلس الإدارة' },
     { href: '/dashboard/leaves', label: 'الإجازات' },
     { href: '/dashboard/advances', label: 'السلف والمديونيات' },
@@ -20,19 +25,21 @@ const NAV = [
     { href: '/dashboard/contractors', label: 'المقاولون' },
   ]},
   { group: 'التنفيذ', items: [
-    { href: '/dashboard/timesheet', label: 'التايم شيت' },
-    { href: '/dashboard/timesheet/settlement', label: 'تسوية المقاولين' },
-    { href: '/dashboard/labor', label: 'الأيدي العاملة' },
-    { href: '/dashboard/expenses', label: 'مصروفات وحسابات المقاولين' },
+    { href: '/dashboard/site-operations', label: 'مركز التشغيل اليومي' },
+    { href: '/dashboard/site-operations/reports', label: 'تقارير التايم شيت' },
+    { href: '/dashboard/site-operations/data-safety', label: 'سلامة بيانات التشغيل' },
   ]},
   { group: 'المستندات', items: [
     { href: '/dashboard/archive', label: 'الأرشيف' },
     { href: '/dashboard/register', label: 'الصادر والوارد' },
     { href: '/dashboard/documents', label: 'النماذج والمستندات' },
-    { href: '/dashboard/formbuilder', label: 'محرّر النماذج' },
+    { href: '/dashboard/approvals', label: 'سجل الاعتمادات' },
+    { href: '/dashboard/formbuilder', label: 'محرر النماذج' },
   ]},
   { group: 'الإعدادات', items: [
     { href: '/dashboard/settings', label: 'بيانات الشركة' },
+    { href: '/dashboard/system-user', label: 'مستخدم النظام' },
+    { href: '/dashboard/org-structure', label: 'الهيكل التنظيمي' },
     { href: '/dashboard/backup', label: 'النسخ الاحتياطي' },
   ]},
 ];
@@ -50,10 +57,11 @@ export default function DashboardLayout({ children }) {
       if (!data.session) { router.replace('/login'); return; }
       const { data: row } = await supabase
         .from('app_users')
-        .select('role, is_active, employees(full_name_ar, employee_no, job_title)')
+        .select('role, is_active, is_system_admin, must_change_password, employees(full_name_ar, employee_no, job_title)')
         .eq('id', data.session.user.id)
         .maybeSingle();
       if (!alive) return;
+      if (row?.must_change_password) { router.replace('/change-password'); return; }
       setMe({ email: data.session.user.email, ...row });
       setReady(true);
     })();
@@ -65,24 +73,18 @@ export default function DashboardLayout({ children }) {
     router.replace('/login');
   }
 
-  if (!ready) return <div className="empty">جارٍ التحميل…</div>;
+  if (!ready) return <div className="empty">جارٍ التحميل</div>;
 
-  if (!me?.role) return (
-    <div className="login-wrap">
-      <div className="login">
-        <div className="msg err">
-          حسابك ليس له دور في النظام بعد. تواصل مع المدير التنفيذي لإسناد دور لك.
-        </div>
-        <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}}
-                onClick={signOut}>خروج</button>
-      </div>
-    </div>
+  if (!me?.is_active || !me?.role) return (
+    <div className="login-wrap"><div className="login">
+      <div className="msg err">حسابك غير مهيأ لاستخدام النظام حاليًا.</div>
+      <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}} onClick={signOut}>خروج</button>
+    </div></div>
   );
 
   const emp = me.employees;
+  const accessLabel = me.is_system_admin ? 'مدير النظام' : 'مستخدم النظام';
 
-  // الرابط يُضاء إن كان هو الصفحة أو أحد فروعها — مع استثناء الفروع
-  // التي لها رابط خاص بها في القائمة نفسها
   const isOn = (href) => {
     if (pathname === href) return true;
     if (href === '/dashboard') return false;
@@ -95,39 +97,29 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="side-head">
-          <div className="skyline"><i/><i/><i/><i/><i/><i/></div>
-          <div className="name">أركان المكان</div>
-          <div className="sub">النظام الإداري</div>
-        </div>
-
+        <div className="side-head"><div className="name">أركان المكان</div><div className="sub">النظام الإداري</div></div>
         <nav className="nav">
-          {NAV.map((g) => (
-            <div key={g.group}>
-              <div className="nav-group">{g.group}</div>
-              {g.items.map((it) => (
-                <Link key={it.href} href={it.href}
-                      className={isOn(it.href) ? 'on' : ''}>
-                  {it.label}
-                </Link>
-              ))}
-            </div>
-          ))}
+          {NAV.map((g)=><div key={g.group}>
+            <div className="nav-group">{g.group}</div>
+            {g.items.map((it)=><Link key={it.href} href={it.href} className={isOn(it.href)?'on':''}>{it.label}</Link>)}
+          </div>)}
         </nav>
-
         <div className="side-foot">
           <div className="who">{emp?.full_name_ar || me.email}</div>
-          <div className="role">{ROLE_AR[me.role] || me.role}</div>
+          <div className="role">{accessLabel}</div>
           <button onClick={signOut}>خروج</button>
         </div>
       </aside>
-
       <div className="main">
         <div className="topbar">
           <span className="crumb">شركة أركان المكان للمقاولات</span>
           <span className="crumb mono">{new Date().toLocaleDateString('ar-SA-u-ca-gregory')}</span>
         </div>
-        <div className="page">{children}</div>
+        <div className="page">
+          {pathname.startsWith('/dashboard/formbuilder/') && <FormBuilderResizeOverlay />}
+          <VacancyTargetingPanel />
+          {children}
+        </div>
       </div>
     </div>
   );

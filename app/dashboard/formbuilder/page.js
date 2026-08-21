@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { uid } from '@/lib/form-engine';
+import { categoryLabel } from '@/lib/document-catalog.mjs';
 
 export default function FormBuilderList() {
   const router = useRouter();
@@ -30,7 +31,9 @@ export default function FormBuilderList() {
     const code = 'CUSTOM_' + uid().toUpperCase();
     const { error } = await supabase.from('document_templates').insert({
       code, name_ar: 'نموذج جديد', category: 'custom', prefix: 'CST', is_custom: true,
-      layout: { sections: [
+      template_source: 'user', relation_scope: ['general'], keywords: [],
+      constitution_version: '1.16', template_profile: 'user_defined',
+      layout: { schemaVersion: 3, gridColumns: 48, constitutionVersion: '1.16', sections: [
         { id: uid(), kind: 'cards', style: 'info', title: 'البيانات الأساسية', fields: [] },
       ]},
       logic: [],
@@ -51,6 +54,9 @@ export default function FormBuilderList() {
     const { error } = await supabase.from('document_templates').insert({
       code, name_ar: t.name_ar + ' (نسخة)', name_en: t.name_en, title_en: t.title_en,
       category: t.category, prefix: t.prefix, is_custom: true,
+      template_source: 'user', relation_scope: t.relation_scope || ['general'],
+      keywords: t.keywords || [], description_ar: t.description_ar,
+      constitution_version: '1.16', template_profile: t.template_profile || 'user_defined',
       layout: t.layout, logic: t.logic,
       intro_text: t.intro_text, closing_text: t.closing_text,
       show_stamp: t.show_stamp, show_bank: t.show_bank,
@@ -76,8 +82,11 @@ export default function FormBuilderList() {
 
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
 
-  const custom = rows.filter((r) => r.is_custom);
-  const builtin = rows.filter((r) => !r.is_custom);
+  const sourceOf = (row) => row.template_source
+    || (row.code?.startsWith('CUSTOM_') ? 'user' : row.is_custom ? 'system' : 'system');
+  const custom = rows.filter((r) => sourceOf(r) === 'user');
+  const catalog = rows.filter((r) => sourceOf(r) === 'catalog');
+  const builtin = rows.filter((r) => sourceOf(r) === 'system');
   const canWrite = ['ceo','hr'].includes(role);
 
   return (
@@ -85,7 +94,7 @@ export default function FormBuilderList() {
       <div className="page-head">
         <div>
           <h1>محرّر النماذج</h1>
-          <p>النموذج بياناتٌ لا كود — تبنيه بنفسك على شبكة ١٢ عموداً بمعادلاته</p>
+          <p>النموذج بياناتٌ لا كود — تبنيه على شبكة الدستور ذات 48 وحدة وتحفظ نسختك مستقلة عن الكتالوج</p>
         </div>
         <button className="btn" onClick={create} disabled={busy}>
           {busy ? 'جارٍ…' : 'نموذج جديد'}
@@ -145,6 +154,35 @@ export default function FormBuilderList() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="section">
+        <header><h2>الكتالوج الدستوري ({catalog.length})</h2></header>
+        <div style={{padding:'14px 18px',fontSize:13.5,color:'var(--ink-soft)',lineHeight:1.8}}>
+          هذه قوالب مركزية محمية من التعديل المباشر. استخدمها كما هي، أو أنشئ نسخة مخصصة منها لتغيّر الحقول دون التأثير في بقية المعاملات.
+        </div>
+        <table>
+          <thead><tr><th>النموذج</th><th>العائلة</th><th>الارتباط</th><th>الإصدار</th>
+                     <th style={{width:175}}>الإجراءات</th></tr></thead>
+          <tbody>
+            {catalog.map((t) => (
+              <tr key={t.code} style={t.is_active === false ? {opacity:.55} : undefined}>
+                <td><strong>{t.name_ar}</strong><div className="mono" style={{fontSize:10.5,color:'var(--ink-soft)'}}>{t.code}</div></td>
+                <td>{categoryLabel(t.category)}</td>
+                <td>{(t.relation_scope || []).map((x)=>({employee:'موظف',project:'مشروع',party:'طرف',general:'عام'}[x] || x)).join(' + ')}</td>
+                <td className="mono">{t.constitution_version || '—'}</td>
+                <td>
+                  <div className="rowsplit">
+                    <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                          href={`/dashboard/documents/new/${t.code}`}>تعبئة</Link>
+                    {canWrite && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                         onClick={()=>duplicate(t)}>نسخ للتعديل</button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="section">

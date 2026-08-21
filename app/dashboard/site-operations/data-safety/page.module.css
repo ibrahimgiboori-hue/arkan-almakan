@@ -1,0 +1,16 @@
+.healthGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:14px}
+.healthCard{background:#fff;border:1px solid var(--hair);border-radius:9px;padding:13px;display:flex;flex-direction:column;gap:3px;min-height:112px}
+.healthCard>span{font-size:11.5px;color:var(--ink-soft)}
+.healthCard>b{font-size:25px;color:#34393c}
+.healthCard>small{font-size:11px;color:var(--ink-soft);line-height:1.55}
+.healthCard button{align-self:flex-start;margin-top:auto;border:1px solid #9f6d22;background:#fff;border-radius:6px;padding:4px 8px;font:inherit;font-size:11.5px;color:#7a5115;cursor:pointer}
+.warn{border-color:#e4c58d;background:#fffaf1}
+.receiptNo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--maroon)!important}
+.batchForm{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:16px;margin-bottom:16px}
+.batchForm header h2{margin:0 0 3px;font-size:17px;color:var(--maroon)}
+.batchForm header p{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft)}
+.tableWrap{overflow-x:auto}
+.sub{font-size:11px;color:var(--ink-soft);margin-top:2px}
+.serverOnly{font-size:11.5px;color:#387347}
+@media(max-width:1050px){.healthGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.healthGrid{grid-template-columns:1fr}.healthCard{min-height:95px}}

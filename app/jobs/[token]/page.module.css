@@ -1,0 +1,43 @@
+.wrap{width:100%;max-width:900px;margin:0 auto;padding:24px 16px 52px;direction:rtl;overflow:hidden}
+.hero,.panel{background:#fff;border:1px solid #dde0e1;border-radius:14px;box-shadow:0 4px 18px rgba(40,45,48,.045)}
+.hero{padding:24px;margin-bottom:16px}
+.kicker{font-size:12.5px;color:#8B3332;font-weight:700;margin-bottom:6px}
+.hero h1{font-size:27px;line-height:1.35;color:#33383b;margin:0 0 7px}
+.meta{font-size:14px;color:#656b6e;margin-bottom:14px}
+.intro{font-size:14px;line-height:1.9;color:#555c60;margin:0 0 17px;padding:12px 14px;background:#f5f6f6;border-right:3px solid #8B3332}
+.dutiesTitle{font-size:14px;font-weight:700;color:#454b4e;margin-bottom:6px}
+.duties{white-space:pre-line;font-size:13.25px;line-height:1.9;color:#5d6366;margin:0}
+.panel{padding:22px}
+.sectionTitle{font-size:17px;color:#8B3332;margin:4px 0 14px;padding-bottom:8px;border-bottom:1px solid #ece7e7}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px;width:100%}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0;width:100%;margin:0}
+.full{grid-column:1/-1}
+.field label{font-size:12.5px;color:#5F6468;font-weight:600}
+.field input,.field select,.field textarea{display:block;width:100%;max-width:100%;min-width:0;border:1px solid #cfd3d4;border-radius:7px;background:#fff;color:#303538;font-family:inherit;font-size:14px;padding:10px 11px;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#8B3332;box-shadow:0 0 0 2px rgba(139,51,50,.08)}
+.combo{display:grid;grid-template-columns:125px minmax(0,1fr);gap:8px;min-width:0}
+.salary{display:grid;grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);align-items:center;gap:7px;min-width:0}
+.salary span{text-align:center;color:#777;font-size:12px}
+.hint{font-size:11.5px;color:#7a8083;line-height:1.55}
+.questions{margin-top:24px}
+.attachments{margin-top:24px}
+.fileBox{border:1px dashed #c5c9ca;border-radius:9px;padding:11px;background:#fafafa}
+.fileBox input{border:none;padding:3px 0;background:transparent}
+.notice{margin-top:19px;border:1px solid #e3dada;background:#fbf7f7;padding:11px 13px;border-radius:8px;font-size:12.5px;line-height:1.75;color:#5d6265}
+.error{margin-bottom:14px;border:1px solid #e4b9b7;background:#fff3f2;color:#9e302b;padding:10px 12px;border-radius:8px;font-size:13px}
+.submit{width:100%;margin-top:15px;border:0;border-radius:8px;background:#8B3332;color:#fff;font-family:inherit;font-size:15px;font-weight:700;padding:12px 18px;cursor:pointer}
+.submit:disabled{opacity:.55;cursor:not-allowed}
+.success{max-width:700px;margin:60px auto;padding:20px;direction:rtl}
+.successBox{background:#fff;border:1px solid #d8dedb;border-radius:14px;padding:30px;text-align:center;box-shadow:0 5px 20px rgba(40,45,48,.05)}
+.successBox h1{color:#8B3332;margin:0 0 10px;font-size:25px}
+.successBox p{color:#555c60;line-height:1.9;margin:0}
+@media(max-width:640px){
+ .wrap{padding:14px 10px 40px}
+ .hero,.panel{border-radius:10px}
+ .hero{padding:18px 15px}.panel{padding:17px 13px}
+ .hero h1{font-size:22px}.grid{grid-template-columns:minmax(0,1fr);gap:11px}.full{grid-column:auto}
+ .combo{grid-template-columns:105px minmax(0,1fr)}
+ .salary{grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr)}
+ .field input,.field select,.field textarea{font-size:16px;padding:10px}
+}
+@media(max-width:380px){.combo{grid-template-columns:1fr}.salary{grid-template-columns:1fr}.salary span{display:none}}

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -13,13 +13,28 @@ export default function Login() {
   async function signIn(e) {
     e.preventDefault();
     setErr(''); setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setErr('البريد أو كلمة المرور غير صحيحة. تحقق منهما وحاول مرة أخرى.');
-      setBusy(false);
-      return;
-    }
-    router.replace('/dashboard');
+    try {
+      const value = login.trim();
+      if (value.includes('@')) {
+        const { error } = await supabase.auth.signInWithPassword({ email:value, password });
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.functions.invoke('identity-login', {
+          body:{ identity:value, password },
+        });
+        if (error || !data?.session?.access_token || !data?.session?.refresh_token) {
+          throw new Error(data?.message || 'تعذر التحقق من بيانات الدخول.');
+        }
+        const { error:setError } = await supabase.auth.setSession({
+          access_token:data.session.access_token,
+          refresh_token:data.session.refresh_token,
+        });
+        if (setError) throw setError;
+      }
+      router.replace('/dashboard');
+    } catch {
+      setErr('رقم الهوية أو البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+    } finally { setBusy(false); }
   }
 
   return (
@@ -34,9 +49,11 @@ export default function Login() {
         {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
 
         <div className="field">
-          <label htmlFor="email">البريد الإلكتروني</label>
-          <input id="email" type="email" dir="ltr" required autoComplete="username"
-                 value={email} onChange={(e)=>setEmail(e.target.value)} />
+          <label htmlFor="login">رقم الهوية أو البريد الإلكتروني</label>
+          <input id="login" dir="ltr" required autoComplete="username"
+                 value={login} onChange={(e)=>setLogin(e.target.value)}
+                 placeholder="رقم الهوية / الإقامة للموظف" />
+          <span className="hint">الموظفون يدخلون برقم الهوية أو الإقامة. حساب الإدارة القديم يمكنه الاستمرار بالبريد الإلكتروني.</span>
         </div>
 
         <div className="field">

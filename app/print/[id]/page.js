@@ -8,6 +8,7 @@ import { tafqit } from '@/lib/tafqit';
 import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import PartiesPrint from '@/components/PartiesPrint';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import './print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
@@ -42,12 +43,11 @@ export default function PrintDoc() {
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
   if (!doc || !cfg) return <div style={{padding:40}}>جارٍ التحميل…</div>;
 
-  const custom = tpl?.is_custom && tpl?.layout?.sections?.length;
+  const custom = !!tpl?.layout?.sections?.length;
   const legacy = byCode(doc.template_code);
   const p = doc.payload || {};
   const rows = p._rows || [];
 
-  const lhUrl = bg ? pub(cfg.letterhead_image_path) : null;
   const stampUrl = stamp ? pub(cfg.stamp_image_path) : null;
 
   const mTop  = doc.margin_top_mm    ?? tpl?.margin_top_mm    ?? cfg.letterhead_top_mm;
@@ -63,12 +63,6 @@ export default function PrintDoc() {
   const hasLetterHead = !!custom &&
     (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
-
-  const sheetStyle = {
-    paddingTop: `${mTop}mm`, paddingBottom: `${mBot}mm`,
-    paddingRight: `${mSide}mm`, paddingLeft: `${mSide}mm`,
-    backgroundImage: lhUrl ? `url(${lhUrl})` : 'none',
-  };
 
   const fmt = (f, val) => {
     if (val === undefined || val === null || val === '') return '—';
@@ -98,7 +92,7 @@ export default function PrintDoc() {
 
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar no-print">
         <div className="tb-group">
           <button className={bg ? 'on' : ''} onClick={()=>setBg(!bg)}>
             {bg ? 'الترويسة ظاهرة' : 'للطباعة على ورق الترويسة'}
@@ -118,8 +112,15 @@ export default function PrintDoc() {
         </div>
       </div>
 
-      <div className="sheet-wrap">
-        <div className="sheet" style={sheetStyle}>
+      <ConstitutionPrintFrame
+        documentKey="generic_document"
+        cfg={cfg}
+        showLetterhead={bg}
+        contentTopMm={mTop}
+        contentBottomMm={mBot}
+        contentSideMm={mSide}
+      >
+        <div className="sheet governed-document-sheet">
 
           {!hasLetterHead && (
             <div className="title-block">
@@ -221,13 +222,21 @@ export default function PrintDoc() {
 
             if (s.kind === 'table') {
               if (!rows.length) return null;
+              const columns = s.columns || [];
+              const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
               return (
                 <table className="amounts" key={s.id}>
+                  <colgroup>
+                    <col style={{width:'7mm'}} />
+                    {columns.map((column) => (
+                      <col key={column.key} style={{width:`${(Number(column.span || 1) / spanTotal) * 92}%`}} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th style={{width:'9mm'}}>م</th>
-                      {(s.columns || []).map((c) => (
-                        <th key={c.key} className={['money','number'].includes(c.type) ? 'num' : ''}>
+                      <th className="serial-col">م</th>
+                      {columns.map((c) => (
+                        <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
                           {c.label}
                         </th>
                       ))}
@@ -237,11 +246,9 @@ export default function PrintDoc() {
                     {rows.map((r, i) => (
                       <tr key={r._id || i}>
                         <td className="mono">{i+1}</td>
-                        {(s.columns || []).map((c) => (
-                          <td key={c.key} className={['money','number'].includes(c.type) ? 'num' : ''}>
-                            {c.type === 'money' ? money(r[c.key] || 0)
-                              : c.type === 'number' ? fmtQty(r[c.key] || 0)
-                              : (r[c.key] ?? '—')}
+                        {columns.map((c) => (
+                          <td key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
+                            {fmt(c, r[c.key])}
                           </td>
                         ))}
                       </tr>
@@ -397,7 +404,7 @@ export default function PrintDoc() {
           </div>
 
         </div>
-      </div>
+      </ConstitutionPrintFrame>
     </>
   );
 }

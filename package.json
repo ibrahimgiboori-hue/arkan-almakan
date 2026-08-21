@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:quote-pagination": "node --test tests/quote-pagination.test.mjs",
+    "test:document-catalog": "node --test tests/document-catalog.test.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "next": "14.2.5",
