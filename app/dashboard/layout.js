@@ -57,10 +57,11 @@ export default function DashboardLayout({ children }) {
       if (!data.session) { router.replace('/login'); return; }
       const { data: row } = await supabase
         .from('app_users')
-        .select('role, is_active, is_system_admin, employees(full_name_ar, employee_no, job_title)')
+        .select('role, is_active, is_system_admin, must_change_password, employees(full_name_ar, employee_no, job_title)')
         .eq('id', data.session.user.id)
         .maybeSingle();
       if (!alive) return;
+      if (row?.must_change_password) { router.replace('/change-password'); return; }
       setMe({ email: data.session.user.email, ...row });
       setReady(true);
     })();
