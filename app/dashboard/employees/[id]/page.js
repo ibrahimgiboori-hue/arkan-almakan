@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import EmployeeForm from '@/components/EmployeeForm';
+import EmployeeAccess from '@/components/EmployeeAccess';
 import EmpContracts from '@/components/EmpContracts';
 import EmpDocuments from '@/components/EmpDocuments';
 import EmpDiscipline from '@/components/EmpDiscipline';
@@ -11,6 +12,7 @@ import { money, dateAr, STATUS_AR } from '@/lib/format';
 
 const TABS = [
   { k:'data',       label:'البيانات' },
+  { k:'access',     label:'إدارة الدخول' },
   { k:'contracts',  label:'العقود' },
   { k:'documents',  label:'المستندات' },
   { k:'discipline', label:'الجزاءات' },
@@ -85,6 +87,7 @@ export default function EmployeePage() {
       </div>
 
       {tab === 'data'       && <EmployeeForm initial={row} id={id} />}
+      {tab === 'access'     && <EmployeeAccess employeeId={id} />}
       {tab === 'contracts'  && <EmpContracts employeeId={id} employee={row} />}
       {tab === 'documents'  && <EmpDocuments employeeId={id} />}
       {tab === 'discipline' && <EmpDiscipline employeeId={id} />}
