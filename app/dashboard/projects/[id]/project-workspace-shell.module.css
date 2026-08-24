@@ -87,6 +87,40 @@
   background:var(--paper);
 }
 
+.projectTabs{
+  display:flex;
+  align-items:center;
+  gap:2px;
+  padding:0 clamp(18px,2.5vw,42px);
+  min-height:42px;
+  overflow-x:auto;
+  white-space:nowrap;
+  border-bottom:1px solid var(--border);
+  background:var(--paper);
+}
+.projectTab{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  min-height:42px;
+  padding:0 12px;
+  color:var(--muted);
+  text-decoration:none;
+  font-size:10px;
+  font-weight:750;
+}
+.projectTab::after{
+  content:'';
+  position:absolute;
+  inset-inline:12px;
+  bottom:-1px;
+  height:2px;
+  background:transparent;
+}
+.projectTab:hover{color:var(--ink)}
+.projectTabActive{color:var(--wine);font-weight:900}
+.projectTabActive::after{background:var(--wine)}
+
 .projectBody{
   padding:16px clamp(18px,2.5vw,42px) 38px;
 }
@@ -128,6 +162,8 @@
     padding:12px 13px;
   }
   .projectActions,.operationButton,.secondaryAction{width:100%}
+  .projectTabs{padding:0 8px}
+  .projectTab{padding-inline:10px}
   .projectBody,.operationsBody{padding:0 13px 28px}
 }
 
