@@ -7,11 +7,19 @@ import { supabase } from '@/lib/supabase';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
 import styles from './project-workspace-shell.module.css';
 
+const PROJECT_TABS = [
+  { key: 'summary', label: 'ملخص المشروع', suffix: '' },
+  { key: 'operations', label: 'التشغيل اليومي', suffix: '/operations' },
+  { key: 'documents', label: 'المستندات', suffix: '/documents' },
+  { key: 'materials', label: 'المواد', suffix: '/materials' },
+];
+
 export default function ProjectWorkspaceLayout({ children }) {
   const { id } = useParams();
   const pathname = usePathname();
   const [project, setProject] = useState(null);
-  const inOperations = pathname.includes(`/dashboard/projects/${id}/operations`);
+  const base = `/dashboard/projects/${id}`;
+  const inOperations = pathname.startsWith(`${base}/operations`);
 
   useEffect(() => {
     let active = true;
@@ -26,6 +34,11 @@ export default function ProjectWorkspaceLayout({ children }) {
     return () => { active = false; };
   }, [id]);
 
+  const isTabActive = (suffix) => {
+    const href = `${base}${suffix}`;
+    return suffix ? pathname.startsWith(href) : pathname === base;
+  };
+
   return (
     <section className={`${styles.workspaceShell} ${inOperations ? styles.operationsWorkspace : ''}`} data-project-workspace="true">
       <header className={`${styles.projectHeader} ${inOperations ? styles.compactProjectHeader : ''}`}>
@@ -39,13 +52,21 @@ export default function ProjectWorkspaceLayout({ children }) {
           </p>
         </div>
         <div className={styles.projectActions}>
-          {inOperations ? (
-            <Link className={styles.secondaryAction} href={`/dashboard/projects/${id}`}>ملخص المشروع</Link>
-          ) : (
-            <Link className={styles.operationButton} href={`/dashboard/projects/${id}/operations`}>التشغيل اليومي</Link>
-          )}
+          <Link className={styles.operationButton} href={`${base}/operations`}>التشغيل اليومي</Link>
         </div>
       </header>
+
+      <nav className={styles.projectTabs} aria-label="أقسام المشروع">
+        {PROJECT_TABS.map((tab) => (
+          <Link
+            key={tab.key}
+            href={`${base}${tab.suffix}`}
+            className={`${styles.projectTab} ${isTabActive(tab.suffix) ? styles.projectTabActive : ''}`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
 
       <div className={`${styles.projectBody} ${inOperations ? styles.operationsBody : ''}`}>{children}</div>
     </section>
