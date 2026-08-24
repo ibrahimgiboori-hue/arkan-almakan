@@ -1,0 +1,57 @@
+/* Quotation flow overrides: consistent numbered terms, document-language direction, compact bank details */
+.quote-document-page{direction:inherit;text-align:start}
+.quote-document-page .q-block.pay,
+.quote-document-page .q-pay,
+.quote-document-page .q-pay th,
+.quote-document-page .q-pay td,
+.quote-document-page .q-term-flow,
+.quote-document-page .q-bank{direction:inherit;text-align:start}
+
+.q-block.pay .qb-head{font-weight:700;color:var(--maroon-dark)}
+.q-pay th,.q-pay td{vertical-align:middle}
+.q-pay .payment-note{line-height:1.28;overflow-wrap:normal;word-break:normal}
+
+/* Terms 3..12 use one visual grammar: no boxes, no icons, thin divider, strong numbered heading. */
+.q-term-flow{
+  margin:0;
+  padding:1.2mm .6mm 1.35mm;
+  border:0;
+  border-bottom:.2mm solid rgba(139,51,50,.38);
+  background:transparent;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.q-term-flow h3{
+  margin:0 0 .55mm;
+  padding:0;
+  color:var(--maroon-dark);
+  font-size:8.5pt;
+  line-height:1.25;
+  font-weight:700;
+  direction:inherit;
+  text-align:start;
+}
+.q-term-flow .term-no{margin-inline-end:1.2mm;font-variant-numeric:tabular-nums}
+.q-term-flow p{
+  margin:0;
+  color:var(--ink-print);
+  font-size:8.15pt;
+  line-height:1.38;
+  direction:inherit;
+  text-align:start;
+}
+
+/* Bank details: exactly three compact information lines below the heading. */
+.q-bank{padding:1.2mm 2mm;line-height:1.35}
+.q-bank .qb-t{margin-bottom:.65mm;text-align:start}
+.q-bank .bank-line{display:block;margin:.18mm 0;white-space:nowrap;text-align:start;direction:inherit}
+.q-bank .bank-label{font-weight:700;color:var(--maroon-dark)}
+.q-bank .acct{direction:ltr;unicode-bidi:isolate;display:inline-block;text-align:left}
+
+/* Language is governed by the document; only pure numeric tokens stay LTR. */
+[dir="ltr"] .q-pay th:not(.num),[dir="ltr"] .q-pay td:not(.num),[dir="ltr"] .q-term-flow,[dir="ltr"] .q-bank{text-align:left}
+[dir="rtl"] .q-pay th:not(.num),[dir="rtl"] .q-pay td:not(.num),[dir="rtl"] .q-term-flow,[dir="rtl"] .q-bank{text-align:right}
+
+@media print{
+  .q-term-flow{break-inside:avoid;page-break-inside:avoid}
+}
