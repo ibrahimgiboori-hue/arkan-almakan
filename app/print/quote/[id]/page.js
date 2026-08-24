@@ -7,6 +7,7 @@ import { tafqit } from '@/lib/tafqit';
 import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
 import { paginateQuoteBlocks } from '@/lib/quote-pagination.mjs';
 import { getPrintLayoutPolicy } from '@/lib/print-governance';
+import { resolveTermNumbers } from '@/lib/term-numbering';
 import Riyal from '@/components/Riyal';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import './quote-print.css';
@@ -17,12 +18,15 @@ const MM = 3.7795275591;
 const QUOTE_LAYOUT = getPrintLayoutPolicy('quotation');
 const EN_UNIT = {'م2':'m²','م²':'m²','م3':'m³','م³':'m³','م':'m','م طولي':'LM','م.ط':'LM','عدد':'No.','قطعة':'No.','يوم':'Day','ساعة':'Hr','طن':'Ton','كجم':'kg','لتر':'L','مقطوعية':'Lump Sum'};
 function dateEn(value){if(!value)return'—';const d=value instanceof Date?value:new Date(value);if(Number.isNaN(d.getTime()))return String(value);return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d)}
-function splitTerm(raw,index){const text=String(raw||'').trim();const parts=text.split(/\s+[—–-]\s+/,2);if(parts.length===2)return{id:`term-${index}`,kind:'term',title:parts[0].trim(),body:parts[1].trim(),number:index+3};return{id:`term-${index}`,kind:'term',title:'',body:text,number:index+3}}
+function splitTerm(raw,index){const text=String(raw||'').trim();const parts=text.split(/\s+[—–-]\s+/,2);if(parts.length===2)return{id:`legacy-term-${index}`,title:parts[0].trim(),body:parts[1].trim(),number_override:null};return{id:`legacy-term-${index}`,title:'',body:text,number_override:null}}
 
 export default function QuotePrint(){
  const {id}=useParams();const[q,setQ]=useState(null),[lines,setLines]=useState([]),[pays,setPays]=useState([]),[cfg,setCfg]=useState(null),[pages,setPages]=useState(null),[drag,setDrag]=useState(null),[pos,setPos]=useState({}),[saved,setSaved]=useState(''),[err,setErr]=useState(''),[layoutPreview,setLayoutPreview]=useState(null);const measureRef=useRef(null);
  useEffect(()=>{(async()=>{const[a,b,c,d]=await Promise.all([supabase.from('quotations').select('*').eq('id',id).maybeSingle(),supabase.from('quotation_lines').select('*').eq('quotation_id',id).order('sort_order'),supabase.from('quotation_payments').select('*').eq('quotation_id',id).order('sort_order'),supabase.from('app_settings').select('*').eq('id',1).maybeSingle()]);if(!a.data){setErr('لم يُعثر على هذا العرض.');return}setQ(a.data);setLines(b.data||[]);setPays(c.data||[]);setCfg(d.data);setPos({stamp_x_mm:a.data.stamp_x_mm,stamp_y_mm:a.data.stamp_y_mm,sign_x_mm:a.data.sign_x_mm,sign_y_mm:a.data.sign_y_mm})})()},[id]);
- const numbered=q?numberLines(lines):[],subs=q?titleSubtotals(lines,q.show_qty):{},rateOnly=q?!q.show_qty:false,showTotalCol=q?(q.show_line_total&&!rateOnly):false,t=q?totals(q,lines):{},termItems=(q?.terms_text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(splitTerm);
+ const numbered=q?numberLines(lines):[],subs=q?titleSubtotals(lines,q.show_qty):{},rateOnly=q?!q.show_qty:false,showTotalCol=q?(q.show_line_total&&!rateOnly):false,t=q?totals(q,lines):{};
+ const legacyTerms=(q?.terms_text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(splitTerm);
+ const sourceTerms=Array.isArray(q?.terms_structured)&&q.terms_structured.length?q.terms_structured:legacyTerms;
+ const termItems=resolveTermNumbers(sourceTerms,q?.terms_start||'3').map((term,index)=>({...term,id:term.id||`term-${index}`,kind:'term'}));
  const paperApproval=q?.paper_approval_enabled!==false;
  const blocks=[];if(q){blocks.push({id:'title',kind:'title'},{id:'meta',kind:'meta'});if(q.show_intro&&q.intro_text)blocks.push({id:'intro',kind:'intro'});numbered.forEach(l=>blocks.push({id:'row-'+l.id,kind:'row',line:l}));blocks.push({id:'sum',kind:'sum'});if(q.show_payments&&pays.length)blocks.push({id:'pay',kind:'pay'});if(q.show_terms)termItems.forEach(term=>blocks.push(term));if(q.show_closing&&q.closing_text)blocks.push({id:'closing',kind:'closing'});if(paperApproval)blocks.push({id:'approval',kind:'approval'});blocks.push({id:'foot',kind:'foot'})}
  useLayoutEffect(()=>{if(!q||!cfg||!measureRef.current)return;const mTop=Number(layoutPreview?.topMm??q.margin_top_mm??QUOTE_LAYOUT.topMm??cfg.letterhead_top_mm),mBot=Number(layoutPreview?.bottomMm??q.margin_bottom_mm??QUOTE_LAYOUT.bottomMm??cfg.letterhead_bottom_mm),reserveMm=Number(QUOTE_LAYOUT.paginationReserveMm??7),avail=(297-mTop-mBot-reserveMm)*MM,h={};measureRef.current.querySelectorAll('[data-block]').forEach(el=>{h[el.dataset.block]=el.getBoundingClientRect().height+1});const result=paginateQuoteBlocks({blocks,heights:h,availableHeight:avail,tableHeaderHeight:h.__thead||0});setPages(result.pages)},[q,cfg,lines,pays,layoutPreview]);
