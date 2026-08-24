@@ -23,6 +23,8 @@ export default function ConstitutionPagedFrame({
   contentTopMm,
   contentBottomMm,
   contentSideMm,
+  contentRightMm,
+  contentLeftMm,
   pageClassName = '',
   contentClassName = '',
   showPageNumbers = true,
@@ -38,11 +40,9 @@ export default function ConstitutionPagedFrame({
 
   const top = Number(contentTopMm ?? layout.topMm ?? cfg?.letterhead_top_mm ?? 47);
   const bottom = Number(contentBottomMm ?? layout.bottomMm ?? cfg?.letterhead_bottom_mm ?? 39);
-  const side = clamp(
-    contentSideMm ?? layout.sideMm ?? cfg?.letterhead_side_mm ?? 19,
-    10,
-    24,
-  );
+  const legacySide = contentSideMm ?? layout.sideMm ?? cfg?.letterhead_side_mm ?? 19;
+  const right = clamp(contentRightMm ?? legacySide, 10, 40);
+  const left = clamp(contentLeftMm ?? legacySide, 10, 40);
 
   const full = showLetterhead ? assetUrl(cfg?.letterhead_image_path) : null;
   const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;
@@ -66,27 +66,19 @@ export default function ConstitutionPagedFrame({
           <div className="constitution-paged-assets" aria-hidden="true">
             {full && <img src={full} className="constitution-paged-full" alt="" />}
             {header && (
-              <img
-                src={header}
-                className="constitution-paged-header"
-                alt=""
-                style={{ height:`${Number(cfg?.header_height_mm || 40)}mm` }}
-              />
+              <img src={header} className="constitution-paged-header" alt=""
+                style={{ height:`${Number(cfg?.header_height_mm || 40)}mm` }} />
             )}
             {footer && (
-              <img
-                src={footer}
-                className="constitution-paged-footer"
-                alt=""
-                style={{ height:`${Number(cfg?.footer_height_mm || 32)}mm` }}
-              />
+              <img src={footer} className="constitution-paged-footer" alt=""
+                style={{ height:`${Number(cfg?.footer_height_mm || 32)}mm` }} />
             )}
             {watermark && <img src={watermark} className="constitution-paged-watermark" alt="" />}
           </div>
 
           <main
             className={`constitution-paged-content ${contentClassName}`.trim()}
-            style={{ padding:`${top}mm ${side}mm ${bottom}mm` }}
+            style={{ paddingTop:`${top}mm`, paddingRight:`${right}mm`, paddingBottom:`${bottom}mm`, paddingLeft:`${left}mm` }}
           >
             <div
               className={classes}
@@ -100,10 +92,7 @@ export default function ConstitutionPagedFrame({
           </main>
 
           {showPageNumbers && pageCount > 0 && (
-            <div
-              className="constitution-paged-number"
-              style={{ bottom:`${Math.max(2, bottom - 5)}mm` }}
-            >
+            <div className="constitution-paged-number" style={{ bottom:`${Math.max(2, bottom - 5)}mm` }}>
               صفحة {pageIndex + 1} من {pageCount}
             </div>
           )}
