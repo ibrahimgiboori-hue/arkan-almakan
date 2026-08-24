@@ -367,10 +367,16 @@ export default function QuoteEditor() {
                      onChange={(e)=>patch({quote_date:e.target.value})} />
             </div>
             <div className="field">
-              <label>صلاحية العرض (يوم)</label>
-              <input type="number" dir="ltr" value={q.valid_days}
-                     onChange={(e)=>setQ({...q,valid_days:e.target.value})}
-                     onBlur={(e)=>patch({valid_days:Number(e.target.value||30)})} />
+              <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:q.show_validity?8:0}}>
+                <input type="checkbox" checked={!!q.show_validity} onChange={(e)=>patch({show_validity:e.target.checked})} />
+                <span>إظهار صلاحية العرض</span>
+              </label>
+              {q.show_validity && <>
+                <label>مدة الصلاحية (يوم)</label>
+                <input type="number" min="1" dir="ltr" value={q.valid_days ?? 30}
+                       onChange={(e)=>setQ({...q,valid_days:e.target.value})}
+                       onBlur={(e)=>patch({valid_days:Math.max(1,Number(e.target.value||30))})} />
+              </>}
             </div>
             <div className="field">
               <label>الحالة</label>

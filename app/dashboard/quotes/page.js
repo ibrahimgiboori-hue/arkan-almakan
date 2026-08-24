@@ -6,11 +6,19 @@ import { supabase } from '@/lib/supabase';
 import { dateAr, money } from '@/lib/format';
 import { QSTATUS_AR } from '@/lib/quote-calc';
 
+const EN_INTRO = 'We are pleased to submit our quotation for the execution of the works described below, in accordance with the approved drawings, specifications, and project requirements.';
+const EN_CLOSING = 'We trust that our quotation meets your requirements and look forward to the opportunity to work with you.';
+const EN_TERMS = [
+  'Payment terms and schedule shall be agreed upon prior to commencement of the works.',
+  'Prices are exclusive of VAT. VAT will be added at the applicable statutory rate.',
+].join('\n');
+
 export default function Quotes() {
   const router = useRouter();
   const [rows, setRows] = useState(null);
   const [tot, setTot] = useState({});
   const [role, setRole] = useState(null);
+  const [newLang, setNewLang] = useState('ar');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -38,14 +46,23 @@ export default function Quotes() {
 
     const { data: cfg } = await supabase.from('app_settings')
       .select('quote_terms_default, vat_rate').eq('id',1).maybeSingle();
+    const english = newLang === 'en';
 
     const { data, error } = await supabase.from('quotations').insert({
-      quote_no: num, doc_kind: kind, client_name: 'عميل جديد',
+      quote_no: num,
+      doc_kind: kind,
+      language: newLang,
+      client_name: english ? 'New Client' : 'عميل جديد',
       vat_rate: cfg?.vat_rate ?? 0.15,
-      terms_text: cfg?.quote_terms_default || '',
-      intro_text: 'يسرنا في أركان المكان أن نضع بين أيديكم عرض السعر التالي لتنفيذ الأعمال الموضحة أدناه وفقاً للمواصفات الفنية المعتمدة.',
-      closing_text: 'آملين أن ينال عرضنا استحسانكم، وتفضلوا بقبول فائق الاحترام والتقدير.',
+      terms_text: english ? EN_TERMS : (cfg?.quote_terms_default || ''),
+      intro_text: english
+        ? EN_INTRO
+        : 'يسرنا في أركان المكان أن نضع بين أيديكم عرض السعر التالي لتنفيذ الأعمال الموضحة أدناه وفقاً للمواصفات الفنية المعتمدة.',
+      closing_text: english
+        ? EN_CLOSING
+        : 'آملين أن ينال عرضنا استحسانكم، وتفضلوا بقبول فائق الاحترام والتقدير.',
       show_qty: kind === 'boq',
+      show_en_desc: english,
     }).select('id').single();
 
     setBusy(false);
@@ -82,6 +99,15 @@ export default function Quotes() {
     if (error) setErr(error.message); else load();
   }
 
+  async function setLanguage(r, language) {
+    setErr(''); setMsg('');
+    const fields = { language, show_en_desc: language === 'en' };
+    const { error } = await supabase.from('quotations').update(fields).eq('id', r.id);
+    if (error) { setErr('تعذّر تغيير لغة العرض: ' + error.message); return; }
+    setRows((prev)=>(prev||[]).map((x)=>x.id===r.id?{...x,...fields}:x));
+    setMsg(language === 'en' ? `تم تحويل ${r.quote_no} إلى English` : `تم تحويل ${r.quote_no} إلى العربية`);
+  }
+
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
 
   const canWrite = ['ceo','hr','accountant'].includes(role);
@@ -91,9 +117,15 @@ export default function Quotes() {
       <div className="page-head">
         <div>
           <h1>عروض الأسعار وجداول الكميات</h1>
-          <p>محرّك واحد مرن — تُظهر وتُخفي الأعمدة والأقسام كما يناسب كل عرض</p>
+          <p>لغة العرض محفوظة داخل كل مستند ويمكن تغييرها في أي وقت.</p>
         </div>
         <div className="rowsplit">
+          <label style={{fontSize:12.5,color:'var(--ink-soft)'}}>لغة العرض الجديد</label>
+          <select value={newLang} onChange={(e)=>setNewLang(e.target.value)}
+                  aria-label="لغة العرض الجديد" style={{minWidth:112}}>
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+          </select>
           <button className="btn" disabled={busy} onClick={()=>create('quotation')}>عرض سعر جديد</button>
           <button className="btn ghost" disabled={busy} onClick={()=>create('boq')}>جدول كميات جديد</button>
         </div>
@@ -105,11 +137,11 @@ export default function Quotes() {
       <div className="section" style={{marginTop:0}}>
         <header><h2>السجل</h2></header>
         {rows.length === 0 ? (
-          <div className="empty"><h3>لا عروض بعد</h3><p>أنشئ عرضاً من الزرّين أعلى الصفحة.</p></div>
+          <div className="empty"><h3>لا عروض بعد</h3><p>اختر اللغة ثم أنشئ عرض سعر أو جدول كميات.</p></div>
         ) : (
           <table>
             <thead>
-              <tr><th>الرقم</th><th>النوع</th><th>العميل</th><th>التاريخ</th>
+              <tr><th>الرقم</th><th>النوع</th><th>لغة المستند</th><th>العميل</th><th>التاريخ</th>
                   <th className="num">المجموع</th><th>الحالة</th>
                   <th style={{width:280}}>الإجراءات</th></tr>
             </thead>
@@ -118,6 +150,15 @@ export default function Quotes() {
                 <tr key={r.id}>
                   <td className="mono">{r.quote_no}</td>
                   <td>{r.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</td>
+                  <td>
+                    {canWrite ? (
+                      <select value={r.language || 'ar'} onChange={(e)=>setLanguage(r,e.target.value)}
+                              aria-label={`لغة ${r.quote_no}`} style={{fontSize:12.5,padding:'2px 4px',minWidth:92}}>
+                        <option value="ar">العربية</option>
+                        <option value="en">English</option>
+                      </select>
+                    ) : <span className="pill">{r.language === 'en' ? 'EN' : 'AR'}</span>}
+                  </td>
                   <td><Link href={`/dashboard/quotes/${r.id}`}>{r.client_name}</Link></td>
                   <td className="mono">{dateAr(r.quote_date)}</td>
                   <td className="num">{money(tot[r.id]?.grand_total || 0)}</td>
@@ -125,12 +166,9 @@ export default function Quotes() {
                     {canWrite ? (
                       <select value={r.status} onChange={(e)=>setStatus(r, e.target.value)}
                               style={{fontSize:12.5,padding:'2px 4px'}}>
-                        {Object.entries(QSTATUS_AR).map(([k,v])=>(
-                          <option key={k} value={k}>{v}</option>))}
+                        {Object.entries(QSTATUS_AR).map(([k,v])=>(<option key={k} value={k}>{v}</option>))}
                       </select>
-                    ) : (
-                      <span className="pill">{QSTATUS_AR[r.status]}</span>
-                    )}
+                    ) : <span className="pill">{QSTATUS_AR[r.status]}</span>}
                   </td>
                   <td>
                     <div className="rowsplit">
@@ -138,17 +176,13 @@ export default function Quotes() {
                             href={`/dashboard/quotes/${r.id}`}>تعديل</Link>
                       <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
                             href={`/print/quote/${r.id}`} target="_blank">طباعة</Link>
-                      {canWrite && (
-                        <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
-                                disabled={busy} onClick={()=>duplicate(r)}>نسخ</button>
-                      )}
+                      {canWrite && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                                           disabled={busy} onClick={()=>duplicate(r)}>نسخ</button>}
                       {canWrite && r.status === 'accepted' && (
-                        <button className="btn" style={{padding:'4px 9px',fontSize:12.5}}
-                                onClick={()=>toProject(r)}>← مشروع</button>
+                        <button className="btn" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toProject(r)}>← مشروع</button>
                       )}
                       {canWrite && (
-                        <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,
-                                        borderColor:'#EBC3C0',color:'#A32B24'}}
+                        <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}}
                                 onClick={()=>remove(r)}>حذف</button>
                       )}
                     </div>
