@@ -12,25 +12,51 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 function freshRow(date, seed={}) {
   return {
-    _id:uid(), expense_date:date, amount:'', notes:'', category:'مواد', payer:'contractor',
-    charge_to:'arkan', project_item_id:'', paid_by_employee_id:'', is_recoverable:false, ...seed,
+    _id:uid(), id:null, persisted:false, expense_date:date, amount:'', notes:'', category:'مواد', payer:'contractor',
+    charge_to:'arkan', project_item_id:'', paid_by_employee_id:'', is_recoverable:false,
+    reimbursement_status:null, reimbursed_amount:0, ...seed,
+  };
+}
+
+function dbRowToGrid(row, date) {
+  return freshRow(row.expense_date || date, {
+    id:row.id,
+    persisted:true,
+    expense_date:row.expense_date || date,
+    amount:String(row.amount ?? ''),
+    notes:row.notes || '',
+    category:row.category || 'أخرى',
+    payer:row.paid_by_employee_id ? 'employee' : (row.payer || 'contractor'),
+    charge_to:row.charge_to || 'arkan',
+    project_item_id:row.project_item_id || '',
+    paid_by_employee_id:row.paid_by_employee_id || '',
+    is_recoverable:!!row.is_recoverable,
+    reimbursement_status:row.reimbursement_status || null,
+    reimbursed_amount:Number(row.reimbursed_amount || 0),
+  });
+}
+
+function rowPayload(row, fallbackDate) {
+  return {
+    expense_date:row.expense_date || fallbackDate,
+    amount:Number(row.amount),
+    notes:row.notes.trim(),
+    category:row.category,
+    payer:row.payer,
+    charge_to:row.charge_to,
+    project_item_id:row.project_item_id || null,
+    paid_by_employee_id:row.payer === 'employee' ? (row.paid_by_employee_id || null) : null,
+    is_recoverable:false,
   };
 }
 
 export default function DirectExpensePanel({ projectId, date, contractor }){
   const [items,setItems] = useState([]);
   const [employees,setEmployees] = useState([]);
-  const [rows,setRows] = useState([]);
   const [entryRows,setEntryRows] = useState(()=>Array.from({length:6},()=>freshRow(date)));
-  const [editingId,setEditingId] = useState('');
-  const [edit,setEdit] = useState(freshRow(date));
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
   const [feedback,setFeedback] = useState(null);
-
-  useEffect(()=>{
-    if(!editingId) setEntryRows(prev=>prev.map(r=>({...r,expense_date:r.amount||r.notes?r.expense_date:date})));
-  },[date,editingId]);
 
   const load = useCallback(async()=>{
     if(!projectId||!date||!contractor?.id)return;
@@ -38,133 +64,161 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
     try{
       const [itemsQ,rowsQ,employeesQ]=await Promise.all([
         supabase.from('project_items').select('id,description_ar').eq('project_id',projectId).eq('kind','item').order('sort_order'),
-        supabase.from('contractor_expenses').select('id,expense_date,category,amount,notes,is_recoverable,payer,charge_to,project_item_id,paid_by_employee_id,reimbursement_status,reimbursed_amount').eq('project_id',projectId).eq('contractor_id',contractor.id).eq('expense_date',date).neq('payer','arkan_custody').order('created_at'),
+        supabase.from('contractor_expenses')
+          .select('id,expense_date,category,amount,notes,is_recoverable,payer,charge_to,project_item_id,paid_by_employee_id,reimbursement_status,reimbursed_amount,created_at')
+          .eq('project_id',projectId).eq('contractor_id',contractor.id).eq('expense_date',date)
+          .neq('payer','arkan_custody').order('created_at'),
         supabase.from('employees').select('id,full_name_ar,status').eq('status','active').order('full_name_ar'),
       ]);
       const error=[itemsQ,rowsQ,employeesQ].find(x=>x.error)?.error;if(error)throw error;
-      setItems(itemsQ.data||[]);setRows(rowsQ.data||[]);setEmployees(employeesQ.data||[]);
-    }catch(e){setFeedback({type:'error',text:'تعذر تحميل المصروفات: '+(e.message||e)});}
+      const saved=(rowsQ.data||[]).map(row=>dbRowToGrid(row,date));
+      const blanks=Array.from({length:Math.max(4,6-saved.length)},()=>freshRow(date));
+      setItems(itemsQ.data||[]);
+      setEmployees(employeesQ.data||[]);
+      setEntryRows([...saved,...blanks]);
+    }catch(e){
+      setFeedback({type:'error',text:'تعذر تحميل مصروفات هذا اليوم: '+(e.message||e)});
+      setEntryRows(Array.from({length:6},()=>freshRow(date)));
+    }
     setLoading(false);
   },[projectId,date,contractor?.id]);
+
   useEffect(()=>{load()},[load]);
 
-  const employeeName = useCallback((id)=>employees.find(e=>e.id===id)?.full_name_ar||'الموظف',[employees]);
-  const total=rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
-  const employeeDue=rows.reduce((sum,row)=>sum+(row.paid_by_employee_id?Math.max(0,Number(row.amount||0)-Number(row.reimbursed_amount||0)):0),0);
-  const validEntryRows=useMemo(()=>entryRows.filter(r=>Number(r.amount)>0&&r.notes.trim()),[entryRows]);
-  const entryTotal=validEntryRows.reduce((sum,r)=>sum+Number(r.amount||0),0);
-  const reportHref = projectId&&contractor?.id ? `/print/expenses?project=${encodeURIComponent(projectId)}&contractor=${encodeURIComponent(contractor.id)}&from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}` : '#';
+  const savedRows=useMemo(()=>entryRows.filter(r=>r.persisted),[entryRows]);
+  const validRows=useMemo(()=>entryRows.filter(r=>Number(r.amount)>0&&r.notes.trim()),[entryRows]);
+  const newRows=useMemo(()=>validRows.filter(r=>!r.persisted),[validRows]);
+  const savedTotal=useMemo(()=>savedRows.reduce((sum,r)=>sum+Number(r.amount||0),0),[savedRows]);
+  const currentGridTotal=useMemo(()=>validRows.reduce((sum,r)=>sum+Number(r.amount||0),0),[validRows]);
+  const employeeDue=useMemo(()=>savedRows.reduce((sum,r)=>sum+(r.paid_by_employee_id?Math.max(0,Number(r.amount||0)-Number(r.reimbursed_amount||0)):0),0),[savedRows]);
 
-  function patchEntry(id,patch){setEntryRows(prev=>prev.map(r=>r._id===id?{...r,...patch}:r));}
-  function addRows(count=4){setEntryRows(prev=>[...prev,...Array.from({length:count},()=>freshRow(date))]);}
+  function patchEntry(rowKey,patch){
+    setEntryRows(prev=>prev.map(r=>r._id===rowKey?{...r,...patch}:r));
+  }
+
+  function addRows(count=4){
+    setEntryRows(prev=>[...prev,...Array.from({length:count},()=>freshRow(date))]);
+  }
+
   function duplicatePrevious(){
     setEntryRows(prev=>{
       const last=[...prev].reverse().find(r=>r.amount||r.notes) || prev[prev.length-1];
-      return [...prev,freshRow(date,last?{expense_date:last.expense_date,category:last.category,payer:last.payer,charge_to:last.charge_to,project_item_id:last.project_item_id,paid_by_employee_id:last.paid_by_employee_id}:{})];
+      const seed=last?{
+        expense_date:last.expense_date||date,
+        category:last.category,
+        payer:last.payer,
+        charge_to:last.charge_to,
+        project_item_id:last.project_item_id,
+        paid_by_employee_id:last.paid_by_employee_id,
+      }:{};
+      return [...prev,freshRow(date,seed)];
     });
   }
-  function clearGrid(){setEntryRows(Array.from({length:6},()=>freshRow(date)));}
 
-  async function saveBulk(){
-    if(!validEntryRows.length){setFeedback({type:'error',text:'أدخل مبلغًا وبيانًا في صف واحد على الأقل.'});return;}
-    const missingEmployee=validEntryRows.find(r=>r.payer==='employee'&&!r.paid_by_employee_id);
-    if(missingEmployee){setFeedback({type:'error',text:'اختر الموظف الدافع في كل صف تم دفعه من مال موظف.'});return;}
+  async function removeRow(row){
+    if(!row.persisted){
+      setEntryRows(prev=>prev.length>1?prev.filter(r=>r._id!==row._id):[freshRow(date)]);
+      return;
+    }
+    if(!window.confirm(`حذف المصروف ${money(row.amount)} ر.س من هذا اليوم؟`))return;
     setBusy(true);setFeedback(null);
     try{
-      const payload=validEntryRows.map(r=>({
-        expense_date:r.expense_date||date,amount:Number(r.amount),notes:r.notes.trim(),category:r.category,
-        payer:r.payer,charge_to:r.charge_to,project_item_id:r.project_item_id||null,
-        paid_by_employee_id:r.payer==='employee'?(r.paid_by_employee_id||null):null,is_recoverable:false,
-      }));
-      const {error}=await supabase.rpc('fn_bulk_save_project_expenses',{p_project_id:projectId,p_contractor_id:contractor.id,p_rows:payload});
+      const {error}=await supabase.from('contractor_expenses').delete().eq('id',row.id).eq('project_id',projectId);
       if(error)throw error;
-      setFeedback({type:'success',text:`تم حفظ ${payload.length} مصروفات بإجمالي ${money(entryTotal)} ر.س دفعة واحدة.`});
-      clearGrid();await load();
-    }catch(e){setFeedback({type:'error',text:'تعذر حفظ المصروفات: '+(e.message||e)});}
+      setFeedback({type:'success',text:'تم حذف المصروف من اليوم وتحديث بيانات المشروع.'});
+      await load();
+    }catch(e){setFeedback({type:'error',text:'تعذر حذف المصروف: '+(e.message||e)});}
     setBusy(false);
   }
 
-  function startEdit(row){
-    setEditingId(row.id);
-    setEdit(freshRow(row.expense_date||date,{
-      expense_date:row.expense_date||date,amount:String(row.amount??''),notes:row.notes||'',category:row.category||'أخرى',
-      payer:row.paid_by_employee_id?'employee':(row.payer||'contractor'),charge_to:row.charge_to||'arkan',
-      project_item_id:row.project_item_id||'',paid_by_employee_id:row.paid_by_employee_id||'',is_recoverable:!!row.is_recoverable,
-    }));
-    setFeedback(null);
-  }
-  function cancelEdit(){setEditingId('');setEdit(freshRow(date));}
-
-  async function saveEdit(e){
-    e.preventDefault();
-    if(!Number(edit.amount)||!edit.notes.trim())return;
-    if(edit.payer==='employee'&&!edit.paid_by_employee_id){setFeedback({type:'error',text:'اختر الموظف الذي دفع من ماله الخاص.'});return;}
+  async function saveGrid(){
+    if(!validRows.length){setFeedback({type:'error',text:'لا توجد بيانات جاهزة للحفظ.'});return;}
+    const incomplete=entryRows.find(r=>(Number(r.amount)>0||r.notes.trim())&&!(Number(r.amount)>0&&r.notes.trim()));
+    if(incomplete){setFeedback({type:'error',text:'كل صف مستخدم يحتاج مبلغًا وبيانًا معًا.'});return;}
+    const missingEmployee=validRows.find(r=>r.payer==='employee'&&!r.paid_by_employee_id);
+    if(missingEmployee){setFeedback({type:'error',text:'اختر الموظف الدافع في كل صف تم دفعه من ماله الخاص.'});return;}
     setBusy(true);setFeedback(null);
     try{
-      const patch={
-        expense_date:edit.expense_date,amount:Number(edit.amount),category:edit.category,notes:edit.notes.trim(),
-        payer:edit.payer,charge_to:edit.charge_to,project_item_id:edit.project_item_id||null,
-        paid_by_employee_id:edit.payer==='employee'?(edit.paid_by_employee_id||null):null,is_recoverable:false,
-      };
-      const {error}=await supabase.from('contractor_expenses').update(patch).eq('id',editingId).eq('project_id',projectId).select('id').single();
-      if(error)throw error;
-      setFeedback({type:'success',text:edit.payer==='employee'?`تم التصحيح. أصبح المبلغ مستحقًا لـ ${employeeName(edit.paid_by_employee_id)} دون إنشاء مصروف إضافي.`:'تم تعديل المصروف بنجاح.'});
-      cancelEdit();await load();
-    }catch(e){setFeedback({type:'error',text:'تعذر تعديل المصروف: '+(e.message||e)});}
+      const persisted=validRows.filter(r=>r.persisted);
+      for(const row of persisted){
+        const {error}=await supabase.from('contractor_expenses')
+          .update(rowPayload(row,date))
+          .eq('id',row.id).eq('project_id',projectId);
+        if(error)throw error;
+      }
+      if(newRows.length){
+        const {error}=await supabase.rpc('fn_bulk_save_project_expenses',{
+          p_project_id:projectId,
+          p_contractor_id:contractor.id,
+          p_rows:newRows.map(row=>rowPayload(row,date)),
+        });
+        if(error)throw error;
+      }
+      setFeedback({type:'success',text:`تم حفظ الجدول: ${persisted.length} حركة محدثة و${newRows.length} حركة جديدة. إجمالي الجدول ${money(currentGridTotal)} ر.س.`});
+      await load();
+    }catch(e){setFeedback({type:'error',text:'تعذر حفظ جدول المصروفات: '+(e.message||e)});}
     setBusy(false);
   }
 
   const cellStyle={padding:5,border:'1px solid rgba(148,163,184,.22)',verticalAlign:'middle'};
   const inputStyle={width:'100%',minWidth:0,padding:'8px 7px',borderRadius:7,border:'1px solid rgba(148,163,184,.28)',background:'transparent',color:'inherit'};
+  const savedInputStyle={...inputStyle,background:'rgba(111,37,43,.045)',border:'1px solid rgba(111,37,43,.20)'};
 
-  return <section className={styles.operationGrid}>
-    <main className={styles.formPane} style={{minWidth:0}}>
+  return <section style={{width:'100%',minWidth:0,borderTop:'1px solid rgba(148,163,184,.22)'}}>
+    <main className={styles.formPane} style={{width:'100%',minWidth:0,paddingInline:0}}>
       <div className={styles.panelTitle}>
-        <div><span>EXPENSES · RAPID ENTRY</span><h2>{editingId?'تعديل المصروف':'إدخال المصروفات السريع'}</h2><p>{editingId?'صحح الحركة نفسها؛ لا تحذفها ولا تنشئ حركة بديلة.':'أدخل عدة مصروفات كجدول ثم احفظها كلها مرة واحدة. البند اختياري، ويمكن تسجيل ما دفعه الموظف من ماله كمستحق له تلقائيًا.'}</p></div>
-        <div style={{display:'grid',gap:8,justifyItems:'end'}}><strong>{money(total)} <small>ر.س</small></strong><a href={reportHref} target="_blank" rel="noreferrer" style={{fontSize:12,fontWeight:800,textDecoration:'none'}}>تقرير المصروفات / طباعة</a></div>
+        <div>
+          <span>EXPENSES · DAILY GRID</span>
+          <h2>مصروفات اليوم — إدخال ومراجعة مباشرة</h2>
+          <p>المصروفات المحفوظة لهذا التاريخ تظهر داخل الجدول نفسه. عدّلها مكانها، وأضف صفوفًا جديدة، ثم احفظ الجدول مرة واحدة.</p>
+        </div>
+        <div style={{display:'flex',gap:18,alignItems:'flex-end',flexWrap:'wrap'}}>
+          <div><small style={{display:'block',opacity:.65}}>محفوظ في قاعدة البيانات</small><strong>{money(savedTotal)} <small>ر.س</small></strong></div>
+          <div><small style={{display:'block',opacity:.65}}>إجمالي الجدول الحالي</small><strong>{money(currentGridTotal)} <small>ر.س</small></strong></div>
+          {employeeDue>0&&<div><small style={{display:'block',opacity:.65}}>مستحق لموظفين</small><strong>{money(employeeDue)} <small>ر.س</small></strong></div>}
+        </div>
       </div>
+
       {feedback&&<div className={feedback.type==='error'?styles.panelError:styles.panelSuccess}>{feedback.text}</div>}
 
-      {editingId ? <form className={styles.operationForm} onSubmit={saveEdit}>
-        <label><span>التاريخ</span><input type="date" required value={edit.expense_date} onChange={e=>setEdit(f=>({...f,expense_date:e.target.value}))}/></label>
-        <label><span>المبلغ</span><input type="number" min="0.01" step="0.01" required value={edit.amount} onChange={e=>setEdit(f=>({...f,amount:e.target.value}))}/></label>
-        <label><span>التصنيف</span><select value={edit.category} onChange={e=>setEdit(f=>({...f,category:e.target.value}))}>{CATEGORIES.map(x=><option key={x}>{x}</option>)}</select></label>
-        <label className={styles.wideField}><span>البيان</span><input required value={edit.notes} onChange={e=>setEdit(f=>({...f,notes:e.target.value}))}/></label>
-        <label><span>من دفع؟</span><select value={edit.payer} onChange={e=>setEdit(f=>({...f,payer:e.target.value,paid_by_employee_id:e.target.value==='employee'?f.paid_by_employee_id:''}))}>{Object.entries(PAYER_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-        {edit.payer==='employee'&&<label><span>الموظف الدافع</span><select required value={edit.paid_by_employee_id} onChange={e=>setEdit(f=>({...f,paid_by_employee_id:e.target.value}))}><option value="">اختر الموظف</option>{employees.map(e=><option key={e.id} value={e.id}>{e.full_name_ar}</option>)}</select></label>}
-        <label><span>على من؟</span><select value={edit.charge_to} onChange={e=>setEdit(f=>({...f,charge_to:e.target.value}))}>{Object.entries(CHARGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-        <label><span>البند</span><select value={edit.project_item_id} onChange={e=>setEdit(f=>({...f,project_item_id:e.target.value}))}><option value="">مصروف عام — بدون بند</option>{items.map(i=><option key={i.id} value={i.id}>{i.description_ar}</option>)}</select></label>
-        <button className={styles.primaryAction} disabled={busy}>{busy?'جارٍ الحفظ…':'حفظ التعديل'}</button><button type="button" onClick={cancelEdit} disabled={busy}>إلغاء</button>
-      </form> : loading ? <div className={styles.panelEmpty}>جارٍ تحميل بيانات المصروفات…</div> : <>
-        <div style={{overflowX:'auto',marginTop:12,borderRadius:12,border:'1px solid rgba(148,163,184,.18)'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',minWidth:1120,fontSize:12}}>
-            <thead><tr><th style={cellStyle}>#</th><th style={cellStyle}>التاريخ</th><th style={cellStyle}>المبلغ</th><th style={cellStyle}>التصنيف</th><th style={{...cellStyle,minWidth:230}}>البيان</th><th style={cellStyle}>من دفع؟</th><th style={cellStyle}>الموظف</th><th style={cellStyle}>على من؟</th><th style={{...cellStyle,minWidth:180}}>البند</th><th style={cellStyle}>×</th></tr></thead>
-            <tbody>{entryRows.map((r,index)=><tr key={r._id}>
-              <td style={{...cellStyle,textAlign:'center'}}>{index+1}</td>
-              <td style={cellStyle}><input style={inputStyle} type="date" value={r.expense_date} onChange={e=>patchEntry(r._id,{expense_date:e.target.value})}/></td>
-              <td style={cellStyle}><input style={inputStyle} type="number" min="0" step="0.01" value={r.amount} onChange={e=>patchEntry(r._id,{amount:e.target.value})}/></td>
-              <td style={cellStyle}><select style={inputStyle} value={r.category} onChange={e=>patchEntry(r._id,{category:e.target.value})}>{CATEGORIES.map(x=><option key={x}>{x}</option>)}</select></td>
-              <td style={cellStyle}><input style={inputStyle} value={r.notes} placeholder="اكتب البيان ثم Enter للصف التالي" onChange={e=>patchEntry(r._id,{notes:e.target.value})}/></td>
-              <td style={cellStyle}><select style={inputStyle} value={r.payer} onChange={e=>patchEntry(r._id,{payer:e.target.value,paid_by_employee_id:e.target.value==='employee'?r.paid_by_employee_id:''})}>{Object.entries(PAYER_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></td>
-              <td style={cellStyle}>{r.payer==='employee'?<select style={inputStyle} value={r.paid_by_employee_id} onChange={e=>patchEntry(r._id,{paid_by_employee_id:e.target.value})}><option value="">اختر</option>{employees.map(emp=><option key={emp.id} value={emp.id}>{emp.full_name_ar}</option>)}</select>:<span style={{opacity:.45}}>—</span>}</td>
-              <td style={cellStyle}><select style={inputStyle} value={r.charge_to} onChange={e=>patchEntry(r._id,{charge_to:e.target.value})}>{Object.entries(CHARGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></td>
-              <td style={cellStyle}><select style={inputStyle} value={r.project_item_id} onChange={e=>patchEntry(r._id,{project_item_id:e.target.value})}><option value="">عام</option>{items.map(i=><option key={i.id} value={i.id}>{i.description_ar}</option>)}</select></td>
-              <td style={{...cellStyle,textAlign:'center'}}><button type="button" onClick={()=>setEntryRows(prev=>prev.length>1?prev.filter(x=>x._id!==r._id):prev)} aria-label="حذف الصف">×</button></td>
-            </tr>)}</tbody>
+      {loading?<div className={styles.panelEmpty}>جارٍ تحميل المصروفات المسجلة لهذا التاريخ…</div>:<>
+        <div style={{overflowX:'auto',marginTop:12,borderRadius:12,border:'1px solid rgba(148,163,184,.18)',width:'100%'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',minWidth:1180,fontSize:12}}>
+            <thead><tr>
+              <th style={cellStyle}>#</th><th style={cellStyle}>الحالة</th><th style={cellStyle}>التاريخ</th><th style={cellStyle}>المبلغ</th><th style={cellStyle}>التصنيف</th>
+              <th style={{...cellStyle,minWidth:260}}>البيان</th><th style={cellStyle}>من دفع؟</th><th style={cellStyle}>الموظف</th><th style={cellStyle}>على من؟</th><th style={{...cellStyle,minWidth:190}}>البند</th><th style={cellStyle}>إجراء</th>
+            </tr></thead>
+            <tbody>{entryRows.map((r,index)=>{
+              const fieldStyle=r.persisted?savedInputStyle:inputStyle;
+              return <tr key={r._id} style={{background:r.persisted?'rgba(111,37,43,.018)':'transparent'}}>
+                <td style={{...cellStyle,textAlign:'center'}}>{index+1}</td>
+                <td style={{...cellStyle,textAlign:'center',fontWeight:800,color:r.persisted?'#126548':'#6b6761'}}>{r.persisted?'محفوظ':'جديد'}</td>
+                <td style={cellStyle}><input style={fieldStyle} type="date" value={r.expense_date} onChange={e=>patchEntry(r._id,{expense_date:e.target.value})}/></td>
+                <td style={cellStyle}><input style={fieldStyle} type="number" min="0" step="0.01" value={r.amount} onChange={e=>patchEntry(r._id,{amount:e.target.value})}/></td>
+                <td style={cellStyle}><select style={fieldStyle} value={r.category} onChange={e=>patchEntry(r._id,{category:e.target.value})}>{CATEGORIES.map(x=><option key={x}>{x}</option>)}</select></td>
+                <td style={cellStyle}><input style={fieldStyle} value={r.notes} placeholder="بيان المصروف" onChange={e=>patchEntry(r._id,{notes:e.target.value})}/></td>
+                <td style={cellStyle}><select style={fieldStyle} value={r.payer} onChange={e=>patchEntry(r._id,{payer:e.target.value,paid_by_employee_id:e.target.value==='employee'?r.paid_by_employee_id:''})}>{Object.entries(PAYER_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></td>
+                <td style={cellStyle}>{r.payer==='employee'?<select style={fieldStyle} value={r.paid_by_employee_id} onChange={e=>patchEntry(r._id,{paid_by_employee_id:e.target.value})}><option value="">اختر الموظف</option>{employees.map(emp=><option key={emp.id} value={emp.id}>{emp.full_name_ar}</option>)}</select>:<span style={{opacity:.45}}>—</span>}</td>
+                <td style={cellStyle}><select style={fieldStyle} value={r.charge_to} onChange={e=>patchEntry(r._id,{charge_to:e.target.value})}>{Object.entries(CHARGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></td>
+                <td style={cellStyle}><select style={fieldStyle} value={r.project_item_id} onChange={e=>patchEntry(r._id,{project_item_id:e.target.value})}><option value="">مصروف عام — بدون بند</option>{items.map(i=><option key={i.id} value={i.id}>{i.description_ar}</option>)}</select></td>
+                <td style={{...cellStyle,textAlign:'center'}}><button type="button" onClick={()=>removeRow(r)} disabled={busy} style={{padding:'7px 9px'}}>{r.persisted?'حذف':'×'}</button></td>
+              </tr>;
+            })}</tbody>
           </table>
         </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:12}}>
-          <button type="button" onClick={()=>addRows(4)}>+ 4 صفوف</button><button type="button" onClick={duplicatePrevious}>نسخ إعدادات آخر صف</button><button type="button" onClick={clearGrid}>تفريغ الجدول</button>
-          <span style={{marginInlineStart:'auto',fontWeight:800}}>جاهز للحفظ: {validEntryRows.length} · {money(entryTotal)} ر.س</span>
-          <button className={styles.primaryAction} type="button" onClick={saveBulk} disabled={busy||!validEntryRows.length}>{busy?'جارٍ الحفظ…':`حفظ ${validEntryRows.length||''} مصروفات`}</button>
+
+        <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'center',flexWrap:'wrap',marginTop:12}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button type="button" onClick={()=>addRows(4)} disabled={busy}>+ 4 صفوف</button>
+            <button type="button" onClick={duplicatePrevious} disabled={busy}>نسخ إعدادات آخر صف</button>
+            <button type="button" onClick={load} disabled={busy}>إعادة تحميل اليوم</button>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <strong>جاهز للحفظ: {validRows.length} حركة · {money(currentGridTotal)} ر.س</strong>
+            <button className={styles.primaryAction} type="button" onClick={saveGrid} disabled={busy||!validRows.length}>{busy?'جارٍ الحفظ…':'حفظ تحديثات ومصروفات اليوم'}</button>
+          </div>
         </div>
       </>}
     </main>
-
-    <aside className={styles.historyPane}>
-      <div className={styles.historyHead}><div><span>مصروف اليوم</span><strong>{contractor?.name_ar}</strong></div><b>{money(total)} ر.س</b></div>
-      {employeeDue>0&&<div style={{padding:'10px 12px',margin:'8px 0',borderRadius:10,border:'1px solid rgba(245,158,11,.35)'}}><strong>مستحقات موظفين من مصروفات اليوم</strong><div style={{fontSize:18,fontWeight:900,marginTop:4}}>{money(employeeDue)} ر.س</div><small>هذه ليست مصروفات إضافية؛ هي مبالغ سددها موظفون من مالهم وتستحق لهم.</small></div>}
-      <div className={styles.activityList}>{rows.length?rows.map(row=><div className={styles.activityRow} key={row.id}><div><strong>{row.category}</strong><small>{row.notes||'—'} · {row.project_item_id?'مرتبط ببند':'مصروف عام'}{row.paid_by_employee_id?` · دفعه ${employeeName(row.paid_by_employee_id)} · مستحق له ${money(Number(row.amount)-Number(row.reimbursed_amount||0))} ر.س`:''}</small><button type="button" onClick={()=>startEdit(row)} disabled={busy}>تعديل</button></div><b>{money(row.amount)} ر.س</b></div>):<div className={styles.panelEmpty}>لا توجد مصروفات مباشرة لهذا المقاول اليوم.</div>}</div>
-    </aside>
   </section>;
 }
