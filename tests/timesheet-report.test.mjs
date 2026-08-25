@@ -7,6 +7,7 @@ import {
   chunk,
   dateRange,
   summarizeAttendance,
+  summarizeWorkdaysByLaborClass,
   workerPeriodDays,
 } from '../lib/timesheet-report.mjs';
 import { laborClassLabel, laborClassSummaryLabel, summarizeLaborClasses } from '../lib/labor-class-summary.mjs';
@@ -27,6 +28,37 @@ test('full and half attendance produce the expected workdays', () => {
   assert.equal(workerPeriodDays('a', rows), 1.5);
   assert.deepEqual(summarizeAttendance(rows), {
     full:1, half:1, absent:1, stopped:0, leave:0, recorded:3, workdays:1.5,
+  });
+});
+
+test('workdays are split by labor class and still reconcile to the grand total', () => {
+  const rows = [
+    { laborer_id:'t1', labor_class:'technician', work_date:'2026-08-01', status:'full' },
+    { laborer_id:'t1', labor_class:'technician', work_date:'2026-08-02', status:'half' },
+    { laborer_id:'w1', labor_class:'worker', work_date:'2026-08-01', status:'full' },
+    { laborer_id:'w1', labor_class:'worker', work_date:'2026-08-02', status:'absent' },
+    { laborer_id:'f1', labor_class:'foreman', work_date:'2026-08-01', status:'half' },
+  ];
+  assert.deepEqual(summarizeWorkdaysByLaborClass(rows), {
+    technician:1.5,
+    worker:1,
+    foreman:0.5,
+    other:0,
+    total:3,
+  });
+});
+
+test('labor class split can fall back to the worker master classification', () => {
+  const rows = [
+    { laborer_id:'t1', work_date:'2026-08-01', status:'full' },
+    { laborer_id:'w1', work_date:'2026-08-01', status:'half' },
+  ];
+  assert.deepEqual(summarizeWorkdaysByLaborClass(rows, { t1:'technician', w1:'worker' }), {
+    technician:1,
+    worker:0.5,
+    foreman:0,
+    other:0,
+    total:1.5,
   });
 });
 
