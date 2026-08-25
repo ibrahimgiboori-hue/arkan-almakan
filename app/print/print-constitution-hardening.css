@@ -1,0 +1,62 @@
+/* V2 print hardening — shared guarantees, never document-specific patches. */
+.print-constitution{
+  --print-page-width:210mm;
+  --print-page-height:297mm;
+  --print-side-margin:19mm;
+  --print-content-width:calc(var(--print-page-width) - (var(--print-side-margin) * 2));
+}
+
+/* Uploaded master assets, stamps and signatures must retain source quality. */
+.print-constitution .print-assets,
+.print-constitution .print-master-full,
+.print-constitution .print-master-header,
+.print-constitution .print-master-footer,
+.print-constitution .print-master-watermark,
+.print-constitution .print-master-stamp,
+.print-constitution .print-master-signature{
+  opacity:1!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  image-rendering:auto!important;
+}
+
+/* A data table row is an atomic print unit throughout governed documents. */
+.print-constitution table{max-width:100%;border-collapse:collapse}
+.print-constitution thead{display:table-header-group}
+.print-constitution tfoot{display:table-footer-group}
+.print-constitution tr,
+.print-constitution .print-row,
+.print-constitution [data-print-row]{
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+
+/* Prevent accidental horizontal page growth caused by long content. */
+.print-constitution td,
+.print-constitution th,
+.print-constitution .xlsx-cell{
+  min-width:0;
+  max-width:100%;
+}
+.print-constitution img,
+.print-constitution svg,
+.print-constitution canvas{max-width:100%}
+
+/* Preview and physical output must use the same physical page geometry. */
+.print-constitution .print-page{
+  width:var(--print-page-width)!important;
+  min-width:var(--print-page-width)!important;
+  max-width:var(--print-page-width)!important;
+  min-height:var(--print-page-height)!important;
+}
+
+@media print{
+  .print-constitution .print-page{
+    box-shadow:none!important;
+    margin:0!important;
+  }
+  .print-constitution{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+}
