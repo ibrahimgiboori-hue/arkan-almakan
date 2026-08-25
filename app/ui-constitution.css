@@ -64,36 +64,10 @@ html[data-system-constitution='v2'] :focus-visible{
   outline-offset:2px;
 }
 
-/* إجراء الطباعة يجب أن يظهر كزر واضح، لا كرابط نصي يضيع داخل المحتوى. */
+/* رابط طباعة المصروفات القديم داخل بطاقة الإدخال أُلغي.
+   الطباعة الآن إجراء سياقي موحد في شريط التاريخ بجوار «اليوم». */
 html[data-system-constitution='v2'] a[href^='/print/expenses']{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  min-height:44px!important;
-  padding:10px 16px!important;
-  border-radius:10px!important;
-  background:var(--constitution-brand)!important;
-  color:#fff!important;
-  border:1px solid var(--constitution-brand-strong)!important;
-  font-size:14px!important;
-  font-weight:800!important;
-  text-decoration:none!important;
-  box-shadow:var(--constitution-shadow-soft)!important;
-  cursor:pointer!important;
-}
-html[data-system-constitution='v2'] a[href^='/print/expenses']::before{
-  content:'🖨';
-  margin-inline-end:7px;
-}
-html[data-system-constitution='v2'] a[href^='/print/expenses']:hover{
-  background:var(--constitution-brand-strong)!important;
-}
-
-@media (max-width:640px){
-  html[data-system-constitution='v2'] a[href^='/print/expenses']{
-    width:100%!important;
-    margin-top:4px!important;
-  }
+  display:none!important;
 }
 
 @media (prefers-reduced-motion:reduce){
