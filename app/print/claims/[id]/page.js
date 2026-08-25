@@ -14,6 +14,14 @@ const DOCS = {
   receipt:'إشعار استلام دفعة',
   memo:'مذكرة داخلية لطلب إصدار فاتورة ضريبية',
 };
+const CLAIM_STATUS_AR = {
+  draft:'مسودة',
+  submitted:'مقدمة',
+  owner_approved:'معتمدة من الجهة',
+  invoiced:'مفوتر',
+  collected:'محصلة',
+  rejected:'مرفوضة',
+};
 const n = v => Number(v || 0);
 
 function employeeTitle(e) {
@@ -143,9 +151,11 @@ export default function ClaimDocumentsPrint() {
   const measuredRows=rows.filter(r=>r.measurement_id);
   const measurementCount=measuredRows.length;
   const overallRange=dateRange(claim.period_from,claim.period_to);
+  const isDraft=claim.status==='draft';
+  const claimStatusLabel=CLAIM_STATUS_AR[claim.status] || claim.status || '—';
   const issueDate=doc==='receipt' || doc==='memo'
-    ? (claim.collected_at || claim.owner_approved_at || claim.period_to)
-    : (doc==='measure' ? claim.period_to : (claim.submitted_at || claim.period_to));
+    ? (claim.collected_at || claim.owner_approved_at || claim.period_to || claim.created_at)
+    : (doc==='measure' ? (claim.measurement_date || claim.period_to || claim.created_at) : (claim.submitted_at || claim.period_to || claim.created_at));
   const supervisorName=supervisor?.full_name_ar || 'ممثل إدارة المشاريع';
   const financeName=finance?.full_name_ar || 'مسؤول الإدارة المالية';
   const financeTitle=employeeTitle(finance);
@@ -224,8 +234,9 @@ export default function ClaimDocumentsPrint() {
       ];
 
   function printDocument() {
-    if (doc==='demand' && !hasBankDetails) {
-      window.alert('لا يمكن طباعة المطالبة المالية قبل استكمال بيانات حساب التحصيل في إعدادات المنشأة.');
+    // المسودة قابلة للطباعة للمراجعة الداخلية في أي وقت حتى لو لم تكتمل بيانات التحصيل بعد.
+    if (doc==='demand' && !hasBankDetails && !isDraft) {
+      window.alert('لا يمكن طباعة المطالبة المالية الرسمية قبل استكمال بيانات حساب التحصيل في إعدادات المنشأة.');
       return;
     }
     window.print();
@@ -243,9 +254,11 @@ export default function ClaimDocumentsPrint() {
     <div className="print-toolbar no-print">
       <div className="group">{Object.entries(DOCS).map(([k,v])=><button key={k} className={doc===k?'active':''} onClick={()=>selectDocument(k)}>{v}</button>)}</div>
       <div className="group">
+        {isDraft && <span className="note">المطالبة مسودة ويمكن طباعتها للمراجعة؛ ستظهر حالتها بوضوح في المطبوع.</span>}
         {doc==='memo' && !claim.collected_at && <span className="note">لم يتم تسجيل السداد بعد؛ راجع توقيت إصدار المذكرة قبل الطباعة.</span>}
         {doc==='receipt' && !claim.collected_at && <span className="note">لا يوجد تاريخ سداد مسجل لهذا المستخلص.</span>}
-        {doc==='demand' && !hasBankDetails && <span className="note">استكمل بيانات حساب التحصيل قبل طباعة المطالبة.</span>}
+        {doc==='demand' && !hasBankDetails && !isDraft && <span className="note">استكمل بيانات حساب التحصيل قبل طباعة المطالبة الرسمية.</span>}
+        {doc==='demand' && !hasBankDetails && isDraft && <span className="note">بيانات حساب التحصيل غير مكتملة؛ ستطبع المسودة للمراجعة دون اعتبارها مطالبة مقدمة.</span>}
         <button className={showLetterhead?'active':''} onClick={()=>setShowLetterhead(x=>!x)}>{showLetterhead?'المطبوع ظاهر':'المطبوع مخفي'}</button>
         <button className={showStamp?'active':''} onClick={()=>setShowStamp(x=>!x)}>{showStamp?'الختم ظاهر':'الختم مخفي'}</button>
         <button className="primary" onClick={printDocument}>طباعة أو حفظ PDF</button>
@@ -256,6 +269,11 @@ export default function ClaimDocumentsPrint() {
       <div className="project-finance-document">
       <div className="doc-meta"><span>{cfg.company_name_ar}</span><span>{dateAr(issueDate)}</span></div>
       <div className="doc-title"><h1>{title}</h1><span className="rule" /></div>
+      <div style={{display:'flex',justifyContent:'flex-end',margin:'0 0 4mm'}}>
+        <span style={{display:'inline-block',border:'1px solid #777',borderRadius:'4px',padding:'1.3mm 3mm',fontSize:'10px',fontWeight:800,letterSpacing:'.01em'}}>
+          الحالة: {claimStatusLabel}{isDraft ? ' — غير مقدمة وغير معتمدة' : ''}
+        </span>
+      </div>
 
       {doc!=='memo'
         ? <><div className="recipient">السادة / {clientName} المحترمين</div><div className="salutation">السلام عليكم ورحمة الله وبركاته،،</div></>
@@ -266,7 +284,8 @@ export default function ClaimDocumentsPrint() {
       <table className="info-table claim-info-table"><tbody>
         <tr><th>المشروع</th><td>{projectName}</td><th>رقم المشروع</th><td>{project?.project_no || '—'}</td></tr>
         <tr><th>الموقع</th><td>{project?.site_address || project?.city || '—'}</td><th>نطاق القياسات</th><td className="mono">{overallRange}</td></tr>
-        <tr><th>رقم المستخلص</th><td>{claim.claim_no || '—'}</td><th>عدد التمتيرات</th><td>{measurementCount || '—'}</td></tr>
+        <tr><th>رقم المستخلص</th><td>{claim.claim_no || '—'}</td><th>عدد القياسات</th><td>{measurementCount || '—'}</td></tr>
+        <tr><th>حالة المطالبة</th><td colSpan={3}>{claimStatusLabel}{isDraft ? ' — مسودة قابلة للمراجعة والطباعة وليست مقدمة أو معتمدة' : ''}</td></tr>
       </tbody></table>
 
       {(doc==='measure' || doc==='demand') && <>
@@ -276,7 +295,7 @@ export default function ClaimDocumentsPrint() {
             <th data-print-column-role="row-index" style={{width:'6mm'}}>م</th>
             <th data-print-column-role="text">البيان</th>
             {measurementCount>0 && <>
-              <th data-print-column-role="measurement-number" style={{width:'12mm'}}>التمتير</th>
+              <th data-print-column-role="measurement-number" style={{width:'12mm'}}>القياس</th>
               <th data-print-column-role="date-range" style={{width:'43mm'}}>فترة القياس</th>
             </>}
             <th data-print-column-role="unit" style={{width:'12mm'}}>الوحدة</th>
