@@ -1,0 +1,27 @@
+name: V2 Constitution Gate
+
+on:
+  push:
+    branches:
+      - v2-stable-approved-ui
+  pull_request:
+
+jobs:
+  constitution:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Constitution audit
+        run: npm run v2:audit
+      - name: Tests
+        run: npm test
+      - name: Production build
+        run: npm run build
