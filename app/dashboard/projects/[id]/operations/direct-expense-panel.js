@@ -21,9 +21,7 @@ export default function DirectExpensePanel({ projectId, date, contractor, onQueu
   const [busy,setBusy] = useState(false);
   const [feedback,setFeedback] = useState(null);
 
-  useEffect(()=>{
-    if(!editingId)setForm(f=>({...f,expense_date:date}));
-  },[date,editingId]);
+  useEffect(()=>{ if(!editingId)setForm(f=>({...f,expense_date:date})); },[date,editingId]);
 
   const load = useCallback(async()=>{
     if(!projectId||!date||!contractor?.id)return;
@@ -42,55 +40,18 @@ export default function DirectExpensePanel({ projectId, date, contractor, onQueu
 
   function startEdit(row){
     setEditingId(row.id);
-    setForm({
-      expense_date:row.expense_date||date,
-      amount:String(row.amount??''),
-      notes:row.notes||'',
-      category:row.category||'أخرى',
-      payer:row.payer||'contractor',
-      charge_to:row.charge_to||'arkan',
-      is_recoverable:!!row.is_recoverable,
-      project_item_id:row.project_item_id||'',
-    });
+    setForm({expense_date:row.expense_date||date,amount:String(row.amount??''),notes:row.notes||'',category:row.category||'أخرى',payer:row.payer||'contractor',charge_to:row.charge_to||'arkan',is_recoverable:!!row.is_recoverable,project_item_id:row.project_item_id||''});
     setFeedback(null);
   }
-
-  function cancelEdit(){
-    setEditingId('');
-    setForm({...emptyForm,expense_date:date});
-  }
+  function cancelEdit(){setEditingId('');setForm({...emptyForm,expense_date:date});}
 
   async function updateExpense(){
     const recoverable=form.payer==='arkan_direct'&&!!form.is_recoverable;
-    const patch={
-      expense_date:form.expense_date,
-      amount:Number(form.amount),
-      category:form.category,
-      notes:form.notes.trim(),
-      payer:form.payer,
-      charge_to:form.charge_to,
-      is_recoverable:recoverable,
-      project_item_id:recoverable?null:(form.project_item_id||null),
-    };
-
-    // استخدم دالة التصحيح الدستورية إن كانت قاعدة البيانات قد استقبلتها،
-    // وإلا نفّذ تحديث الحقول الحالية مباشرة حتى لا تتعطل ميزة التعديل.
-    const rpc = await supabase.rpc('fn_update_project_expense',{
-      p_expense_id:editingId,
-      p_expense_date:patch.expense_date,
-      p_amount:patch.amount,
-      p_category:patch.category,
-      p_notes:patch.notes,
-      p_project_item_id:patch.project_item_id,
-      p_paid_by_employee_id:null,
-      p_beneficiary_kind:'contractor',
-      p_beneficiary_contractor_id:contractor.id,
-    });
-
+    const patch={expense_date:form.expense_date,amount:Number(form.amount),category:form.category,notes:form.notes.trim(),payer:form.payer,charge_to:form.charge_to,is_recoverable:recoverable,project_item_id:recoverable?null:(form.project_item_id||null)};
+    const rpc = await supabase.rpc('fn_update_project_expense',{p_expense_id:editingId,p_expense_date:patch.expense_date,p_amount:patch.amount,p_category:patch.category,p_notes:patch.notes,p_project_item_id:patch.project_item_id,p_paid_by_employee_id:null,p_beneficiary_kind:'contractor',p_beneficiary_contractor_id:contractor.id});
     if(!rpc.error)return;
     const missingFunction = String(rpc.error?.message||'').toLowerCase().includes('fn_update_project_expense') || rpc.error?.code==='PGRST202' || rpc.error?.code==='42883';
     if(!missingFunction)throw rpc.error;
-
     const direct = await supabase.from('contractor_expenses').update(patch).eq('id',editingId).eq('project_id',projectId).select('id').single();
     if(direct.error)throw direct.error;
   }
@@ -101,38 +62,24 @@ export default function DirectExpensePanel({ projectId, date, contractor, onQueu
     setBusy(true);setFeedback(null);
     try{
       if(editingId){
-        await updateExpense();
-        setFeedback({type:'success',text:'تم تعديل المصروف بنجاح.'});
-        setEditingId('');
-        setForm({...emptyForm,expense_date:date});
-        await load();
+        await updateExpense();setFeedback({type:'success',text:'تم تعديل المصروف بنجاح.'});setEditingId('');setForm({...emptyForm,expense_date:date});await load();
       }else{
         const recoverable=form.payer==='arkan_direct'&&!!form.is_recoverable;
-        const result=await saveOperationWithQueue({
-          operation:'expense',projectId,workDate:form.expense_date||date,
-          payload:{
-            contractor_id:contractor.id,
-            amount:Number(form.amount),category:form.category,payer:form.payer,charge_to:form.charge_to,
-            is_recoverable:recoverable,project_item_id:recoverable?null:(form.project_item_id||null),notes:form.notes.trim(),
-          },
-          batchId:null,sourceKind:'live',sourceRef:null,certainty:'confirmed',
-        });
-        onQueueChange?.(result.pendingCount||0);
-        setFeedback({type:'success',text:result.status==='queued'?'حُفظ المصروف على الجهاز وينتظر الاتصال.':`تم حفظ المصروف — ${receiptLabel(result.receipt)}`});
-        setForm({...emptyForm,expense_date:date});
-        if(result.status==='verified')await load();
+        const result=await saveOperationWithQueue({operation:'expense',projectId,workDate:form.expense_date||date,payload:{contractor_id:contractor.id,amount:Number(form.amount),category:form.category,payer:form.payer,charge_to:form.charge_to,is_recoverable:recoverable,project_item_id:recoverable?null:(form.project_item_id||null),notes:form.notes.trim()},batchId:null,sourceKind:'live',sourceRef:null,certainty:'confirmed'});
+        onQueueChange?.(result.pendingCount||0);setFeedback({type:'success',text:result.status==='queued'?'حُفظ المصروف على الجهاز وينتظر الاتصال.':`تم حفظ المصروف — ${receiptLabel(result.receipt)}`});setForm({...emptyForm,expense_date:date});if(result.status==='verified')await load();
       }
     }catch(e){setFeedback({type:'error',text:(editingId?'تعذر تعديل المصروف: ':'تعذر حفظ المصروف: ')+(e.message||e)});}
     setBusy(false);
   }
 
   const total=rows.reduce((sum,row)=>sum+Number(row.amount||0),0);
+  const reportHref = projectId&&contractor?.id ? `/print/expenses?project=${encodeURIComponent(projectId)}&contractor=${encodeURIComponent(contractor.id)}&from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}` : '#';
 
   return <section className={styles.operationGrid}>
     <main className={styles.formPane}>
       <div className={styles.panelTitle}>
         <div><span>DIRECT EXPENSES</span><h2>{editingId?'تعديل المصروف':'المصروفات'}</h2><p>{editingId?'عدّل التاريخ أو المبلغ أو البيان أو التصنيف أو البند ثم احفظ التعديل.':'هنا المصروفات التي دفعها المقاول أو دفعتها أركان مباشرة. الصرف من العهدة يُسجل من قسم «العهدة» فقط.'}</p></div>
-        <strong>{money(total)} <small>ر.س</small></strong>
+        <div style={{display:'grid',gap:8,justifyItems:'end'}}><strong>{money(total)} <small>ر.س</small></strong><a href={reportHref} target="_blank" rel="noreferrer" style={{fontSize:12,fontWeight:800,textDecoration:'none'}}>تقرير المصروفات / طباعة</a></div>
       </div>
       {feedback&&<div className={feedback.type==='error'?styles.panelError:styles.panelSuccess}>{feedback.text}</div>}
       {loading?<div className={styles.panelEmpty}>جارٍ تحميل مصروفات اليوم…</div>:<form className={styles.operationForm} onSubmit={save}>
