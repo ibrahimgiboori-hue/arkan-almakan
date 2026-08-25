@@ -15,6 +15,7 @@ import { SYSTEM } from '@/lib/system-constitution';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
 import styles from './dashboard-redesign.module.css';
+import './constitution-content.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -118,7 +119,7 @@ export default function DashboardLayout({ children }) {
   const primaryAction = AREA_PRIMARY_ACTIONS[activeArea.key] || null;
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-ui-constitution="approved-v2">
       <header className={styles.globalBar}>
         <button className={styles.mobileMenuButton} onClick={() => setMobileOpen(true)} aria-label="فتح القائمة">≡</button>
         <Link href="/dashboard" className={styles.wordmark}>أركان المكان <small>OS</small></Link>
@@ -182,7 +183,10 @@ export default function DashboardLayout({ children }) {
         </div>
       )}
 
-      <div className={pathname === '/dashboard' ? styles.homeContent : `page ${styles.legacyContent}`}>
+      <div
+        className={pathname === '/dashboard' ? styles.homeContent : 'page constitution-content'}
+        data-content-governance={pathname === '/dashboard' ? 'native-approved' : 'compat-approved'}
+      >
         {pathname.startsWith('/dashboard/formbuilder/') && <FormBuilderResizeOverlay />}
         <VacancyTargetingPanel />
         {children}
