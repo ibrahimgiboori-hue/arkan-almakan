@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { SYSTEM_VERSION } from '@/lib/system-constitution';
 import {
   PRINT_GOVERNANCE_VERSION,
   printGovernanceClassName,
@@ -15,6 +16,8 @@ export default function PrintGovernanceBoundary({ children }) {
     return (
       <div
         className="print-constitution print-unregistered"
+        data-system-constitution="v2"
+        data-system-version={SYSTEM_VERSION}
         data-print-status="unregistered"
         data-print-governance-version={PRINT_GOVERNANCE_VERSION}
       >
@@ -26,6 +29,8 @@ export default function PrintGovernanceBoundary({ children }) {
   return (
     <div
       className={printGovernanceClassName(definition.key)}
+      data-system-constitution="v2"
+      data-system-version={SYSTEM_VERSION}
       data-print-document={definition.key}
       data-print-family={definition.family}
       data-print-status={definition.status}
