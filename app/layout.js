@@ -1,6 +1,8 @@
 import './globals.css';
+import './ui-constitution.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
+import { SYSTEM_VERSION } from '@/lib/system-constitution';
 
 const plex = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
@@ -18,6 +20,8 @@ export default function RootLayout({ children }) {
     <html
       lang="ar"
       dir="rtl"
+      data-system-constitution="v2"
+      data-system-version={SYSTEM_VERSION}
       className={plex.variable}
       style={{
         '--font-display': 'var(--font-plex)',
