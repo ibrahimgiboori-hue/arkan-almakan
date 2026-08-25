@@ -1,4 +1,5 @@
-/* دستور الواجهة المستقر — المصدر البصري المركزي دون تغيير الهوية المعتمدة. */
+/* دستور الواجهة المعتمد — المصدر البصري المركزي للبرنامج كله.
+   أي تغيير شامل في الهوية يبدأ من هذه المتغيرات، لا من صفحات منفصلة. */
 :root{
   --constitution-bg:#f3f0e9;
   --constitution-paper:#fbfaf7;
@@ -13,13 +14,34 @@
   --constitution-danger:#a12b29;
   --constitution-warning:#83570f;
   --constitution-black:#121211;
+  --constitution-black-soft:#1b1b19;
+  --constitution-black-hover:#242422;
+  --constitution-black-active:#292927;
+  --constitution-on-dark:#ffffff;
+  --constitution-on-dark-muted:#b8b8b2;
   --constitution-radius-sm:7px;
   --constitution-radius-md:9px;
   --constitution-control-height:34px;
+  --constitution-global-bar-height:58px;
   --constitution-page-gap:18px;
   --constitution-shadow-soft:0 1px 2px rgba(17,17,15,.035);
   --constitution-print-page-width:210mm;
   --constitution-print-page-height:297mm;
+
+  /* Compatibility aliases: الصفحات القديمة تستمر بالعمل، لكن القيمة تأتي من الدستور. */
+  --ui-bg:var(--constitution-bg);
+  --ui-paper:var(--constitution-paper);
+  --ui-ink:var(--constitution-ink);
+  --ui-muted:var(--constitution-muted);
+  --ui-border:var(--constitution-border);
+  --ui-border-soft:var(--constitution-border-soft);
+  --ui-wine:var(--constitution-brand);
+  --ui-wine-strong:var(--constitution-brand-strong);
+  --ui-green:var(--constitution-success);
+  --ui-blue:var(--constitution-info);
+  --ui-red:var(--constitution-danger);
+  --ui-amber:var(--constitution-warning);
+  --ui-black:var(--constitution-black);
 }
 
 html[data-system-constitution='v2']{
