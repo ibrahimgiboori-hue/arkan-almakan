@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "v2:audit": "node scripts/v2-constitution-audit.mjs",
+    "v2:audit": "node scripts/v2-constitution-audit.mjs && node scripts/ui-constitution-audit.mjs",
     "v2:check": "npm run v2:audit && npm test && npm run build",
     "test:quote-pagination": "node --test tests/quote-pagination.test.mjs",
     "test:document-catalog": "node --test tests/document-catalog.test.mjs",
