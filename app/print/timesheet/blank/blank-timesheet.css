@@ -1,3 +1,13 @@
-.print-family-site-operations .ts-blank-info td{color:#777;letter-spacing:.25mm}
-.print-family-site-operations .ts-blank-table .blank-index{width:7mm}.print-family-site-operations .ts-blank-table .blank-name{width:49mm}.print-family-site-operations .ts-blank-table .blank-class{width:21mm}.print-family-site-operations .ts-blank-table .blank-trade{width:27mm}.print-family-site-operations .ts-blank-table .blank-mark{width:20mm}
-.print-family-site-operations .ts-blank-table tbody tr{height:7.1mm}.print-family-site-operations .ts-blank-table td:nth-child(2),.print-family-site-operations .ts-blank-table td:last-child{text-align:right}
+.print-family-site-operations .ts-blank-info td{color:#777;letter-spacing:.18mm}
+.print-family-site-operations .ts-blank-table{table-layout:fixed;width:100%}
+.print-family-site-operations .ts-blank-table .blank-index{width:6mm}
+.print-family-site-operations .ts-blank-table .blank-name{width:39mm}
+.print-family-site-operations .ts-blank-table .blank-role{width:20mm}
+.print-family-site-operations .ts-blank-table .blank-day{width:15mm}
+.print-family-site-operations .ts-blank-table .blank-notes{width:25mm}
+.print-family-site-operations .ts-blank-table thead th{padding:1.4mm .7mm;vertical-align:middle}
+.print-family-site-operations .ts-blank-table thead th span{display:block;font-weight:800}
+.print-family-site-operations .ts-blank-table thead th small{display:block;margin-top:.8mm;font-size:7.5pt;font-weight:500;white-space:nowrap}
+.print-family-site-operations .ts-blank-table tbody tr{height:7mm}
+.print-family-site-operations .ts-blank-table td:nth-child(2),.print-family-site-operations .ts-blank-table td:last-child{text-align:right}
+.print-family-site-operations .ts-blank-table tfoot th{height:7mm;font-weight:800}
