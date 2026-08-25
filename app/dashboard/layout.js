@@ -4,98 +4,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import {
+  AREAS,
+  QUICK_ACTIONS,
+  AREA_PRIMARY_ACTIONS,
+  activeConstitutionItem,
+  matchesConstitutionPath,
+} from '@/lib/app-constitution';
+import { SYSTEM } from '@/lib/system-constitution';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
 import styles from './dashboard-redesign.module.css';
-
-const AREAS = [
-  {
-    key: 'home',
-    label: 'اليوم',
-    href: '/dashboard',
-    items: [
-      { href: '/dashboard', label: 'مركز القيادة' },
-    ],
-  },
-  {
-    key: 'projects',
-    label: 'المشاريع',
-    href: '/dashboard/projects',
-    items: [
-      { href: '/dashboard/projects', label: 'المشاريع' },
-      { href: '/dashboard/site-operations', label: 'التشغيل اليومي', hidden: true },
-      { href: '/dashboard/site-operations/reports', label: 'تقارير التايم شيت' },
-      { href: '/dashboard/site-operations/data-safety', label: 'سلامة بيانات التشغيل' },
-      { href: '/dashboard/quotes', label: 'عروض الأسعار' },
-      { href: '/dashboard/contractors', label: 'المقاولون' },
-      { href: '/dashboard/entities', label: 'العملاء والجهات' },
-    ],
-  },
-  {
-    key: 'workforce',
-    label: 'القوى العاملة',
-    href: '/dashboard/employees',
-    items: [
-      { href: '/dashboard/employees', label: 'الموظفون' },
-      { href: '/dashboard/recruitment', label: 'التوظيف والمرشحون' },
-      { href: '/dashboard/recruitment/offers', label: 'العروض الوظيفية' },
-      { href: '/dashboard/recruitment/contracts', label: 'مسودات العقود' },
-      { href: '/dashboard/recruitment/onboarding', label: 'المباشرة والتهيئة' },
-      { href: '/dashboard/leaves', label: 'الإجازات' },
-    ],
-  },
-  {
-    key: 'finance',
-    label: 'المالية',
-    href: '/dashboard/advances',
-    items: [
-      { href: '/dashboard/advances', label: 'السلف والمديونيات' },
-      { href: '/dashboard/approvals', label: 'سجل الاعتمادات' },
-    ],
-  },
-  {
-    key: 'documents',
-    label: 'المستندات',
-    href: '/dashboard/documents',
-    items: [
-      { href: '/dashboard/documents', label: 'النماذج والمستندات' },
-      { href: '/dashboard/archive', label: 'الأرشيف' },
-      { href: '/dashboard/register', label: 'الصادر والوارد' },
-      { href: '/dashboard/formbuilder', label: 'محرر النماذج' },
-    ],
-  },
-  {
-    key: 'admin',
-    label: 'الإدارة',
-    href: '/dashboard/board',
-    items: [
-      { href: '/dashboard/board', label: 'مجلس الإدارة' },
-      { href: '/dashboard/settings', label: 'بيانات الشركة' },
-      { href: '/dashboard/system-user', label: 'مستخدم النظام' },
-      { href: '/dashboard/org-structure', label: 'الهيكل التنظيمي' },
-      { href: '/dashboard/backup', label: 'النسخ الاحتياطي' },
-    ],
-  },
-];
-
-const QUICK_ACTIONS = [
-  { label: 'إضافة موظف', href: '/dashboard/employees/new', meta: 'قوى عاملة' },
-  { label: 'فتح المشاريع', href: '/dashboard/projects', meta: 'مشاريع' },
-  { label: 'إنشاء مستند', href: '/dashboard/documents', meta: 'مستندات' },
-  { label: 'فتح عروض الأسعار', href: '/dashboard/quotes', meta: 'مشاريع' },
-];
-
-function matchesPath(pathname, href) {
-  if (pathname === href) return true;
-  if (href === '/dashboard') return false;
-  return pathname.startsWith(href + '/');
-}
-
-function activeItemFor(pathname) {
-  return AREAS.flatMap((area) => area.items.map((item) => ({ ...item, area })))
-    .filter((item) => matchesPath(pathname, item.href))
-    .sort((a, b) => b.href.length - a.href.length)[0] || null;
-}
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -148,7 +67,7 @@ export default function DashboardLayout({ children }) {
   }
 
   const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+$/.test(pathname);
-  const current = activeItemFor(pathname);
+  const current = activeConstitutionItem(pathname);
   const activeArea = current?.area || AREAS[0];
   const currentLabel = current?.label || activeArea.label;
   const contextItems = isProjectWorkspace
@@ -192,21 +111,11 @@ export default function DashboardLayout({ children }) {
   const emp = me.employees;
   const accessLabel = me.is_system_admin ? 'مدير النظام' : 'مستخدم النظام';
   const userLabel = emp?.full_name_ar || me.email;
-  const displayDate = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
-    weekday: 'long', day: 'numeric', month: 'long',
+  const displayDate = new Intl.DateTimeFormat(`${SYSTEM.locale}-u-ca-${SYSTEM.calendar}`, {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: SYSTEM.timezone,
   }).format(new Date());
 
-  const primaryAction = activeArea.key === 'workforce'
-    ? { label: 'إضافة موظف', href: '/dashboard/employees/new' }
-    : activeArea.key === 'documents'
-      ? { label: 'إنشاء مستند', href: '/dashboard/documents' }
-      : activeArea.key === 'projects'
-        ? null
-        : activeArea.key === 'finance'
-          ? { label: 'السلف والمديونيات', href: '/dashboard/advances' }
-          : activeArea.key === 'admin'
-            ? { label: 'بيانات الشركة', href: '/dashboard/settings' }
-            : { label: 'فتح المشاريع', href: '/dashboard/projects' };
+  const primaryAction = AREA_PRIMARY_ACTIONS[activeArea.key] || null;
 
   return (
     <div className={styles.root}>
@@ -257,7 +166,7 @@ export default function DashboardLayout({ children }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`${styles.contextTab} ${matchesPath(pathname, item.href) ? styles.contextTabActive : ''}`}
+                  className={`${styles.contextTab} ${matchesConstitutionPath(pathname, item.href) ? styles.contextTabActive : ''}`}
                 >
                   {item.label}
                 </Link>
@@ -325,7 +234,7 @@ export default function DashboardLayout({ children }) {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileOpen(false)}
-                      className={`${styles.mobileLink} ${matchesPath(pathname, item.href) ? styles.mobileLinkActive : ''}`}
+                      className={`${styles.mobileLink} ${matchesConstitutionPath(pathname, item.href) ? styles.mobileLinkActive : ''}`}
                     >
                       {item.label}
                     </Link>
