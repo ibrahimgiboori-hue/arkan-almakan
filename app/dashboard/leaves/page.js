@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
 import { STATUS_AR, STATUS_CLASS, LEAVE_AR, nextStage, STAGE_AR } from '@/lib/requests';
+import { inclusiveDays, leaveBalanceState } from '@/lib/system-constitution';
+import { ConstitutionPage, PageHeader, Section, Notice, Toolbar, TableFrame, EmptyState } from '@/components/ui/ConstitutionUI';
 import ManualDecisionForm from '@/components/ManualDecisionForm';
 
 const KINDS = ['annual','sick','unpaid','permission','emergency','hajj','maternity'];
@@ -12,12 +14,6 @@ const HISTORY_EMPTY = {
   employee_id:'', leave_kind:'annual', start_date:'', end_date:'', reason:'',
   paper_reference:'', paper_document_date:'', paper_approver_text:'', actual_return_date:''
 };
-
-function countDays(from, to) {
-  if (!from || !to) return 0;
-  const n = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
 
 export default function Leaves() {
   const [rows, setRows] = useState(null);
@@ -58,8 +54,8 @@ export default function Leaves() {
 
   useEffect(() => { load(); }, []);
 
-  const days = countDays(form.start_date, form.end_date);
-  const historicalDays = countDays(history.start_date, history.end_date);
+  const days = inclusiveDays(form.start_date, form.end_date);
+  const historicalDays = inclusiveDays(history.start_date, history.end_date);
 
   function closeForms() {
     setOpen(false); setHistoryOpen(false); setEditId(null); setDecisionTarget(null);
@@ -148,7 +144,7 @@ export default function Leaves() {
     setMsg('تم حذف السجل'); load();
   }
 
-  if (!rows) return <div className="empty">جارٍ التحميل</div>;
+  if (!rows) return <ConstitutionPage><EmptyState title="جارٍ تحميل الإجازات" description="يتم تحميل الأرصدة والحركات الحالية." /></ConstitutionPage>;
 
   const balOf = (id) => bal.find((b) => b.employee_id === id);
   const canEdit = (r) => r.record_source !== 'historical_paper' && ['draft','submitted'].includes(r.status);
@@ -156,36 +152,29 @@ export default function Leaves() {
   const decisionStage = decisionTarget ? nextStage('leave', decisionTarget.status) : null;
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>الإجازات</h1>
-          <p>الاستحقاق المستمر والحركات والطلبات والاعتمادات</p>
-        </div>
-        <div className="rowsplit">
+    <ConstitutionPage>
+      <PageHeader
+        title="الإجازات"
+        description="الاستحقاق المستمر والحركات والطلبات والاعتمادات"
+        actions={<Toolbar>
           <button className="btn ghost" onClick={historyOpen ? closeForms : startHistory}>{historyOpen ? 'إغلاق' : 'إضافة حركة تاريخية'}</button>
           <button className="btn" onClick={open ? closeForms : startNew}>{open ? 'إغلاق' : 'طلب إجازة جديد'}</button>
-        </div>
-      </div>
+        </Toolbar>}
+      />
 
-      <div style={{marginBottom:16,padding:'11px 13px',border:'1px solid var(--line)',borderRadius:8,color:'var(--ink-soft)',fontSize:13,lineHeight:1.8}}>
-        يحتسب الرصيد من تاريخ المباشرة بصورة مستمرة وفق الاستحقاق السنوي المسجل للموظف. أي كسر في الرصيد المستحق يقرب إلى يوم كامل. الملفات الورقية القديمة تسجل من إضافة حركة تاريخية ولا تمر بمسار اعتماد جديد.
-      </div>
-
-      {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
-      {msg && <div className="msg ok" style={{marginBottom:14}}>{msg}</div>}
+      <Notice>
+        يحتسب الرصيد من تاريخ المباشرة بصورة مستمرة وفق الاستحقاق السنوي المسجل للموظف. الملفات الورقية القديمة تسجل كحركات تاريخية ولا تمر بمسار اعتماد جديد.
+      </Notice>
+      {err && <Notice tone="error">{err}</Notice>}
+      {msg && <Notice tone="success">{msg}</Notice>}
 
       {decisionTarget && decisionStage && (
         <ManualDecisionForm requestLabel={`إجازة ${decisionTarget.employees?.full_name_ar || ''}`} stageLabel={STAGE_AR[decisionStage]} employees={emps} busy={decisionBusy} onSubmit={submitDecision} onClose={()=>setDecisionTarget(null)} />
       )}
 
       {historyOpen && (
-        <div className="section" style={{marginTop:0}}>
-          <header><h2>إضافة حركة إجازة تاريخية</h2></header>
-          <form onSubmit={submitHistorical} style={{padding:18}}>
-            <div style={{marginBottom:14,color:'var(--ink-soft)',fontSize:13,lineHeight:1.8}}>
-              استخدم هذا النموذج للإجازات القديمة المثبتة في ملفات ورقية. يسجلها النظام كواقعة تاريخية مكتملة ويعكسها مباشرة على الرصيد دون إنشاء اعتماد جديد.
-            </div>
+        <Section title="إضافة حركة إجازة تاريخية" description="تسجل كواقعة تاريخية مكتملة وتنعكس على الرصيد دون اعتماد جديد.">
+          <form onSubmit={submitHistorical}>
             <div className="form-grid">
               <div className="field span2"><label>الموظف *</label><select required value={history.employee_id} onChange={(e)=>setHistory({...history,employee_id:e.target.value})}><option value="">اختر الموظف</option>{emps.map((x)=><option key={x.id} value={x.id}>{x.employee_no} - {x.full_name_ar}</option>)}</select></div>
               <div className="field"><label>نوع الإجازة *</label><select value={history.leave_kind} onChange={(e)=>setHistory({...history,leave_kind:e.target.value})}>{KINDS.map((k)=><option key={k} value={k}>{LEAVE_AR[k]}</option>)}</select></div>
@@ -198,15 +187,14 @@ export default function Leaves() {
               <div className="field span2"><label>المعتمد كما هو مكتوب في الورقة</label><input value={history.paper_approver_text} onChange={(e)=>setHistory({...history,paper_approver_text:e.target.value})} placeholder="يترك فارغاً إذا لم يكن واضحاً" /></div>
               <div className="field span2"><label>السبب أو الملاحظات</label><input value={history.reason} onChange={(e)=>setHistory({...history,reason:e.target.value})} /></div>
             </div>
-            <div className="rowsplit"><button className="btn" type="submit">حفظ الحركة التاريخية</button><button className="btn ghost" type="button" onClick={closeForms}>إلغاء</button></div>
+            <Toolbar><button className="btn" type="submit">حفظ الحركة التاريخية</button><button className="btn ghost" type="button" onClick={closeForms}>إلغاء</button></Toolbar>
           </form>
-        </div>
+        </Section>
       )}
 
       {open && (
-        <div className="section" style={{marginTop:0}}>
-          <header><h2>{editId ? 'تعديل طلب إجازة' : 'طلب إجازة'}</h2></header>
-          <form onSubmit={submit} style={{padding:18}}>
+        <Section title={editId ? 'تعديل طلب إجازة' : 'طلب إجازة'}>
+          <form onSubmit={submit}>
             <div className="form-grid">
               <div className="field span2"><label>الموظف *</label><select required value={form.employee_id} onChange={(e)=>setForm({...form,employee_id:e.target.value})}><option value="">اختر الموظف</option>{emps.map((x)=><option key={x.id} value={x.id}>{x.employee_no} - {x.full_name_ar}</option>)}</select>{form.employee_id && balOf(form.employee_id) && <span className="hint">المستحق حتى اليوم: {balOf(form.employee_id).accrued_days} يوم | المستهلك: {balOf(form.employee_id).used_days} يوم | المتاح: {balOf(form.employee_id).available_balance} يوم</span>}</div>
               <div className="field"><label>نوع الإجازة *</label><select value={form.leave_kind} onChange={(e)=>setForm({...form,leave_kind:e.target.value})}>{KINDS.map((k)=><option key={k} value={k}>{LEAVE_AR[k]}</option>)}</select></div>
@@ -215,34 +203,35 @@ export default function Leaves() {
               <div className="field"><label>إلى *</label><input type="date" required dir="ltr" value={form.end_date} onChange={(e)=>setForm({...form,end_date:e.target.value})} /></div>
               <div className="field span2"><label>السبب</label><input value={form.reason} onChange={(e)=>setForm({...form,reason:e.target.value})} /></div>
             </div>
-            <div className="rowsplit"><button className="btn" type="submit">{editId ? 'حفظ التعديلات' : 'تسجيل الطلب'}</button><button className="btn ghost" type="button" onClick={closeForms}>إلغاء</button></div>
+            <Toolbar><button className="btn" type="submit">{editId ? 'حفظ التعديلات' : 'تسجيل الطلب'}</button><button className="btn ghost" type="button" onClick={closeForms}>إلغاء</button></Toolbar>
           </form>
-        </div>
+        </Section>
       )}
 
-      <div className="section">
-        <header><h2>أرصدة الإجازة السنوية</h2></header>
-        {bal.length === 0 ? <div className="empty"><h3>لا توجد أرصدة</h3><p>يلزم تسجيل تاريخ المباشرة والاستحقاق السنوي للموظف.</p></div> : (
-          <div style={{overflowX:'auto'}}><table>
+      <Section title="أرصدة الإجازة السنوية">
+        {bal.length === 0 ? <EmptyState title="لا توجد أرصدة" description="يلزم تسجيل تاريخ المباشرة والاستحقاق السنوي للموظف." /> : (
+          <TableFrame><table>
             <thead><tr><th>الموظف</th><th className="num">السنوي</th><th className="num">الرصيد الكلي</th><th className="num">المستهلك</th><th className="num">محجوز</th><th className="num">الرصيد الفعلي</th><th className="num">المتاح</th></tr></thead>
-            <tbody>{bal.map((b)=><tr key={b.employee_id}>
-              <td>{b.employee_no} - {b.full_name_ar}</td>
-              <td className="num">{Number(b.annual_leave_days)}</td>
-              <td className="num">{b.accrued_days}</td>
-              <td className="num">{b.used_days}</td>
-              <td className="num">{b.reserved_days}</td>
-              <td className="num"><span className={`pill ${Number(b.actual_balance)<0?'bad':'ok'}`}>{b.actual_balance}</span></td>
-              <td className="num"><span className={`pill ${Number(b.available_balance)<0?'bad':'ok'}`}>{b.available_balance}</span></td>
-            </tr>)}</tbody>
-          </table></div>
+            <tbody>{bal.map((b)=>{
+              const state = leaveBalanceState(b.available_balance);
+              return <tr key={b.employee_id}>
+                <td>{b.employee_no} - {b.full_name_ar}</td>
+                <td className="num">{Number(b.annual_leave_days)}</td>
+                <td className="num">{b.accrued_days}</td>
+                <td className="num">{b.used_days}</td>
+                <td className="num">{b.reserved_days}</td>
+                <td className="num"><span className={`pill ${Number(b.actual_balance)<0?'bad':'ok'}`}>{b.actual_balance}</span></td>
+                <td className="num"><span className={`pill ${state==='blocked'?'bad':state==='warning'?'warn':'ok'}`}>{b.available_balance}</span></td>
+              </tr>;
+            })}</tbody>
+          </table></TableFrame>
         )}
-      </div>
+      </Section>
 
-      <div className="section">
-        <header><h2>حركات وطلبات الإجازة</h2></header>
-        {rows.length === 0 ? <div className="empty"><h3>لا توجد حركات</h3><p>سجل طلباً جديداً أو أدخل حركة تاريخية.</p></div> : (
-          <div style={{overflowX:'auto'}}><table>
-            <thead><tr><th>الموظف</th><th>المصدر</th><th>النوع</th><th>من</th><th>إلى</th><th className="num">الأيام</th><th>الحالة</th><th>المرحلة التالية</th><th style={{width:300}}>الإجراءات</th></tr></thead>
+      <Section title="حركات وطلبات الإجازة">
+        {rows.length === 0 ? <EmptyState title="لا توجد حركات" description="سجل طلباً جديداً أو أدخل حركة تاريخية." /> : (
+          <TableFrame><table>
+            <thead><tr><th>الموظف</th><th>المصدر</th><th>النوع</th><th>من</th><th>إلى</th><th className="num">الأيام</th><th>الحالة</th><th>المرحلة التالية</th><th>الإجراءات</th></tr></thead>
             <tbody>{rows.map((r)=>{
               const stage = r.record_source === 'historical_paper' ? null : nextStage('leave', r.status);
               return <tr key={r.id}>
@@ -251,19 +240,19 @@ export default function Leaves() {
                 <td>{LEAVE_AR[r.leave_kind]}</td>
                 <td className="mono">{dateAr(r.start_date)}</td><td className="mono">{dateAr(r.end_date)}</td><td className="num">{r.days_count}</td>
                 <td><span className={`pill ${STATUS_CLASS[r.status]}`}>{r.record_source === 'historical_paper' ? 'منفذة تاريخياً' : STATUS_AR[r.status]}</span></td>
-                <td style={{fontSize:13,color:'var(--ink-soft)'}}>{stage ? STAGE_AR[stage] : 'مكتملة'}</td>
-                <td><div className="rowsplit">
-                  <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} href={`/print/leave/${r.id}`} target="_blank">طباعة</Link>
-                  {stage && !['cancelled','rejected'].includes(r.status) && <button className="btn" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>startDecision(r)}>تسجيل القرار</button>}
-                  {canEdit(r) && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>startEdit(r)}>تعديل</button>}
-                  {canCancel(r) && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>cancel(r)}>إلغاء</button>}
-                  {(canEdit(r) || r.record_source === 'historical_paper') && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(r)}>حذف</button>}
-                </div></td>
+                <td>{stage ? STAGE_AR[stage] : 'مكتملة'}</td>
+                <td><Toolbar>
+                  <Link className="btn ghost" href={`/print/leave/${r.id}`} target="_blank">طباعة</Link>
+                  {stage && !['cancelled','rejected'].includes(r.status) && <button className="btn" onClick={()=>startDecision(r)}>تسجيل القرار</button>}
+                  {canEdit(r) && <button className="btn ghost" onClick={()=>startEdit(r)}>تعديل</button>}
+                  {canCancel(r) && <button className="btn ghost" onClick={()=>cancel(r)}>إلغاء</button>}
+                  {(canEdit(r) || r.record_source === 'historical_paper') && <button className="btn ghost" onClick={()=>remove(r)}>حذف</button>}
+                </Toolbar></td>
               </tr>;
             })}</tbody>
-          </table></div>
+          </table></TableFrame>
         )}
-      </div>
-    </>
+      </Section>
+    </ConstitutionPage>
   );
 }
