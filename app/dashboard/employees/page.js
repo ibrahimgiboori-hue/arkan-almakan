@@ -3,6 +3,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr, STATUS_AR } from '@/lib/format';
+import {
+  ConstitutionPage,
+  PageHeader,
+  Section,
+  Notice,
+  Toolbar,
+  TableFrame,
+  EmptyState,
+} from '@/components/ui/ConstitutionUI';
 
 export default function Employees() {
   const [rows, setRows] = useState(null);
@@ -15,28 +24,19 @@ export default function Employees() {
   const load = useCallback(async () => {
     setErr('');
     setRows(null);
-
     try {
       const { data:sessionData, error:sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
-
-      // هذه تهيئة اختيارية لبيانات الاستبدال المؤقت. بعض البيئات لا تحتوي
-      // الدالة بعد؛ فشلها لا يجوز أن يمنع تحميل سجل الموظفين الأساسي.
       const activation = await supabase.rpc('activate_due_temporary_replacements');
       if (activation.error && activation.error.code !== 'PGRST202') {
         console.warn('[employees] temporary replacement activation failed', activation.error);
       }
-
       const userId = sessionData.session?.user?.id;
-      const employeesQuery = supabase
-        .from('employees')
-        .select('*')
-        .eq('person_kind', 'employee');
+      const employeesQuery = supabase.from('employees').select('*').eq('person_kind', 'employee');
       const roleQuery = userId
         ? supabase.from('app_users').select('role').eq('id', userId).maybeSingle()
         : Promise.resolve({ data:null, error:null });
       const [employeesResult, userResult] = await Promise.all([employeesQuery, roleQuery]);
-
       if (employeesResult.error) throw employeesResult.error;
       if (userResult.error) throw userResult.error;
       setRows(employeesResult.data || []);
@@ -83,62 +83,69 @@ export default function Employees() {
       .sort((a,b)=>{ const A=orderKey(a.employee_no),B=orderKey(b.employee_no); return A[0]-B[0] || A[1]-B[1]; });
   }, [rows, q, showInactive]);
 
-  if (!rows) return <div className="empty">جارٍ التحميل…</div>;
+  if (!rows) return <ConstitutionPage><EmptyState title="جارٍ تحميل سجل الموظفين…" /></ConstitutionPage>;
+
   const canWrite = ['ceo','hr'].includes(role);
   const activeCount = rows.filter((r)=>r.status==='active').length;
   const pendingCount = rows.filter((r)=>r.status==='pending_start').length;
 
+  const headerActions = (
+    <Toolbar>
+      <Link className="btn ghost" href="/dashboard/board">مجلس الإدارة</Link>
+      <Link className="btn ghost" href="/print/employees" target="_blank">تقرير الموظفين</Link>
+      <Link className="btn" href="/dashboard/employees/new">إضافة موظف</Link>
+    </Toolbar>
+  );
+
+  const registryActions = (
+    <Toolbar>
+      <label style={{display:'flex',alignItems:'center',gap:6,fontSize:11,cursor:'pointer'}}>
+        <input type="checkbox" checked={showInactive} onChange={(e)=>setShowInactive(e.target.checked)} />
+        إظهار المنتهية خدمتهم
+      </label>
+      <input className="search" placeholder="ابحث بالاسم أو الرقم أو الجوال" value={q} onChange={(e)=>setQ(e.target.value)} />
+    </Toolbar>
+  );
+
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>الموظفون</h1>
-          <p>{activeCount} على رأس العمل{pendingCount ? ` · ${pendingCount} بانتظار المباشرة` : ''} · {rows.length} مسجلاً</p>
-        </div>
-        <div className="rowsplit">
-          <Link className="btn ghost" href="/dashboard/board">مجلس الإدارة</Link>
-          <Link className="btn ghost" href="/print/employees" target="_blank">تقرير الموظفين</Link>
-          <Link className="btn" href="/dashboard/employees/new">إضافة موظف</Link>
-        </div>
-      </div>
+    <ConstitutionPage>
+      <PageHeader
+        eyebrow="WORKFORCE"
+        title="الموظفون"
+        description={`${activeCount} على رأس العمل${pendingCount ? ` · ${pendingCount} بانتظار المباشرة` : ''} · ${rows.length} مسجلاً`}
+        actions={headerActions}
+      />
 
-      {err && (
-        <div className="msg err" style={{marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-          <span>{err}</span>
-          <button className="btn ghost" type="button" onClick={load}>إعادة المحاولة</button>
-        </div>
-      )}
-      {msg && <div className="msg ok" style={{marginBottom:14}}>{msg}</div>}
+      {err && <Notice tone="error" actions={<button className="btn ghost" type="button" onClick={load}>إعادة المحاولة</button>}>{err}</Notice>}
+      {msg && <Notice tone="success">{msg}</Notice>}
 
-      <div className="section" style={{marginTop:0}}>
-        <header>
-          <h2>سجل الموظفين</h2>
-          <div className="rowsplit">
-            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,cursor:'pointer'}}>
-              <input type="checkbox" checked={showInactive} onChange={(e)=>setShowInactive(e.target.checked)} />
-              إظهار المنتهية خدمتهم
-            </label>
-            <input className="search" placeholder="ابحث بالاسم أو الرقم أو الجوال" value={q} onChange={(e)=>setQ(e.target.value)} />
-          </div>
-        </header>
-
-        {filtered.length === 0 ? <div className="empty"><h3>لا نتائج</h3></div> : (
-          <table>
-            <thead><tr><th>الرقم</th><th>الاسم</th><th>المسمى</th><th>الجوال</th><th className="num">الراتب الإجمالي</th><th>انتهاء الهوية</th><th>الحالة</th><th style={{width:180}}>الإجراءات</th></tr></thead>
-            <tbody>{filtered.map((e)=>{
-              const gross=Number(e.basic_salary||0)+Number(e.housing_allowance||0)+Number(e.transport_allowance||0)+Number(e.other_allowance||0);
-              const pending=e.status==='pending_start';
-              return <tr key={e.id} style={e.status==='terminated'?{opacity:.55}:undefined}>
-                <td className="mono">{e.employee_no}</td>
-                <td><Link href={`/dashboard/employees/${e.id}`}>{e.full_name_ar}</Link>{e.employment_kind==='temporary_replacement' && <div style={{fontSize:11.5,color:'var(--ink-soft)'}}>بديل مؤقت</div>}</td>
-                <td>{e.job_title||'—'}</td><td className="mono">{e.mobile||'—'}</td><td className="num">{money(gross)}</td><td className="mono">{dateAr(e.id_expiry)}</td>
-                <td>{canWrite && !pending ? <select value={e.status} onChange={(ev)=>setStatus(e,ev.target.value)} style={{fontSize:12.5,padding:'2px 4px'}}><option value="active">على رأس العمل</option><option value="on_leave">في إجازة</option><option value="suspended">موقوف</option><option value="terminated">منتهي</option></select> : <span className={`pill ${e.status==='active'?'ok':pending?'warn':''}`}>{STATUS_AR[e.status]||e.status}</span>}</td>
-                <td><div className="rowsplit"><Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} href={`/dashboard/employees/${e.id}`}>الملف</Link>{canWrite && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(e)}>حذف</button>}</div></td>
-              </tr>;
-            })}</tbody>
-          </table>
+      <Section title="سجل الموظفين" description="قائمة موحدة للبيانات الوظيفية والحالة الحالية" actions={registryActions}>
+        {filtered.length === 0 ? <EmptyState title="لا توجد نتائج مطابقة" /> : (
+          <TableFrame>
+            <table>
+              <thead><tr><th>الرقم</th><th>الاسم</th><th>المسمى</th><th>الجوال</th><th className="num">الراتب الإجمالي</th><th>انتهاء الهوية</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+              <tbody>{filtered.map((e)=>{
+                const gross=Number(e.basic_salary||0)+Number(e.housing_allowance||0)+Number(e.transport_allowance||0)+Number(e.other_allowance||0);
+                const pending=e.status==='pending_start';
+                return <tr key={e.id} style={e.status==='terminated'?{opacity:.55}:undefined}>
+                  <td className="mono">{e.employee_no}</td>
+                  <td><Link href={`/dashboard/employees/${e.id}`}>{e.full_name_ar}</Link>{e.employment_kind==='temporary_replacement' && <div style={{fontSize:10,color:'var(--ui-muted)'}}>بديل مؤقت</div>}</td>
+                  <td>{e.job_title||'—'}</td>
+                  <td className="mono">{e.mobile||'—'}</td>
+                  <td className="num">{money(gross)}</td>
+                  <td className="mono">{dateAr(e.id_expiry)}</td>
+                  <td>{canWrite && !pending ? (
+                    <select value={e.status} onChange={(ev)=>setStatus(e,ev.target.value)}>
+                      <option value="active">على رأس العمل</option><option value="on_leave">في إجازة</option><option value="suspended">موقوف</option><option value="terminated">منتهي</option>
+                    </select>
+                  ) : <span className={`pill ${e.status==='active'?'ok':pending?'warn':''}`}>{STATUS_AR[e.status]||e.status}</span>}</td>
+                  <td><Toolbar><Link className="btn ghost" href={`/dashboard/employees/${e.id}`}>الملف</Link>{canWrite && <button className="btn ghost" style={{borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(e)}>حذف</button>}</Toolbar></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </TableFrame>
         )}
-      </div>
-    </>
+      </Section>
+    </ConstitutionPage>
   );
 }
