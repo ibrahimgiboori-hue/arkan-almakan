@@ -51,9 +51,6 @@ export default function ProjectWorkspaceLayout({ children }) {
               .filter(Boolean).join(' · ') || 'مساحة عمل المشروع'}
           </p>
         </div>
-        <div className={styles.projectActions}>
-          <Link className={styles.operationButton} href={`${base}/operations`}>التشغيل اليومي</Link>
-        </div>
       </header>
 
       <nav className={styles.projectTabs} aria-label="أقسام المشروع">
