@@ -7,80 +7,26 @@ import { getPrintLayoutPolicy } from '@/lib/print-governance';
 
 const REPORT_LAYOUT = getPrintLayoutPolicy('timesheet_report');
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-const PAYER_AR = { contractor:'المقاول', arkan_direct:'أركان مباشرة', arkan_custody:'أركان من العهدة' };
+const PAYER_AR = { contractor:'المقاول', arkan_direct:'أركان مباشرة', arkan_custody:'أركان من العهدة', employee:'موظف من ماله الخاص' };
 const CHARGE_AR = { arkan:'أركان', contractor:'المقاول', owner:'المالك' };
 const fmt = (d) => d ? new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(`${d}T12:00:00`)) : '—';
 
 export default function ExpensePrintPage(){
-  const [query,setQuery]=useState(null);
-  const [cfg,setCfg]=useState(null);
-  const [project,setProject]=useState(null);
-  const [contractor,setContractor]=useState(null);
-  const [rows,setRows]=useState([]);
-  const [items,setItems]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState('');
-
-  useEffect(()=>{
-    const p=new URLSearchParams(window.location.search);
-    setQuery({projectId:p.get('project')||'',contractorId:p.get('contractor')||'',from:p.get('from')||'',to:p.get('to')||p.get('from')||''});
-  },[]);
-
-  useEffect(()=>{
-    if(!query)return;
-    let alive=true;
-    (async()=>{
-      setLoading(true);setError('');
-      if(!query.projectId||!query.contractorId||!query.from||!query.to||query.to<query.from){setError('بيانات تقرير المصروفات غير مكتملة.');setLoading(false);return;}
-      const [s,p,c,i,e]=await Promise.all([
-        supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),
-        supabase.from('projects').select('id,project_no,name_ar,city,site_address').eq('id',query.projectId).maybeSingle(),
-        supabase.from('contractors').select('id,name_ar,contractor_no,operation_alias').eq('id',query.contractorId).maybeSingle(),
-        supabase.from('project_items').select('id,description_ar').eq('project_id',query.projectId).eq('kind','item'),
-        supabase.from('contractor_expenses').select('id,expense_date,category,amount,notes,payer,charge_to,is_recoverable,project_item_id').eq('project_id',query.projectId).eq('contractor_id',query.contractorId).gte('expense_date',query.from).lte('expense_date',query.to).order('expense_date').order('created_at')
-      ]);
-      if(!alive)return;
-      const err=s.error||p.error||c.error||i.error||e.error;
-      if(err){setError(`تعذر تحميل تقرير المصروفات: ${err.message}`);setLoading(false);return;}
-      setCfg(s.data);setProject(p.data);setContractor(c.data);setItems(i.data||[]);setRows(e.data||[]);setLoading(false);
-    })();
-    return()=>{alive=false};
-  },[query]);
-
+  const [query,setQuery]=useState(null),[cfg,setCfg]=useState(null),[project,setProject]=useState(null),[contractor,setContractor]=useState(null);
+  const [rows,setRows]=useState([]),[items,setItems]=useState([]),[employees,setEmployees]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  useEffect(()=>{const p=new URLSearchParams(window.location.search);setQuery({projectId:p.get('project')||'',contractorId:p.get('contractor')||'',from:p.get('from')||'',to:p.get('to')||p.get('from')||''});},[]);
+  useEffect(()=>{if(!query)return;let alive=true;(async()=>{setLoading(true);setError('');if(!query.projectId||!query.contractorId||!query.from||!query.to||query.to<query.from){setError('بيانات تقرير المصروفات غير مكتملة.');setLoading(false);return;}const [s,p,c,i,e,emp]=await Promise.all([
+    supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),supabase.from('projects').select('id,project_no,name_ar,city,site_address').eq('id',query.projectId).maybeSingle(),supabase.from('contractors').select('id,name_ar,contractor_no,operation_alias').eq('id',query.contractorId).maybeSingle(),supabase.from('project_items').select('id,description_ar').eq('project_id',query.projectId).eq('kind','item'),supabase.from('contractor_expenses').select('id,expense_date,category,amount,notes,payer,charge_to,is_recoverable,project_item_id,paid_by_employee_id,reimbursement_status,reimbursed_amount').eq('project_id',query.projectId).eq('contractor_id',query.contractorId).gte('expense_date',query.from).lte('expense_date',query.to).order('expense_date').order('created_at'),supabase.from('employees').select('id,full_name_ar')
+  ]);if(!alive)return;const err=s.error||p.error||c.error||i.error||e.error||emp.error;if(err){setError(`تعذر تحميل تقرير المصروفات: ${err.message}`);setLoading(false);return;}setCfg(s.data);setProject(p.data);setContractor(c.data);setItems(i.data||[]);setRows(e.data||[]);setEmployees(emp.data||[]);setLoading(false);})();return()=>{alive=false};},[query]);
   const itemMap=useMemo(()=>Object.fromEntries(items.map(x=>[x.id,x.description_ar])),[items]);
+  const employeeMap=useMemo(()=>Object.fromEntries(employees.map(x=>[x.id,x.full_name_ar])),[employees]);
   const total=useMemo(()=>rows.reduce((s,x)=>s+Number(x.amount||0),0),[rows]);
-
-  function changeRange(key,value){
-    const next={...query,[key]:value};setQuery(next);
-    const p=new URLSearchParams(window.location.search);p.set(key,value);history.replaceState(null,'',`${window.location.pathname}?${p.toString()}`);
-  }
-
-  if(!query||loading)return <div style={{padding:40}}>جارٍ إعداد تقرير المصروفات…</div>;
-  if(error)return <div style={{padding:40,color:'#b91c1c'}}>{error}</div>;
-
-  return <>
-    <div className="no-print" style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:10,alignItems:'center',padding:12,background:'#111',color:'#fff',direction:'rtl'}}>
-      <button onClick={()=>window.print()} style={{padding:'9px 16px',fontWeight:800}}>طباعة أو حفظ PDF</button>
-      <label>من <input type="date" value={query.from} onChange={e=>changeRange('from',e.target.value)}/></label>
-      <label>إلى <input type="date" value={query.to} onChange={e=>changeRange('to',e.target.value)}/></label>
-      <strong>الإجمالي: {money(total)} ر.س</strong>
-    </div>
-    <ConstitutionPagedFrame documentKey="expense_report" cfg={cfg} contentTopMm={REPORT_LAYOUT.topMm} contentBottomMm={REPORT_LAYOUT.bottomMm} contentSideMm={REPORT_LAYOUT.sideMm}>
-      <div dir="rtl" style={{fontFamily:'Arial, sans-serif',fontSize:12,color:'#111'}}>
-        <div style={{textAlign:'center',marginBottom:14}}><h1 style={{margin:0,fontSize:22}}>تقرير مصروفات المشروع</h1><div style={{marginTop:5}}>{fmt(query.from)} — {fmt(query.to)}</div></div>
-        <table style={{width:'100%',borderCollapse:'collapse',marginBottom:14}}><tbody>
-          <tr><th style={th}>المشروع</th><td style={td}>{project?.project_no||''} — {project?.name_ar||'—'}</td><th style={th}>المقاول</th><td style={td}>{contractor?.name_ar||'—'}</td></tr>
-          <tr><th style={th}>الفترة</th><td style={td}>{fmt(query.from)} — {fmt(query.to)}</td><th style={th}>الإجمالي</th><td style={td}><b>{money(total)} ر.س</b></td></tr>
-        </tbody></table>
-        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
-          <thead><tr><th style={{...th,width:'5%'}}>م</th><th style={{...th,width:'13%'}}>التاريخ</th><th style={{...th,width:'14%'}}>التصنيف</th><th style={{...th,width:'28%'}}>البيان</th><th style={{...th,width:'18%'}}>البند</th><th style={{...th,width:'12%'}}>الدافع</th><th style={{...th,width:'10%'}}>المبلغ</th></tr></thead>
-          <tbody>{rows.length?rows.map((r,idx)=><tr key={r.id} style={{breakInside:'avoid'}}><td style={td}>{idx+1}</td><td style={td}>{fmt(r.expense_date)}</td><td style={td}>{r.category||'—'}</td><td style={{...td,textAlign:'right'}}>{r.notes||'—'}</td><td style={{...td,textAlign:'right'}}>{r.project_item_id?(itemMap[r.project_item_id]||'بند مرتبط'):'مصروف عام'}</td><td style={td}>{PAYER_AR[r.payer]||r.payer||'—'}{r.charge_to?` / على ${CHARGE_AR[r.charge_to]||r.charge_to}`:''}</td><td style={{...td,fontWeight:800}}>{money(r.amount)}</td></tr>):<tr><td style={td} colSpan={7}>لا توجد مصروفات في الفترة المحددة.</td></tr>}</tbody>
-          <tfoot><tr><th style={th} colSpan={6}>إجمالي المصروفات</th><th style={th}>{money(total)} ر.س</th></tr></tfoot>
-        </table>
-      </div>
-    </ConstitutionPagedFrame>
-  </>;
+  const employeeDue=useMemo(()=>rows.reduce((s,x)=>s+(x.paid_by_employee_id?Math.max(0,Number(x.amount||0)-Number(x.reimbursed_amount||0)):0),0),[rows]);
+  function changeRange(key,value){const next={...query,[key]:value};setQuery(next);const p=new URLSearchParams(window.location.search);p.set(key,value);history.replaceState(null,'',`${window.location.pathname}?${p.toString()}`);}
+  if(!query||loading)return <div style={{padding:40}}>جارٍ إعداد تقرير المصروفات…</div>;if(error)return <div style={{padding:40,color:'#b91c1c'}}>{error}</div>;
+  return <><div className="no-print" style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:10,alignItems:'center',padding:12,background:'#111',color:'#fff',direction:'rtl'}}><button onClick={()=>window.print()} style={{padding:'9px 16px',fontWeight:800}}>طباعة أو حفظ PDF</button><label>من <input type="date" value={query.from} onChange={e=>changeRange('from',e.target.value)}/></label><label>إلى <input type="date" value={query.to} onChange={e=>changeRange('to',e.target.value)}/></label><strong>الإجمالي: {money(total)} ر.س</strong></div>
+  <ConstitutionPagedFrame documentKey="expense_report" cfg={cfg} contentTopMm={REPORT_LAYOUT.topMm} contentBottomMm={REPORT_LAYOUT.bottomMm} contentSideMm={REPORT_LAYOUT.sideMm}><div dir="rtl" style={{fontFamily:'Arial, sans-serif',fontSize:12,color:'#111'}}><div style={{textAlign:'center',marginBottom:14}}><h1 style={{margin:0,fontSize:22}}>تقرير مصروفات المشروع</h1><div style={{marginTop:5}}>{fmt(query.from)} — {fmt(query.to)}</div></div><table style={{width:'100%',borderCollapse:'collapse',marginBottom:14}}><tbody><tr><th style={th}>المشروع</th><td style={td}>{project?.project_no||''} — {project?.name_ar||'—'}</td><th style={th}>المقاول</th><td style={td}>{contractor?.name_ar||'—'}</td></tr><tr><th style={th}>الفترة</th><td style={td}>{fmt(query.from)} — {fmt(query.to)}</td><th style={th}>الإجمالي</th><td style={td}><b>{money(total)} ر.س</b>{employeeDue>0&&<div style={{marginTop:3,fontSize:10}}>منه مستحق لموظفين: {money(employeeDue)} ر.س</div>}</td></tr></tbody></table>
+  <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}><thead><tr><th style={{...th,width:'5%'}}>م</th><th style={{...th,width:'12%'}}>التاريخ</th><th style={{...th,width:'13%'}}>التصنيف</th><th style={{...th,width:'27%'}}>البيان</th><th style={{...th,width:'17%'}}>البند</th><th style={{...th,width:'16%'}}>الدافع</th><th style={{...th,width:'10%'}}>المبلغ</th></tr></thead><tbody>{rows.length?rows.map((r,idx)=><tr key={r.id} style={{breakInside:'avoid'}}><td style={td}>{idx+1}</td><td style={td}>{fmt(r.expense_date)}</td><td style={td}>{r.category||'—'}</td><td style={{...td,textAlign:'right'}}>{r.notes||'—'}</td><td style={{...td,textAlign:'right'}}>{r.project_item_id?(itemMap[r.project_item_id]||'بند مرتبط'):'مصروف عام'}</td><td style={td}>{r.paid_by_employee_id?`دفعه ${employeeMap[r.paid_by_employee_id]||'موظف'} من ماله الخاص${Number(r.amount)-Number(r.reimbursed_amount||0)>0?` — مستحق له ${money(Number(r.amount)-Number(r.reimbursed_amount||0))}`:' — مسدد'}`:`${PAYER_AR[r.payer]||r.payer||'—'}${r.charge_to?` / على ${CHARGE_AR[r.charge_to]||r.charge_to}`:''}`}</td><td style={{...td,fontWeight:800}}>{money(r.amount)}</td></tr>):<tr><td style={td} colSpan={7}>لا توجد مصروفات في الفترة المحددة.</td></tr>}</tbody><tfoot><tr><th style={th} colSpan={6}>إجمالي المصروفات</th><th style={th}>{money(total)} ر.س</th></tr></tfoot></table></div></ConstitutionPagedFrame></>;
 }
-
 const th={border:'1px solid #222',padding:'7px 5px',background:'#eee',textAlign:'center',fontWeight:800};
 const td={border:'1px solid #444',padding:'6px 5px',textAlign:'center',verticalAlign:'middle'};
