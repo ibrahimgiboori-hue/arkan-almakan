@@ -1,0 +1,54 @@
+/* دستور الواجهة المستقر — المصدر البصري المركزي دون تغيير الهوية المعتمدة. */
+:root{
+  --constitution-bg:#f3f0e9;
+  --constitution-paper:#fbfaf7;
+  --constitution-ink:#11110f;
+  --constitution-muted:#66645f;
+  --constitution-border:#d8d3c8;
+  --constitution-border-soft:#e8e4dc;
+  --constitution-brand:#6f252b;
+  --constitution-brand-strong:#5d1e24;
+  --constitution-success:#126548;
+  --constitution-info:#165f9f;
+  --constitution-danger:#a12b29;
+  --constitution-warning:#83570f;
+  --constitution-black:#121211;
+  --constitution-radius-sm:7px;
+  --constitution-radius-md:9px;
+  --constitution-control-height:34px;
+  --constitution-page-gap:18px;
+  --constitution-shadow-soft:0 1px 2px rgba(17,17,15,.035);
+  --constitution-print-page-width:210mm;
+  --constitution-print-page-height:297mm;
+}
+
+html[data-system-constitution='v2']{
+  color-scheme:light;
+}
+
+html[data-system-constitution='v2'] body{
+  text-rendering:optimizeLegibility;
+}
+
+html[data-system-constitution='v2'] button,
+html[data-system-constitution='v2'] input,
+html[data-system-constitution='v2'] select,
+html[data-system-constitution='v2'] textarea{
+  font:inherit;
+}
+
+html[data-system-constitution='v2'] :focus-visible{
+  outline:2px solid var(--constitution-brand);
+  outline-offset:2px;
+}
+
+@media (prefers-reduced-motion:reduce){
+  html[data-system-constitution='v2'] *,
+  html[data-system-constitution='v2'] *::before,
+  html[data-system-constitution='v2'] *::after{
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+  }
+}
