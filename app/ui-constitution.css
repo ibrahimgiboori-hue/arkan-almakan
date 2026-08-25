@@ -64,6 +64,16 @@ html[data-system-constitution='v2'] :focus-visible{
   outline-offset:2px;
 }
 
+/* قاعدة دستورية: مساحات العمل تستفيد من كامل العرض المتاح.
+   يمنع حشر صفحات التشغيل والإدارة في عمود مركزي ضيق بلا سبب وظيفي. */
+html[data-system-constitution='v2'] .constitution-content,
+html[data-system-constitution='v2'] .constitution-content > *,
+html[data-system-constitution='v2'] .page:has(.workspaceShell){
+  width:100%!important;
+  max-width:none!important;
+  margin-inline:0!important;
+}
+
 /* رابط طباعة المصروفات القديم داخل بطاقة الإدخال أُلغي.
    الطباعة الآن إجراء سياقي موحد في شريط التاريخ بجوار «اليوم». */
 html[data-system-constitution='v2'] a[href^='/print/expenses']{
