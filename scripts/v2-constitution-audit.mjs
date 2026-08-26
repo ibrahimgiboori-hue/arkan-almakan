@@ -36,6 +36,13 @@ function registerDuplicate(rel) {
   }
 }
 
+function hasDirectItemExecutionWrite(text) {
+  // item_execution is governed by RPC command gateways. Reading is allowed; client-side
+  // insert/update/upsert/delete is not. Keep the window bounded so unrelated calls later
+  // in a large file do not create false positives.
+  return /\.from\(\s*['"]item_execution['"]\s*\)[\s\S]{0,500}?\.(?:insert|update|upsert|delete)\s*\(/m.test(text);
+}
+
 for (const scope of scanRoots) {
   for (const file of walk(path.join(root, scope))) {
     const rel = path.relative(root, file).replaceAll('\\', '/');
@@ -53,6 +60,9 @@ for (const scope of scanRoots) {
     }
     if (/\bATTEND_CYCLE\s*=/.test(text) && rel !== 'lib/timesheet.js') {
       violations.push(`${rel}: local attendance cycle; use lib/timesheet.js`);
+    }
+    if (hasDirectItemExecutionWrite(text)) {
+      violations.push(`${rel}: direct item_execution write; use constitutional execution RPC gateway`);
     }
   }
 }
