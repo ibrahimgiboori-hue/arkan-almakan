@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
-import { getPrintLayoutPolicy } from '@/lib/print-governance';
+import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
 import {
   arabicDayName,
   assignmentOverlaps,
@@ -20,6 +20,11 @@ import {
 import './timesheet-report.css';
 
 const REPORT_LAYOUT = getPrintLayoutPolicy('timesheet_report');
+const PAGINATION = REPORT_LAYOUT.pagination;
+const MATRIX_CAPS = PAGINATION.matrix;
+const DETAIL_CAPS = PAGINATION.detail;
+const PAPER_CAPS = PAGINATION.paper;
+const SUMMARY_CAPS = PAGINATION.summary;
 const VALID_MODES = new Set(['worker', 'contractor', 'paper']);
 const CLASS_AR = Object.freeze({ worker:'عامل', technician:'صنايعي', foreman:'فورمان' });
 const naturalCompare = (a = '', b = '') => String(a).localeCompare(String(b), 'ar', { numeric:true, sensitivity:'base' });
@@ -148,18 +153,43 @@ export default function TimesheetPrintPage() {
 
   const title = reportTitle(query.mode,workers,query.from,query.to);
   const matrixDatePages = chunk(dates,7);
-  const matrixWorkerPages = chunk(workers,dates.length === 1 ? 22 : 16);
-  const detailDatePages = chunk(dates,22);
-  const paperWorkerPages = chunk(workers,18);
+  const matrixFirstDateWorkerPages = paginateRows(workers,MATRIX_CAPS);
+  const matrixRegularWorkerPages = paginateRows(workers,{regular:MATRIX_CAPS.regular});
+  const detailDatePages = paginateRows(dates,DETAIL_CAPS);
+  const paperWorkerPages = paginateRows(workers,PAPER_CAPS);
+  const summaryPages = paginateRows(workers,SUMMARY_CAPS);
   const pageModels = [];
 
   if (query.mode === 'paper') {
-    paperWorkerPages.forEach((workerPage,workerPageIndex) => pageModels.push({kind:'paper',workers:workerPage,workerPageIndex,workerPageCount:paperWorkerPages.length}));
+    let startIndex = 0;
+    paperWorkerPages.forEach((workerPage,workerPageIndex) => {
+      pageModels.push({kind:'paper',workers:workerPage,workerPageIndex,workerPageCount:paperWorkerPages.length,startIndex});
+      startIndex += workerPage.length;
+    });
   } else if (query.mode === 'worker' && workers.length === 1) {
     detailDatePages.forEach((datePage,datePageIndex) => pageModels.push({kind:'detail',dates:datePage,datePageIndex,datePageCount:detailDatePages.length}));
   } else {
-    matrixDatePages.forEach((datePage,datePageIndex) => matrixWorkerPages.forEach((workerPage,workerPageIndex) => pageModels.push({kind:'matrix',dates:datePage,workers:workerPage,datePageIndex,datePageCount:matrixDatePages.length,workerPageIndex,workerPageCount:matrixWorkerPages.length})));
-    chunk(workers,22).forEach((workerPage,summaryPageIndex,summaryPages) => pageModels.push({kind:'summary',workers:workerPage,summaryPageIndex,summaryPageCount:summaryPages.length}));
+    const matrixPageTotal = matrixDatePages.reduce((total,_,datePageIndex) => total + (datePageIndex === 0 ? matrixFirstDateWorkerPages.length : matrixRegularWorkerPages.length), 0);
+    let attendancePageNumber = 0;
+    matrixDatePages.forEach((datePage,datePageIndex) => {
+      const workerPages = datePageIndex === 0 ? matrixFirstDateWorkerPages : matrixRegularWorkerPages;
+      let startIndex = 0;
+      workerPages.forEach((workerPage,workerPageIndex) => {
+        attendancePageNumber += 1;
+        pageModels.push({
+          kind:'matrix', dates:datePage, workers:workerPage,
+          datePageIndex, datePageCount:matrixDatePages.length,
+          workerPageIndex, workerPageCount:workerPages.length, startIndex,
+          attendancePageNumber, attendancePageCount:matrixPageTotal,
+        });
+        startIndex += workerPage.length;
+      });
+    });
+    let summaryStartIndex = 0;
+    summaryPages.forEach((workerPage,summaryPageIndex) => {
+      pageModels.push({kind:'summary',workers:workerPage,summaryPageIndex,summaryPageCount:summaryPages.length,startIndex:summaryStartIndex});
+      summaryStartIndex += workerPage.length;
+    });
   }
 
   const fullHeader = (subline='') => <>
@@ -190,7 +220,7 @@ export default function TimesheetPrintPage() {
           return <div className="ts-page ts-paper-page" key={`paper-${pageIndex}`}>
             {fullHeader(`ورقة ${page.workerPageIndex+1} من ${page.workerPageCount} · تاريخ الحضور ${displayDate(query.from)}`)}
             <div className="ts-paper-instruction">يضع المشرف علامة ✓ للحضور الكامل أو ½ لنصف اليوم. غير الحاضر يترك بلا علامة، وتكتب الملاحظة عند الحاجة.</div>
-            <table className="ts-table ts-paper-table"><colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/><col className="ts-col-mark"/><col/></colgroup><thead><tr><th>م</th><th>اسم العامل</th><th>المهنة</th><th>العلامة</th><th>ملاحظات المشرف</th></tr></thead><tbody>{[...page.workers,...blankRows].map((worker,index) => <tr key={worker.id}><td>{page.workerPageIndex*18+index+1}</td><td>{worker.name || ''}</td><td>{worker.trade || CLASS_AR[worker.laborClass] || ''}</td><td className="ts-hand-cell"/><td/></tr>)}</tbody></table>
+            <table className="ts-table ts-paper-table"><colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/><col className="ts-col-mark"/><col/></colgroup><thead><tr><th>م</th><th>اسم العامل</th><th>المهنة</th><th>العلامة</th><th>ملاحظات المشرف</th></tr></thead><tbody>{[...page.workers,...blankRows].map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td>{worker.name || ''}</td><td>{worker.trade || CLASS_AR[worker.laborClass] || ''}</td><td className="ts-hand-cell"/><td/></tr>)}</tbody></table>
             <div className="ts-paper-count">الحضور الكامل: ............ · أنصاف الأيام: ............ · يوميات الصنايعية: ............ · يوميات العمال: ............ · الإجمالي: ............</div>
             {manualSignatures()}
           </div>;
@@ -211,7 +241,7 @@ export default function TimesheetPrintPage() {
           return <div className="ts-page" key={`summary-${page.summaryPageIndex}`}>
             {compactHeader(`ختام التقرير · ملخص الفترة${page.summaryPageCount>1 ? ` · ${page.summaryPageIndex+1} من ${page.summaryPageCount}` : ''}`)}
             <div className="ts-doc-title"><h1>ملخص الفترة</h1><span /></div>
-            <table className="ts-table ts-detail-table"><thead><tr><th>م</th><th>اسم العامل</th><th>الصفة</th><th>المهنة</th><th>إجمالي أيام الفترة</th></tr></thead><tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.summaryPageIndex*22+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'غير مصنف'}</td><td>{worker.trade || '—'}</td><td><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b></td></tr>)}</tbody></table>
+            <table className="ts-table ts-detail-table"><thead><tr><th>م</th><th>اسم العامل</th><th>الصفة</th><th>المهنة</th><th>إجمالي أيام الفترة</th></tr></thead><tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'غير مصنف'}</td><td>{worker.trade || '—'}</td><td><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b></td></tr>)}</tbody></table>
             {finalSummaryPage && <>
               <div className="ts-summary" style={{marginTop:12}}>
                 <span><b>{laborClasses.total}</b> عدد الأفراد</span>
@@ -228,16 +258,14 @@ export default function TimesheetPrintPage() {
           </div>;
         }
 
-        const attendancePageNumber = page.datePageIndex * matrixWorkerPages.length + page.workerPageIndex + 1;
-        const attendancePageCount = matrixDatePages.length * matrixWorkerPages.length;
         return <div className="ts-page" key={`matrix-${page.datePageIndex}-${page.workerPageIndex}`}>
-          {attendancePageNumber === 1
-            ? fullHeader(`الحضور · ${displayDate(page.dates[0])} — ${displayDate(page.dates.at(-1))} · صفحة ${attendancePageNumber} من ${attendancePageCount}`)
-            : compactHeader(`الحضور · ${displayDate(page.dates[0])} — ${displayDate(page.dates.at(-1))} · صفحة ${attendancePageNumber} من ${attendancePageCount}`)}
+          {page.attendancePageNumber === 1
+            ? fullHeader(`الحضور · ${displayDate(page.dates[0])} — ${displayDate(page.dates.at(-1))} · صفحة ${page.attendancePageNumber} من ${page.attendancePageCount}`)
+            : compactHeader(`الحضور · ${displayDate(page.dates[0])} — ${displayDate(page.dates.at(-1))} · صفحة ${page.attendancePageNumber} من ${page.attendancePageCount}`)}
           <table className="ts-table ts-matrix-table">
             <colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/>{page.dates.map((date) => <col key={date} className="ts-col-day"/>)}</colgroup>
             <thead><tr><th>م</th><th>اسم العامل</th><th>الصفة / المهنة</th>{page.dates.map((date) => <th key={date}><span>{arabicDayName(date)}</span><small>{displayDate(date).slice(0,5)}</small></th>)}</tr></thead>
-            <tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.workerPageIndex*(dates.length===1?22:16)+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'عامل'}{worker.trade ? ` — ${worker.trade}` : ''}</td>{page.dates.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <td key={date} className={`ts-mark ts-status-${record?.status || 'absent'}`} title={status.label}>{status.short}</td>; })}</tr>)}</tbody>
+            <tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'عامل'}{worker.trade ? ` — ${worker.trade}` : ''}</td>{page.dates.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <td key={date} className={`ts-mark ts-status-${record?.status || 'absent'}`} title={status.label}>{status.short}</td>; })}</tr>)}</tbody>
           </table>
           {legend()}
         </div>;
