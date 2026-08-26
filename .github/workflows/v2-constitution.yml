@@ -3,7 +3,7 @@ name: V2 Constitution Gate
 on:
   push:
     branches:
-      - v2-stable-approved-ui
+      - v2-system-constitution
   pull_request:
 
 jobs:
@@ -16,9 +16,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - name: Install
-        run: npm ci
+        # The repository does not yet track package-lock.json. Use npm install until
+        # dependency locking is adopted deliberately, then switch this gate to npm ci.
+        run: npm install --no-audit --no-fund
       - name: Constitution audit
         run: npm run v2:audit
       - name: Tests
