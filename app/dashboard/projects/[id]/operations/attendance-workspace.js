@@ -11,7 +11,9 @@ import { selectRosterAssignmentsForDate } from '@/lib/site-operation-roster.mjs'
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
 import BulkAttendanceList from './BulkAttendanceList';
+import RegisteredAttendanceList from './RegisteredAttendanceList';
 import styles from './operations.module.css';
+import layoutStyles from './attendance-layout.module.css';
 
 const STATUS = Object.freeze({
   full: { label: 'كامل' },
@@ -118,8 +120,6 @@ export default function AttendanceWorkspace() {
         };
       }).filter((worker) => worker.assignment_id).sort((a, b) => naturalCompare(a.full_name, b.full_name));
 
-      // الإدخال الحالي له حالتان فقط. السجلات القديمة «غياب» لا تُعامل كحضور؛
-      // إعادة تسجيل العامل تحدّث الصف نفسه عبر بوابة الحضور الآمنة.
       const presentRows = (attendanceQ.data || []).filter((row) => ['full', 'half'].includes(row.status));
       setContractors(contractorRows);
       setWorkers(workerRows);
@@ -352,16 +352,17 @@ export default function AttendanceWorkspace() {
           <Link href={`/dashboard/projects/${projectId}/operations/labor`}>أضف أو انقل العمالة من شاشة العمالة</Link>.
         </div>
       ) : (
-        <section className={styles.workArea}>
-          <main className={styles.entryPane}>
-            <div className={styles.entryHead}>
-              <div>
-                <span className={styles.eyebrow}>FAST ENTRY</span>
+        <section className={layoutStyles.workArea}>
+          <main className={layoutStyles.pane}>
+            <div className={layoutStyles.paneHead}>
+              <div className={layoutStyles.paneTitle}>
+                <span className={layoutStyles.eyebrow}>FAST ENTRY</span>
                 <h2>غير المسجلين</h2>
                 <p>سجّل فقط من حضر: كامل أو نصف يوم. من يبقى هنا يُعامل كغياب تلقائيًا.</p>
               </div>
-              <div className={styles.entryTools}>
+              <div className={layoutStyles.tools}>
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو الصفة" />
+                <span className={layoutStyles.count}>{pendingWorkers.length}</span>
               </div>
             </div>
             <BulkAttendanceList
@@ -373,27 +374,24 @@ export default function AttendanceWorkspace() {
             />
           </main>
 
-          <aside className={styles.reviewPane}>
-            <div className={styles.reviewHead}>
-              <div><span className={styles.eyebrow}>REVIEW</span><h3>تم التسجيل</h3></div>
-              <strong>{doneWorkers.length}</strong>
+          <aside className={layoutStyles.pane}>
+            <div className={layoutStyles.paneHead}>
+              <div className={layoutStyles.paneTitle}>
+                <span className={layoutStyles.eyebrow}>RECORDED</span>
+                <h2>تم التسجيل</h2>
+                <p>نفس قائمة العمال وبنفس البنية؛ عدّل كامل/نصف أو ألغِ التسجيل مباشرة.</p>
+              </div>
+              <div className={layoutStyles.tools}>
+                <span className={layoutStyles.count}>{doneWorkers.length}</span>
+              </div>
             </div>
-            <div className={styles.reviewList}>
-              {doneWorkers.length === 0 ? <div className={styles.reviewEmpty}>لم يتم تسجيل حضور أحد بعد.</div> : doneWorkers.map((worker) => {
-                const state = marks[worker.id]?.status || 'full';
-                return (
-                  <div className={styles.reviewRow} key={worker.id}>
-                    <span className={`${styles.statusDot} ${styles[`dot_${state}`] || ''}`} />
-                    <div><strong>{worker.full_name}</strong><small>{STATUS[state]?.label || state}</small></div>
-                    <div className={styles.statusButtons}>
-                      <button className={styles.fullButton} type="button" disabled={Boolean(busy) || state === 'full'} onClick={() => markWorker(worker, 'full')}>كامل</button>
-                      <button className={styles.halfButton} type="button" disabled={Boolean(busy) || state === 'half'} onClick={() => markWorker(worker, 'half')}>نصف</button>
-                      <button className={styles.absentButton} type="button" disabled={Boolean(busy)} onClick={() => removeAttendance(worker)}>إلغاء</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <RegisteredAttendanceList
+              workers={doneWorkers}
+              marks={marks}
+              busy={busy}
+              onMarkWorker={markWorker}
+              onRemove={removeAttendance}
+            />
           </aside>
         </section>
       )}
