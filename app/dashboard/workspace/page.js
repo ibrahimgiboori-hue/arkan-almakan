@@ -48,6 +48,8 @@ export default function WorkPlatformPage(){
   const [projectId,setProjectId]=useState('');
   const [managementKey,setManagementKey]=useState('execution');
   const [pulse,setPulse]=useState(EMPTY_PULSE);
+  const [switchOpen,setSwitchOpen]=useState(false);
+  const [projectQuery,setProjectQuery]=useState('');
 
   useEffect(()=>{let alive=true;(async()=>{
     setErr('');
@@ -124,6 +126,11 @@ export default function WorkPlatformPage(){
 
   const selectedProject=state?.projects.find(p=>p.id===projectId)||null;
   const otherProjects=useMemo(()=>state?.projects.filter(p=>p.id!==projectId)||[],[state,projectId]);
+  const filteredOtherProjects=useMemo(()=>{
+    const q=projectQuery.trim().toLowerCase();
+    if(!q)return otherProjects;
+    return otherProjects.filter(project=>`${project.project_no||''} ${project.name_ar||''} ${project.city||''}`.toLowerCase().includes(q));
+  },[otherProjects,projectQuery]);
 
   const projectApplicable=useMemo(()=>{
     if(!state||!projectId)return[];
@@ -192,6 +199,12 @@ export default function WorkPlatformPage(){
 
   const otherPortals=allowedPortals.filter(area=>area.key!=='projects');
 
+  function chooseProject(id){
+    setProjectId(id);
+    setSwitchOpen(false);
+    setProjectQuery('');
+  }
+
   function operationStatus(key){
     if(pulse.loading)return 'جارٍ قراءة حالة اليوم…';
     if(key==='attendance')return pulse.attendanceCount?`${pulse.attendanceCount} تسجيل حضور اليوم`:'لم يبدأ تسجيل الحضور اليوم';
@@ -212,7 +225,7 @@ export default function WorkPlatformPage(){
     <PageHeader
       eyebrow="WORK PLATFORM"
       title="منصة الأعمال"
-      description="اختر المشروع مرة واحدة، ثم اعمل من سياقه مباشرة. المنصة ترتب الأدوات حسب تكرار الاستخدام ولا تكرر أي وجهة."
+      description="المشروع الجاري هو السياق الوحيد أمامك. الأدوات مرتبة حسب العمل الفعلي، وما لا تحتاجه الآن يبقى خارج مجال التركيز."
     />
     {err&&<Notice tone="warning">{err}</Notice>}
 
@@ -230,7 +243,10 @@ export default function WorkPlatformPage(){
                     <div className={styles.projectNo}>{selectedProject.project_no||'—'}</div>
                     <h1>{selectedProject.name_ar}</h1>
                   </div>
-                  <span className={styles.stageBadge}>{STAGE_AR[selectedProject.stage]||selectedProject.stage||'غير محدد'}</span>
+                  <div className={styles.heroActions}>
+                    <span className={styles.stageBadge}>{STAGE_AR[selectedProject.stage]||selectedProject.stage||'غير محدد'}</span>
+                    {otherProjects.length>0&&<button type="button" className={styles.switchButton} onClick={()=>setSwitchOpen(open=>!open)} aria-expanded={switchOpen}>تبديل المشروع <small>{otherProjects.length}</small></button>}
+                  </div>
                 </div>
                 <div className={styles.heroMeta}><span>{selectedProject.city||'الموقع غير محدد'}</span><span>•</span><span>{projectFull?'كامل أدوات المشروع':'أدوات حسب الصلاحية'}</span></div>
                 <div className={styles.heroProgress} aria-label={`إنجاز المشروع ${Math.round(progress)}%`}>
@@ -245,9 +261,10 @@ export default function WorkPlatformPage(){
               </div>
             </div>
 
-            {otherProjects.length>0&&<div className={styles.projectRail}>
-              <span className={styles.railLabel}>تبديل المشروع</span>
-              <div className={styles.railScroll}>{otherProjects.map(project=><button key={project.id} type="button" className={styles.railProject} onClick={()=>setProjectId(project.id)}><span>{project.project_no||'—'}</span><strong>{project.name_ar}</strong><small>{project.city||'—'}</small></button>)}</div>
+            {switchOpen&&otherProjects.length>0&&<div className={styles.switchPanel}>
+              <div className={styles.switchPanelHead}><div><strong>انتقل إلى مشروع آخر</strong><small>لن يتغير أي شيء في المشروع الحالي؛ يتغير فقط سياق العرض والعمل.</small></div><button type="button" onClick={()=>{setSwitchOpen(false);setProjectQuery('');}}>إغلاق</button></div>
+              {otherProjects.length>5&&<input className={styles.switchSearch} value={projectQuery} onChange={e=>setProjectQuery(e.target.value)} placeholder="ابحث باسم المشروع أو الرقم أو المدينة…" autoFocus/>}
+              <div className={styles.switchList}>{filteredOtherProjects.length?filteredOtherProjects.map(project=><button key={project.id} type="button" className={styles.switchProject} onClick={()=>chooseProject(project.id)}><span className={styles.switchNo}>{project.project_no||'—'}</span><strong>{project.name_ar}</strong><small>{project.city||'الموقع غير محدد'}</small><span className={styles.switchArrow}>←</span></button>):<div className={styles.switchEmpty}>لا يوجد مشروع مطابق.</div>}</div>
             </div>}
           </section>
         )}
