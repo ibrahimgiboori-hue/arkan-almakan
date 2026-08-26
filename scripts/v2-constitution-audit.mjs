@@ -19,6 +19,14 @@ const legacyDuplicateAllowlist = new Set([
   'components/HelpButton (1).js',
 ]);
 
+const requiredProjectOperationContextConsumers = [
+  'app/dashboard/projects/[id]/operations/attendance-workspace.js',
+  'app/dashboard/projects/[id]/operations/labor/page.js',
+  'app/dashboard/projects/[id]/operations/tool-shell.js',
+  'app/dashboard/projects/[id]/operations/movements/page.js',
+  'app/dashboard/projects/[id]/operations/custody/page.js',
+];
+
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -64,6 +72,21 @@ for (const scope of scanRoots) {
     if (hasDirectItemExecutionWrite(text)) {
       violations.push(`${rel}: direct item_execution write; use constitutional execution RPC gateway`);
     }
+  }
+}
+
+// «الوحدة الدستورية بلا مستهلك ليست دستورًا»: كل أدوات التشغيل التي تغيّر أو
+// تسجل يومًا/مقاولًا يجب أن تستهلك سياق المشروع نفسه. هذا الفحص يمنع عودة
+// مجموعتين من localStorage تمحو إحداهما اختيار الأخرى.
+for (const rel of requiredProjectOperationContextConsumers) {
+  const full = path.join(root, rel);
+  if (!fs.existsSync(full)) {
+    violations.push(`${rel}: required project operation context consumer is missing`);
+    continue;
+  }
+  const text = fs.readFileSync(full, 'utf8');
+  if (!text.includes('useProjectOperationContext')) {
+    violations.push(`${rel}: project operation screen bypasses shared useProjectOperationContext`);
   }
 }
 
