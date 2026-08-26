@@ -1,0 +1,65 @@
+.backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1400;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(21,18,16,.42);
+  backdrop-filter:blur(2px);
+}
+.dialog{
+  width:min(760px,calc(100vw - 48px));
+  max-height:min(88vh,900px);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid var(--ui-border,#d8d3c8);
+  border-radius:14px;
+  background:var(--ui-paper,#fbfaf7);
+  color:var(--ui-ink,#11110f);
+  box-shadow:0 24px 70px rgba(34,24,21,.24);
+  outline:none;
+}
+.size_compact{width:min(520px,calc(100vw - 48px))}
+.size_wide{width:min(860px,calc(100vw - 48px))}
+.header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex:0 0 auto;
+  padding:15px 18px 13px;
+  border-bottom:1px solid var(--ui-border-soft,#e8e4dc);
+  background:#f7f4ee;
+}
+.heading{min-width:0}.heading h2{margin:0;font-size:16px;line-height:1.35;font-weight:900}.heading p{margin:5px 0 0;color:var(--ui-muted,#66645f);font-size:10.5px;line-height:1.65}
+.close{
+  flex:0 0 auto;
+  width:32px;
+  height:32px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid var(--ui-border,#d8d3c8);
+  border-radius:8px;
+  background:var(--ui-paper,#fbfaf7);
+  color:var(--ui-ink,#11110f);
+  font:600 22px/1 sans-serif;
+  cursor:pointer;
+}
+.close:hover{background:#efeae2}
+.body{min-height:0;overflow:auto;padding:16px 18px 18px}
+.body :global(.section){margin:0;border:0;border-radius:0;background:transparent;overflow:visible}
+.body :global(.section)>header:first-child{padding:0 0 12px;border-bottom:1px solid var(--ui-border-soft,#e8e4dc)}
+
+@media(max-width:620px){
+  .backdrop{place-items:end stretch;padding:0}
+  .dialog,.size_compact,.size_wide{width:100%;max-height:92vh;border-radius:16px 16px 0 0;border-inline:0;border-bottom:0}
+  .header{padding:14px 14px 12px}.body{padding:14px}
+}
+
+@media(prefers-reduced-motion:no-preference){
+  .dialog{animation:dialog-in 120ms ease-out}
+  @keyframes dialog-in{from{transform:translateY(8px);opacity:.7}to{transform:translateY(0);opacity:1}}
+}
