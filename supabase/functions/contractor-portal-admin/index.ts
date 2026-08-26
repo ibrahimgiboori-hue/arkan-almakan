@@ -25,12 +25,27 @@ Deno.serve(async (req: Request) => {
   try {
     const url=Deno.env.get('SUPABASE_URL')!;
     const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+    const anonKey=Deno.env.get('SUPABASE_ANON_KEY')!;
     const token=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
+    if(!token) return json({error:'unauthorized'},401);
+
+    const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
     const {data:{user},error:userError}=await admin.auth.getUser(token);
     if(userError||!user) return json({error:'unauthorized'},401);
-    const {data:operator}=await admin.from('app_users').select('role,is_active').eq('id',user.id).maybeSingle();
-    if(!operator?.is_active||operator.role!=='ceo') return json({error:'forbidden'},403);
+
+    // الدستور الوحيد للصلاحيات: لا نفحص role هنا ولا نكرر منطق الباقات.
+    // projects_full_access يرث هذه الصلاحية تلقائيًا عبر has_capability.
+    const actor=createClient(url,anonKey,{
+      global:{headers:{Authorization:`Bearer ${token}`}},
+      auth:{persistSession:false,autoRefreshToken:false},
+    });
+    const {data:allowed,error:capabilityError}=await actor.rpc('has_capability',{
+      p_capability:'projects.contractors.edit',
+      p_scope_type:'all',
+      p_scope_key:null,
+      p_amount:null,
+    });
+    if(capabilityError||allowed!==true) return json({error:'forbidden'},403);
 
     const body=await req.json();
     const action=String(body.action||'');
