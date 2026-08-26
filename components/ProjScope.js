@@ -29,7 +29,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   async function load() {
     const [i, e, c, bg, st, tt, ac] = await Promise.all([
       supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
-      supabase.from('item_execution').select('*').order('decided_at', { ascending: true }),
+      supabase.from('v_item_execution_assignments').select('*').eq('project_id', projectId)
+        .order('decided_at', { ascending: true }),
       supabase.from('contractors').select('id, name_ar, worker_daily, tech_daily')
         .eq('is_active', true).order('name_ar'),
       supabase.from('v_item_budget').select('*').eq('project_id', projectId),
@@ -74,7 +75,6 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     if (error) setErr('تعذّر الإدراج: ' + error.message); else load();
   }
 
-  // الحقول التي تغيّر الحسابات: تُعيد قراءة كل شيء مرتبط
   const CALC_FIELDS = ['contract_qty','sell_price','budget_cost'];
 
   async function upd(id, fields) {
@@ -82,7 +82,6 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     const { error } = await supabase.from('project_items').update(fields).eq('id', id);
     if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
 
-    // إن مسّ التعديل رقماً محسوباً، أعِد قراءة الملخصات كلها
     if (Object.keys(fields).some((k) => CALC_FIELDS.includes(k))) {
       await refreshCalc();
     }
@@ -90,7 +89,6 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     onChange?.();
   }
 
-  // إعادة قراءة الملخصات المحسوبة: القيم والميزانيات وحالات التنفيذ
   async function refreshCalc() {
     const [i, bg, st] = await Promise.all([
       supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
@@ -128,31 +126,31 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       mode: 'piecework', contractor_id: '', agreed_rate: '', worker_daily: '',
       tech_daily: '', target_output: '', shortfall_deduction: '', planned_cost: '',
       share_qty: t.qty_remaining != null ? String(t.qty_remaining) : '',
-      start_date: '', notes: '',
+      notes: '',
     });
     setErr(''); setMsg('');
   }
 
+  const nullableNumber = (value) => value === '' || value == null ? null : Number(value);
+
   async function saveDecision(e) {
     e.preventDefault(); setErr('');
-    const payload = {
-      project_item_id: decideFor.id,
-      mode: d.mode,
-      contractor_id: d.contractor_id || null,
-      agreed_rate: d.agreed_rate === '' ? null : Number(d.agreed_rate),
-      worker_daily: d.worker_daily === '' ? null : Number(d.worker_daily),
-      tech_daily: d.tech_daily === '' ? null : Number(d.tech_daily),
-      target_output: d.target_output === '' ? null : Number(d.target_output),
-      shortfall_deduction: d.shortfall_deduction === '' ? null : Number(d.shortfall_deduction),
-      planned_cost: d.planned_cost === '' ? null : Number(d.planned_cost),
-      share_qty: d.share_qty === '' || d.share_qty == null ? null : Number(d.share_qty),
-      start_date: d.start_date || null,
-      notes: d.notes || null,
-    };
-    const res = editExec
-      ? await supabase.from('item_execution').update(payload).eq('id', editExec.id)
-      : await supabase.from('item_execution').insert(payload);
-    if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
+    const { error } = await supabase.rpc('fn_save_item_execution_assignment', {
+      p_project_item_id: decideFor.id,
+      p_mode: d.mode,
+      p_contractor_id: d.contractor_id || null,
+      p_agreed_rate: nullableNumber(d.agreed_rate),
+      p_worker_daily: nullableNumber(d.worker_daily),
+      p_tech_daily: nullableNumber(d.tech_daily),
+      p_target_output: nullableNumber(d.target_output),
+      p_shortfall_deduction: nullableNumber(d.shortfall_deduction),
+      p_planned_cost: nullableNumber(d.planned_cost),
+      p_share_qty: nullableNumber(d.share_qty),
+      p_share_percent: nullableNumber(d.share_percent),
+      p_notes: d.notes || null,
+      p_execution_id: editExec?.id || null,
+    });
+    if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
     setMsg(editExec ? 'حُدّث الإسناد' : 'أُضيف الإسناد');
     setDecideFor(null); setEditExec(null);
     await load(); notifyChange('exec'); onChange?.();
@@ -160,15 +158,16 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
   async function startExec(ex, date) {
     setStarting(ex.id); setErr(''); setMsg('');
-    const { data, error } = await supabase.rpc('start_item_assignment',
-      { p_exec: ex.id, p_start_date: date || null });
+    const { data, error } = await supabase.rpc('fn_start_item_execution_assignment',
+      { p_execution_id: ex.id, p_start_date: date || null });
     setStarting(null);
     if (error) { setErr(error.message); return; }
     const parts = ['بدأ التنفيذ'];
-    if (data?.created_agreement) parts.push('وأُنشئ اتفاق المقاول');
+    if (data?.created_project_contractor) parts.push('وتم ربط المقاول بالمشروع');
+    else if (data?.reactivated_project_contractor) parts.push('وأُعيد تفعيل ارتباط المقاول بالمشروع');
     setMsg(parts.join(' ') + '.');
     setAskStart(null);
-    load();
+    await load(); notifyChange('exec'); onChange?.();
   }
 
   function openEnd(ex, item) {
@@ -197,12 +196,11 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     if (ex.end_date) { setErr('الإسناد المنتهي لا يُحذف — التاريخ يبقى.'); return; }
     const { error } = await supabase.from('item_execution').delete().eq('id', ex.id);
     if (error) setErr('تعذّر الحذف: ' + error.message);
-    else load();
+    else { await load(); notifyChange('exec'); onChange?.(); }
   }
 
   if (!items) return <div className="empty">جارٍ التحميل…</div>;
 
-  // الترقيم الهرمي
   let top = 0, sub = 0, inTitle = false;
   const numbered = items.map((l) => {
     let number = '';
@@ -331,7 +329,6 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                     {(() => {
                       const list = execsOf(l.id);
                       const t = totOf(l.id);
-                      const st = states.find((x)=>x.project_item_id===l.id);
                       if (!list.length) {
                         return (
                           <div>
@@ -635,11 +632,6 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                   المتبقي من البند {Number(totOf(decideFor.id).qty_remaining || 0).toLocaleString('en-US')}
                   {' '}{decideFor.unit || ''} — اتركها فارغة لحصة مفتوحة
                 </span>
-              </div>
-              <div className="field">
-                <label>تاريخ بدء عمله</label>
-                <input type="date" dir="ltr" value={d.start_date || ''}
-                       onChange={(e)=>setD({...d, start_date:e.target.value})} />
               </div>
               <div className="field">
                 <label>التكلفة الكلية المخططة</label>
