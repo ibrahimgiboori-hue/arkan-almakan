@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
+import { selectRosterAssignmentsForPeriod } from '@/lib/site-operation-roster.mjs';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
 import {
   arabicDayName,
-  assignmentOverlaps,
   buildAttendanceMap,
   chunk,
   dateRange,
@@ -91,7 +91,12 @@ export default function TimesheetPrintPage() {
       if (attendanceResult.error) { setError(`تعذر تحميل سجلات الحضور: ${attendanceResult.error.message}`); setLoading(false); return; }
 
       const attendanceRows = attendanceResult.data || [];
-      let assignmentRows = (assignmentQuery.data || []).filter((row) => assignmentOverlaps(row,query.from,query.to));
+      let assignmentRows = selectRosterAssignmentsForPeriod(
+        assignmentQuery.data || [],
+        query.from,
+        query.to,
+        { contractorId:query.contractorId },
+      );
       if (query.mode === 'worker') {
         const wanted = new Set(query.workerIds);
         assignmentRows = assignmentRows.filter((row) => wanted.has(row.laborer_id));
@@ -112,10 +117,7 @@ export default function TimesheetPrintPage() {
       const laborerById = Object.fromEntries(laborerRows.map((row) => [row.id,row]));
       const attendanceByWorker = new Map();
       attendanceRows.forEach((row) => { if (!attendanceByWorker.has(row.laborer_id)) attendanceByWorker.set(row.laborer_id,row); });
-      const assignmentByWorker = new Map();
-      assignmentRows.sort((a,b) => String(b.valid_from || '').localeCompare(String(a.valid_from || ''))).forEach((row) => {
-        if (!assignmentByWorker.has(row.laborer_id)) assignmentByWorker.set(row.laborer_id,row);
-      });
+      const assignmentByWorker = new Map(assignmentRows.map((row) => [row.laborer_id,row]));
       let ids = [...new Set([...assignmentByWorker.keys(),...attendanceByWorker.keys()])];
       if (query.mode === 'worker') {
         const available = new Set(ids);
