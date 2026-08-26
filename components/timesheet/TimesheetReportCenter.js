@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { assignmentOverlaps, dateRange, displayDate, isoDate } from '@/lib/timesheet-report.mjs';
+import { dateRange, displayDate, isoDate } from '@/lib/timesheet-report.mjs';
+import {
+  rosterContractorIdsForPeriod,
+  selectRosterAssignmentsForPeriod,
+} from '@/lib/site-operation-roster.mjs';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import styles from '@/app/dashboard/site-operations/reports/page.module.css';
 
@@ -92,17 +96,26 @@ export default function TimesheetReportCenter({ fixedProjectId = '' }) {
     return () => { alive = false; };
   }, [projectId, fixedProjectId]);
 
-  const contractorIds = useMemo(()=>[...new Set(assignments.map((row)=>row.contractor_id).filter(Boolean))],[assignments]);
-  const contractors = useMemo(()=>allContractors.filter((row)=>contractorIds.includes(row.id)).sort((a,b)=>naturalCompare(a.name_ar,b.name_ar)),[allContractors,contractorIds]);
+  const rangeTo = mode === 'paper' ? from : to;
+  const contractorIds = useMemo(
+    () => rosterContractorIdsForPeriod(assignments, from, rangeTo),
+    [assignments, from, rangeTo],
+  );
+  const contractors = useMemo(
+    () => allContractors.filter((row)=>contractorIds.includes(row.id)).sort((a,b)=>naturalCompare(a.name_ar,b.name_ar)),
+    [allContractors,contractorIds],
+  );
+
+  useEffect(() => {
+    if (contractorId && !contractors.some((row) => row.id === contractorId)) setContractorId('');
+  }, [contractorId, contractors]);
+
   const roster = useMemo(()=>{
-    if (!contractorId || !from || (mode === 'contractor' && (!to || to < from))) return [];
-    const rangeTo = mode === 'paper' ? from : to;
-    const relevant = assignments.filter((row)=>row.contractor_id===contractorId && assignmentOverlaps(row,from,rangeTo));
-    const latestByWorker = new Map();
-    relevant.forEach((row)=>{ const current=latestByWorker.get(row.laborer_id); if(!current || String(row.valid_from||'').localeCompare(String(current.valid_from||''))>0) latestByWorker.set(row.laborer_id,row); });
+    if (!contractorId || !from || !rangeTo || rangeTo < from) return [];
+    const relevant = selectRosterAssignmentsForPeriod(assignments, from, rangeTo, { contractorId });
     const laborerById = Object.fromEntries(laborers.map((row)=>[row.id,row]));
-    return [...latestByWorker.values()].map((assignment)=>{ const worker=laborerById[assignment.laborer_id]||{}; return {id:assignment.laborer_id,name:worker.full_name||'—',trade:assignment.trade||worker.trade||'',laborClass:assignment.labor_class||worker.labor_class||'',from:assignment.valid_from,to:assignment.valid_to}; }).sort((a,b)=>naturalCompare(a.name,b.name));
-  },[assignments,laborers,contractorId,from,to,mode]);
+    return relevant.map((assignment)=>{ const worker=laborerById[assignment.laborer_id]||{}; return {id:assignment.laborer_id,name:worker.full_name||'—',trade:assignment.trade||worker.trade||'',laborClass:assignment.labor_class||worker.labor_class||'',from:assignment.valid_from,to:assignment.valid_to}; }).sort((a,b)=>naturalCompare(a.name,b.name));
+  },[assignments,laborers,contractorId,from,rangeTo]);
 
   const contractor = contractors.find((row)=>row.id===contractorId);
   const selectedProject = projects.find((row)=>row.id===projectId);
@@ -118,7 +131,6 @@ export default function TimesheetReportCenter({ fixedProjectId = '' }) {
     if (mode === 'blank') { window.open('/print/timesheet/blank','_blank','noopener,noreferrer'); return; }
     if (!projectId) return setError('اختر المشروع أولًا.');
     if (!contractorId) return setError('اختر المقاول.');
-    const rangeTo = mode === 'paper' ? from : to;
     if (!from || !rangeTo || rangeTo < from) return setError('راجع تاريخ البداية والنهاية.');
     if (!dateRange(from,rangeTo).length) return setError('الفترة يجب أن تكون صحيحة وألا تتجاوز 370 يومًا في التقرير الواحد.');
     if (!roster.length) return setError('لا توجد عمالة مسندة لهذا المقاول في التاريخ أو الفترة المختارة.');

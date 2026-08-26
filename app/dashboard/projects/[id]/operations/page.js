@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { receiptLabel } from '@/lib/operation-safety.mjs';
+import { selectRosterAssignmentsForDate } from '@/lib/site-operation-roster.mjs';
 import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
 import BulkAttendanceList from './BulkAttendanceList';
 import styles from './operations.module.css';
@@ -75,7 +76,7 @@ export default function ProjectDailyOperations() {
       const firstError = [dayQ, assignQ, projectContractorQ].find((x) => x.error)?.error;
       if (firstError) throw firstError;
 
-      const assignments = assignQ.data || [];
+      const assignments = selectRosterAssignmentsForDate(assignQ.data || [], date);
       const contractorIds = [...new Set([
         ...(projectContractorQ.data || []).map((x) => x.contractor_id),
         ...assignments.map((x) => x.contractor_id),
