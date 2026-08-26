@@ -3,19 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { todayIsoInRiyadh } from '@/lib/format';
+import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
+import { selectRosterAssignmentsForDate } from '@/lib/site-operation-roster.mjs';
+import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { OutputPanel, FinancePanel } from './operation-panels';
 import DirectExpensePanel from './direct-expense-panel';
 import styles from './tool-shell.module.css';
 
-const iso = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const naturalCompare = (a='',b='') => String(a).localeCompare(String(b),'ar',{numeric:true,sensitivity:'base'});
-
-function moveDate(value, days){
-  const [y,m,d] = String(value).split('-').map(Number);
-  const next = new Date(y,m-1,d);
-  next.setDate(next.getDate()+days);
-  return iso(next);
-}
 
 function dateLabel(value){
   if(!value)return '—';
@@ -25,11 +21,14 @@ function dateLabel(value){
 
 export default function OperationToolShell({ type }){
   const { id:projectId } = useParams();
-  const dateKey = `arkan.project.ops.date.${projectId}`;
-  const contractorKey = `arkan.project.ops.contractor.${projectId}`;
-  const [date,setDate] = useState(iso(new Date()));
+  const {
+    date,
+    contractorId,
+    ready:contextReady,
+    setDate,
+    setContractorId,
+  } = useProjectOperationContext(projectId);
   const [contractors,setContractors] = useState([]);
-  const [contractorId,setContractorId] = useState('');
   const [loading,setLoading] = useState(true);
   const [err,setErr] = useState('');
   const [pendingSync,setPendingSync] = useState(0);
@@ -38,29 +37,30 @@ export default function OperationToolShell({ type }){
   const [reportTo,setReportTo] = useState('');
 
   useEffect(()=>{
-    if(typeof window==='undefined')return;
-    const savedDate = localStorage.getItem(dateKey);
-    if(savedDate)setDate(savedDate);
-  },[dateKey]);
-
-  useEffect(()=>{
-    if(typeof window!=='undefined')localStorage.setItem(dateKey,date);
-  },[date,dateKey]);
-
-  useEffect(()=>{
     let active=true;
     (async()=>{
-      if(!projectId||!date)return;
+      if(!contextReady||!projectId||!date)return;
       setLoading(true);setErr('');
       try{
-        const linkQ = await supabase.from('project_contractors')
-          .select('contractor_id,basis,start_date,end_date,is_active')
-          .eq('project_id',projectId)
-          .eq('is_active',true)
-          .lte('start_date',date)
-          .or(`end_date.is.null,end_date.gte.${date}`);
-        if(linkQ.error)throw linkQ.error;
-        const ids=[...new Set((linkQ.data||[]).map(x=>x.contractor_id).filter(Boolean))];
+        const [linkQ,assignmentQ] = await Promise.all([
+          supabase.from('project_contractors')
+            .select('contractor_id,basis,start_date,end_date,is_active')
+            .eq('project_id',projectId)
+            .eq('is_active',true)
+            .lte('start_date',date)
+            .or(`end_date.is.null,end_date.gte.${date}`),
+          supabase.from('labor_project_assignments')
+            .select('laborer_id,contractor_id,valid_from,valid_to')
+            .eq('project_id',projectId)
+            .lte('valid_from',date)
+            .or(`valid_to.is.null,valid_to.gte.${date}`),
+        ]);
+        const firstError=linkQ.error||assignmentQ.error;if(firstError)throw firstError;
+        const assignments=selectRosterAssignmentsForDate(assignmentQ.data||[],date);
+        const ids=[...new Set([
+          ...(linkQ.data||[]).map(x=>x.contractor_id),
+          ...assignments.map(x=>x.contractor_id),
+        ].filter(Boolean))];
         const contractorQ = ids.length
           ? await supabase.from('contractors').select('id,name_ar,operation_alias,contractor_no').in('id',ids)
           : {data:[],error:null};
@@ -71,21 +71,12 @@ export default function OperationToolShell({ type }){
           project_basis:(linkQ.data||[]).find(x=>x.contractor_id===c.id)?.basis||null,
         })).sort((a,b)=>naturalCompare(a.name_ar,b.name_ar));
         setContractors(rows);
-        const saved=typeof window!=='undefined'?localStorage.getItem(contractorKey):'';
-        setContractorId(current=>{
-          if(current&&rows.some(x=>x.id===current))return current;
-          if(saved&&rows.some(x=>x.id===saved))return saved;
-          return rows[0]?.id||'';
-        });
+        if(!contractorId||!rows.some(x=>x.id===contractorId))setContractorId(rows[0]?.id||'');
       }catch(e){if(active)setErr('تعذر تحميل سياق التشغيل: '+(e.message||e));}
       if(active)setLoading(false);
     })();
     return()=>{active=false};
-  },[projectId,date,contractorKey]);
-
-  useEffect(()=>{
-    if(typeof window!=='undefined'&&contractorId)localStorage.setItem(contractorKey,contractorId);
-  },[contractorId,contractorKey]);
+  },[contextReady,projectId,date,contractorId,setContractorId]);
 
   const contractor = useMemo(()=>contractors.find(x=>x.id===contractorId)||null,[contractors,contractorId]);
 
@@ -111,15 +102,17 @@ export default function OperationToolShell({ type }){
     setReportOpen(false);
   }
 
+  if(!contextReady)return <div className={styles.empty}>جارٍ فتح سياق المشروع…</div>;
+
   return <div className={styles.root} dir="rtl">
     <section className={styles.contextBar}>
       <div className={styles.mode}><span>التشغيل اليومي</span><strong>{title}</strong></div>
       <div className={styles.dateNav}>
-        <button type="button" onClick={()=>setDate(d=>moveDate(d,1))} aria-label="اليوم التالي">←</button>
+        <button type="button" onClick={()=>setDate(d=>moveOperationalDate(d,1))} aria-label="اليوم التالي">←</button>
         <div><strong>{dateLabel(date)}</strong><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
-        <button type="button" onClick={()=>setDate(d=>moveDate(d,-1))} aria-label="اليوم السابق">→</button>
+        <button type="button" onClick={()=>setDate(d=>moveOperationalDate(d,-1))} aria-label="اليوم السابق">→</button>
       </div>
-      <button className={styles.today} type="button" onClick={()=>setDate(iso(new Date()))}>اليوم</button>
+      <button className={styles.today} type="button" onClick={()=>setDate(todayIsoInRiyadh())}>اليوم</button>
       {type==='expenses'&&<button className={styles.reportButton} type="button" onClick={openExpenseReport}>طباعة المصروفات</button>}
       <div className={styles.contractorSelect}><span>المقاول</span><select value={contractorId} onChange={e=>setContractorId(e.target.value)}>{contractors.map(c=><option key={c.id} value={c.id}>{c.operation_alias||c.name_ar}</option>)}</select></div>
       <div className={styles.contextMeta}><strong>{contractor?.name_ar||'—'}</strong><span>{contractor?.project_basis==='piecework'?'مقطوعية / بالوحدة':contractor?.project_basis==='salary'?'راتب':'يومية'}</span></div>
@@ -140,7 +133,7 @@ export default function OperationToolShell({ type }){
     {err&&<div className={styles.error}>{err}</div>}
     {pendingSync>0&&<div className={styles.pending}>{pendingSync} حركة محفوظة على الجهاز وتنتظر المزامنة.</div>}
 
-    {loading?<div className={styles.empty}>جارٍ فتح مساحة التشغيل…</div>:!contractor?<div className={styles.empty}>لا يوجد مقاول مرتبط بالمشروع في هذا التاريخ.</div>:<>
+    {loading?<div className={styles.empty}>جارٍ فتح مساحة التشغيل…</div>:!contractor?<div className={styles.empty}>لا يوجد مقاول مرتبط أو مسند له عمالة في هذا التاريخ.</div>:<>
       {type==='output'&&<OutputPanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
       {type==='expenses'&&<DirectExpensePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
       {type==='finance'&&<FinancePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
