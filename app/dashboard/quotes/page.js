@@ -18,7 +18,7 @@ export default function Quotes() {
   const router = useRouter();
   const [rows, setRows] = useState(null);
   const [tot, setTot] = useState({});
-  const [role, setRole] = useState(null);
+  const [access, setAccess] = useState({canCreate:false,canEdit:false,canCreateProject:false});
   const [newLang, setNewLang] = useState('ar');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -26,14 +26,26 @@ export default function Quotes() {
 
   async function load() {
     const sess = (await supabase.auth.getSession()).data.session;
-    const [q, t, u] = await Promise.all([
+    const [q, t, capsQ, primaryQ, userQ] = await Promise.all([
       supabase.from('quotations').select('*').order('created_at', { ascending: false }),
       supabase.from('v_quote_totals').select('*'),
-      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
+      supabase.from('v_my_capabilities').select('capability_key,scope_type,scope_key,source_key'),
+      supabase.rpc('fn_is_primary_user'),
+      sess?.user?.id ? supabase.from('app_users').select('is_system_admin').eq('id', sess.user.id).maybeSingle() : Promise.resolve({data:null,error:null}),
     ]);
     setRows(q.data || []);
     const m = {}; (t.data || []).forEach((x) => { m[x.id] = x; });
-    setTot(m); setRole(u.data?.role || null);
+    setTot(m);
+    const caps = capsQ.data || [];
+    const systemFull = primaryQ.data === true || Boolean(userQ.data?.is_system_admin);
+    const portalFull = systemFull || caps.some((cap)=>cap.source_key==='projects_full_access'&&cap.scope_type==='all');
+    const keys = new Set(caps.filter((cap)=>cap.scope_type==='all').map((cap)=>cap.capability_key));
+    const has = (key) => portalFull || keys.has(key);
+    setAccess({
+      canCreate:has('projects.quotes.create'),
+      canEdit:has('projects.quotes.edit'),
+      canCreateProject:has('projects.projects.create'),
+    });
   }
 
   useEffect(() => { load(); }, []);
@@ -111,8 +123,6 @@ export default function Quotes() {
 
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
 
-  const canWrite = ['ceo','hr','accountant'].includes(role);
-
   return (
     <>
       <div className="page-head">
@@ -120,7 +130,7 @@ export default function Quotes() {
           <h1>عروض الأسعار وجداول الكميات</h1>
           <p>لغة العرض محفوظة داخل كل مستند ويمكن تغييرها في أي وقت.</p>
         </div>
-        <div className="rowsplit">
+        {access.canCreate&&<div className="rowsplit">
           <label style={{fontSize:12.5,color:'var(--ink-soft)'}}>لغة العرض الجديد</label>
           <select value={newLang} onChange={(e)=>setNewLang(e.target.value)}
                   aria-label="لغة العرض الجديد" style={{minWidth:112}}>
@@ -129,7 +139,7 @@ export default function Quotes() {
           </select>
           <button className="btn" disabled={busy} onClick={()=>create('quotation')}>عرض سعر جديد</button>
           <button className="btn ghost" disabled={busy} onClick={()=>create('boq')}>جدول كميات جديد</button>
-        </div>
+        </div>}
       </div>
 
       {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
@@ -138,7 +148,7 @@ export default function Quotes() {
       <div className="section" style={{marginTop:0}}>
         <header><h2>السجل</h2></header>
         {rows.length === 0 ? (
-          <div className="empty"><h3>لا عروض بعد</h3><p>اختر اللغة ثم أنشئ عرض سعر أو جدول كميات.</p></div>
+          <div className="empty"><h3>لا عروض بعد</h3><p>{access.canCreate?'اختر اللغة ثم أنشئ عرض سعر أو جدول كميات.':'لا توجد عروض متاحة لهذا الحساب.'}</p></div>
         ) : (
           <table>
             <thead>
@@ -152,7 +162,7 @@ export default function Quotes() {
                   <td className="mono">{r.quote_no}</td>
                   <td>{r.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</td>
                   <td>
-                    {canWrite ? (
+                    {access.canEdit ? (
                       <select value={r.language || 'ar'} onChange={(e)=>setLanguage(r,e.target.value)}
                               aria-label={`لغة ${r.quote_no}`} style={{fontSize:12.5,padding:'2px 4px',minWidth:92}}>
                         <option value="ar">العربية</option>
@@ -164,7 +174,7 @@ export default function Quotes() {
                   <td className="mono">{dateAr(r.quote_date)}</td>
                   <td className="num">{money(tot[r.id]?.grand_total || 0)}</td>
                   <td>
-                    {canWrite ? (
+                    {access.canEdit ? (
                       <select value={r.status} onChange={(e)=>setStatus(r, e.target.value)}
                               style={{fontSize:12.5,padding:'2px 4px'}}>
                         {Object.entries(QSTATUS_AR).map(([k,v])=>(<option key={k} value={k}>{v}</option>))}
@@ -174,15 +184,15 @@ export default function Quotes() {
                   <td>
                     <div className="rowsplit">
                       <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
-                            href={`/dashboard/quotes/${r.id}`}>تعديل</Link>
+                            href={`/dashboard/quotes/${r.id}`}>{access.canEdit?'تعديل':'فتح'}</Link>
                       <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
                             href={`/print/quote/${r.id}`} target="_blank">طباعة</Link>
-                      {canWrite && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
+                      {access.canCreate && access.canEdit && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}}
                                            disabled={busy} onClick={()=>duplicate(r)}>نسخ</button>}
-                      {canWrite && r.status === 'accepted' && (
+                      {access.canEdit && access.canCreateProject && r.status === 'accepted' && (
                         <button className="btn" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toProject(r)}>← مشروع</button>
                       )}
-                      {canWrite && (
+                      {access.canEdit && (
                         <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}}
                                 onClick={()=>remove(r)}>حذف</button>
                       )}
