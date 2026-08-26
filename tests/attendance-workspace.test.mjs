@@ -47,6 +47,48 @@ test('registered and unregistered attendance panes are structurally symmetric', 
   }
 });
 
+test('attendance ignores stale responses after the operator changes day', () => {
+  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  assert.match(page, /loadSeqRef/);
+  assert.match(page, /dateRef/);
+  assert.match(page, /requestDate/);
+  assert.match(page, /dateRef\.current !== requestDate/);
+});
+
+test('legacy stopped and leave states are preserved and protected from quick overwrite', () => {
+  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
+  assert.match(page, /stopped/);
+  assert.match(page, /leave/);
+  assert.match(page, /PROTECTED_STATUSES/);
+  assert.match(registered, /متوقف — حالة محفوظة/);
+  assert.match(registered, /إجازة — حالة محفوظة/);
+});
+
+test('queued attendance moves into registered list without creating duplicate clicks', () => {
+  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
+  assert.match(page, /pending: true/);
+  assert.match(page, /existing\?\.pending/);
+  assert.match(registered, /بانتظار المزامنة/);
+});
+
+test('attendance cancellation rejects false-success boolean and stale row identity', () => {
+  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  assert.match(page, /data !== true/);
+  assert.match(page, /current\[worker\.id\]\?\.id !== row\.id/);
+  assert.match(page, /row\.work_date/);
+});
+
+test('load failures remain errors and never masquerade as empty rosters', () => {
+  const attendance = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  const labor = read('app/dashboard/projects/[id]/operations/labor/page.js');
+  assert.match(attendance, /loadError/);
+  assert.match(attendance, /لم تُعرض حالة فارغة بديلة/);
+  assert.match(labor, /loadError/);
+  assert.match(labor, /لن نعرض حالة «لا توجد عمالة»/);
+});
+
 test('contractor with no labor has a corrective route instead of false completion', () => {
   const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
   assert.match(page, /بلا عمالة/);
@@ -60,4 +102,21 @@ test('labor management lives inside the project and uses existing guarded RPCs',
   assert.match(page, /fn_move_laborer/);
   assert.match(page, /fn_update_labor_assignment/);
   assert.equal(page.includes('/dashboard/site-operations'), false);
+});
+
+test('labor transfer uses the target contractor rate instead of carrying the old rate', () => {
+  const labor = read('app/dashboard/projects/[id]/operations/labor/page.js');
+  assert.match(labor, /rateForTarget/);
+  assert.match(labor, /يومية الإسناد الجديد/);
+  assert.equal(labor.includes('p_daily_rate: moveFor.daily_rate'), false);
+  assert.match(labor, /p_daily_rate: moveFor\.pay_basis === 'daily'/);
+});
+
+test('custody follows the same project operation date and uses a constitutional confirmation', () => {
+  const custody = read('app/dashboard/projects/[id]/operations/custody/page.js');
+  assert.match(custody, /useProjectOperationContext/);
+  assert.match(custody, /trx_date:operationDate/);
+  assert.match(custody, /opened_at:operationDate/);
+  assert.match(custody, /ConstitutionDialog/);
+  assert.equal(custody.includes('window.confirm'), false);
 });
