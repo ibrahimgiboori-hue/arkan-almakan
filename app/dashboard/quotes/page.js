@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr, money } from '@/lib/format';
 import { QSTATUS_AR } from '@/lib/quote-calc';
+import { SYSTEM } from '@/lib/system-constitution';
 
 const EN_INTRO = 'We are pleased to submit our quotation for the execution of the works described below, in accordance with the approved drawings, specifications, and project requirements.';
 const EN_CLOSING = 'We trust that our quotation meets your requirements and look forward to the opportunity to work with you.';
@@ -53,7 +54,7 @@ export default function Quotes() {
       doc_kind: kind,
       language: newLang,
       client_name: english ? 'New Client' : 'عميل جديد',
-      vat_rate: cfg?.vat_rate ?? 0.15,
+      vat_rate: cfg?.vat_rate ?? SYSTEM.vatRate,
       terms_text: english ? EN_TERMS : (cfg?.quote_terms_default || ''),
       intro_text: english
         ? EN_INTRO
