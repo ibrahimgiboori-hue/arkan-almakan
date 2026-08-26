@@ -10,7 +10,8 @@ export function ConstitutionPage({ children, className = '' }) {
   return <div className={cx(styles.page, className)} data-ui-constitution="native">{children}</div>;
 }
 
-export function PageHeader({ title, description, actions, eyebrow }) {
+export function PageHeader({ title, description, actions, eyebrow, children }) {
+  const headerActions = actions || children;
   return (
     <div className={styles.pageHeader}>
       <div className={styles.pageHeaderCopy}>
@@ -18,7 +19,7 @@ export function PageHeader({ title, description, actions, eyebrow }) {
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
       </div>
-      {actions ? <div className={styles.actions}>{actions}</div> : null}
+      {headerActions ? <div className={styles.actions}>{headerActions}</div> : null}
     </div>
   );
 }
