@@ -23,7 +23,7 @@ export default function Contractors() {
   const [acct, setAcct] = useState([]);
   const [portalAccounts, setPortalAccounts] = useState([]);
   const [projectLinks, setProjectLinks] = useState([]);
-  const [role, setRole] = useState(null);
+  const [access, setAccess] = useState({canEdit:false,canLaborView:false,canLaborAssign:false,canManagePortal:false,canIssuePermit:false});
   const [f, setF] = useState({ ...EMPTY });
   const [editId, setEditId] = useState(null);
   const [open, setOpen] = useState(false);
@@ -35,14 +35,28 @@ export default function Contractors() {
 
   async function load() {
     const sess = (await supabase.auth.getSession()).data.session;
-    const [c, a, u, portal, links] = await Promise.all([
+    const [c, a, capsQ, portal, links, primaryQ, userQ] = await Promise.all([
       supabase.from('contractors').select('*').order('name_ar'),
       supabase.from('v_contractor_account').select('*'),
-      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
+      supabase.from('v_my_capabilities').select('capability_key,scope_type,scope_key,source_key'),
       supabase.from('contractor_portal_accounts').select('id,contractor_id,username,display_name,is_active,password_reset_at,created_at'),
       supabase.from('project_contractors').select('contractor_id,project_id,is_active,start_date,end_date,projects(id,project_no,name_ar,status)').eq('is_active',true),
+      supabase.rpc('fn_is_primary_user'),
+      sess?.user?.id ? supabase.from('app_users').select('is_system_admin').eq('id', sess.user.id).maybeSingle() : Promise.resolve({data:null,error:null}),
     ]);
-    setRows(c.data || []); setAcct(a.data || []); setRole(u.data?.role || null);
+    const caps = capsQ.data || [];
+    const systemFull = primaryQ.data === true || Boolean(userQ.data?.is_system_admin);
+    const portalFull = systemFull || caps.some((cap)=>cap.source_key==='projects_full_access'&&cap.scope_type==='all');
+    const keys = new Set(caps.filter((cap)=>cap.scope_type==='all').map((cap)=>cap.capability_key));
+    const has = (key) => portalFull || keys.has(key);
+    setRows(c.data || []); setAcct(a.data || []);
+    setAccess({
+      canEdit:has('projects.contractors.edit'),
+      canLaborView:has('projects.labor.view'),
+      canLaborAssign:has('projects.labor.assign'),
+      canManagePortal:has('projects.contractors.edit'),
+      canIssuePermit:has('projects.contractor_permits.issue'),
+    });
     setPortalAccounts(portal.data || []);setProjectLinks(links.data || []);
   }
 
@@ -71,7 +85,7 @@ export default function Contractors() {
 
     if (res.error) { setErr('تعذّر الحفظ: ' + res.error.message); return; }
     setMsg(editId ? 'حُفظت التعديلات' : 'أُضيف المقاول');
-    if(!editId&&res.data&&role==='ceo') await provisionPortal(res.data,true);
+    if(!editId&&res.data&&access.canManagePortal) await provisionPortal(res.data,true);
     setF({ ...EMPTY }); setEditId(null); setOpen(false); load();
   }
 
@@ -119,7 +133,7 @@ export default function Contractors() {
 
   if (!rows) return <div className="empty">جارٍ التحميل…</div>;
 
-  const canWrite = ['ceo','hr','accountant'].includes(role);
+  const canWrite = access.canEdit;
   const balOf = (id) => acct.filter((a) => a.contractor_id === id)
     .reduce((t,a) => t + Number(a.balance_before_works || 0), 0);
 
@@ -199,8 +213,8 @@ export default function Contractors() {
                   <td style={{fontSize:12.5}}>{KIND_AR[r.kind]}</td><td style={{fontSize:12.5}}>{r.default_basis || '—'}</td>
                   <td className="num">{r.worker_daily ? money(r.worker_daily) : '—'}</td><td className="num">{r.tech_daily ? money(r.tech_daily) : '—'}</td>
                   <td><span className="pill" style={{fontSize:11.5}}>{CHARGE_AR[r.meals_charge_to]}</span></td><td className="num">{money(balOf(r.id))}</td><td>{'★'.repeat(r.rating || 0)}</td>
-                  <td>{(()=>{const account=portalAccounts.find(a=>a.contractor_id===r.id);return account?<div style={{minWidth:180}}><b>{account.display_name}</b><div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>{account.username}</div><div className="rowsplit" style={{marginTop:6}}>{role==='ceo'&&<><button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>resetPortalPassword(r)}>كلمة جديدة</button><button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>portalAction(r,'set_active',{isActive:!account.is_active})}>{account.is_active?'إيقاف':'تفعيل'}</button>{projectLinks.some(x=>x.contractor_id===r.id)&&<button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>{const links=projectLinks.filter(x=>x.contractor_id===r.id);setPermitPanel({contractor:r,links,form:{project_id:links[0]?.project_id||'',from:new Date().toISOString().slice(0,10),to:new Date().toISOString().slice(0,10),hours:2,reason:''}});}}>تصريح تعديل</button>}</>}</div></div>:role==='ceo'?<button className="btn ghost" style={{padding:'4px 8px',fontSize:11.5}} onClick={()=>provisionPortal(r)}>إنشاء الحساب</button>:<span>غير منشأ</span>;})()}</td>
-                  <td><div className="rowsplit">{canWrite && <><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>router.push(`/dashboard/labor?contractor=${r.id}`)}>العمالة</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>router.push(`/dashboard/labor?contractor=${r.id}&add=1`)}>إضافة عامل</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>startEdit(r)}>تعديل</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toggle(r)}>{r.is_active ? 'تعطيل' : 'تفعيل'}</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(r)}>حذف</button></>}</div></td>
+                  <td>{(()=>{const account=portalAccounts.find(a=>a.contractor_id===r.id);return account?<div style={{minWidth:180}}><b>{account.display_name}</b><div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>{account.username}</div><div className="rowsplit" style={{marginTop:6}}>{access.canManagePortal&&<><button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>resetPortalPassword(r)}>كلمة جديدة</button><button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>portalAction(r,'set_active',{isActive:!account.is_active})}>{account.is_active?'إيقاف':'تفعيل'}</button>{access.canIssuePermit&&projectLinks.some(x=>x.contractor_id===r.id)&&<button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>{const links=projectLinks.filter(x=>x.contractor_id===r.id);setPermitPanel({contractor:r,links,form:{project_id:links[0]?.project_id||'',from:new Date().toISOString().slice(0,10),to:new Date().toISOString().slice(0,10),hours:2,reason:''}});}}>تصريح تعديل</button>}</>}</div></div>:access.canManagePortal?<button className="btn ghost" style={{padding:'4px 8px',fontSize:11.5}} onClick={()=>provisionPortal(r)}>إنشاء الحساب</button>:<span>غير منشأ</span>;})()}</td>
+                  <td><div className="rowsplit">{access.canLaborView&&<button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>router.push(`/dashboard/labor?contractor=${r.id}`)}>العمالة</button>}{access.canLaborAssign&&<button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>router.push(`/dashboard/labor?contractor=${r.id}&add=1`)}>إضافة عامل</button>}{canWrite && <><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>startEdit(r)}>تعديل</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toggle(r)}>{r.is_active ? 'تعطيل' : 'تفعيل'}</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(r)}>حذف</button></>}</div></td>
                 </tr>
               ))}</tbody>
             </table>
