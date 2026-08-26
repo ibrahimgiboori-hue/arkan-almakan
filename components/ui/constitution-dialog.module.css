@@ -63,3 +63,12 @@
   .dialog{animation:dialog-in 120ms ease-out}
   @keyframes dialog-in{from{transform:translateY(8px);opacity:.7}to{transform:translateY(0);opacity:1}}
 }
+
+/* أزرار التأكيد الدستورية — بديل window.confirm */
+.confirmActions{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.confirmDanger{
+  border-color:#e5b9b5!important;
+  color:#942923!important;
+  background:#fff8f7!important;
+}
+.confirmDanger:hover:not(:disabled){background:#fdeeed!important}

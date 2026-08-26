@@ -1,7 +1,27 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import styles from './constitution-dialog.module.css';
+
+// الحوارات قد تتراكب (تأكيد فوق حوار إدارة). حفظ/استرجاع overflow لكل حوار
+// على حدة يترك الصفحة مقفلة عن التمرير عندما يُغلق حواران في نفس اللحظة،
+// لأن ترتيب تنظيف React قد يعيد القيمة القديمة بعد الجديدة. العدّاد يجعل
+// القفل ملكًا للمجموعة كلها: يُفك عند إغلاق آخر حوار فقط.
+let openDialogCount = 0;
+let overflowBeforeFirstDialog = '';
+
+function lockPageScroll() {
+  if (openDialogCount === 0) {
+    overflowBeforeFirstDialog = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  openDialogCount += 1;
+}
+
+function unlockPageScroll() {
+  openDialogCount = Math.max(0, openDialogCount - 1);
+  if (openDialogCount === 0) document.body.style.overflow = overflowBeforeFirstDialog;
+}
 
 export default function ConstitutionDialog({
   open = true,
@@ -12,21 +32,31 @@ export default function ConstitutionDialog({
   size = 'wide',
 }) {
   const dialogRef = useRef(null);
+  // معرّف فريد لكل حوار: المعرّف الثابت كان يُنتج id مكرر في DOM عند التراكب.
+  const titleId = useId();
+
+  // onClose يُمرَّر غالبًا كدالة سهمية داخل JSX، فتتغيّر مرجعيتها كل رسم.
+  // إبقاؤها في deps كان يعيد تشغيل الأثر (وقفل/فك التمرير) مع كل إعادة رسم.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!open) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockPageScroll();
+    // الحوار الأعلى وحده يستجيب لـEscape، حتى لا يُغلق حوار التأكيد وما تحته معًا.
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose?.();
+      if (event.key !== 'Escape') return;
+      const stack = document.querySelectorAll('[data-constitution-dialog]');
+      if (stack.length && stack[stack.length - 1] !== dialogRef.current) return;
+      onCloseRef.current?.();
     };
     document.addEventListener('keydown', onKeyDown);
     requestAnimationFrame(() => dialogRef.current?.focus());
     return () => {
-      document.body.style.overflow = previousOverflow;
+      unlockPageScroll();
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -41,12 +71,13 @@ export default function ConstitutionDialog({
         className={`${styles.dialog} ${styles[`size_${size}`] || ''}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="constitution-dialog-title"
+        aria-labelledby={titleId}
         tabIndex={-1}
+        data-constitution-dialog=""
       >
         <header className={styles.header}>
           <div className={styles.heading}>
-            <h2 id="constitution-dialog-title">{title}</h2>
+            <h2 id={titleId}>{title}</h2>
             {description ? <p>{description}</p> : null}
           </div>
           <button type="button" className={styles.close} onClick={onClose} aria-label="إغلاق">×</button>
