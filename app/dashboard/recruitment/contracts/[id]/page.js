@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr, money } from '@/lib/format';
+import { publicAppUrl } from '@/lib/public-url';
 
 const S={internal_review:'مراجعة داخلية',internal_approved:'معتمد داخلياً',sent:'أُرسل للمرشح',candidate_changes:'أعاد المرشح ملاحظات',accepted:'مقبول',declined:'مرفوض',superseded:'مستبدل'};
 
@@ -28,7 +29,7 @@ export default function ContractEditor(){
   async function copy(v,m){await navigator.clipboard.writeText(v);flash(m);}
   if(!d)return <div className="empty">جارٍ تحميل مسودة العقد…</div>;
   const editable=['internal_review','candidate_changes'].includes(d.status);
-  const link=typeof window!=='undefined'?`${window.location.origin}/contracts/${d.public_token}`:'';
+  const link=publicAppUrl(`/contracts/${d.public_token}`,typeof window!=='undefined'?window.location.origin:'');
   return <><div className="page-head"><div><h1>مسودة عقد العمل</h1><p>{d.job_offers?.candidate_name_snapshot} — النسخة {d.draft_version} — {S[d.status]||d.status}</p></div><div className="rowsplit"><Link className="btn ghost" href="/dashboard/recruitment/contracts">مسودات العقود</Link><Link className="btn ghost" href={`/dashboard/recruitment/applications/${d.application_id}`}>ملف المرشح</Link></div></div>
   {err&&<div className="msg err" style={{marginBottom:12}}>{err}</div>}{saved&&<div className="msg ok" style={{marginBottom:12}}>{saved}</div>}
   {d.status==='candidate_changes'&&<div className="msg" style={{marginBottom:12,lineHeight:1.8}}><strong>ملاحظات المرشح:</strong> {d.candidate_comment||'لم يكتب تفاصيل.'}</div>}
