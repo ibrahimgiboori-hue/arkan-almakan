@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr, money } from '@/lib/format';
+import { publicAppUrl } from '@/lib/public-url';
 
 const OSTATUS={draft:'مسودة',internal_review:'تحت المراجعة الداخلية',internal_approved:'معتمد داخلياً',sent:'أُرسل للمرشح',accepted:'مقبول من المرشح',declined:'اعتذر المرشح',expired:'منتهي الصلاحية',superseded:'نسخة مستبدلة'};
 
@@ -32,7 +33,7 @@ export default function OfferEditor(){
   const c=app.candidates||{},v=app.job_vacancies||{};
   if(!offer)return <><div className="page-head"><div><h1>العرض الوظيفي</h1><p>{c.full_name_ar} — {v.title_ar}</p></div><Link className="btn ghost" href={`/dashboard/recruitment/applications/${id}`}>ملف المرشح</Link></div><div className="section" style={{padding:24,marginTop:0}}><h2 style={{marginTop:0}}>إنشاء العرض من نتيجة الترشيح</h2><p style={{lineHeight:1.9}}>سينشئ النظام مسودة مستقلة تحفظ بيانات المرشح والشاغر في لحظة الإنشاء. أي تعديل لاحق بعد إرسال العرض يحتاج نسخة جديدة وقبولاً جديداً.</p>{err&&<div className="msg err">{err}</div>}<button className="btn" onClick={createOffer} disabled={busy}>{busy?'جارٍ الإنشاء…':'إنشاء مسودة العرض الوظيفي'}</button></div></>;
   const editable=['draft','internal_review'].includes(offer.status);
-  const link=typeof window!=='undefined'?`${window.location.origin}/offers/${offer.public_token}`:'';
+  const link=publicAppUrl(`/offers/${offer.public_token}`,typeof window!=='undefined'?window.location.origin:'');
   const gross=offer.salary_display_mode==='detailed'?[offer.basic_salary,offer.housing_allowance,offer.transport_allowance,offer.other_allowance].reduce((s,x)=>s+Number(x||0),0):Number(offer.gross_salary||0);
   return <>
     <div className="page-head"><div><h1>العرض الوظيفي</h1><p>{c.full_name_ar} — النسخة {offer.offer_version} — {OSTATUS[offer.status]||offer.status}</p></div><div className="rowsplit"><Link className="btn ghost" href={`/dashboard/recruitment/applications/${id}`}>ملف المرشح</Link>{['sent','accepted','declined'].includes(offer.status)&&<button className="btn ghost" onClick={()=>window.open(link,'_blank')}>معاينة رابط المرشح</button>}</div></div>
