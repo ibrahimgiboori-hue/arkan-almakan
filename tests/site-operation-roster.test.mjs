@@ -64,7 +64,7 @@ test('period roster applies the same overlap rule and keeps contractor history s
 });
 
 test('attendance entry report center and printable output consume one roster constitution', () => {
-  const attendance = read('app/dashboard/projects/[id]/operations/page.js');
+  const attendance = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
   const reports = read('components/timesheet/TimesheetReportCenter.js');
   const print = read('app/print/timesheet/page.js');
   assert.match(attendance, /selectRosterAssignmentsForDate/);
