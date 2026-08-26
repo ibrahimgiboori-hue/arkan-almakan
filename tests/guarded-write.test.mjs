@@ -7,8 +7,6 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 const CONFLICT = 'لم يتغيّر شيء.';
 
 test('a guarded write that changed nothing is never reported as success', () => {
-  // هذه هي الحالة الخطرة: الحارس .eq('status','open') لم يطابق أي صف،
-  // فترجع supabase error=null و data=null معًا.
   const outcome = interpretGuardedWrite({ error:null, data:null }, { conflictMessage:CONFLICT });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.changedRows, 0);
@@ -49,7 +47,6 @@ test('guarded screens ask for the affected rows instead of trusting error alone'
   assert.equal(custody.includes('interpretGuardedWrite'), true);
   assert.equal(claims.includes('interpretGuardedWrite'), true);
 
-  // كل تحديث محروس بحالة يجب أن يطلب الصفوف المتأثرة، وإلا فلا سبيل لمعرفة أن شيئًا تغيّر.
   for (const [name, source] of [['custody', custody], ['claims', claims]]) {
     const guarded = source.match(/\.eq\('status',\s*'(open|available)'\)[^\n]*/g) || [];
     assert.ok(guarded.length > 0, `${name} should still have status-guarded writes`);
@@ -61,7 +58,6 @@ test('guarded screens ask for the affected rows instead of trusting error alone'
 
 test('the claims tab surfaces a load error instead of loading forever', () => {
   const claims = read('components/ProjClaims.js');
-  // الحارس نفسه يجب أن يفحص err قبل أن يرسم بديل التحميل — لا مجرد وجود err في الملف.
   const guard = claims.match(/if \(!claims\) \{[\s\S]*?\n  \}/);
   assert.ok(guard, 'claims must still guard on the unloaded state');
   const body = guard[0];
@@ -73,10 +69,9 @@ test('the claims tab surfaces a load error instead of loading forever', () => {
 });
 
 test('a queued attendance write distinguishes offline from server rejection', () => {
-  const attendance = read('app/dashboard/projects/[id]/operations/page.js');
+  const attendance = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
   assert.equal(attendance.includes('function queuedNotice'), true);
   assert.equal(attendance.includes('result?.error'), true);
-  // لا يجوز أن تبقى رسالة «حُفظت … وتنتظر الاتصال» تُطبع دون فحص سبب الانتظار.
   assert.equal(/setMsg\(`حُفظت [^`]*تنتظر الاتصال/.test(attendance), false);
 });
 
