@@ -22,10 +22,29 @@ test('unrecorded workers are explicitly explained as automatic absence', () => {
 
 test('registered attendance can change full-half or be cancelled in place', () => {
   const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
-  assert.match(page, /markWorker\(worker, 'full'\)/);
-  assert.match(page, /markWorker\(worker, 'half'\)/);
-  assert.match(page, /removeAttendance\(worker\)/);
+  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
+  assert.match(page, /RegisteredAttendanceList/);
+  assert.match(registered, /onMarkWorker\(worker, 'full'\)/);
+  assert.match(registered, /onMarkWorker\(worker, 'half'\)/);
+  assert.match(registered, /onRemove\(worker\)/);
   assert.equal(page.includes('window.confirm'), false);
+  assert.equal(registered.includes('window.confirm'), false);
+});
+
+test('registered and unregistered attendance panes are structurally symmetric', () => {
+  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  const layout = read('app/dashboard/projects/[id]/operations/attendance-layout.module.css');
+  const pending = read('app/dashboard/projects/[id]/operations/BulkAttendanceList.js');
+  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
+  assert.match(layout, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.equal((page.match(/className=\{layoutStyles\.pane\}/g) || []).length, 2);
+  for (const source of [pending, registered]) {
+    assert.match(source, /className=\{styles\.table\}/);
+    assert.match(source, />#</);
+    assert.match(source, />العامل</);
+    assert.match(source, />الصفة</);
+    assert.match(source, /styles\.statusButtons/);
+  }
 });
 
 test('contractor with no labor has a corrective route instead of false completion', () => {
