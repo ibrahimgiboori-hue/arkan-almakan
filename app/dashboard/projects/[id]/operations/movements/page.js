@@ -3,30 +3,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { todayIsoInRiyadh } from '@/lib/format';
+import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
+import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import styles from './movements.module.css';
 
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-const iso=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-function moveDate(value,days){const [y,m,d]=String(value).split('-').map(Number);const n=new Date(y,m-1,d);n.setDate(n.getDate()+days);return iso(n)}
 function dateLabel(value){const [y,m,d]=String(value).split('-').map(Number);return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d))}
 const EMPTY_SUMMARY={attendance:0,full:0,half:0,absent:0,outputs:0,expenses:0,custody:0,advances:0,payments:0,movements:0};
 const FILTERS=[['all','الكل'],['attendance','الحضور'],['output','الإنجاز'],['expense','المصروفات'],['custody','العهدة'],['advance','السلف'],['payment','الدفعات']];
 
 export default function MovementsPage(){
   const {id:projectId}=useParams();
-  const dateKey=`arkan.project.ops.date.${projectId}`;
-  const [date,setDate]=useState(iso(new Date()));
+  const {date,ready:contextReady,setDate}=useProjectOperationContext(projectId);
   const [rows,setRows]=useState([]);
   const [summary,setSummary]=useState(EMPTY_SUMMARY);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState('');
   const [filter,setFilter]=useState('all');
 
-  useEffect(()=>{if(typeof window==='undefined')return;const saved=localStorage.getItem(dateKey);if(saved)setDate(saved)},[dateKey]);
-  useEffect(()=>{if(typeof window!=='undefined')localStorage.setItem(dateKey,date)},[date,dateKey]);
-
   const load=useCallback(async()=>{
-    if(!projectId||!date)return;
+    if(!contextReady||!projectId||!date)return;
     setLoading(true);
     setErr('');
     setRows([]);
@@ -49,17 +46,19 @@ export default function MovementsPage(){
     }finally{
       setLoading(false);
     }
-  },[projectId,date]);
+  },[contextReady,projectId,date]);
 
   useEffect(()=>{load()},[load]);
 
   const visible=useMemo(()=>filter==='all'?rows:rows.filter(x=>x.type===filter),[rows,filter]);
 
+  if(!contextReady)return <div className={styles.empty}>جارٍ فتح سياق المشروع…</div>;
+
   return <div className={styles.root} dir="rtl">
     <header className={styles.context}>
       <div><span>DAILY LEDGER</span><h2>حركات اليوم</h2><p>الحضور والإنجاز والحركات المالية المسجلة في التاريخ المختار.</p></div>
-      <div className={styles.dateNav}><button type="button" onClick={()=>setDate(d=>moveDate(d,1))} aria-label="اليوم التالي">←</button><div><strong>{dateLabel(date)}</strong><input aria-label="تاريخ حركات اليوم" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div><button type="button" onClick={()=>setDate(d=>moveDate(d,-1))} aria-label="اليوم السابق">→</button></div>
-      <button type="button" className={styles.today} onClick={()=>setDate(iso(new Date()))}>اليوم</button>
+      <div className={styles.dateNav}><button type="button" onClick={()=>setDate(d=>moveOperationalDate(d,1))} aria-label="اليوم التالي">←</button><div><strong>{dateLabel(date)}</strong><input aria-label="تاريخ حركات اليوم" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div><button type="button" onClick={()=>setDate(d=>moveOperationalDate(d,-1))} aria-label="اليوم السابق">→</button></div>
+      <button type="button" className={styles.today} onClick={()=>setDate(todayIsoInRiyadh())}>اليوم</button>
     </header>
 
     {err&&<div className={styles.error} role="alert">{err}</div>}
