@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { publicAppUrl } from '@/lib/public-url';
 import { matchRecruitmentProfile, recommendedQuestions, ALL_RECRUITMENT_PROFILES } from '@/lib/recruitment-question-engine';
 
 const VSTATUS={draft:'مسودة',open:'مفتوح للتقديم',paused:'موقوف مؤقتاً',filled:'اكتمل العدد',closed:'مغلق'};
@@ -32,7 +33,7 @@ export default function VacancyEditor(){
   async function addReq(e){e.preventDefault(); const {error}=await supabase.from('vacancy_requirements').insert({vacancy_id:id,...r,weight:Number(r.weight||0),expected_value:r.expected_value||null,license_type:r.license_type||null,sort_order:reqs.length+1}); if(error){setErr(error.message);return;} setR({label:'',question_text:'',answer_type:'text',criterion_type:'normal',expected_value:'',weight:0,is_license:false,license_type:''}); load();}
   async function delReq(rid){if(!confirm('حذف هذا الشرط من الشاغر؟'))return; const {error}=await supabase.from('vacancy_requirements').update({is_active:false}).eq('id',rid); if(error)setErr(error.message);else load();}
   async function updateReq(rid,fields){setReqs(reqs.map(x=>x.id===rid?{...x,...fields}:x)); const {error}=await supabase.from('vacancy_requirements').update(fields).eq('id',rid); if(error)setErr(error.message);}
-  async function copyLink(){const url=`${window.location.origin}/careers/${v.public_token}`; await navigator.clipboard.writeText(url); flash('تم نسخ رابط التقديم');}
+  async function copyLink(){const url=publicAppUrl(`/careers/${v.public_token}`,window.location.origin); await navigator.clipboard.writeText(url); flash('تم نسخ رابط التقديم');}
 
   async function generateQuestions(){
     const profile=matchRecruitmentProfile(v.title_ar,profileKey||v.occupation_profile_key);
