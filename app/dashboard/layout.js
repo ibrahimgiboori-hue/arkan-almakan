@@ -175,7 +175,7 @@ export default function DashboardLayout({ children }) {
   const accessLabel = me.access.fullAdmin
     ? 'مدير النظام'
     : me.access.projectsScreen
-      ? 'كامل صلاحيات المشاريع'
+      ? 'كامل بوابة المشاريع'
       : me.access.projectScoped && projectHasOverview
         ? 'مشرف مشروع'
         : me.access.projectScoped
@@ -194,7 +194,7 @@ export default function DashboardLayout({ children }) {
         <button className={styles.mobileMenuButton} onClick={() => setMobileOpen(true)} aria-label="فتح القائمة">≡</button>
         <Link href={homeHref} className={styles.wordmark}>أركان المكان <small>OS</small></Link>
 
-        <nav className={styles.primaryNav} aria-label="مساحات العمل الرئيسية">
+        <nav className={styles.primaryNav} aria-label="البوابات الرئيسية">
           {!me.access.fullAdmin && (
             <Link href={TODAY_HREF} className={`${styles.primaryLink} ${isToday ? styles.primaryLinkActive : ''}`}>اليوم</Link>
           )}
