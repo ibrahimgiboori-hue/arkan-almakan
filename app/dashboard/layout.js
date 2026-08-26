@@ -19,6 +19,7 @@ import styles from './dashboard-redesign.module.css';
 import './constitution-content.css';
 
 const TODAY_HREF = '/dashboard/today';
+const MY_WORK_HREF = '/dashboard/my-work';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -28,8 +29,10 @@ export default function DashboardLayout({ children }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const isToday = pathname === TODAY_HREF;
+  const isMyWork = pathname === MY_WORK_HREF || pathname.startsWith(`${MY_WORK_HREF}/`);
   const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+(?:\/|$)/.test(pathname);
 
   useEffect(() => {
@@ -87,6 +90,7 @@ export default function DashboardLayout({ children }) {
       if (event.key === 'Escape') {
         setCommandOpen(false);
         setMobileOpen(false);
+        setUserMenuOpen(false);
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -102,13 +106,13 @@ export default function DashboardLayout({ children }) {
       router.replace(TODAY_HREF);
       return;
     }
-    if (isToday) return;
+    if (isToday || isMyWork) return;
     if (isProjectWorkspace && me.access?.projectScoped) return;
     const currentAreaKey = current?.area?.key;
     if (!currentAreaKey || !visibleAreas.some((area) => area.key === currentAreaKey)) {
       router.replace(TODAY_HREF);
     }
-  }, [ready, me, pathname, current, visibleAreas, router, isToday, isProjectWorkspace]);
+  }, [ready, me, pathname, current, visibleAreas, router, isToday, isMyWork, isProjectWorkspace]);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -117,15 +121,17 @@ export default function DashboardLayout({ children }) {
 
   const activeArea = isToday
     ? { key: 'today', label: 'اليوم', href: TODAY_HREF, items: [] }
-    : current?.area && visibleAreas.some((area) => area.key === current.area.key)
-      ? current.area
-      : visibleAreas[0] || AREAS[0];
-  const currentLabel = isToday ? 'مركزي الشخصي' : (current?.label || activeArea.label);
+    : isMyWork
+      ? { key: 'my-work', label: 'أعمالي', href: MY_WORK_HREF, items: [] }
+      : current?.area && visibleAreas.some((area) => area.key === current.area.key)
+        ? current.area
+        : visibleAreas[0] || AREAS[0];
+  const currentLabel = isToday ? 'مركزي الشخصي' : isMyWork ? 'مركز العمل الشخصي' : (current?.label || activeArea.label);
 
   const canUseFullArea = (areaKey) => Boolean(
     me?.access?.fullAdmin || (areaKey === 'projects' && me?.access?.projectsScreen)
   );
-  const contextItems = isProjectWorkspace || isToday
+  const contextItems = isProjectWorkspace || isToday || isMyWork
     ? []
     : activeArea.items.filter((item) => item.href !== activeArea.href && !item.hidden && canUseFullArea(activeArea.key));
   const flatItems = useMemo(() => visibleAreas.flatMap((area) =>
@@ -135,12 +141,13 @@ export default function DashboardLayout({ children }) {
 
   const results = useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
+    const personal = [
+      ...(!me?.access?.fullAdmin ? [{ label: 'فتح اليوم', href: TODAY_HREF, meta: 'مركزي الشخصي' }] : []),
+      { label: 'فتح أعمالي', href: MY_WORK_HREF, meta: 'المهام والمراسلات' },
+    ];
     const quick = me?.access?.fullAdmin
-      ? QUICK_ACTIONS
-      : [
-          { label: 'فتح اليوم', href: TODAY_HREF, meta: 'مركزي الشخصي' },
-          ...visibleAreas.map((area) => ({ label:`فتح ${area.label}`, href:area.href, meta:area.label })),
-        ];
+      ? [...personal, ...QUICK_ACTIONS]
+      : [...personal, ...visibleAreas.map((area) => ({ label:`فتح ${area.label}`, href:area.href, meta:area.label }))];
     const all = [...quick, ...flatItems];
     const unique = all.filter((item, index) => all.findIndex((candidate) => candidate.href === item.href) === index);
     if (!q) return unique.slice(0, 9);
@@ -150,6 +157,7 @@ export default function DashboardLayout({ children }) {
   function go(href) {
     setCommandOpen(false);
     setMobileOpen(false);
+    setUserMenuOpen(false);
     setCommandQuery('');
     router.push(href);
   }
@@ -185,7 +193,7 @@ export default function DashboardLayout({ children }) {
   const displayDate = new Intl.DateTimeFormat(`${SYSTEM.locale}-u-ca-${SYSTEM.calendar}`, {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: SYSTEM.timezone,
   }).format(new Date());
-  const primaryAction = me.access.fullAdmin ? (AREA_PRIMARY_ACTIONS[activeArea.key] || null) : null;
+  const primaryAction = me.access.fullAdmin && !isMyWork ? (AREA_PRIMARY_ACTIONS[activeArea.key] || null) : null;
   const homeHref = me.access.fullAdmin ? '/dashboard' : TODAY_HREF;
 
   return (
@@ -194,15 +202,16 @@ export default function DashboardLayout({ children }) {
         <button className={styles.mobileMenuButton} onClick={() => setMobileOpen(true)} aria-label="فتح القائمة">≡</button>
         <Link href={homeHref} className={styles.wordmark}>أركان المكان <small>OS</small></Link>
 
-        <nav className={styles.primaryNav} aria-label="البوابات الرئيسية">
+        <nav className={styles.primaryNav} aria-label="التنقل الرئيسي">
           {!me.access.fullAdmin && (
             <Link href={TODAY_HREF} className={`${styles.primaryLink} ${isToday ? styles.primaryLinkActive : ''}`}>اليوم</Link>
           )}
+          <Link href={MY_WORK_HREF} className={`${styles.primaryLink} ${isMyWork ? styles.primaryLinkActive : ''}`}>أعمالي</Link>
           {visibleAreas.map((area) => (
             <Link
               key={area.key}
               href={area.href}
-              className={`${styles.primaryLink} ${!isToday && activeArea.key === area.key ? styles.primaryLinkActive : ''}`}
+              className={`${styles.primaryLink} ${!isToday && !isMyWork && activeArea.key === area.key ? styles.primaryLinkActive : ''}`}
             >
               {area.label}
             </Link>
@@ -216,14 +225,29 @@ export default function DashboardLayout({ children }) {
 
         <div className={styles.globalEnd}>
           {(me.access.fullAdmin || me.access.finance) && <Link href="/dashboard/approvals" className={styles.alertLink}>سجل الاعتمادات</Link>}
-          <div className={styles.userMenu}>
-            <span className={styles.userAvatar}>مد</span>
-            <div className={styles.userCopy}>
-              <div className={styles.userName}>{userLabel}</div>
-              <div className={styles.userRole}>{accessLabel}</div>
-            </div>
+          <div style={{position:'relative'}}>
+            <button
+              type="button"
+              className={styles.userMenu}
+              onClick={() => setUserMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+              style={{border:0,background:'transparent',color:'inherit',cursor:'pointer',font:'inherit'}}
+            >
+              <span className={styles.userAvatar}>مد</span>
+              <div className={styles.userCopy}>
+                <div className={styles.userName}>{userLabel}</div>
+                <div className={styles.userRole}>{accessLabel}</div>
+              </div>
+            </button>
+            {userMenuOpen && <div role="menu" style={{position:'absolute',top:'calc(100% + 10px)',insetInlineEnd:0,minWidth:245,padding:8,border:'1px solid var(--hair)',borderRadius:10,background:'var(--paper,#fff)',boxShadow:'0 16px 40px rgba(0,0,0,.18)',zIndex:120,color:'var(--ink,#111)'}}>
+              <Link href={MY_WORK_HREF} onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>أعمالي</Link>
+              {!me.access.fullAdmin && <Link href={TODAY_HREF} onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>صلاحياتي ونطاق عملي</Link>}
+              {me.access.manageAccess && <Link href="/dashboard/system-user" onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7,fontWeight:700}}>إدارة الدخول والصلاحيات</Link>}
+              <Link href="/change-password" onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>تغيير كلمة المرور</Link>
+              <button onClick={signOut} style={{display:'block',width:'100%',textAlign:'start',padding:'9px 10px',border:0,background:'transparent',cursor:'pointer',font:'inherit',color:'inherit'}}>خروج</button>
+            </div>}
           </div>
-          <button className={styles.signOut} onClick={signOut}>خروج</button>
         </div>
       </header>
 
@@ -301,6 +325,16 @@ export default function DashboardLayout({ children }) {
                 </Link>
               </section>
             )}
+            <section className={styles.mobileArea}>
+              <Link href={MY_WORK_HREF} onClick={() => setMobileOpen(false)} className={styles.mobileAreaTitle}>
+                <span>أعمالي</span><span>←</span>
+              </Link>
+            </section>
+            {me.access.manageAccess && <section className={styles.mobileArea}>
+              <Link href="/dashboard/system-user" onClick={() => setMobileOpen(false)} className={styles.mobileAreaTitle}>
+                <span>إدارة الدخول والصلاحيات</span><span>←</span>
+              </Link>
+            </section>}
             {visibleAreas.map((area) => (
               <section key={area.key} className={styles.mobileArea}>
                 <Link href={area.href} onClick={() => setMobileOpen(false)} className={styles.mobileAreaTitle}>
