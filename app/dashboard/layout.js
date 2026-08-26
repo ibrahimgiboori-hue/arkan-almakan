@@ -11,6 +11,7 @@ import {
   activeConstitutionItem,
   matchesConstitutionPath,
 } from '@/lib/app-constitution';
+import { filterAreasForAccess } from '@/lib/access-ui';
 import { SYSTEM } from '@/lib/system-constitution';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
@@ -34,13 +35,33 @@ export default function DashboardLayout({ children }) {
         router.replace('/login');
         return;
       }
-      const { data: row } = await supabase
-        .from('app_users')
-        .select('role, is_active, is_system_admin, employees(full_name_ar, employee_no, job_title)')
-        .eq('id', data.session.user.id)
-        .maybeSingle();
+      const [userQ, capabilitiesQ, primaryQ] = await Promise.all([
+        supabase
+          .from('app_users')
+          .select('role, is_active, is_system_admin, must_change_password, employees(full_name_ar, employee_no, job_title)')
+          .eq('id', data.session.user.id)
+          .maybeSingle(),
+        supabase.from('v_my_capabilities').select('capability_key,module_key,scope_type,scope_key'),
+        supabase.rpc('fn_is_primary_user'),
+      ]);
       if (!alive) return;
-      setMe({ email: data.session.user.email, ...row });
+      const row = userQ.data || null;
+      if (row?.must_change_password) {
+        router.replace('/change-password');
+        return;
+      }
+      const capabilities = capabilitiesQ.error ? [] : (capabilitiesQ.data || []);
+      const capabilityKeys = new Set(capabilities.map((item) => item.capability_key));
+      const fullAdmin = primaryQ.data === true || Boolean(row?.is_system_admin);
+      const access = {
+        fullAdmin,
+        projects: fullAdmin || capabilities.some((item) => item.module_key === 'projects'),
+        hr: fullAdmin || capabilities.some((item) => item.module_key === 'hr'),
+        finance: fullAdmin || capabilities.some((item) => item.module_key === 'finance'),
+        manageAccess: fullAdmin || capabilityKeys.has('system.access.manage_access'),
+        approvals: fullAdmin || capabilityKeys.has('system.approvals.view'),
+      };
+      setMe({ email: data.session.user.email, ...row, capabilities, capabilityKeys, access });
       setReady(true);
     })();
     return () => { alive = false; };
@@ -62,30 +83,50 @@ export default function DashboardLayout({ children }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const visibleAreas = useMemo(() => me ? filterAreasForAccess(AREAS, me.access) : [], [me]);
+  const current = activeConstitutionItem(pathname);
+
+  useEffect(() => {
+    if (!ready || !me?.is_active || !me?.role || me.access?.fullAdmin) return;
+    const fallback = visibleAreas[0]?.href;
+    if (!fallback) return;
+    if (pathname === '/dashboard') {
+      router.replace(fallback);
+      return;
+    }
+    const currentAreaKey = current?.area?.key;
+    if (currentAreaKey && !visibleAreas.some((area) => area.key === currentAreaKey)) router.replace(fallback);
+  }, [ready, me, pathname, current, visibleAreas, router]);
+
   async function signOut() {
     await supabase.auth.signOut();
     router.replace('/login');
   }
 
-  // أي مسار داخل مشروع له ملاحة المشروع نفسها؛ لا نعيد شريط سياق «المشاريع» فوقه.
   const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+(?:\/|$)/.test(pathname);
-  const current = activeConstitutionItem(pathname);
-  const activeArea = current?.area || AREAS[0];
+  const activeArea = current?.area && visibleAreas.some((area) => area.key === current.area.key)
+    ? current.area
+    : visibleAreas[0] || AREAS[0];
   const currentLabel = current?.label || activeArea.label;
+  const showFullAreaMenus = Boolean(me?.access?.fullAdmin);
   const contextItems = isProjectWorkspace
     ? []
-    : activeArea.items.filter((item) => item.href !== activeArea.href && !item.hidden);
-  const flatItems = useMemo(() => AREAS.flatMap((area) =>
-    area.items.filter((item) => !item.hidden).map((item) => ({ ...item, meta: area.label }))), []);
+    : activeArea.items.filter((item) => item.href !== activeArea.href && !item.hidden && showFullAreaMenus);
+  const flatItems = useMemo(() => visibleAreas.flatMap((area) =>
+    area.items
+      .filter((item) => !item.hidden && (showFullAreaMenus || item.href === area.href))
+      .map((item) => ({ ...item, meta: area.label }))), [visibleAreas, showFullAreaMenus]);
 
   const results = useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
-    const all = [...QUICK_ACTIONS, ...flatItems];
+    const quick = me?.access?.fullAdmin
+      ? QUICK_ACTIONS
+      : visibleAreas.map((area) => ({ label:`فتح ${area.label}`, href:area.href, meta:area.label }));
+    const all = [...quick, ...flatItems];
     const unique = all.filter((item, index) => all.findIndex((candidate) => candidate.href === item.href) === index);
     if (!q) return unique.slice(0, 9);
-    return unique.filter((item) =>
-      `${item.label} ${item.meta || ''}`.toLowerCase().includes(q)).slice(0, 12);
-  }, [commandQuery, flatItems]);
+    return unique.filter((item) => `${item.label} ${item.meta || ''}`.toLowerCase().includes(q)).slice(0, 12);
+  }, [commandQuery, flatItems, me, visibleAreas]);
 
   function go(href) {
     setCommandOpen(false);
@@ -110,23 +151,34 @@ export default function DashboardLayout({ children }) {
     </div></div>
   );
 
+  if (!me.access.fullAdmin && visibleAreas.length === 0) return (
+    <div className="login-wrap"><div className="login">
+      <div className="msg err">الحساب مفعّل، لكن لم تُسند إليه أي مساحة عمل بعد.</div>
+      <button className="btn ghost" style={{width:'100%',marginTop:14,justifyContent:'center'}} onClick={signOut}>خروج</button>
+    </div></div>
+  );
+
   const emp = me.employees;
-  const accessLabel = me.is_system_admin ? 'مدير النظام' : 'مستخدم النظام';
+  const accessLabel = me.access.fullAdmin
+    ? 'مدير النظام'
+    : me.access.projects && !me.access.hr && !me.access.finance
+      ? 'مستخدم المشاريع'
+      : 'مستخدم النظام';
   const userLabel = emp?.full_name_ar || me.email;
   const displayDate = new Intl.DateTimeFormat(`${SYSTEM.locale}-u-ca-${SYSTEM.calendar}`, {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: SYSTEM.timezone,
   }).format(new Date());
-
-  const primaryAction = AREA_PRIMARY_ACTIONS[activeArea.key] || null;
+  const primaryAction = me.access.fullAdmin ? (AREA_PRIMARY_ACTIONS[activeArea.key] || null) : null;
+  const homeHref = me.access.fullAdmin ? '/dashboard' : (visibleAreas[0]?.href || '/dashboard');
 
   return (
     <div className={styles.root} data-ui-constitution="approved-v2">
       <header className={styles.globalBar}>
         <button className={styles.mobileMenuButton} onClick={() => setMobileOpen(true)} aria-label="فتح القائمة">≡</button>
-        <Link href="/dashboard" className={styles.wordmark}>أركان المكان <small>OS</small></Link>
+        <Link href={homeHref} className={styles.wordmark}>أركان المكان <small>OS</small></Link>
 
         <nav className={styles.primaryNav} aria-label="مساحات العمل الرئيسية">
-          {AREAS.map((area) => (
+          {visibleAreas.map((area) => (
             <Link
               key={area.key}
               href={area.href}
@@ -143,7 +195,7 @@ export default function DashboardLayout({ children }) {
         </button>
 
         <div className={styles.globalEnd}>
-          <Link href="/dashboard/approvals" className={styles.alertLink}>سجل الاعتمادات</Link>
+          {(me.access.fullAdmin || me.access.finance) && <Link href="/dashboard/approvals" className={styles.alertLink}>سجل الاعتمادات</Link>}
           <div className={styles.userMenu}>
             <span className={styles.userAvatar}>مد</span>
             <div className={styles.userCopy}>
@@ -189,7 +241,7 @@ export default function DashboardLayout({ children }) {
         data-content-governance={pathname === '/dashboard' ? 'native-approved' : 'compat-approved'}
       >
         {pathname.startsWith('/dashboard/formbuilder/') && <FormBuilderResizeOverlay />}
-        <VacancyTargetingPanel />
+        {me.access.hr && <VacancyTargetingPanel />}
         {children}
       </div>
 
@@ -197,13 +249,7 @@ export default function DashboardLayout({ children }) {
         <div className={styles.paletteBackdrop} onMouseDown={() => setCommandOpen(false)}>
           <div className={styles.palette} role="dialog" aria-modal="true" aria-label="البحث والأوامر" onMouseDown={(e) => e.stopPropagation()}>
             <div className={styles.paletteInputWrap}>
-              <input
-                autoFocus
-                className={styles.paletteInput}
-                value={commandQuery}
-                onChange={(e) => setCommandQuery(e.target.value)}
-                placeholder="ابحث عن مشروع، موظف، مستند أو إجراء…"
-              />
+              <input autoFocus className={styles.paletteInput} value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} placeholder="ابحث عن مشروع، موظف، مستند أو إجراء…" />
               <span className={styles.paletteEsc}>ESC</span>
             </div>
             <div className={styles.paletteResults}>
@@ -228,23 +274,18 @@ export default function DashboardLayout({ children }) {
               <strong>أركان المكان</strong>
               <button className={styles.mobileClose} onClick={() => setMobileOpen(false)} aria-label="إغلاق القائمة">×</button>
             </div>
-            {AREAS.map((area) => (
+            {visibleAreas.map((area) => (
               <section key={area.key} className={styles.mobileArea}>
                 <Link href={area.href} onClick={() => setMobileOpen(false)} className={styles.mobileAreaTitle}>
                   <span>{area.label}</span><span>←</span>
                 </Link>
-                <div className={styles.mobileLinks}>
+                {showFullAreaMenus && <div className={styles.mobileLinks}>
                   {area.items.filter((item) => item.href !== area.href && !item.hidden).map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={`${styles.mobileLink} ${matchesConstitutionPath(pathname, item.href) ? styles.mobileLinkActive : ''}`}
-                    >
+                    <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={`${styles.mobileLink} ${matchesConstitutionPath(pathname, item.href) ? styles.mobileLinkActive : ''}`}>
                       {item.label}
                     </Link>
                   ))}
-                </div>
+                </div>}
               </section>
             ))}
           </aside>
