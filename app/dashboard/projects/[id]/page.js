@@ -22,7 +22,7 @@ export default function ProjectCard() {
   const [tot, setTot] = useState(null);
   const [emps, setEmps] = useState([]);
   const [ents, setEnts] = useState([]);
-  const [role, setRole] = useState(null);
+  const [access, setAccess] = useState({ full:false, keys:[] });
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -37,22 +37,39 @@ export default function ProjectCard() {
 
   const load = useCallback(async () => {
     const sess = (await supabase.auth.getSession()).data.session;
-    const [pr, e, en, u] = await Promise.all([
+    const [pr, e, en, capsQ, primaryQ, userQ] = await Promise.all([
       supabase.from('projects').select('*').eq('id', id).maybeSingle(),
       supabase.from('employees').select('id, full_name_ar, employee_no').order('employee_no'),
       supabase.from('entities').select('id, name_ar').order('name_ar'),
-      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
+      supabase.from('v_my_capabilities').select('capability_key,module_key,scope_type,scope_key,source_key'),
+      supabase.rpc('fn_is_primary_user'),
+      sess?.user?.id ? supabase.from('app_users').select('is_system_admin').eq('id', sess.user.id).maybeSingle() : Promise.resolve({data:null,error:null}),
     ]);
     if (!pr.data) { setErr('لم يُعثر على هذا المشروع.'); return; }
+    const caps=(capsQ.data||[]).filter((cap)=>cap.module_key==='projects'&&(cap.scope_type==='all'||(cap.scope_type==='project'&&cap.scope_key===id)));
+    const systemFull=primaryQ.data===true||Boolean(userQ.data?.is_system_admin);
+    const portalFull=systemFull||caps.some((cap)=>cap.source_key==='projects_full_access');
     setP(pr.data);
     setEmps(e.data || []);
     setEnts(en.data || []);
-    setRole(u.data?.role || null);
+    setAccess({full:portalFull,keys:[...new Set(caps.map((cap)=>cap.capability_key))]});
     await loadFin();
   }, [id, loadFin]);
 
   useEffect(() => { load(); }, [load]);
   useLiveRefresh(loadFin, ['all']);
+
+  const has = (key) => access.full || access.keys.includes(key);
+  const canWrite = activeView === 'scope'
+    ? has('projects.scope.edit')
+    : activeView === 'progress'
+      ? has('projects.progress.edit')
+      : activeView === 'claims'
+        ? (has('projects.claims.edit') || has('projects.claims.create'))
+        : activeView === 'docs'
+          ? (has('projects.documents.edit') || has('projects.documents.create') || has('projects.materials.edit') || has('projects.materials.create'))
+          : has('projects.projects.edit');
+  const canApproveContractValue = has('projects.contract_value.approve');
 
   async function patch(fields) {
     setP({ ...p, ...fields });
@@ -78,7 +95,6 @@ export default function ProjectCard() {
   if (err && !p) return <div className="msg err">{err}</div>;
   if (!p) return <div className="empty">جارٍ التحميل…</div>;
 
-  const canWrite = ['ceo','hr','accountant'].includes(role);
   const f = fin || {};
   const t = tot || {};
   const contractValue = Number(
@@ -171,7 +187,7 @@ export default function ProjectCard() {
                   ))}
                 </tbody>
               </table>
-              {canWrite && !contractApproved && Number(t.items_contract_value || 0) > 0 && (
+              {canApproveContractValue && !contractApproved && Number(t.items_contract_value || 0) > 0 && (
                 <div style={{padding:'12px 18px'}}>
                   <button className="btn" onClick={approveContractValue}>اعتماد قيمة البنود كقيمة عقد</button>
                   <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:6}}>بعد الاعتماد لا تتغير قيمة العقد إلا بأمر تغيير مرقّم</div>
@@ -215,13 +231,14 @@ export default function ProjectCard() {
 
       {activeView === 'settings' && (
         <div className="section" style={{marginTop:0,padding:18}}>
-          <fieldset style={{borderTop:'none',paddingTop:0}}>
+          {!canWrite && <div className="msg" style={{marginBottom:14}}>لديك صلاحية عرض بيانات المشروع دون تعديلها.</div>}
+          <fieldset style={{borderTop:'none',paddingTop:0}} disabled={!canWrite}>
             <legend>التعريف</legend>
             <div className="form-grid">
               <div className="field span2">
                 <label>اسم المشروع *</label>
-                <input value={p.name_ar || ''} onChange={(e)=>setP({...p,name_ar:e.target.value})}
-                       onBlur={(e)=>patch({name_ar:e.target.value})} />
+                <input value={p.name_ar || ''} onChange={(e)=>setP({...p,name_ar:e.target.value})
+                       } onBlur={(e)=>patch({name_ar:e.target.value})} />
               </div>
               <div className="field">
                 <label>المدينة</label>
@@ -270,7 +287,7 @@ export default function ProjectCard() {
             </div>
           </fieldset>
 
-          <fieldset>
+          <fieldset disabled={!canWrite}>
             <legend>الفريق</legend>
             <div className="form-grid">
               <div className="field">
@@ -292,7 +309,7 @@ export default function ProjectCard() {
             </div>
           </fieldset>
 
-          <fieldset>
+          <fieldset disabled={!canWrite}>
             <legend>العقد والمدد</legend>
             <div className="form-grid">
               <div className="field">
@@ -325,7 +342,7 @@ export default function ProjectCard() {
             </div>
           </fieldset>
 
-          <fieldset>
+          <fieldset disabled={!canWrite}>
             <legend>الشروط المالية</legend>
             <div className="form-grid">
               <div className="field">
