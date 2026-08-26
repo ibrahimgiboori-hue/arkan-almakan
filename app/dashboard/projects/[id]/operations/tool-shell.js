@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { OutputPanel, FinancePanel, MovementsPanel } from './operation-panels';
+import { OutputPanel, FinancePanel } from './operation-panels';
 import DirectExpensePanel from './direct-expense-panel';
 import styles from './tool-shell.module.css';
 
@@ -93,7 +93,6 @@ export default function OperationToolShell({ type }){
     output:'الإنجاز اليومي',
     expenses:'المصروفات',
     finance:'السلف والدفعات',
-    movements:'حركات اليوم',
   }[type]||'التشغيل';
 
   function openExpenseReport(){
@@ -145,7 +144,6 @@ export default function OperationToolShell({ type }){
       {type==='output'&&<OutputPanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
       {type==='expenses'&&<DirectExpensePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
       {type==='finance'&&<FinancePanel projectId={projectId} date={date} contractor={contractor} onQueueChange={setPendingSync}/>} 
-      {type==='movements'&&<MovementsPanel projectId={projectId} date={date} contractor={contractor}/>} 
     </>}
   </div>;
 }
