@@ -5,6 +5,8 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { money, daysUntil } from '@/lib/format';
 import { CLASS_AR, TRADES } from '@/lib/timesheet';
+import { buildLaborerSavePayload } from '@/lib/labor-profile-write.mjs';
+import { SYSTEM, dailyRateFromMonthly } from '@/lib/system-constitution';
 
 const BASIS = {
   daily: 'باليومية',
@@ -15,7 +17,7 @@ const BASIS = {
 const EMPTY = {
   full_name:'', iqama_no:'', iqama_expiry:'', nationality:'',
   labor_class:'worker', trade:'', group_code:'', pay_basis:'daily',
-  daily_rate:'', monthly_salary:'', salary_days:30,
+  daily_rate:'', monthly_salary:'', salary_days:SYSTEM.payroll.monthlyDailyDivisor,
   piece_rate:'', piece_unit:'م2', deduct_absence:true, phone:'',
 };
 
@@ -58,7 +60,7 @@ export default function ContractorLaborPage() {
   }, [rows,q]);
 
   const computedDaily = (r) => {
-    if (r.pay_basis === 'salary') return Number(r.monthly_salary || 0) / 30;
+    if (r.pay_basis === 'salary') return dailyRateFromMonthly(r.monthly_salary);
     if (r.pay_basis === 'piecework') return null;
     return Number(r.daily_rate || 0);
   };
@@ -72,20 +74,21 @@ export default function ContractorLaborPage() {
 
   function startEdit(r) {
     setEditId(r.id);
-    setF({ ...EMPTY, ...r, salary_days:30 });
+    setF({ ...EMPTY, ...r, salary_days:SYSTEM.payroll.monthlyDailyDivisor });
     setOpen(true); setErr(''); setMsg('');
     window.scrollTo({ top:0, behavior:'smooth' });
   }
 
   async function save(e) {
     e.preventDefault(); setErr(''); setMsg('');
-    const p = { ...f, contractor_id:id };
-    ['daily_rate','monthly_salary','piece_rate'].forEach((k) => {
-      p[k] = p[k] === '' || p[k] === null ? null : Number(p[k]);
-    });
-    p.salary_days = 30;
-    p.iqama_expiry = p.iqama_expiry || null;
-    delete p.id; delete p.created_at;
+    let p;
+    try {
+      // Existing profile edits never touch contractor_id/project_id. A new row keeps
+      // contractor_id only as temporary legacy compatibility until old screens migrate.
+      p = buildLaborerSavePayload(f, { contractorId:id, isNew:!editId });
+    } catch (buildErr) {
+      setErr(buildErr.message); return;
+    }
 
     const res = editId
       ? await supabase.from('laborers').update(p).eq('id', editId)
@@ -129,7 +132,7 @@ export default function ContractorLaborPage() {
               <div className="field"><label>مجموعة الموقع</label><input value={f.group_code || ''} onChange={(e)=>setF({...f,group_code:e.target.value})} placeholder="GRP-RYD-07" /></div>
               <div className="field"><label>أساس الأجر *</label><select value={f.pay_basis} onChange={(e)=>setF({...f,pay_basis:e.target.value})}>{Object.entries(BASIS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
               {f.pay_basis === 'daily' && <div className="field"><label>اليومية</label><input type="number" step="0.01" dir="ltr" value={f.daily_rate ?? ''} onChange={(e)=>setF({...f,daily_rate:e.target.value})} /></div>}
-              {f.pay_basis === 'salary' && <div className="field"><label>الراتب الشهري</label><input type="number" step="0.01" dir="ltr" value={f.monthly_salary ?? ''} onChange={(e)=>setF({...f,monthly_salary:e.target.value})} /><span className="hint">اليومية = الراتب ÷ 30</span></div>}
+              {f.pay_basis === 'salary' && <div className="field"><label>الراتب الشهري</label><input type="number" step="0.01" dir="ltr" value={f.monthly_salary ?? ''} onChange={(e)=>setF({...f,monthly_salary:e.target.value})} /><span className="hint">اليومية = الراتب ÷ {SYSTEM.payroll.monthlyDailyDivisor}</span></div>}
               {f.pay_basis === 'piecework' && <><div className="field"><label>سعر الوحدة</label><input type="number" step="0.01" dir="ltr" value={f.piece_rate ?? ''} onChange={(e)=>setF({...f,piece_rate:e.target.value})} /></div><div className="field"><label>الوحدة</label><input value={f.piece_unit || ''} onChange={(e)=>setF({...f,piece_unit:e.target.value})} /></div></>}
               <div className="field"><label>الجوال</label><input dir="ltr" value={f.phone || ''} onChange={(e)=>setF({...f,phone:e.target.value})} /></div>
             </div>
