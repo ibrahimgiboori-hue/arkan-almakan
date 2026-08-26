@@ -1,5 +1,6 @@
 -- التايم شيت مصدر تكلفة العمالة الفعلية للمشروع.
 -- الدفعات اللاحقة للمقاول/العامل تسوية للمستحق ولا تُنشئ تكلفة ثانية هنا.
+-- نحافظ على ترتيب أعمدة الـView القديم، ونضيف labor_cost في النهاية للتوافق مع المستهلكين الحاليين.
 create or replace view public.v_project_financials as
 with earned as (
   select project_id,sum(earned_value) as earned_value,sum(contract_value) as contract_total,sum(budget_value) as budget_total
@@ -54,7 +55,6 @@ select p.id as project_id,
        coalesce(c.pending_collection,0) as pending_collection,
        coalesce(c.retention_held,0) as retention_held,
        case when p.supply_scope='labor_only' then 0 else coalesce(m.material_cost,0) end as material_cost,
-       coalesce(l.labor_cost,0) as labor_cost,
        coalesce(cu.spent_total,0) as custody_spent,
        coalesce(cu.spent_arkan,0) as custody_cost_arkan,
        coalesce(cu.spent_owner,0)+coalesce(dx.expense_charged_owner,0) as charged_to_owner,
@@ -65,7 +65,8 @@ select p.id as project_id,
        coalesce(e.earned_value,0)-(case when p.supply_scope='labor_only' then 0 else coalesce(m.material_cost,0) end)-coalesce(l.labor_cost,0)-coalesce(cu.spent_arkan,0)-coalesce(dx.expense_cost_arkan,0) as current_profit,
        (select count(*) from public.project_items i where i.project_id=p.id and i.kind='item' and not public.item_has_decision(i.id)) as items_without_decision,
        (select count(*) from public.custody_transactions t2 where t2.project_id=p.id and t2.direction='spend' and t2.charge_to is null) as unclassified_spend,
-       coalesce(dx.expense_cost_arkan,0) as expense_cost_arkan
+       coalesce(dx.expense_cost_arkan,0) as expense_cost_arkan,
+       coalesce(l.labor_cost,0) as labor_cost
 from public.projects p
 left join earned e on e.project_id=p.id
 left join claimed c on c.project_id=p.id
