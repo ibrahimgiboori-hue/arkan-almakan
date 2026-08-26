@@ -41,6 +41,7 @@ export default function ProjectLaborPage() {
   const [allContractors, setAllContractors] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -48,16 +49,17 @@ export default function ProjectLaborPage() {
   const [editFor, setEditFor] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [moveFor, setMoveFor] = useState(null);
-  const [moveForm, setMoveForm] = useState({ contractor_id: '', effective_from: '', notes: '' });
+  const [moveForm, setMoveForm] = useState({ contractor_id: '', effective_from: '', daily_rate: '', notes: '' });
 
   const load = useCallback(async () => {
     if (!contextReady || !projectId || !date) return;
     setLoading(true);
+    setLoadError('');
     setErr('');
     try {
       const [linksQ, assignmentsQ, allContractorsQ] = await Promise.all([
         supabase.from('project_contractors')
-          .select('contractor_id,basis,start_date,end_date,is_active')
+          .select('contractor_id,basis,worker_daily,tech_daily,start_date,end_date,is_active')
           .eq('project_id', projectId)
           .eq('is_active', true)
           .lte('start_date', date)
@@ -90,10 +92,15 @@ export default function ProjectLaborPage() {
       const activeContractors = allContractorsQ.data || [];
       const projectContractors = activeContractors
         .filter((row) => projectContractorIds.includes(row.id))
-        .map((row) => ({
-          ...row,
-          project_basis: (linksQ.data || []).find((link) => link.contractor_id === row.id)?.basis || null,
-        }))
+        .map((row) => {
+          const link = (linksQ.data || []).find((item) => item.contractor_id === row.id);
+          return {
+            ...row,
+            project_basis: link?.basis || null,
+            worker_daily: link?.worker_daily ?? row.worker_daily,
+            tech_daily: link?.tech_daily ?? row.tech_daily,
+          };
+        })
         .sort((a, b) => naturalCompare(a.name_ar, b.name_ar));
 
       const laborerIds = [...new Set(dedupedAssignments.map((row) => row.laborer_id).filter(Boolean))];
@@ -127,10 +134,14 @@ export default function ProjectLaborPage() {
       if (!selectedStillExists) setContractorId(projectContractors[0]?.id || '');
       setAddForm((current) => ({ ...current, effective_from: current.effective_from || date }));
     } catch (error) {
-      setErr('تعذر تحميل عمالة المشروع: ' + (error.message || error));
+      const message = 'تعذر تحميل عمالة المشروع: ' + (error.message || error);
+      setLoadError(message);
+      setErr(message);
+      setContractors([]);
+      setWorkers([]);
     }
     setLoading(false);
-  }, [contextReady, contractorId, date, projectId, setContractorId]);
+  }, [contextReady, date, projectId, setContractorId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -142,6 +153,14 @@ export default function ProjectLaborPage() {
     () => workers.filter((worker) => !contractorId || worker.contractor_id === contractorId),
     [contractorId, workers],
   );
+
+  function rateForTarget(targetId, worker = moveFor) {
+    if (!targetId || !worker || worker.pay_basis !== 'daily') return '';
+    const target = contractors.find((row) => row.id === targetId) || allContractors.find((row) => row.id === targetId);
+    if (!target) return '';
+    const rate = worker.labor_class === 'technician' ? target.tech_daily : target.worker_daily;
+    return rate == null ? '' : String(rate);
+  }
 
   async function addWorkers(event) {
     event.preventDefault();
@@ -169,7 +188,8 @@ export default function ProjectLaborPage() {
       const created = result.filter((row) => row.status === 'created').length;
       const existing = result.filter((row) => row.status === 'existing').length;
       const transfer = result.filter((row) => row.status === 'needs_transfer').map((row) => row.name);
-      setMsg(`أضيف ${created} · موجود مسبقًا ${existing}${transfer.length ? ` · يحتاج نقل: ${transfer.join('، ')}` : ''}`);
+      setMsg(`أضيف ${created} · موجود مسبقًا ${existing}`);
+      if (transfer.length) setErr(`لم يُنقل تلقائيًا: ${transfer.join('، ')}. هؤلاء مرتبطون بإسناد آخر ويحتاجون استخدام «نقل» حتى يبقى التاريخ صحيحًا.`);
       setAddForm({ ...EMPTY_ADD, effective_from: date });
       await load();
     } catch (error) {
@@ -229,7 +249,11 @@ export default function ProjectLaborPage() {
 
   function openMove(worker) {
     setMoveFor(worker);
-    setMoveForm({ contractor_id: contractorId || '', effective_from: date, notes: '' });
+    setMoveForm({ contractor_id: '', effective_from: date, daily_rate: '', notes: '' });
+  }
+
+  function changeMoveContractor(targetId) {
+    setMoveForm((form) => ({ ...form, contractor_id: targetId, daily_rate: rateForTarget(targetId, moveFor) }));
   }
 
   async function saveMove(event) {
@@ -245,13 +269,14 @@ export default function ProjectLaborPage() {
         p_labor_class: moveFor.labor_class,
         p_trade: moveFor.trade || null,
         p_pay_basis: moveFor.pay_basis || 'daily',
-        p_daily_rate: moveFor.daily_rate || null,
+        p_daily_rate: moveFor.pay_basis === 'daily' && moveForm.daily_rate !== '' ? Number(moveForm.daily_rate) : null,
         p_notes: moveForm.notes || 'نقل من إدارة عمالة المشروع',
       });
       if (error) throw error;
+      const movedName = moveFor.full_name;
       setMoveFor(null);
       setContractorId(moveForm.contractor_id);
-      setMsg(`تم نقل ${moveFor.full_name} مع حفظ تاريخه السابق.`);
+      setMsg(`تم نقل ${movedName} مع حفظ تاريخه السابق واعتماد أجر الإسناد الجديد.`);
       await load();
     } catch (error) {
       setErr('تعذر نقل العامل: ' + (error.message || error));
@@ -265,9 +290,9 @@ export default function ProjectLaborPage() {
     <section className={styles.controlBar}>
       <div className={styles.modeTitle}><span>التشغيل اليومي</span><strong>العمالة</strong></div>
       <div className={styles.dateNav} aria-label="تاريخ إسناد العمالة">
-        <button type="button" onClick={() => setDate((current) => moveOperationalDate(current, 1))}>←</button>
-        <div className={styles.dateCenter}><strong>{dateLabel(date)}</strong><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
-        <button type="button" onClick={() => setDate((current) => moveOperationalDate(current, -1))}>→</button>
+        <button type="button" onClick={() => setDate((current) => moveOperationalDate(current, 1))} aria-label="اليوم التالي">←</button>
+        <div className={styles.dateCenter}><strong>{dateLabel(date)}</strong><input aria-label="اختيار تاريخ إسناد العمالة" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+        <button type="button" onClick={() => setDate((current) => moveOperationalDate(current, -1))} aria-label="اليوم السابق">→</button>
       </div>
       <button type="button" className={styles.todayButton} onClick={() => setDate(todayIsoInRiyadh())}>اليوم</button>
     </section>
@@ -275,6 +300,7 @@ export default function ProjectLaborPage() {
     {err && <div className={styles.error}>{err}</div>}
     {msg && <div className={styles.success}>{msg}</div>}
 
+    {loadError ? <div className={styles.error}>تعذر قراءة إسنادات العمالة. لن نعرض حالة «لا توجد عمالة» حتى لا تُنشأ بيانات فوق سجل غير مقروء.</div> : <>
     <section className={styles.summaryStrip}>
       <div><span>عمالة المشروع في التاريخ</span><strong>{workers.length}</strong></div>
       <div><span>لدى المقاول المختار</span><strong>{visibleWorkers.length}</strong></div>
@@ -310,6 +336,7 @@ export default function ProjectLaborPage() {
         <div className={styles.activityList}>{visibleWorkers.length === 0 ? <div className={styles.panelEmpty}>لا توجد عمالة مسندة لهذا المقاول في التاريخ المختار.</div> : visibleWorkers.map((worker) => <div className={styles.activityRow} key={worker.id}><div><strong>{worker.full_name}</strong><small>{LABOR_CLASS[worker.labor_class] || worker.labor_class} · {worker.trade || 'بلا مهنة'} · {PAY_BASIS[worker.pay_basis] || worker.pay_basis}</small></div><div><button type="button" className="btn ghost" onClick={() => openEdit(worker)}>تعديل</button> <button type="button" className="btn ghost" onClick={() => openMove(worker)}>نقل</button></div></div>)}</div>
       </aside>
     </section>}
+    </>}
 
     {editFor && <ConstitutionDialog title={`تعديل: ${editFor.full_name}`} description="التعديل يحفظ الأثر التاريخي ولا يعيد كتابة الحضور المالي السابق." size="wide" onClose={() => setEditFor(null)}>
       <form className={styles.operationForm} onSubmit={saveEdit}>
@@ -327,10 +354,11 @@ export default function ProjectLaborPage() {
       </form>
     </ConstitutionDialog>}
 
-    {moveFor && <ConstitutionDialog title={`نقل: ${moveFor.full_name}`} description="ينتهي الإسناد السابق قبل تاريخ النقل ويبدأ الإسناد الجديد مع حفظ التاريخ." size="compact" onClose={() => setMoveFor(null)}>
+    {moveFor && <ConstitutionDialog title={`نقل: ${moveFor.full_name}`} description="ينتهي الإسناد السابق قبل تاريخ النقل ويبدأ الإسناد الجديد مع حفظ التاريخ. اليومية أدناه تخص الإسناد الجديد." size="compact" onClose={() => setMoveFor(null)}>
       <form className={styles.operationForm} onSubmit={saveMove}>
-        <label className={styles.wideField}><span>المقاول الجديد</span><select required value={moveForm.contractor_id} onChange={(event) => setMoveForm((form) => ({ ...form, contractor_id: event.target.value }))}><option value="">اختر المقاول</option>{allContractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name_ar}</option>)}</select></label>
+        <label className={styles.wideField}><span>المقاول الجديد</span><select required value={moveForm.contractor_id} onChange={(event) => changeMoveContractor(event.target.value)}><option value="">اختر المقاول</option>{allContractors.filter((contractor) => contractor.id !== moveFor.contractor_id).map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name_ar}</option>)}</select></label>
         <label><span>من تاريخ</span><input required type="date" value={moveForm.effective_from} onChange={(event) => setMoveForm((form) => ({ ...form, effective_from: event.target.value }))} /></label>
+        {moveFor.pay_basis === 'daily' && <label><span>يومية الإسناد الجديد</span><input type="number" min="0" step="0.01" value={moveForm.daily_rate} onChange={(event) => setMoveForm((form) => ({ ...form, daily_rate: event.target.value }))} placeholder="يُستخدم سعر المقاول الجديد إذا تُرك فارغًا" /></label>}
         <label className={styles.wideField}><span>ملاحظة</span><input value={moveForm.notes} onChange={(event) => setMoveForm((form) => ({ ...form, notes: event.target.value }))} /></label>
         <button type="submit" className={styles.primaryAction} disabled={busy === 'move'}>{busy === 'move' ? 'جارٍ النقل…' : 'نقل العامل'}</button>
       </form>
