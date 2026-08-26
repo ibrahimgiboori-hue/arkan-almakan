@@ -69,7 +69,7 @@ export default function ExpensePrintPage(){
           {!isFirst&&<div style={{display:'flex',justifyContent:'space-between',gap:10,marginBottom:8,fontSize:10.5,fontWeight:700}}><span>{project?.project_no||''} — {project?.name_ar||'—'}</span><span>{contractor?.name_ar||'—'}</span></div>}
 
           <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
-            <thead><tr><th style={{...th,width:'5%'}}>م</th><th style={{...th,width:'12%'}}>التاريخ</th><th style={{...th,width:'13%'}}>التصنيف</th><th style={{...th,width:'27%'}}>البيان</th><th style={{...th,width:'17%'}}>البند</th><th style={{...th,width:'16%'}}>الدافع</th><th style={{...th,width:'10%'}}>المبلغ</th></tr></thead>
+            <thead><tr><th style={{...th,width:'5%'}}>م</th><th style={{...th,width:'12%'}}>التاريخ</th><th style={{...th,width:'13%'}}>التصنيف</th><th style={{...th,width:'27%'}}>البيان</th><th style={{...th,width:'17%'}}>البند</th><th style={{...th,width:'16%'}}>جهة السداد</th><th style={{...th,width:'10%'}}>المبلغ</th></tr></thead>
             <tbody>{pageRows.length?pageRows.map((r,idx)=><tr key={r.id} style={{breakInside:'avoid',pageBreakInside:'avoid'}}>
               <td style={td}>{start+idx+1}</td><td style={td}>{fmt(r.expense_date)}</td><td style={td}>{r.category||'—'}</td><td style={{...td,textAlign:'right'}}>{r.notes||'—'}</td><td style={{...td,textAlign:'right'}}>{r.project_item_id?(itemMap[r.project_item_id]||'بند مرتبط'):'مصروف عام'}</td><td style={td}>{payerText(r)}</td><td style={{...td,fontWeight:800}}>{money(r.amount)}</td>
             </tr>):<tr><td style={td} colSpan={7}>لا توجد مصروفات في الفترة المحددة.</td></tr>}</tbody>
