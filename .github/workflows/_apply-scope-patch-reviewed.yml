@@ -1,7 +1,7 @@
 name: Temporary Apply Reviewed Scope Patch
 
 on:
-  push:
+  pull_request:
     branches:
       - v2-system-constitution
 
@@ -10,12 +10,13 @@ permissions:
 
 jobs:
   apply-reviewed-scope-patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && github.head_ref == 'codex/trigger-scope-patch'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout governed branch
         uses: actions/checkout@v4
         with:
+          ref: v2-system-constitution
           fetch-depth: 0
       - name: Setup Node
         uses: actions/setup-node@v4
