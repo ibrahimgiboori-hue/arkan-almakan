@@ -186,6 +186,7 @@ export default function ProjectCard() {
                   {[
                     ['الميزانية المخططة للبنود', f.budget_total],
                     ['تكلفة المواد', f.material_cost],
+                    ['تكلفة العمالة من التايم شيت', f.labor_cost],
                     ['منصرف العهد على أركان', f.custody_cost_arkan],
                     ['خصومات على المقاولين', f.charged_to_contractor],
                     ['إجمالي ما تتحمله أركان', f.direct_cost_known],
@@ -199,7 +200,7 @@ export default function ProjectCard() {
                 </tbody>
               </table>
               <div style={{padding:'12px 18px',fontSize:12.5,color:'var(--ink-soft)'}}>
-                لا يشمل مستحقات المقاولين واليوميات — تُضاف عند بناء التايم شيت
+                تكلفة العمالة تُحتسب من الحضور المسجل مرة واحدة؛ الدفعات اللاحقة تسوية للمستحق ولا تُضاف كتكلفة جديدة.
               </div>
             </div>
           </div>
