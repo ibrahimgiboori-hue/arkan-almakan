@@ -21,6 +21,7 @@ export default function ProjectWorkspaceLayout({ children }) {
   const [access, setAccess] = useState({ ready:false, full:false, portalAll:false, projectFull:false, keys:new Set() });
   const view = searchParams.get('view');
   const activeKey = activeProjectNavigationKey({ projectId:id, pathname, view });
+  const operationTheater = new RegExp(`^/dashboard/projects/${id}/operations(?:/expenses)?/?$`).test(pathname);
 
   useEffect(() => {
     let active = true;
@@ -71,8 +72,18 @@ export default function ProjectWorkspaceLayout({ children }) {
     </div>
   );
 
-  const backHref = access.full || access.portalAll ? '/dashboard/projects' : '/dashboard/today';
-  const backLabel = access.full || access.portalAll ? '← كل المشاريع' : '← اليوم';
+  const backHref = access.full || access.portalAll ? '/dashboard/workspace' : '/dashboard/today';
+  const backLabel = access.full || access.portalAll ? '← منصة الأعمال' : '← اليوم';
+
+  if (operationTheater) {
+    return (
+      <section className={styles.focusWorkspaceShell} data-project-workspace="true" data-operation-theater="true">
+        <main className={styles.focusProjectMain}>
+          {activeAllowed ? children : <div className="section" style={{padding:24,marginTop:0}}><h2 style={{marginTop:0}}>لا توجد صلاحية لمسرح العمليات</h2><p style={{lineHeight:1.9}}>المشروع مسند إليك، لكن مستوى الصلاحية الحالي لا يسمح بفتح هذا الجزء.</p><Link className="btn ghost" href={backHref}>{backLabel}</Link></div>}
+        </main>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.workspaceShell} data-project-workspace="true">
