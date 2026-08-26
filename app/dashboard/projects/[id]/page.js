@@ -1,38 +1,28 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
+
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { money, dateAr } from '@/lib/format';
+import { money } from '@/lib/format';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
+import { normalizeProjectView } from '@/lib/app-constitution';
 import { useLiveRefresh, notifyChange } from '@/lib/live';
 import ProjScope from '@/components/ProjScope';
 import ProjProgress from '@/components/ProjProgress';
 import ProjClaims from '@/components/ProjClaims';
-import ProjMoney from '@/components/ProjMoney';
 import ProjDocs from '@/components/ProjDocs';
-import ProjExecution from '@/components/ProjExecution';
-
-const TABS = [
-  ['overview','نظرة عامة'],
-  ['scope','النطاق والقرارات'],
-  ['exec','التنفيذ'],
-  ['progress','الإنجاز'],
-  ['claims','المستخلصات'],
-  ['money','العهد والضمانات'],
-  ['docs','المستندات والمواد'],
-  ['settings','بيانات المشروع'],
-];
+import ProjGuarantees from '@/components/ProjGuarantees';
 
 export default function ProjectCard() {
   const { id } = useParams();
+  const searchParams = useSearchParams();
+  const activeView = normalizeProjectView(searchParams.get('view'));
   const [p, setP] = useState(null);
   const [fin, setFin] = useState(null);
   const [tot, setTot] = useState(null);
   const [emps, setEmps] = useState([]);
   const [ents, setEnts] = useState([]);
   const [role, setRole] = useState(null);
-  const [tab, setTab] = useState('overview');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -54,8 +44,11 @@ export default function ProjectCard() {
       supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
     if (!pr.data) { setErr('لم يُعثر على هذا المشروع.'); return; }
-    setP(pr.data); setEmps(e.data || []); setEnts(en.data || []); setRole(u.data?.role || null);
-    loadFin();
+    setP(pr.data);
+    setEmps(e.data || []);
+    setEnts(en.data || []);
+    setRole(u.data?.role || null);
+    await loadFin();
   }, [id, loadFin]);
 
   useEffect(() => { load(); }, [load]);
@@ -65,15 +58,21 @@ export default function ProjectCard() {
     setP({ ...p, ...fields });
     const { error } = await supabase.from('projects').update(fields).eq('id', id);
     if (error) setErr('تعذّر الحفظ: ' + error.message);
-    else { setMsg('حُفظ'); setTimeout(()=>setMsg(''), 1200); loadFin(); notifyChange('project'); }
+    else {
+      setMsg('حُفظ');
+      setTimeout(() => setMsg(''), 1200);
+      loadFin();
+      notifyChange('project');
+    }
   }
 
   async function approveContractValue() {
-    const { data, error } = await supabase.rpc('approve_project_contract_value', { p_project_id: id });
+    const { data, error } = await supabase.rpc('approve_project_contract_value', { p_project_id:id });
     if (error) { setErr('تعذّر الاعتماد: ' + error.message); return; }
     setMsg('اعتُمدت قيمة العقد ' + money(data));
-    setTimeout(()=>setMsg(''), 1800);
-    load(); notifyChange('project');
+    setTimeout(() => setMsg(''), 1800);
+    load();
+    notifyChange('project');
   }
 
   if (err && !p) return <div className="msg err">{err}</div>;
@@ -82,7 +81,6 @@ export default function ProjectCard() {
   const canWrite = ['ceo','hr','accountant'].includes(role);
   const f = fin || {};
   const t = tot || {};
-  // قيمة العقد المعروضة: المعتمدة في projects إن وُجدت، وإلا المحسوبة من البنود
   const contractValue = Number(
     t.contract_value_effective !== undefined && t.contract_value_effective !== null
       ? t.contract_value_effective
@@ -94,48 +92,26 @@ export default function ProjectCard() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>{p.name_ar}</h1>
-          <p>
-            <span className="mono">{p.project_no}</span>
-            {' — '}{STAGE_AR[p.stage]}{' · '}{SCOPE_AR[p.supply_scope]}
-            {p.city ? ` · ${p.city}` : ''}
-          </p>
-        </div>
-        <Link className="btn ghost" href="/dashboard/projects">كل المشاريع</Link>
-      </div>
-
       {err && <div className="msg err" style={{marginBottom:12}}>{err}</div>}
       {msg && <div className="msg ok" style={{marginBottom:12}}>{msg}</div>}
 
-      {Number(f.items_without_decision || 0) > 0 && (
+      {activeView === 'overview' && Number(f.items_without_decision || 0) > 0 && (
         <div className="msg err" style={{marginBottom:14}}>
-          {f.items_without_decision} بنداً بلا قرار تنفيذ — سجّل القرار من تبويب «النطاق والقرارات»
+          {f.items_without_decision} بنداً بلا قرار تنفيذ
         </div>
       )}
-      {Number(f.unclassified_spend || 0) > 0 && (
+      {activeView === 'overview' && Number(f.unclassified_spend || 0) > 0 && (
         <div className="msg err" style={{marginBottom:14}}>
           {f.unclassified_spend} حركة صرف بلا تصنيف — الربح غير دقيق حتى تصنّفها
         </div>
       )}
 
-      <div className="tabs">
-        {TABS.map(([k,label]) => (
-          <button key={k} className={tab===k?'on':''}
-                  onClick={()=>{ setTab(k); loadFin(); }}>{label}</button>
-        ))}
-      </div>
-
-      {/* ============ نظرة عامة ============ */}
-      {tab === 'overview' && (
+      {activeView === 'overview' && (
         <>
           <div className="grid k4" style={{marginBottom:18}}>
             <div className="card">
               <h3>الربح الحالي</h3>
-              <div className="big" style={{color: profit < 0 ? 'var(--bad)' : 'var(--maroon-dark)'}}>
-                {money(profit)}
-              </div>
+              <div className="big" style={{color:profit < 0 ? 'var(--bad)' : 'var(--maroon-dark)'}}>{money(profit)}</div>
               <div className="foot">القيمة المكتسبة − ما تتحمله أركان</div>
             </div>
             <div className="card">
@@ -168,9 +144,7 @@ export default function ProjectCard() {
                     <td style={{color:'var(--ink-soft)'}}>
                       قيمة العقد
                       {!contractApproved && contractValue > 0 && (
-                        <span style={{marginInlineStart:8,fontSize:11.5,padding:'1px 7px',
-                                      border:'1px solid var(--ink-soft)',borderRadius:4,
-                                      color:'var(--ink-soft)'}}>
+                        <span style={{marginInlineStart:8,fontSize:11.5,padding:'1px 7px',border:'1px solid var(--ink-soft)',borderRadius:4,color:'var(--ink-soft)'}}>
                           محسوبة من البنود — غير معتمدة
                         </span>
                       )}
@@ -180,34 +154,27 @@ export default function ProjectCard() {
                   {t.contract_value_mismatch && (
                     <tr>
                       <td colSpan={2} style={{color:'var(--bad)',fontSize:12.5}}>
-                        المعتمد {money(t.contract_value_signed)} يخالف مجموع البنود {money(t.items_contract_value)}
-                        {' '}— سجّل أمر تغيير مرقّماً بالفرق أو أعد الاعتماد
+                        المعتمد {money(t.contract_value_signed)} يخالف مجموع البنود {money(t.items_contract_value)} — سجّل أمر تغيير مرقّماً بالفرق أو أعد الاعتماد
                       </td>
                     </tr>
                   )}
-                  {[['القيمة المكتسبة من الإنجاز', f.earned_value],
+                  {[
+                    ['القيمة المكتسبة من الإنجاز', f.earned_value],
                     ['إجمالي المستخلصات', f.claimed_gross],
                     ['المحصَّل', f.collected],
                     ['مستحق لم يُحصَّل', f.pending_collection],
                     ['محتجزات لدى المالك', f.retention_held],
                     ['مطالبات على المالك من العهد', f.charged_to_owner],
                     ['منها لم يُسترد', f.owner_recovery_pending],
-                  ].map(([k,v]) => (
-                    <tr key={k}>
-                      <td style={{color:'var(--ink-soft)'}}>{k}</td>
-                      <td className="num">{money(v || 0)}</td>
-                    </tr>
+                  ].map(([label,value]) => (
+                    <tr key={label}><td style={{color:'var(--ink-soft)'}}>{label}</td><td className="num">{money(value || 0)}</td></tr>
                   ))}
                 </tbody>
               </table>
               {canWrite && !contractApproved && Number(t.items_contract_value || 0) > 0 && (
                 <div style={{padding:'12px 18px'}}>
-                  <button className="btn" onClick={approveContractValue}>
-                    اعتماد قيمة البنود كقيمة عقد
-                  </button>
-                  <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:6}}>
-                    بعد الاعتماد لا تتغير قيمة العقد إلا بأمر تغيير مرقّم
-                  </div>
+                  <button className="btn" onClick={approveContractValue}>اعتماد قيمة البنود كقيمة عقد</button>
+                  <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:6}}>بعد الاعتماد لا تتغير قيمة العقد إلا بأمر تغيير مرقّم</div>
                 </div>
               )}
             </div>
@@ -216,21 +183,18 @@ export default function ProjectCard() {
               <header><h2>التكاليف</h2></header>
               <table>
                 <tbody>
-                  {[['الميزانية المخططة للبنود', f.budget_total],
+                  {[
+                    ['الميزانية المخططة للبنود', f.budget_total],
                     ['تكلفة المواد', f.material_cost],
                     ['منصرف العهد على أركان', f.custody_cost_arkan],
                     ['خصومات على المقاولين', f.charged_to_contractor],
                     ['إجمالي ما تتحمله أركان', f.direct_cost_known],
-                  ].map(([k,v]) => (
-                    <tr key={k}>
-                      <td style={{color:'var(--ink-soft)'}}>{k}</td>
-                      <td className="num">{money(v || 0)}</td>
-                    </tr>
+                  ].map(([label,value]) => (
+                    <tr key={label}><td style={{color:'var(--ink-soft)'}}>{label}</td><td className="num">{money(value || 0)}</td></tr>
                   ))}
                   <tr>
                     <td style={{fontWeight:600,color:'var(--maroon-dark)'}}>الربح الحالي</td>
-                    <td className="num" style={{fontWeight:700,
-                        color: profit < 0 ? 'var(--bad)' : 'var(--ok)'}}>{money(profit)}</td>
+                    <td className="num" style={{fontWeight:700,color:profit < 0 ? 'var(--bad)' : 'var(--ok)'}}>{money(profit)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -242,27 +206,13 @@ export default function ProjectCard() {
         </>
       )}
 
-      {tab === 'scope' && (
-        <ProjScope projectId={id} canWrite={canWrite} onChange={load} />
-      )}
-      {tab === 'exec' && (
-        <ProjExecution projectId={id} canWrite={canWrite} onChange={load} />
-      )}
-      {tab === 'progress' && (
-        <ProjProgress projectId={id} canWrite={canWrite} onChange={loadFin} />
-      )}
-      {tab === 'claims' && (
-        <ProjClaims project={p} canWrite={canWrite} onChange={loadFin} />
-      )}
-      {tab === 'money' && (
-        <ProjMoney project={p} canWrite={canWrite} onChange={loadFin} />
-      )}
-      {tab === 'docs' && (
-        <ProjDocs project={p} canWrite={canWrite} />
-      )}
+      {activeView === 'scope' && <ProjScope projectId={id} canWrite={canWrite} onChange={load} />}
+      {activeView === 'progress' && <ProjProgress projectId={id} canWrite={canWrite} onChange={loadFin} />}
+      {activeView === 'claims' && <ProjClaims project={p} canWrite={canWrite} onChange={loadFin} />}
+      {activeView === 'guarantees' && <ProjGuarantees project={p} canWrite={canWrite} onChange={loadFin} />}
+      {activeView === 'docs' && <ProjDocs project={p} canWrite={canWrite} />}
 
-      {/* ============ بيانات المشروع ============ */}
-      {tab === 'settings' && (
+      {activeView === 'settings' && (
         <div className="section" style={{marginTop:0,padding:18}}>
           <fieldset style={{borderTop:'none',paddingTop:0}}>
             <legend>التعريف</legend>
@@ -285,21 +235,20 @@ export default function ProjectCard() {
               <div className="field">
                 <label>المرحلة</label>
                 <select value={p.stage} onChange={(e)=>patch({stage:e.target.value})}>
-                  {Object.entries(STAGE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                  {Object.entries(STAGE_AR).map(([key,label])=><option key={key} value={key}>{label}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label>نطاق التوريد</label>
                 <select value={p.supply_scope} onChange={(e)=>patch({supply_scope:e.target.value})}>
-                  {Object.entries(SCOPE_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                  {Object.entries(SCOPE_AR).map(([key,label])=><option key={key} value={key}>{label}</option>)}
                 </select>
               </div>
               <div className="field">
                 <label>مصدر المشروع</label>
                 <select value={p.source_kind || ''} onChange={(e)=>patch({source_kind:e.target.value})}>
                   <option value="">—</option>
-                  {['من المالك مباشرة','عطاء أو مناقصة','باطن من شركة أخرى','أسندناه بالباطن']
-                    .map((x)=><option key={x} value={x}>{x}</option>)}
+                  {['من المالك مباشرة','عطاء أو مناقصة','باطن من شركة أخرى','أسندناه بالباطن'].map((x)=><option key={x} value={x}>{x}</option>)}
                 </select>
               </div>
               <div className="field">
@@ -325,8 +274,7 @@ export default function ProjectCard() {
             <div className="form-grid">
               <div className="field">
                 <label>جالب المشروع</label>
-                <select value={p.originator_id || ''}
-                        onChange={(e)=>patch({originator_id:e.target.value || null})}>
+                <select value={p.originator_id || ''} onChange={(e)=>patch({originator_id:e.target.value || null})}>
                   <option value="">—</option>
                   {emps.map((x)=><option key={x.id} value={x.id}>{x.full_name_ar}</option>)}
                 </select>
@@ -334,8 +282,7 @@ export default function ProjectCard() {
               </div>
               <div className="field">
                 <label>المشرف</label>
-                <select value={p.supervisor_id || ''}
-                        onChange={(e)=>patch({supervisor_id:e.target.value || null})}>
+                <select value={p.supervisor_id || ''} onChange={(e)=>patch({supervisor_id:e.target.value || null})}>
                   <option value="">—</option>
                   {emps.map((x)=><option key={x.id} value={x.id}>{x.full_name_ar}</option>)}
                 </select>
@@ -349,19 +296,17 @@ export default function ProjectCard() {
             <div className="form-grid">
               <div className="field">
                 <label>تاريخ التوقيع</label>
-                <input type="date" dir="ltr" value={p.signed_date || ''}
-                       onChange={(e)=>patch({signed_date:e.target.value || null})} />
+                <input type="date" dir="ltr" value={p.signed_date || ''} onChange={(e)=>patch({signed_date:e.target.value || null})} />
               </div>
               <div className="field">
                 <label>تاريخ أمر المباشرة</label>
-                <input type="date" dir="ltr" value={p.commencement_date || ''}
-                       onChange={(e)=>patch({commencement_date:e.target.value || null})} />
+                <input type="date" dir="ltr" value={p.commencement_date || ''} onChange={(e)=>patch({commencement_date:e.target.value || null})} />
               </div>
               <div className="field">
                 <label>مدة التنفيذ (يوم)</label>
                 <input type="number" dir="ltr" value={p.duration_days ?? ''}
                        onChange={(e)=>setP({...p,duration_days:e.target.value})}
-                       onBlur={(e)=>patch({duration_days: e.target.value === '' ? null : Number(e.target.value)})} />
+                       onBlur={(e)=>patch({duration_days:e.target.value === '' ? null : Number(e.target.value)})} />
               </div>
               <div className="field span2">
                 <label>غرامة التأخير</label>
@@ -374,7 +319,7 @@ export default function ProjectCard() {
                 <label>الغرامة اليومية</label>
                 <input type="number" step="0.01" dir="ltr" value={p.delay_penalty_daily ?? ''}
                        onChange={(e)=>setP({...p,delay_penalty_daily:e.target.value})}
-                       onBlur={(e)=>patch({delay_penalty_daily: e.target.value === '' ? null : Number(e.target.value)})} />
+                       onBlur={(e)=>patch({delay_penalty_daily:e.target.value === '' ? null : Number(e.target.value)})} />
               </div>
             </div>
           </fieldset>
@@ -386,39 +331,39 @@ export default function ProjectCard() {
                 <label>الدفعة المقدمة (نسبة)</label>
                 <input type="number" step="0.01" dir="ltr" value={p.advance_pct ?? 0}
                        onChange={(e)=>setP({...p,advance_pct:e.target.value})}
-                       onBlur={(e)=>patch({advance_pct:Number(e.target.value||0)})} />
+                       onBlur={(e)=>patch({advance_pct:Number(e.target.value || 0)})} />
                 <span className="hint">0.10 تعني ١٠٪</span>
               </div>
               <div className="field">
                 <label>الدفعة المقدمة (مبلغ)</label>
                 <input type="number" step="0.01" dir="ltr" value={p.advance_amount ?? 0}
                        onChange={(e)=>setP({...p,advance_amount:e.target.value})}
-                       onBlur={(e)=>patch({advance_amount:Number(e.target.value||0)})} />
+                       onBlur={(e)=>patch({advance_amount:Number(e.target.value || 0)})} />
               </div>
               <div className="field">
                 <label>نسبة المحتجزات</label>
                 <input type="number" step="0.01" dir="ltr" value={p.retention_pct ?? 0}
                        onChange={(e)=>setP({...p,retention_pct:e.target.value})}
-                       onBlur={(e)=>patch({retention_pct:Number(e.target.value||0)})} />
+                       onBlur={(e)=>patch({retention_pct:Number(e.target.value || 0)})} />
                 <span className="hint">0.05 تعني ٥٪ — تُحسب مع كل مستخلص</span>
               </div>
               <div className="field">
                 <label>مدة السداد (يوم)</label>
                 <input type="number" dir="ltr" value={p.payment_terms_days ?? 30}
                        onChange={(e)=>setP({...p,payment_terms_days:e.target.value})}
-                       onBlur={(e)=>patch({payment_terms_days:Number(e.target.value||30)})} />
+                       onBlur={(e)=>patch({payment_terms_days:Number(e.target.value || 30)})} />
               </div>
               <div className="field span2">
                 <label>أساس المستخلصات</label>
                 <select value={p.claim_basis || ''} onChange={(e)=>patch({claim_basis:e.target.value})}>
                   <option value="">—</option>
-                  {['مستخلص شهري','عند نسبة إنجاز','دفعة واحدة عند التسليم','بحسب سير الأعمال']
-                    .map((x)=><option key={x} value={x}>{x}</option>)}
+                  {['مستخلص شهري','عند نسبة إنجاز','دفعة واحدة عند التسليم','بحسب سير الأعمال'].map((x)=><option key={x} value={x}>{x}</option>)}
                 </select>
               </div>
               <div className="field span2">
                 <label>ملاحظات</label>
-                <input value={p.notes || ''} onChange={(e)=>setP({...p,notes:e.target.value})}
+                <input value={p.notes || ''}
+                       onChange={(e)=>setP({...p,notes:e.target.value})}
                        onBlur={(e)=>patch({notes:e.target.value})} />
               </div>
             </div>

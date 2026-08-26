@@ -67,7 +67,8 @@ export default function DashboardLayout({ children }) {
     router.replace('/login');
   }
 
-  const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+$/.test(pathname);
+  // أي مسار داخل مشروع له ملاحة المشروع نفسها؛ لا نعيد شريط سياق «المشاريع» فوقه.
+  const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+(?:\/|$)/.test(pathname);
   const current = activeConstitutionItem(pathname);
   const activeArea = current?.area || AREAS[0];
   const currentLabel = current?.label || activeArea.label;

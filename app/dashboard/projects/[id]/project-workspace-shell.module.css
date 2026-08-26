@@ -11,162 +11,174 @@
   --ink:#11110f;
   --muted:#66645f;
   --border:#d8d3c8;
+  --border-soft:#e8e4dc;
   --wine:#6f252b;
+  display:grid;
+  grid-template-columns:230px minmax(0,1fr);
   min-height:calc(100vh - 58px);
   background:var(--bg);
   color:var(--ink);
+  direction:rtl;
 }
 
-.projectHeader{
-  min-height:96px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:24px;
-  padding:14px clamp(18px,2.5vw,42px);
+.projectRail{
+  position:sticky;
+  top:58px;
+  align-self:start;
+  height:calc(100vh - 58px);
+  overflow-y:auto;
+  border-left:1px solid var(--border);
+  background:var(--paper);
+  scrollbar-width:thin;
+}
+.projectIdentity{
+  padding:17px 16px 15px;
   border-bottom:1px solid var(--border);
-  background:rgba(251,250,247,.74);
 }
-.compactProjectHeader{
-  min-height:76px;
-  padding-top:10px;
-  padding-bottom:10px;
-}
-.projectIdentity{min-width:0}
 .backLink{
   display:inline-flex;
   align-items:center;
+  min-height:26px;
   color:var(--wine);
-  font-size:9px;
-  font-weight:850;
+  font-size:10.5px;
+  font-weight:800;
   text-decoration:none;
 }
+.backLink:hover{text-decoration:underline}
 .projectCode{
-  margin-top:5px;
+  margin-top:8px;
   color:var(--muted);
-  font:700 7.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+  font:700 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
   direction:ltr;
   text-align:right;
 }
 .projectIdentity h1{
-  margin:2px 0 2px;
-  font-size:clamp(24px,2vw,32px);
-  line-height:1.04;
+  margin:4px 0 7px;
+  font-size:18px;
+  line-height:1.3;
   font-weight:900;
-  letter-spacing:-.035em;
+  letter-spacing:-.025em;
+  overflow-wrap:anywhere;
 }
-.compactProjectHeader .projectIdentity h1{font-size:clamp(22px,1.75vw,28px)}
-.projectIdentity p{
-  margin:0;
-  color:var(--muted);
-  font-size:8.5px;
-  line-height:1.45;
+.projectMeta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
 }
-.projectActions{flex:0 0 auto;display:flex;gap:7px;align-items:center}
-.operationButton,.secondaryAction{
-  min-height:34px;
+.projectMeta span{
   display:inline-flex;
   align-items:center;
-  justify-content:center;
-  padding:0 13px;
-  border-radius:8px;
-  font:800 9.5px inherit;
-  cursor:pointer;
-  text-decoration:none;
-}
-.operationButton{
-  border:1px solid var(--wine);
-  color:#fff;
-  background:var(--wine);
-  transition:transform 150ms ease,background 150ms ease;
-}
-.operationButton:hover{transform:translateY(-1px);background:#5d1e24}
-.secondaryAction{
-  border:1px solid var(--border);
-  color:var(--ink);
-  background:var(--paper);
+  min-height:22px;
+  padding:0 7px;
+  border:1px solid var(--border-soft);
+  border-radius:6px;
+  color:var(--muted);
+  background:#f5f2ec;
+  font-size:9px;
+  font-weight:700;
 }
 
-.projectTabs{
+.projectNav{
+  padding:8px 8px 18px;
+}
+.navGroup{
+  padding:8px 0 10px;
+  border-bottom:1px solid var(--border-soft);
+}
+.navGroup:last-child{border-bottom:0}
+.navGroupLabel{
+  padding:0 8px 6px;
+  color:#8a8780;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.015em;
+}
+.navGroupLinks{
+  display:grid;
+  gap:2px;
+}
+.navLink{
+  position:relative;
   display:flex;
   align-items:center;
-  gap:2px;
-  padding:0 clamp(18px,2.5vw,42px);
-  min-height:42px;
-  overflow-x:auto;
-  white-space:nowrap;
-  border-bottom:1px solid var(--border);
-  background:var(--paper);
-}
-.projectTab{
-  position:relative;
-  display:inline-flex;
-  align-items:center;
-  min-height:42px;
-  padding:0 12px;
-  color:var(--muted);
+  min-height:34px;
+  padding:0 10px;
+  border-radius:7px;
+  color:#3f3d39;
   text-decoration:none;
-  font-size:10px;
-  font-weight:750;
+  font-size:11px;
+  font-weight:680;
+  transition:background 120ms ease,color 120ms ease;
 }
-.projectTab::after{
+.navLink:hover{
+  color:var(--ink);
+  background:#f0ece4;
+}
+.navLinkActive{
+  color:var(--wine);
+  background:#efe5e3;
+  font-weight:900;
+}
+.navLinkActive::before{
   content:'';
   position:absolute;
-  inset-inline:12px;
-  bottom:-1px;
-  height:2px;
-  background:transparent;
-}
-.projectTab:hover{color:var(--ink)}
-.projectTabActive{color:var(--wine);font-weight:900}
-.projectTabActive::after{background:var(--wine)}
-
-.projectBody{
-  padding:16px clamp(18px,2.5vw,42px) 38px;
-}
-.operationsBody{
-  padding-top:0;
-}
-.projectBody :global(.page-head){display:none}
-.projectBody :global(.tabs){
-  margin:0 0 16px;
-  padding:0;
-  border-bottom:1px solid var(--border);
-  background:transparent;
-  overflow-x:auto;
-  white-space:nowrap;
-}
-.projectBody :global(.tabs button){
-  min-height:38px;
-  padding:0 12px;
-  border:0;
-  border-bottom:2px solid transparent;
-  border-radius:0;
-  background:transparent;
-  color:var(--muted);
-  font-size:10px;
-}
-.projectBody :global(.tabs button.on){
-  color:var(--ink);
-  border-bottom-color:var(--wine);
-  background:transparent;
-  font-weight:850;
+  right:0;
+  top:7px;
+  bottom:7px;
+  width:3px;
+  border-radius:2px;
+  background:var(--wine);
 }
 
-@media (max-width:760px){
-  .projectHeader,.compactProjectHeader{
-    min-height:auto;
-    align-items:flex-start;
-    flex-direction:column;
-    gap:10px;
-    padding:12px 13px;
+.projectMain{
+  min-width:0;
+  width:100%;
+  padding:18px clamp(18px,2.2vw,36px) 42px;
+  direction:rtl;
+}
+.projectMain :global(.page-head){display:none}
+
+/* التشغيل اليومي يملك شريط سياق التاريخ/المقاول داخل الأداة نفسها فقط؛
+   لا يضاف له شريط ملاحة آخر. */
+.projectMain :global([data-operation-shell]){margin-top:-18px}
+
+@media (max-width:920px){
+  .workspaceShell{
+    display:block;
+    min-height:calc(100vh - 58px);
   }
-  .projectActions,.operationButton,.secondaryAction{width:100%}
-  .projectTabs{padding:0 8px}
-  .projectTab{padding-inline:10px}
-  .projectBody,.operationsBody{padding:0 13px 28px}
+  .projectRail{
+    position:static;
+    height:auto;
+    overflow:visible;
+    border-left:0;
+    border-bottom:1px solid var(--border);
+  }
+  .projectIdentity{
+    padding:12px 14px 10px;
+  }
+  .projectIdentity h1{font-size:17px;margin-block:3px 5px}
+  .projectNav{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px 10px;
+    padding:7px 10px 10px;
+  }
+  .navGroup{
+    padding:5px 0;
+    border-bottom:0;
+  }
+  .navGroupLabel{padding-inline:5px}
+  .navLink{min-height:32px;padding-inline:8px;font-size:10.5px}
+  .projectMain{padding:14px 12px 30px}
+}
+
+@media (max-width:560px){
+  .projectNav{grid-template-columns:1fr}
+  .navGroupLinks{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .navLinkActive::before{top:6px;bottom:6px}
 }
 
 @media (prefers-reduced-motion:reduce){
-  .operationButton{transition:none}
+  .navLink{transition:none}
 }
