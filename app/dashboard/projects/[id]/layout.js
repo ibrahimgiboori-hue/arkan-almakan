@@ -18,7 +18,7 @@ export default function ProjectWorkspaceLayout({ children }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [project, setProject] = useState(undefined);
-  const [access, setAccess] = useState({ ready:false, full:false, keys:new Set() });
+  const [access, setAccess] = useState({ ready:false, full:false, portalAll:false, projectFull:false, keys:new Set() });
   const view = searchParams.get('view');
   const activeKey = activeProjectNavigationKey({ projectId:id, pathname, view });
 
@@ -29,17 +29,19 @@ export default function ProjectWorkspaceLayout({ children }) {
       const userId = session?.user?.id || null;
       const [projectQ, capabilitiesQ, primaryQ, userQ] = await Promise.all([
         supabase.from('projects').select('id, project_no, name_ar, city, stage').eq('id', id).maybeSingle(),
-        supabase.from('v_my_capabilities').select('capability_key,scope_type,scope_key'),
+        supabase.from('v_my_capabilities').select('capability_key,scope_type,scope_key,source_key'),
         supabase.rpc('fn_is_primary_user'),
         userId ? supabase.from('app_users').select('is_system_admin').eq('id', userId).maybeSingle() : Promise.resolve({ data:null, error:null }),
       ]);
       if (!active) return;
       const full = primaryQ.data === true || Boolean(userQ.data?.is_system_admin);
-      const keys = new Set((capabilitiesQ.data || [])
-        .filter((item) => item.scope_type === 'all' || (item.scope_type === 'project' && item.scope_key === id))
-        .map((item) => item.capability_key));
+      const capabilities = capabilitiesQ.data || [];
+      const applicable = capabilities.filter((item) => item.scope_type === 'all' || (item.scope_type === 'project' && item.scope_key === id));
+      const portalAll = applicable.some((item) => item.source_key === 'projects_full_access' && item.scope_type === 'all');
+      const projectFull = portalAll || applicable.some((item) => item.source_key === 'projects_full_access' && item.scope_type === 'project' && item.scope_key === id);
+      const keys = new Set(applicable.map((item) => item.capability_key));
       setProject(projectQ.data || null);
-      setAccess({ ready:true, full, keys });
+      setAccess({ ready:true, full, portalAll, projectFull, keys });
     })();
     return () => { active = false; };
   }, [id]);
@@ -47,14 +49,14 @@ export default function ProjectWorkspaceLayout({ children }) {
   const visibleGroups = useMemo(() => PROJECT_NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
-      if (access.full) return true;
+      if (access.full || access.projectFull) return true;
       const required = projectNavRequirement(item.key);
       return required.length === 0 || required.some((key) => access.keys.has(key));
     }),
   })).filter((group) => group.items.length > 0), [access]);
 
   const activeAllowed = useMemo(() => {
-    if (access.full || !activeKey) return true;
+    if (access.full || access.projectFull || !activeKey) return true;
     const required = projectNavRequirement(activeKey);
     return required.length === 0 || required.some((key) => access.keys.has(key));
   }, [access, activeKey]);
@@ -65,15 +67,18 @@ export default function ProjectWorkspaceLayout({ children }) {
     <div className="section" style={{padding:24,marginTop:0}}>
       <h2 style={{marginTop:0}}>المشروع غير متاح لهذا الحساب</h2>
       <p style={{lineHeight:1.9}}>لم يُسند هذا المشروع إلى المستخدم، أو لم يعد الحساب يملك صلاحية الاطلاع عليه.</p>
-      <Link className="btn ghost" href="/dashboard/projects">العودة إلى المشاريع المتاحة</Link>
+      <Link className="btn ghost" href="/dashboard/today">العودة إلى اليوم</Link>
     </div>
   );
+
+  const backHref = access.full || access.portalAll ? '/dashboard/projects' : '/dashboard/today';
+  const backLabel = access.full || access.portalAll ? '← كل المشاريع' : '← اليوم';
 
   return (
     <section className={styles.workspaceShell} data-project-workspace="true">
       <aside className={styles.projectRail} aria-label="ملاحة المشروع">
         <div className={styles.projectIdentity}>
-          <Link className={styles.backLink} href="/dashboard/projects">← كل المشاريع</Link>
+          <Link className={styles.backLink} href={backHref}>{backLabel}</Link>
           <div className={styles.projectCode}>{project.project_no || 'PROJECT'}</div>
           <h1>{project.name_ar || 'المشروع'}</h1>
           <div className={styles.projectMeta}>
