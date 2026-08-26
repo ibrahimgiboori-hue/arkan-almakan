@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { SYSTEM } from '@/lib/system-constitution';
 
 const ASSETS = [
   { col: 'header_image_path', label: 'شريط الرأس',
@@ -158,9 +159,9 @@ export default function Settings() {
             <div className="field">
               <label>نسبة ضريبة القيمة المضافة</label>
               <input type="number" step="0.01" min="0" max="1" dir="ltr"
-                     defaultValue={s.vat_rate ?? 0.15}
+                     defaultValue={s.vat_rate ?? SYSTEM.vatRate}
                      onBlur={(e)=>saveField('vat_rate', Number(e.target.value || 0))} />
-              <span className="hint">0.15 تعني ١٥٪ — تُطبَّق على العروض الجديدة</span>
+              <span className="hint">القيمة الافتراضية تأتي من دستور النظام — وتُطبَّق على العروض الجديدة</span>
             </div>
             <div className="hint" style={{marginTop:6}}>
               كل خانة تُحفظ بمجرد الخروج منها
