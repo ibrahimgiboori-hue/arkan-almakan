@@ -1,4 +1,5 @@
-:global(.page):has(.workspaceShell){
+:global(.page):has(.workspaceShell),
+:global(.page):has(.focusWorkspaceShell){
   max-width:none;
   width:100%;
   margin:0;
@@ -20,6 +21,28 @@
   color:var(--ink);
   direction:rtl;
 }
+
+.focusWorkspaceShell{
+  --bg:#f3f0e9;
+  --paper:#fbfaf7;
+  --ink:#11110f;
+  --muted:#66645f;
+  --border:#d8d3c8;
+  --border-soft:#e8e4dc;
+  --wine:#6f252b;
+  min-height:calc(100vh - 58px);
+  width:100%;
+  background:var(--bg);
+  color:var(--ink);
+  direction:rtl;
+}
+.focusProjectMain{
+  width:100%;
+  min-width:0;
+  padding:0;
+  direction:rtl;
+}
+.focusProjectMain :global(.page-head){display:none}
 
 .projectRail{
   position:sticky;
@@ -137,9 +160,6 @@
   direction:rtl;
 }
 .projectMain :global(.page-head){display:none}
-
-/* التشغيل اليومي يملك شريط سياق التاريخ/المقاول داخل الأداة نفسها فقط؛
-   لا يضاف له شريط ملاحة آخر. */
 .projectMain :global([data-operation-shell]){margin-top:-18px}
 
 @media (max-width:920px){
