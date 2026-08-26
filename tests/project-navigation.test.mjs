@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AREAS,
   PROJECT_NAV_GROUPS,
   activeProjectNavigationKey,
   normalizeProjectView,
@@ -12,10 +13,10 @@ const PROJECT_ID = 'P1';
 const items = PROJECT_NAV_GROUPS.flatMap((group) => group.items);
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('project navigation prioritizes daily work', () => {
+test('project navigation keeps timesheet reports beside attendance', () => {
   assert.equal(PROJECT_NAV_GROUPS[0].key, 'daily');
   assert.deepEqual(PROJECT_NAV_GROUPS[0].items.map((item) => item.key), [
-    'attendance', 'daily-output', 'expenses', 'movements',
+    'attendance', 'timesheet-reports', 'daily-output', 'expenses', 'movements',
   ]);
 });
 
@@ -25,6 +26,13 @@ test('project navigation has one canonical entry per visible function', () => {
   assert.equal(new Set(keys).size, keys.length);
   assert.equal(new Set(hrefs).size, hrefs.length);
   assert.equal(hrefs.some((href) => href.includes('/site-operations')), false);
+});
+
+test('global timesheet report route is compatibility-only, not top navigation', () => {
+  const projectsArea = AREAS.find((area) => area.key === 'projects');
+  const legacy = projectsArea.items.find((item) => item.href === '/dashboard/site-operations/reports');
+  assert.equal(legacy?.hidden, true);
+  assert.equal(items.filter((item) => item.key === 'timesheet-reports').length, 1);
 });
 
 test('legacy execution view resolves to the governed assignment view', () => {
@@ -48,6 +56,11 @@ test('project root navigation follows the selected view', () => {
 test('nested operational routes resolve to exactly one project navigation item', () => {
   assert.equal(activeProjectNavigationKey({
     projectId:PROJECT_ID,
+    pathname:'/dashboard/projects/P1/operations/reports',
+    view:null,
+  }), 'timesheet-reports');
+  assert.equal(activeProjectNavigationKey({
+    projectId:PROJECT_ID,
     pathname:'/dashboard/projects/P1/operations/expenses',
     view:null,
   }), 'expenses');
@@ -56,6 +69,16 @@ test('nested operational routes resolve to exactly one project navigation item',
     pathname:'/dashboard/projects/P1/operations/movements',
     view:null,
   }), 'movements');
+});
+
+test('timesheet reports have one shared implementation for global compatibility and project workflow', () => {
+  const globalReports = read('app/dashboard/site-operations/reports/page.js');
+  const projectReports = read('app/dashboard/projects/[id]/operations/reports/page.js');
+  assert.match(globalReports, /TimesheetReportCenter/);
+  assert.match(projectReports, /TimesheetReportCenter/);
+  assert.match(projectReports, /fixedProjectId=\{id\}/);
+  assert.equal(globalReports.includes('labor_project_assignments'), false);
+  assert.equal(projectReports.includes('labor_project_assignments'), false);
 });
 
 test('custody is not duplicated by the old money workspace', () => {
