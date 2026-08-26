@@ -5,15 +5,22 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { PROJECT_NAV_GROUPS, AREAS, projectNavigationHref } from '@/lib/app-constitution';
 import { projectNavRequirement } from '@/lib/access-ui';
+import { STAGE_AR } from '@/lib/projects';
+import {
+  WORK_PLATFORM_OPERATION_KEYS,
+  WORK_PLATFORM_SECONDARY_SECTIONS,
+  WORK_PLATFORM_OPERATION_COPY,
+  WORK_PLATFORM_PORTAL_ENTRY_COPY,
+} from '@/lib/work-platform-constitution';
 import { ConstitutionPage, PageHeader, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
 import styles from './workspace.module.css';
 
-const GLOBAL_PROJECT_TOOLS = [
-  { label:'المشاريع', href:'/dashboard/projects', note:'إنشاء المشاريع وفتحها وإدارة بياناتها.' },
-  { label:'عروض الأسعار', href:'/dashboard/quotes', note:'التسعير والعروض المرتبطة بالمشاريع.' },
-  { label:'المقاولون', href:'/dashboard/contractors', note:'المقاولون وإسنادهم للمشاريع.' },
-  { label:'العملاء والجهات', href:'/dashboard/entities', note:'العملاء والجهات المرتبطة بالأعمال.' },
-];
+const PORTAL_CAPABILITY = Object.freeze({
+  '/dashboard/projects': 'projects.projects.view',
+  '/dashboard/quotes': 'projects.quotes.view',
+  '/dashboard/contractors': 'projects.contractors.view',
+  '/dashboard/entities': 'projects.entities.view',
+});
 
 export default function WorkPlatformPage(){
   const [state,setState]=useState(null);
@@ -37,8 +44,17 @@ export default function WorkPlatformPage(){
     const fullAdmin=primaryQ.data===true||Boolean(userQ.data?.is_system_admin);
     const projects=projectsQ.data||[];
     setState({uid,employee:userQ.data?.employees||null,capabilities,projects,fullAdmin});
-    setProjectId(current=>current&&projects.some(p=>p.id===current)?current:(projects[0]?.id||''));
+    const saved=typeof window!=='undefined'?window.localStorage.getItem('arkan.workspace.project'):'';
+    setProjectId(current=>{
+      if(current&&projects.some(p=>p.id===current))return current;
+      if(saved&&projects.some(p=>p.id===saved))return saved;
+      return projects[0]?.id||'';
+    });
   })();return()=>{alive=false;};},[]);
+
+  useEffect(()=>{
+    if(typeof window!=='undefined'&&projectId)window.localStorage.setItem('arkan.workspace.project',projectId);
+  },[projectId]);
 
   const access=useMemo(()=>{
     if(!state)return null;
@@ -53,66 +69,163 @@ export default function WorkPlatformPage(){
     return {fullProjects,projectScoped,hr,finance,documents,admin};
   },[state]);
 
+  const selectedProject=state?.projects.find(p=>p.id===projectId)||null;
+  const otherProjects=useMemo(()=>state?.projects.filter(p=>p.id!==projectId)||[],[state,projectId]);
+
   const projectApplicable=useMemo(()=>{
     if(!state||!projectId)return[];
     return state.capabilities.filter(c=>c.module_key==='projects'&&(c.scope_type==='all'||(c.scope_type==='project'&&c.scope_key===projectId)));
   },[state,projectId]);
   const projectKeys=useMemo(()=>new Set(projectApplicable.map(c=>c.capability_key)),[projectApplicable]);
-  const selectedProject=state?.projects.find(p=>p.id===projectId)||null;
   const projectFull=Boolean(state?.fullAdmin||access?.fullProjects||projectApplicable.some(c=>c.source_key==='projects_full_access'));
 
-  const visibleProjectGroups=useMemo(()=>PROJECT_NAV_GROUPS.map(group=>({
-    ...group,
-    items:group.items.filter(item=>{
+  const visibleProjectItems=useMemo(()=>PROJECT_NAV_GROUPS
+    .flatMap(group=>group.items)
+    .filter(item=>{
       if(projectFull)return true;
       const required=projectNavRequirement(item.key);
       return required.length===0||required.some(key=>projectKeys.has(key));
-    }),
-  })).filter(group=>group.items.length>0),[projectFull,projectKeys]);
+    }),[projectFull,projectKeys]);
 
-  if(!state||!access)return <ConstitutionPage><EmptyState title="جارٍ تجهيز منصة الأعمال" description="يتم تحميل البوابات والأدوات التي يسمح بها هذا الحساب."/></ConstitutionPage>;
+  const projectItemByKey=useMemo(()=>new Map(visibleProjectItems.map(item=>[item.key,item])),[visibleProjectItems]);
+  const operationItems=useMemo(()=>WORK_PLATFORM_OPERATION_KEYS.map(key=>projectItemByKey.get(key)).filter(Boolean),[projectItemByKey]);
 
-  const allowedPortals=AREAS.filter(area=>{
-    if(area.key==='home')return false;
-    if(state.fullAdmin)return true;
-    if(area.key==='projects')return access.projectScoped;
-    if(area.key==='workforce')return access.hr;
-    if(area.key==='finance')return access.finance;
-    if(area.key==='documents')return access.documents;
-    if(area.key==='admin')return access.admin;
-    return false;
-  });
+  const secondarySections=useMemo(()=>{
+    const configured=WORK_PLATFORM_SECONDARY_SECTIONS.map(section=>({
+      ...section,
+      items:section.itemKeys.map(key=>projectItemByKey.get(key)).filter(Boolean),
+    })).filter(section=>section.items.length>0);
+    const assigned=new Set([
+      ...WORK_PLATFORM_OPERATION_KEYS,
+      ...WORK_PLATFORM_SECONDARY_SECTIONS.flatMap(section=>section.itemKeys),
+    ]);
+    const extra=visibleProjectItems.filter(item=>!assigned.has(item.key));
+    return extra.length?[...configured,{key:'additional',label:'أدوات إضافية',description:'أي أداة جديدة في بوابة المشاريع تظهر هنا تلقائيًا حتى لا تُحجب عن صاحب الصلاحية الكاملة.',items:extra}]:configured;
+  },[visibleProjectItems,projectItemByKey]);
+
+  const allowedPortals=useMemo(()=>{
+    if(!state||!access)return[];
+    return AREAS.filter(area=>{
+      if(area.key==='home')return false;
+      if(state.fullAdmin)return true;
+      if(area.key==='projects')return access.projectScoped;
+      if(area.key==='workforce')return access.hr;
+      if(area.key==='finance')return access.finance;
+      if(area.key==='documents')return access.documents;
+      if(area.key==='admin')return access.admin;
+      return false;
+    });
+  },[state,access]);
+
+  const projectPortalEntries=useMemo(()=>{
+    if(!state||!access?.projectScoped)return[];
+    const area=AREAS.find(item=>item.key==='projects');
+    return (area?.items||[]).filter(item=>!item.hidden).filter(item=>{
+      if(access.fullProjects||state.fullAdmin)return true;
+      const required=PORTAL_CAPABILITY[item.href];
+      return !required||state.capabilities.some(cap=>cap.capability_key===required);
+    });
+  },[state,access]);
+
+  const otherPortals=allowedPortals.filter(area=>area.key!=='projects');
+  const secondaryCount=secondarySections.reduce((total,section)=>total+section.items.length,0);
+
+  if(!state||!access)return <ConstitutionPage><EmptyState title="جارٍ تجهيز منصة الأعمال" description="يتم تحميل نطاق العمل والأدوات التي يسمح بها هذا الحساب."/></ConstitutionPage>;
 
   return <ConstitutionPage>
-    <PageHeader eyebrow="WORK PLATFORM" title="منصة الأعمال" description="هذه هي شاشة العمل الممنوحة لهذا الحساب. ما يظهر فيها مصدره الصلاحيات فقط، ولا توجد نسخة أخرى موازية من الأدوات."/>
+    <PageHeader
+      eyebrow="WORK PLATFORM"
+      title="منصة الأعمال"
+      description="مساحة تنفيذ واحدة محكومة بالصلاحيات: اختر سياق العمل أولًا، ثم نفّذ منه مباشرة دون قوائم مكررة أو مسارات متوازية."
+    />
     {err&&<Notice tone="warning">{err}</Notice>}
 
-    <Section title="نطاق الحساب">
-      <div className={styles.summary}>
-        <div className={styles.card}><span>البوابات المسموحة</span><strong>{allowedPortals.length}</strong></div>
-        <div className={styles.card}><span>المشاريع المتاحة</span><strong>{state.projects.length}</strong></div>
-        <div className={styles.card}><span>مستوى بوابة المشاريع</span><strong style={{fontSize:18}}>{access.fullProjects?'كامل':'مقيد'}</strong></div>
-        <div className={styles.card}><span>الأدوات الحالية داخل المشروع</span><strong>{visibleProjectGroups.reduce((n,g)=>n+g.items.length,0)}</strong></div>
-      </div>
-      {access.fullProjects&&<div className="msg ok" style={{marginTop:12}}>لديك <strong>كامل بوابة المشاريع</strong>: جميع وظائف <span className={styles.fullBadge}>projects.*</span> الحالية والمستقبلية، بما فيها الإنشاء والتعديل والحذف والاعتماد والتصحيح والإصدار متى كانت الوظيفة من نطاق المشاريع.</div>}
-    </Section>
+    {access.projectScoped&&(
+      <>
+        <Section title="المشروع الجاري" description="هذا هو سياق العمل الحالي. كل أدوات التشغيل والإدارة أسفل هذه المنطقة تخص هذا المشروع فقط.">
+          {state.projects.length===0?(
+            <EmptyState title="لا توجد مشاريع متاحة" description={access.fullProjects?'لا يوجد مشروع مسجل حاليًا ضمن بوابة المشاريع.':'لم يُسند أي مشروع إلى هذا الحساب.'}/>
+          ):(
+            <div className={styles.focusLayout}>
+              {selectedProject&&(
+                <div className={styles.activeProjectCard}>
+                  <div className={styles.activeEyebrow}>المشروع النشط</div>
+                  <div className={styles.activeTop}>
+                    <div>
+                      <div className={styles.projectNo}>{selectedProject.project_no||'—'}</div>
+                      <h2>{selectedProject.name_ar}</h2>
+                    </div>
+                    <span className={styles.stageBadge}>{STAGE_AR[selectedProject.stage]||selectedProject.stage||'غير محدد'}</span>
+                  </div>
+                  <div className={styles.activeMeta}>
+                    <span>{selectedProject.city||'الموقع غير محدد'}</span>
+                    <span>{operationItems.length} أداة تشغيل متاحة الآن</span>
+                  </div>
+                  <div className={styles.focusRule}>غيّر المشروع من القائمة الجانبية فقط؛ لا تتكرر بطاقة المشروع النشط في أي مكان آخر.</div>
+                </div>
+              )}
 
-    <Section title="بواباتي" description="إذا مُنح الحساب أكثر من بوابة فستظهر كلها هنا داخل منصة الأعمال نفسها.">
-      {allowedPortals.length===0?<EmptyState title="لا توجد بوابة عمل" description="لم تُمنح لهذا الحساب صلاحية على أي بوابة تشغيلية."/>:<div className={styles.portalGrid}>{allowedPortals.map(area=><div key={area.key} className={styles.portal}><h3>{area.label}</h3><p>{area.key==='projects'&&access.fullProjects?'كامل البوابة بكل أدواتها الحالية والمستقبلية.':'تظهر الأدوات بحسب الصلاحيات المسندة.'}</p><div className={styles.quick} style={{marginTop:12}}><Link className="btn" href={area.href}>فتح {area.label}</Link></div></div>)}</div>}
-    </Section>
+              {otherProjects.length>0&&(
+                <aside className={styles.projectSwitcher} aria-label="تبديل المشروع">
+                  <div className={styles.switcherTitle}>تبديل المشروع</div>
+                  <div className={styles.switcherList}>
+                    {otherProjects.map(project=><button key={project.id} type="button" className={styles.switchProject} onClick={()=>setProjectId(project.id)}>
+                      <span className={styles.switchNo}>{project.project_no||'—'}</span>
+                      <strong>{project.name_ar}</strong>
+                      <small>{project.city||'الموقع غير محدد'}</small>
+                    </button>)}
+                  </div>
+                </aside>
+              )}
+            </div>
+          )}
+        </Section>
 
-    {access.projectScoped&&<>
-      <Section title="إدارة بوابة المشاريع" description="المداخل العامة للبوابة قبل الدخول إلى مشروع محدد.">
-        <div className={styles.tools}>{GLOBAL_PROJECT_TOOLS.map(tool=><div key={tool.href} className={styles.group}><h3>{tool.label}</h3><div className={styles.note}>{tool.note}</div><div style={{marginTop:10}}><Link className="btn ghost" href={tool.href}>فتح ←</Link></div></div>)}</div>
+        {selectedProject&&operationItems.length>0&&(
+          <Section title="التشغيل الآن" description="فقط الأعمال التي تُنفذ مباشرة في الموقع أو خلال يوم العمل. التقارير والمالية والمتابعة ليست ضمن هذه المنطقة.">
+            <div className={styles.operationGrid}>
+              {operationItems.map((item,index)=><Link key={item.key} className={styles.operationAction} href={projectNavigationHref(selectedProject.id,item)}>
+                <span className={styles.operationIndex}>{String(index+1).padStart(2,'0')}</span>
+                <strong>{item.label}</strong>
+                <small>{WORK_PLATFORM_OPERATION_COPY[item.key]||'فتح الأداة وتنفيذ العمل مباشرة.'}</small>
+                <span className={styles.operationArrow}>فتح ←</span>
+              </Link>)}
+            </div>
+          </Section>
+        )}
+
+        {selectedProject&&secondaryCount>0&&(
+          <details className={styles.secondaryPanel}>
+            <summary>
+              <span><strong>إدارة المشروع</strong><small>التنفيذ، المالية، التقارير، والملف المرجعي</small></span>
+              <span className={styles.secondaryCount}>{secondaryCount} أدوات</span>
+            </summary>
+            <div className={styles.secondaryBody}>
+              {secondarySections.map(section=><section key={section.key} className={styles.secondaryGroup}>
+                <div className={styles.secondaryHeading}><h3>{section.label}</h3><p>{section.description}</p></div>
+                <div className={styles.secondaryLinks}>{section.items.map(item=><Link key={item.key} href={projectNavigationHref(selectedProject.id,item)}><span>{item.label}</span><span>←</span></Link>)}</div>
+              </section>)}
+            </div>
+          </details>
+        )}
+
+        {projectPortalEntries.length>0&&(
+          <Section title="إدارة بوابة المشاريع" description="وظائف عامة للبوابة وليست أدوات تشغيل للمشروع الجاري؛ لذلك تبقى في المستوى الأخير.">
+            <nav className={styles.portalActions} aria-label="إدارة بوابة المشاريع">
+              {projectPortalEntries.map(item=><Link key={item.href} className={styles.portalAction} href={item.href}>
+                <span><strong>{item.label==='المشاريع'?'سجل المشاريع':item.label}</strong><small>{WORK_PLATFORM_PORTAL_ENTRY_COPY[item.href]||'فتح الوظيفة العامة للبوابة.'}</small></span>
+                <span>←</span>
+              </Link>)}
+            </nav>
+          </Section>
+        )}
+      </>
+    )}
+
+    {otherPortals.length>0&&(
+      <Section title="بوابات أخرى ضمن صلاحيتك" description="تظهر هنا فقط إذا كان الحساب مخولًا بأكثر من نطاق عمل.">
+        <nav className={styles.otherPortals}>{otherPortals.map(area=><Link key={area.key} href={area.href}>{area.label}<span>←</span></Link>)}</nav>
       </Section>
-
-      <Section title="كل أدوات المشروع" description="اختر مشروعًا وستظهر تحته كل الأدوات التي يسمح بها مستوى هذا الحساب. مستخدم كامل بوابة المشاريع يرى جميع الأدوات بلا استثناء.">
-        {state.projects.length===0?<EmptyState title="لا توجد مشاريع متاحة" description="أنشئ مشروعًا أو أسند مشروعًا لهذا الحساب أولًا."/>:<>
-          <div className={styles.selector}><div className={`field ${styles.field}`}><label>المشروع</label><select value={projectId} onChange={e=>setProjectId(e.target.value)}>{state.projects.map(p=><option key={p.id} value={p.id}>{p.project_no||'—'} — {p.name_ar}</option>)}</select></div>{selectedProject&&<Link className="btn" href={`/dashboard/projects/${selectedProject.id}`}>فتح مساحة المشروع كاملة</Link>}</div>
-          <div className={styles.projectStrip} style={{marginTop:12}}>{state.projects.map(p=><button key={p.id} className={`${styles.project} ${p.id===projectId?styles.activeProject:''}`} onClick={()=>setProjectId(p.id)}><small>{p.project_no||'—'}</small><strong>{p.name_ar}</strong><small>{p.city||'الموقع غير محدد'}</small></button>)}</div>
-          {selectedProject&&<div className={styles.tools} style={{marginTop:14}}>{visibleProjectGroups.map(group=><div key={group.key} className={styles.group}><h3>{group.label}</h3><div className={styles.links}>{group.items.map(item=><Link key={item.key} className={styles.link} href={projectNavigationHref(selectedProject.id,item)}><span>{item.label}</span><small>فتح ←</small></Link>)}</div></div>)}</div>}
-        </>}
-      </Section>
-    </>}
+    )}
   </ConstitutionPage>;
 }
