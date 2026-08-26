@@ -27,8 +27,10 @@ const PAPER_CAPS = PAGINATION.paper;
 const SUMMARY_CAPS = PAGINATION.summary;
 const VALID_MODES = new Set(['worker', 'contractor', 'paper']);
 const CLASS_AR = Object.freeze({ worker:'عامل', technician:'صنايعي', foreman:'فورمان' });
+const CLASS_SUMMARY_AR = Object.freeze({ worker:'يوميات العمال', technician:'يوميات الصنايعية', foreman:'يوميات الفورمان', other:'يوميات غير مصنفة' });
 const naturalCompare = (a = '', b = '') => String(a).localeCompare(String(b), 'ar', { numeric:true, sensitivity:'base' });
 const workdayNumber = (value) => Number(value || 0).toLocaleString('en-US', { maximumFractionDigits:1 });
+const moneyNumber = (value) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
 function periodLabel(from, to) {
   return from === to ? displayDate(from) : `${displayDate(from)} — ${displayDate(to)}`;
@@ -39,6 +41,29 @@ function reportTitle(mode, workers, from, to) {
   if (mode === 'worker' && workers.length === 1) return 'كشف حضور عامل';
   if (mode === 'worker') return 'كشف حضور عمال مختارين';
   return from === to ? 'كشف حضور عمال — يومي' : 'كشف حضور عمال — فترة';
+}
+
+function financialSummaryRows(rows = [], fallbackByLaborer = {}) {
+  const grouped = new Map();
+  for (const row of rows || []) {
+    const laborClass = row.labor_class || fallbackByLaborer[row.laborer_id] || 'other';
+    const key = ['worker','technician','foreman'].includes(laborClass) ? laborClass : 'other';
+    if (!grouped.has(key)) grouped.set(key, { key, days:0, amount:0, rates:new Set() });
+    const item = grouped.get(key);
+    const status = statusDefinition(row.status);
+    item.days += Number(status.factor || 0);
+    item.amount += Number(row.amount || 0);
+    const rate = Number(row.rate_used || 0);
+    if (rate > 0 && Number(status.factor || 0) > 0) item.rates.add(rate);
+  }
+  return ['worker','technician','foreman','other']
+    .map((key) => grouped.get(key))
+    .filter((item) => item && (item.days > 0 || item.amount > 0))
+    .map((item) => {
+      const rates = [...item.rates].sort((a,b)=>a-b);
+      const rateText = rates.length === 1 ? ` — ${moneyNumber(rates[0])} ريال/يوم` : rates.length > 1 ? ' — حسب أسعار الفترة' : '';
+      return { ...item, label:`${CLASS_SUMMARY_AR[item.key]}${rateText}` };
+    });
 }
 
 export default function TimesheetPrintPage() {
@@ -83,7 +108,7 @@ export default function TimesheetPrintPage() {
       if (firstError) { setError(`تعذر تحميل التقرير: ${firstError.message}`); setLoading(false); return; }
 
       let attendanceQuery = supabase.from('v_day_attendance')
-        .select('attendance_id,laborer_id,laborer_name,labor_class,trade,contractor_id,work_date,status,stop_reason,notes,is_holiday,weather_stop')
+        .select('attendance_id,laborer_id,laborer_name,labor_class,trade,contractor_id,work_date,status,rate_used,amount,stop_reason,notes,is_holiday,weather_stop')
         .eq('project_id',query.projectId).eq('contractor_id',query.contractorId).gte('work_date',query.from).lte('work_date',query.to).order('work_date');
       if (query.mode === 'worker' && query.workerIds.length) attendanceQuery = attendanceQuery.in('laborer_id',query.workerIds);
       const attendanceResult = await attendanceQuery;
@@ -148,6 +173,8 @@ export default function TimesheetPrintPage() {
   const laborClasses = useMemo(() => summarizeLaborClasses(workers), [workers]);
   const laborClassByWorker = useMemo(() => Object.fromEntries(workers.map((worker) => [worker.id,worker.laborClass])), [workers]);
   const workdaysByClass = useMemo(() => summarizeWorkdaysByLaborClass(attendance,laborClassByWorker), [attendance,laborClassByWorker]);
+  const financialRows = useMemo(() => financialSummaryRows(attendance,laborClassByWorker), [attendance,laborClassByWorker]);
+  const financialTotal = useMemo(() => financialRows.reduce((acc,row)=>({days:acc.days+row.days,amount:acc.amount+row.amount}),{days:0,amount:0}), [financialRows]);
 
   if (loading || !query) return <div className="timesheet-print-loading">جارٍ إعداد التقرير…</div>;
   if (error) return <div className="timesheet-print-loading error">{error}</div>;
@@ -245,16 +272,14 @@ export default function TimesheetPrintPage() {
             <div className="ts-doc-title"><h1>ملخص الفترة</h1><span /></div>
             <table className="ts-table ts-detail-table"><thead><tr><th>م</th><th>اسم العامل</th><th>الصفة</th><th>المهنة</th><th>إجمالي أيام الفترة</th></tr></thead><tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'غير مصنف'}</td><td>{worker.trade || '—'}</td><td><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b></td></tr>)}</tbody></table>
             {finalSummaryPage && <>
-              <div className="ts-summary" style={{marginTop:12}}>
-                <span><b>{laborClasses.total}</b> عدد الأفراد</span>
-                <span><b>{summary.full}</b> حضور كامل</span>
-                <span><b>{summary.half}</b> نصف يوم</span>
-                <span><b>{workdayNumber(workdaysByClass.technician)}</b> يوميات الصنايعية</span>
-                <span><b>{workdayNumber(workdaysByClass.worker)}</b> يوميات العمال</span>
-                {workdaysByClass.foreman>0 && <span><b>{workdayNumber(workdaysByClass.foreman)}</b> يوميات الفورمان</span>}
-                {workdaysByClass.other>0 && <span><b>{workdayNumber(workdaysByClass.other)}</b> يوميات غير مصنفة</span>}
-                <span><b>{workdayNumber(workdaysByClass.total)}</b> إجمالي اليوميات</span>
-              </div>
+              <table className="ts-table" style={{marginTop:12}}>
+                <colgroup><col style={{width:'58%'}}/><col style={{width:'18%'}}/><col style={{width:'24%'}}/></colgroup>
+                <thead><tr><th>البيان</th><th>عدد اليوميات</th><th>المبلغ</th></tr></thead>
+                <tbody>
+                  {financialRows.map((row)=><tr key={row.key}><td className="ts-name-cell">{row.label}</td><td><b>{workdayNumber(row.days)}</b></td><td className="ltr"><b>{moneyNumber(row.amount)} ريال</b></td></tr>)}
+                  <tr><td className="ts-name-cell"><b>إجمالي اليوميات</b></td><td><b>{workdayNumber(financialTotal.days)}</b></td><td className="ltr"><b>{moneyNumber(financialTotal.amount)} ريال</b></td></tr>
+                </tbody>
+              </table>
               {legend()}
             </>}
           </div>;
