@@ -3,19 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import ConstitutionDialog from '@/components/ui/ConstitutionDialog';
 import { money, todayIsoInRiyadh } from '@/lib/format';
 import { interpretGuardedWrite } from '@/lib/guarded-write.mjs';
+import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { openCustodyEvidence, removeCustodyEvidence, uploadCustodyEvidence } from './custody-evidence';
 import styles from './custody.module.css';
 
-// «اليوم» تشغيليًا هو يوم الرياض، لا يوم UTC: قبل الفجر كان هذا يفتح
-// العهدة ويسجّل حركاتها على تاريخ الأمس بينما شاشات التشغيل المجاورة على اليوم.
-const todayIso = todayIsoInRiyadh;
 const DIRECTION_AR = { issue:'تعزيز العهدة', spend:'صرف من العهدة', return:'إرجاع متبقي' };
 const CHARGE_AR = { arkan:'أركان', contractor:'المقاول', owner:'المالك' };
 
 export default function CustodyPage(){
   const { id:projectId } = useParams();
+  const { date:operationDate, ready:contextReady } = useProjectOperationContext(projectId);
   const [custodies,setCustodies] = useState([]);
   const [selectedId,setSelectedId] = useState('');
   const [transactions,setTransactions] = useState([]);
@@ -26,12 +26,19 @@ export default function CustodyPage(){
   const [busy,setBusy] = useState(false);
   const [feedback,setFeedback] = useState(null);
   const [showOpen,setShowOpen] = useState(false);
+  const [settleOpen,setSettleOpen] = useState(false);
   const [evidenceFile,setEvidenceFile] = useState(null);
   const [openingEvidenceFile,setOpeningEvidenceFile] = useState(null);
   const [evidenceKey,setEvidenceKey] = useState(0);
   const [openingEvidenceKey,setOpeningEvidenceKey] = useState(0);
-  const [openForm,setOpenForm] = useState({ employee_id:'', opened_at:todayIso(), purpose:'', initial_amount:'' });
-  const [form,setForm] = useState({ direction:'spend', trx_date:todayIso(), amount:'', category:'مصروف تشغيلي', beneficiary:'', charge_to:'arkan', contractor_id:'', notes:'' });
+  const [openForm,setOpenForm] = useState({ employee_id:'', opened_at:todayIsoInRiyadh(), purpose:'', initial_amount:'' });
+  const [form,setForm] = useState({ direction:'spend', trx_date:todayIsoInRiyadh(), amount:'', category:'مصروف تشغيلي', beneficiary:'', charge_to:'arkan', contractor_id:'', notes:'' });
+
+  useEffect(()=>{
+    if(!contextReady||!operationDate)return;
+    setForm(current=>({...current,trx_date:operationDate}));
+    setOpenForm(current=>({...current,opened_at:operationDate}));
+  },[contextReady,operationDate]);
 
   const load = useCallback(async()=>{
     if(!projectId)return;
@@ -117,7 +124,7 @@ export default function CustodyPage(){
       if(proof.error)throw proof.error;
       setSelectedId(custodyId);
       setShowOpen(false);
-      setOpenForm(f=>({...f,purpose:'',initial_amount:''}));
+      setOpenForm(f=>({...f,purpose:'',initial_amount:'',opened_at:operationDate||f.opened_at}));
       setOpeningEvidenceFile(null);setOpeningEvidenceKey(k=>k+1);
       setFeedback({type:evidenceWarning?'error':'success',text:`تم فتح العهدة ${proof.data.custody_no}${Number(openForm.initial_amount||0)>0?` وإصدار ${money(openForm.initial_amount)} ر.س`:''}.${evidenceWarning}`});
       await load();
@@ -152,7 +159,7 @@ export default function CustodyPage(){
       if(proof.error||!proof.data?.id)throw proof.error||new Error('تعذر إثبات حفظ الحركة');
       evidencePath=null;
       setFeedback({type:'success',text:`تم حفظ ${DIRECTION_AR[form.direction]} بمبلغ ${money(form.amount)} ر.س والتحقق منها${proof.data.document_path?' مع الإثبات':''}.`});
-      setForm(f=>({...f,amount:'',beneficiary:'',notes:''}));
+      setForm(f=>({...f,amount:'',beneficiary:'',notes:'',trx_date:operationDate||f.trx_date}));
       setEvidenceFile(null);setEvidenceKey(k=>k+1);
       await load(); await loadTransactions();
     }catch(e){
@@ -164,20 +171,20 @@ export default function CustodyPage(){
 
   async function settle(){
     if(!selected||selected.balance!==0)return;
-    if(!window.confirm('تسوية هذه العهدة؟ سيتم تغيير حالتها إلى «مسوّاة».'))return;
     setBusy(true); setFeedback(null);
     const q=await supabase.from('custodies').update({status:'settled'}).eq('id',selected.id).eq('status','open').select('id').maybeSingle();
     const outcome=interpretGuardedWrite(q,{conflictMessage:'لم تتغيّر حالة العهدة — يبدو أنها سُوّيت أو أُغلقت من جهة أخرى. حدّثت العرض.'});
     if(!outcome.ok){setFeedback({type:'error',text:outcome.message}); await load();}
     else {setFeedback({type:'success',text:'تمت تسوية العهدة.'}); await load();}
+    setSettleOpen(false);
     setBusy(false);
   }
 
-  if(loading)return <div className={styles.empty}>جارٍ تحميل عهد المشروع…</div>;
+  if(!contextReady||loading)return <div className={styles.empty}>جارٍ تحميل عهد المشروع…</div>;
 
   return <div className={styles.root} dir="rtl">
     <header className={styles.head}>
-      <div><span>PROJECT CUSTODY</span><h2>العهدة</h2><p>رصيد فعلي وحركات إصدار وصرف وإرجاع داخل المشروع.</p></div>
+      <div><span>PROJECT CUSTODY</span><h2>العهدة</h2><p>رصيد فعلي وحركات إصدار وصرف وإرجاع داخل المشروع · تاريخ التشغيل {operationDate}</p></div>
       <div className={styles.headerActions}>
         {custodies.length>0&&<select value={selectedId} onChange={e=>setSelectedId(e.target.value)}>{custodies.map(c=><option key={c.id} value={c.id}>{c.custody_no} — {employees[c.employee_id]||'موظف'}</option>)}</select>}
         <button type="button" onClick={()=>setShowOpen(v=>!v)}>{showOpen?'إلغاء':'فتح عهدة جديدة'}</button>
@@ -209,7 +216,7 @@ export default function CustodyPage(){
 
       <section className={styles.grid}>
         <main className={styles.formPane}>
-          <div className={styles.sectionTitle}><div><span>NEW MOVEMENT</span><h3>حركة عهدة</h3></div>{selected.status==='open'&&selected.balance===0&&<button type="button" onClick={settle} disabled={busy}>تسوية العهدة</button>}</div>
+          <div className={styles.sectionTitle}><div><span>NEW MOVEMENT</span><h3>حركة عهدة</h3></div>{selected.status==='open'&&selected.balance===0&&<button type="button" onClick={()=>setSettleOpen(true)} disabled={busy}>تسوية العهدة</button>}</div>
           <form onSubmit={saveTransaction} className={styles.form}>
             <label><span>نوع الحركة</span><select value={form.direction} onChange={e=>setForm(f=>({...f,direction:e.target.value}))}><option value="spend">صرف من العهدة</option><option value="issue">تعزيز العهدة</option><option value="return">إرجاع متبقي</option></select></label>
             <label><span>التاريخ</span><input type="date" value={form.trx_date} onChange={e=>setForm(f=>({...f,trx_date:e.target.value}))}/></label>
@@ -239,5 +246,12 @@ export default function CustodyPage(){
         </aside>
       </section>
     </>}
+
+    {settleOpen&&<ConstitutionDialog title="تسوية العهدة" description="سيتم تغيير حالة العهدة إلى «مسوّاة». لا تُنفذ العملية إلا إذا كان الرصيد صفرًا." size="compact" onClose={()=>!busy&&setSettleOpen(false)}>
+      <div style={{display:'flex',gap:8,justifyContent:'flex-start'}}>
+        <button type="button" className={styles.primary} disabled={busy} onClick={settle}>{busy?'جارٍ التسوية…':'تأكيد التسوية'}</button>
+        <button type="button" disabled={busy} onClick={()=>setSettleOpen(false)}>إلغاء</button>
+      </div>
+    </ConstitutionDialog>}
   </div>;
 }
