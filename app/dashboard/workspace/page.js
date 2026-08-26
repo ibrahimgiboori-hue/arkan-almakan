@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { PROJECT_NAV_GROUPS, AREAS, projectNavigationHref } from '@/lib/app-constitution';
 import { projectNavRequirement } from '@/lib/access-ui';
 import { STAGE_AR } from '@/lib/projects';
+import { money } from '@/lib/format';
 import {
+  WORK_PLATFORM_PRIMARY_OPERATION_KEY,
   WORK_PLATFORM_OPERATION_KEYS,
   WORK_PLATFORM_SECONDARY_SECTIONS,
   WORK_PLATFORM_OPERATION_COPY,
@@ -22,10 +24,30 @@ const PORTAL_CAPABILITY = Object.freeze({
   '/dashboard/entities': 'projects.entities.view',
 });
 
+const EMPTY_PULSE = Object.freeze({
+  loading: false,
+  financial: null,
+  attendanceCount: 0,
+  outputCount: 0,
+  expenseTotal: 0,
+});
+
+function riyadhDate(){
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Riyadh',
+  }).format(new Date());
+}
+
+function clampPercent(value){
+  return Math.max(0, Math.min(100, Number(value || 0)));
+}
+
 export default function WorkPlatformPage(){
   const [state,setState]=useState(null);
   const [err,setErr]=useState('');
   const [projectId,setProjectId]=useState('');
+  const [managementKey,setManagementKey]=useState('execution');
+  const [pulse,setPulse]=useState(EMPTY_PULSE);
 
   useEffect(()=>{let alive=true;(async()=>{
     setErr('');
@@ -54,6 +76,37 @@ export default function WorkPlatformPage(){
 
   useEffect(()=>{
     if(typeof window!=='undefined'&&projectId)window.localStorage.setItem('arkan.workspace.project',projectId);
+  },[projectId]);
+
+  useEffect(()=>{
+    if(!projectId)return;
+    let alive=true;
+    (async()=>{
+      setPulse(previous=>({...previous,loading:true}));
+      const today=riyadhDate();
+      const [financialQ,dayQ,expensesQ,outputQ]=await Promise.all([
+        supabase.from('v_project_financials')
+          .select('computed_progress_pct,days_remaining,custody_balance,items_without_decision,unclassified_spend')
+          .eq('project_id',projectId).maybeSingle(),
+        supabase.from('timesheet_days').select('id').eq('project_id',projectId).eq('work_date',today).limit(1).maybeSingle(),
+        supabase.from('v_day_expenses').select('amount').eq('project_id',projectId).eq('work_date',today),
+        supabase.from('v_day_output').select('day_item_id').eq('project_id',projectId).eq('work_date',today),
+      ]);
+      let attendanceCount=0;
+      if(dayQ.data?.id){
+        const attendanceQ=await supabase.from('attendance').select('id').eq('day_id',dayQ.data.id);
+        attendanceCount=(attendanceQ.data||[]).length;
+      }
+      if(!alive)return;
+      setPulse({
+        loading:false,
+        financial:financialQ.data||null,
+        attendanceCount,
+        outputCount:(outputQ.data||[]).length,
+        expenseTotal:(expensesQ.data||[]).reduce((sum,row)=>sum+Number(row.amount||0),0),
+      });
+    })();
+    return()=>{alive=false;};
   },[projectId]);
 
   const access=useMemo(()=>{
@@ -89,6 +142,8 @@ export default function WorkPlatformPage(){
 
   const projectItemByKey=useMemo(()=>new Map(visibleProjectItems.map(item=>[item.key,item])),[visibleProjectItems]);
   const operationItems=useMemo(()=>WORK_PLATFORM_OPERATION_KEYS.map(key=>projectItemByKey.get(key)).filter(Boolean),[projectItemByKey]);
+  const primaryOperation=operationItems.find(item=>item.key===WORK_PLATFORM_PRIMARY_OPERATION_KEY)||operationItems[0]||null;
+  const quickOperations=operationItems.filter(item=>item.key!==primaryOperation?.key);
 
   const secondarySections=useMemo(()=>{
     const configured=WORK_PLATFORM_SECONDARY_SECTIONS.map(section=>({
@@ -100,8 +155,16 @@ export default function WorkPlatformPage(){
       ...WORK_PLATFORM_SECONDARY_SECTIONS.flatMap(section=>section.itemKeys),
     ]);
     const extra=visibleProjectItems.filter(item=>!assigned.has(item.key));
-    return extra.length?[...configured,{key:'additional',label:'أدوات إضافية',description:'أي أداة جديدة في بوابة المشاريع تظهر هنا تلقائيًا حتى لا تُحجب عن صاحب الصلاحية الكاملة.',items:extra}]:configured;
+    return extra.length?[...configured,{key:'additional',label:'أدوات إضافية',shortLabel:'إضافية',description:'أدوات جديدة ظهرت في بوابة المشاريع ولم تُصنف بعد.',items:extra}]:configured;
   },[visibleProjectItems,projectItemByKey]);
+
+  useEffect(()=>{
+    if(secondarySections.length&&!secondarySections.some(section=>section.key===managementKey)){
+      setManagementKey(secondarySections[0].key);
+    }
+  },[secondarySections,managementKey]);
+
+  const activeManagement=secondarySections.find(section=>section.key===managementKey)||secondarySections[0]||null;
 
   const allowedPortals=useMemo(()=>{
     if(!state||!access)return[];
@@ -128,104 +191,108 @@ export default function WorkPlatformPage(){
   },[state,access]);
 
   const otherPortals=allowedPortals.filter(area=>area.key!=='projects');
-  const secondaryCount=secondarySections.reduce((total,section)=>total+section.items.length,0);
 
-  if(!state||!access)return <ConstitutionPage><EmptyState title="جارٍ تجهيز منصة الأعمال" description="يتم تحميل نطاق العمل والأدوات التي يسمح بها هذا الحساب."/></ConstitutionPage>;
+  function operationStatus(key){
+    if(pulse.loading)return 'جارٍ قراءة حالة اليوم…';
+    if(key==='attendance')return pulse.attendanceCount?`${pulse.attendanceCount} تسجيل حضور اليوم`:'لم يبدأ تسجيل الحضور اليوم';
+    if(key==='daily-output')return pulse.outputCount?`${pulse.outputCount} بند إنجاز مسجل اليوم`:'لا يوجد إنجاز مسجل اليوم';
+    if(key==='expenses')return pulse.expenseTotal?`${money(pulse.expenseTotal)} مصروفات اليوم`:'لا توجد مصروفات مسجلة اليوم';
+    if(key==='custody')return pulse.financial?`رصيد العهدة ${money(pulse.financial.custody_balance||0)}`:'استلام وصرف العهدة';
+    if(key==='labor')return 'تهيئة العمالة قبل التسجيل اليومي';
+    return 'جاهز للعمل';
+  }
+
+  if(!state||!access)return <ConstitutionPage><EmptyState title="جارٍ تجهيز منصة الأعمال" description="يتم تحميل سياق العمل والأدوات التي يسمح بها هذا الحساب."/></ConstitutionPage>;
+
+  const progress=clampPercent(pulse.financial?.computed_progress_pct);
+  const daysRemaining=pulse.financial?.days_remaining;
+  const reviewCount=Number(pulse.financial?.items_without_decision||0)+Number(pulse.financial?.unclassified_spend||0);
 
   return <ConstitutionPage>
     <PageHeader
       eyebrow="WORK PLATFORM"
       title="منصة الأعمال"
-      description="مساحة تنفيذ واحدة محكومة بالصلاحيات: اختر سياق العمل أولًا، ثم نفّذ منه مباشرة دون قوائم مكررة أو مسارات متوازية."
+      description="اختر المشروع مرة واحدة، ثم اعمل من سياقه مباشرة. المنصة ترتب الأدوات حسب تكرار الاستخدام ولا تكرر أي وجهة."
     />
     {err&&<Notice tone="warning">{err}</Notice>}
 
     {access.projectScoped&&(
       <>
-        <Section title="المشروع الجاري" description="هذا هو سياق العمل الحالي. كل أدوات التشغيل والإدارة أسفل هذه المنطقة تخص هذا المشروع فقط.">
-          {state.projects.length===0?(
-            <EmptyState title="لا توجد مشاريع متاحة" description={access.fullProjects?'لا يوجد مشروع مسجل حاليًا ضمن بوابة المشاريع.':'لم يُسند أي مشروع إلى هذا الحساب.'}/>
-          ):(
-            <div className={styles.focusLayout}>
-              {selectedProject&&(
-                <div className={styles.activeProjectCard}>
-                  <div className={styles.activeEyebrow}>المشروع النشط</div>
-                  <div className={styles.activeTop}>
-                    <div>
-                      <div className={styles.projectNo}>{selectedProject.project_no||'—'}</div>
-                      <h2>{selectedProject.name_ar}</h2>
-                    </div>
-                    <span className={styles.stageBadge}>{STAGE_AR[selectedProject.stage]||selectedProject.stage||'غير محدد'}</span>
+        {state.projects.length===0?(
+          <Section title="المشروع الجاري"><EmptyState title="لا توجد مشاريع متاحة" description={access.fullProjects?'لا يوجد مشروع مسجل حاليًا ضمن بوابة المشاريع.':'لم يُسند أي مشروع إلى هذا الحساب.'}/></Section>
+        ):selectedProject&&(
+          <section className={styles.cockpit} aria-label="المشروع الجاري">
+            <div className={styles.projectHero}>
+              <div className={styles.heroMain}>
+                <div className={styles.heroKicker}>المشروع الجاري</div>
+                <div className={styles.heroTitleRow}>
+                  <div>
+                    <div className={styles.projectNo}>{selectedProject.project_no||'—'}</div>
+                    <h1>{selectedProject.name_ar}</h1>
                   </div>
-                  <div className={styles.activeMeta}>
-                    <span>{selectedProject.city||'الموقع غير محدد'}</span>
-                    <span>{operationItems.length} أداة تشغيل متاحة الآن</span>
-                  </div>
-                  <div className={styles.focusRule}>غيّر المشروع من القائمة الجانبية فقط؛ لا تتكرر بطاقة المشروع النشط في أي مكان آخر.</div>
+                  <span className={styles.stageBadge}>{STAGE_AR[selectedProject.stage]||selectedProject.stage||'غير محدد'}</span>
                 </div>
-              )}
-
-              {otherProjects.length>0&&(
-                <aside className={styles.projectSwitcher} aria-label="تبديل المشروع">
-                  <div className={styles.switcherTitle}>تبديل المشروع</div>
-                  <div className={styles.switcherList}>
-                    {otherProjects.map(project=><button key={project.id} type="button" className={styles.switchProject} onClick={()=>setProjectId(project.id)}>
-                      <span className={styles.switchNo}>{project.project_no||'—'}</span>
-                      <strong>{project.name_ar}</strong>
-                      <small>{project.city||'الموقع غير محدد'}</small>
-                    </button>)}
-                  </div>
-                </aside>
-              )}
+                <div className={styles.heroMeta}><span>{selectedProject.city||'الموقع غير محدد'}</span><span>•</span><span>{projectFull?'كامل أدوات المشروع':'أدوات حسب الصلاحية'}</span></div>
+                <div className={styles.heroProgress} aria-label={`إنجاز المشروع ${Math.round(progress)}%`}>
+                  <div className={styles.heroProgressHead}><span>الإنجاز الكلي</span><strong>{pulse.loading?'…':`${Math.round(progress)}%`}</strong></div>
+                  <div className={styles.heroTrack}><span style={{width:`${progress}%`}}/></div>
+                </div>
+              </div>
+              <div className={styles.heroMetrics}>
+                <div className={styles.heroMetric}><span>المدة</span><strong>{pulse.loading?'…':daysRemaining===null||daysRemaining===undefined?'—':daysRemaining<0?`${Math.abs(daysRemaining)} يوم تأخير`:`${daysRemaining} يوم`}</strong><small>{daysRemaining!==null&&daysRemaining!==undefined&&daysRemaining>=0?'متبقية':'حسب بيانات المشروع'}</small></div>
+                <div className={styles.heroMetric}><span>اليوم</span><strong>{pulse.loading?'…':pulse.attendanceCount}</strong><small>تسجيل حضور</small></div>
+                <div className={`${styles.heroMetric} ${reviewCount>0?styles.heroMetricAlert:''}`}><span>يحتاج مراجعة</span><strong>{pulse.loading?'…':reviewCount}</strong><small>{reviewCount?'حركة أو بند':'لا توجد ملاحظات حرجة'}</small></div>
+              </div>
             </div>
-          )}
-        </Section>
 
-        {selectedProject&&operationItems.length>0&&(
-          <Section title="التشغيل الآن" description="فقط الأعمال التي تُنفذ مباشرة في الموقع أو خلال يوم العمل. التقارير والمالية والمتابعة ليست ضمن هذه المنطقة.">
-            <div className={styles.operationGrid}>
-              {operationItems.map((item,index)=><Link key={item.key} className={styles.operationAction} href={projectNavigationHref(selectedProject.id,item)}>
-                <span className={styles.operationIndex}>{String(index+1).padStart(2,'0')}</span>
-                <strong>{item.label}</strong>
-                <small>{WORK_PLATFORM_OPERATION_COPY[item.key]||'فتح الأداة وتنفيذ العمل مباشرة.'}</small>
-                <span className={styles.operationArrow}>فتح ←</span>
-              </Link>)}
+            {otherProjects.length>0&&<div className={styles.projectRail}>
+              <span className={styles.railLabel}>تبديل المشروع</span>
+              <div className={styles.railScroll}>{otherProjects.map(project=><button key={project.id} type="button" className={styles.railProject} onClick={()=>setProjectId(project.id)}><span>{project.project_no||'—'}</span><strong>{project.name_ar}</strong><small>{project.city||'—'}</small></button>)}</div>
+            </div>}
+          </section>
+        )}
+
+        {selectedProject&&primaryOperation&&(
+          <Section title="ابدأ عمل اليوم" description="إجراء واحد رئيسي أمامك، والبقية اختصارات مباشرة. لا قوائم متساوية في الأهمية.">
+            <div className={styles.operationDeck}>
+              <Link className={styles.primaryOperation} href={projectNavigationHref(selectedProject.id,primaryOperation)}>
+                <div className={styles.primaryKicker}>ابدأ من هنا</div>
+                <div className={styles.primaryOperationBody}>
+                  <h2>{primaryOperation.label}</h2>
+                  <p>{WORK_PLATFORM_OPERATION_COPY[primaryOperation.key]||'فتح أداة العمل الرئيسية.'}</p>
+                </div>
+                <div className={styles.primaryStatus}>{operationStatus(primaryOperation.key)}</div>
+                <div className={styles.primaryCta}>فتح {primaryOperation.label} <span>←</span></div>
+              </Link>
+
+              {quickOperations.length>0&&<div className={styles.quickOperations}>{quickOperations.map(item=><Link key={item.key} className={styles.quickOperation} href={projectNavigationHref(selectedProject.id,item)}>
+                <div><strong>{item.label}</strong><small>{operationStatus(item.key)}</small></div><span className={styles.quickArrow}>←</span>
+              </Link>)}</div>}
             </div>
           </Section>
         )}
 
-        {selectedProject&&secondaryCount>0&&(
-          <details className={styles.secondaryPanel}>
-            <summary>
-              <span><strong>إدارة المشروع</strong><small>التنفيذ، المالية، التقارير، والملف المرجعي</small></span>
-              <span className={styles.secondaryCount}>{secondaryCount} أدوات</span>
-            </summary>
-            <div className={styles.secondaryBody}>
-              {secondarySections.map(section=><section key={section.key} className={styles.secondaryGroup}>
-                <div className={styles.secondaryHeading}><h3>{section.label}</h3><p>{section.description}</p></div>
-                <div className={styles.secondaryLinks}>{section.items.map(item=><Link key={item.key} href={projectNavigationHref(selectedProject.id,item)}><span>{item.label}</span><span>←</span></Link>)}</div>
-              </section>)}
+        {selectedProject&&activeManagement&&(
+          <Section title="إدارة المشروع" description="اختر مجالًا واحدًا فقط؛ تظهر أدواته دون فتح قوائم طويلة أو تكرار الأدوات اليومية.">
+            <div className={styles.managementShell}>
+              <div className={styles.managementTabs} role="tablist" aria-label="مجالات إدارة المشروع">
+                {secondarySections.map(section=><button key={section.key} type="button" role="tab" aria-selected={managementKey===section.key} className={managementKey===section.key?styles.managementTabActive:styles.managementTab} onClick={()=>setManagementKey(section.key)}>{section.shortLabel||section.label}</button>)}
+              </div>
+              <div className={styles.managementPanel} role="tabpanel">
+                <div className={styles.managementIntro}><span>المجال الحالي</span><h3>{activeManagement.label}</h3><p>{activeManagement.description}</p></div>
+                <nav className={styles.managementLinks}>{activeManagement.items.map(item=><Link key={item.key} href={projectNavigationHref(selectedProject.id,item)}><strong>{item.label}</strong><span>فتح ←</span></Link>)}</nav>
+              </div>
             </div>
-          </details>
-        )}
-
-        {projectPortalEntries.length>0&&(
-          <Section title="إدارة بوابة المشاريع" description="وظائف عامة للبوابة وليست أدوات تشغيل للمشروع الجاري؛ لذلك تبقى في المستوى الأخير.">
-            <nav className={styles.portalActions} aria-label="إدارة بوابة المشاريع">
-              {projectPortalEntries.map(item=><Link key={item.href} className={styles.portalAction} href={item.href}>
-                <span><strong>{item.label==='المشاريع'?'سجل المشاريع':item.label}</strong><small>{WORK_PLATFORM_PORTAL_ENTRY_COPY[item.href]||'فتح الوظيفة العامة للبوابة.'}</small></span>
-                <span>←</span>
-              </Link>)}
-            </nav>
           </Section>
         )}
+
+        {projectPortalEntries.length>0&&<div className={styles.portalUtility}>
+          <div className={styles.portalUtilityTitle}><strong>إدارة بوابة المشاريع</strong><span>وظائف عامة وليست جزءًا من تشغيل المشروع الجاري</span></div>
+          <nav className={styles.portalUtilityLinks} aria-label="إدارة بوابة المشاريع">{projectPortalEntries.map(item=><Link key={item.href} href={item.href} title={WORK_PLATFORM_PORTAL_ENTRY_COPY[item.href]||item.label}>{item.label==='المشاريع'?'سجل المشاريع':item.label}</Link>)}</nav>
+        </div>}
       </>
     )}
 
-    {otherPortals.length>0&&(
-      <Section title="بوابات أخرى ضمن صلاحيتك" description="تظهر هنا فقط إذا كان الحساب مخولًا بأكثر من نطاق عمل.">
-        <nav className={styles.otherPortals}>{otherPortals.map(area=><Link key={area.key} href={area.href}>{area.label}<span>←</span></Link>)}</nav>
-      </Section>
-    )}
+    {otherPortals.length>0&&<div className={styles.otherPortalUtility}><span>بوابات أخرى</span>{otherPortals.map(area=><Link key={area.key} href={area.href}>{area.label}</Link>)}</div>}
   </ConstitutionPage>;
 }
