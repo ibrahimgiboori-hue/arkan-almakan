@@ -192,11 +192,13 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   }
 
   async function delDecision(ex) {
-    if (!ex || !window.confirm('حذف هذا الإسناد؟')) return;
-    if (ex.end_date) { setErr('الإسناد المنتهي لا يُحذف — التاريخ يبقى.'); return; }
-    const { error } = await supabase.from('item_execution').delete().eq('id', ex.id);
-    if (error) setErr('تعذّر الحذف: ' + error.message);
-    else { await load(); notifyChange('exec'); onChange?.(); }
+    if (!ex || !window.confirm('إلغاء هذا الإسناد قبل بدء التنفيذ؟')) return;
+    const { error } = await supabase.rpc('fn_cancel_item_execution_assignment', {
+      p_execution_id: ex.id,
+    });
+    if (error) { setErr('تعذّر الإلغاء: ' + error.message); return; }
+    setMsg('أُلغي الإسناد المخطط.');
+    await load(); notifyChange('exec'); onChange?.();
   }
 
   if (!items) return <div className="empty">جارٍ التحميل…</div>;
@@ -447,7 +449,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                                   onClick={()=>{setBudgetFor(l); setDecideFor(null);}}>ميزانية</button>
                           <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
                                   onClick={()=>openDecide(l, null)}>+ إسناد</button>
-                          {ex && !ex.end_date && (
+                          {ex && !ex.start_date && !ex.end_date && (
                             <button className="btn ghost" style={{padding:'3px 7px',fontSize:11.5}}
                                     onClick={()=>delDecision(ex)}>إلغاء</button>
                           )}
