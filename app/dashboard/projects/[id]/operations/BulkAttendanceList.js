@@ -52,8 +52,8 @@ export default function BulkAttendanceList({ workers, busy, onMarkWorker, onMark
   if (workers.length === 0) {
     return (
       <div className={styles.completeState}>
-        <strong>اكتمل تسجيل هذه القائمة</strong>
-        <span>يمكن مراجعة المسجلين أو الانتقال لليوم التالي.</span>
+        <strong>لا يوجد أفراد متبقون للتسجيل</strong>
+        <span>من لم يُسجّل له كامل أو نصف يوم يُعامل كغياب تلقائيًا.</span>
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function BulkAttendanceList({ workers, busy, onMarkWorker, onMark
         <span>#</span>
         <span>العامل</span>
         <span>الصفة</span>
-        <span>الحالة</span>
+        <span>الحضور</span>
       </div>
 
       <div className={`${styles.bulkBar} ${someSelected ? styles.bulkBarOpen : ''}`} aria-hidden={!someSelected}>
@@ -88,7 +88,6 @@ export default function BulkAttendanceList({ workers, busy, onMarkWorker, onMark
         <div className={styles.bulkActions}>
           <button type="button" className={styles.full} onClick={() => applySelected('full')} disabled={Boolean(busy)}>كامل</button>
           <button type="button" className={styles.half} onClick={() => applySelected('half')} disabled={Boolean(busy)}>نصف يوم</button>
-          <button type="button" className={styles.absent} onClick={() => applySelected('absent')} disabled={Boolean(busy)}>غياب</button>
         </div>
         <button type="button" className={styles.clear} onClick={() => setSelected(new Set())} disabled={Boolean(busy)}>إلغاء التحديد</button>
       </div>
@@ -110,7 +109,6 @@ export default function BulkAttendanceList({ workers, busy, onMarkWorker, onMark
             <div className={styles.statusButtons}>
               <button className={styles.full} disabled={Boolean(busy)} onClick={() => onMarkWorker(worker, 'full')}>كامل</button>
               <button className={styles.half} disabled={Boolean(busy)} onClick={() => onMarkWorker(worker, 'half')}>نصف يوم</button>
-              <button className={styles.absent} disabled={Boolean(busy)} onClick={() => onMarkWorker(worker, 'absent')}>غياب</button>
             </div>
           </div>
         );
