@@ -1,0 +1,19 @@
+# Dependencies
+/node_modules
+
+# Next.js / Vercel local output
+/.next/
+/out/
+/.vercel/
+
+# Local environment files
+.env
+.env*.local
+
+# Logs and test output
+*.log
+/coverage/
+
+# OS / editor / local certificates
+.DS_Store
+*.pem
