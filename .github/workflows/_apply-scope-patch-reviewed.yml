@@ -1,0 +1,84 @@
+name: Temporary Apply Reviewed Scope Patch
+
+on:
+  push:
+    branches:
+      - v2-system-constitution
+
+permissions:
+  contents: write
+
+jobs:
+  apply-reviewed-scope-patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Reconstruct and validate reviewed patch
+        run: |
+          cat .github/patches/scope.patch.part1 .github/patches/scope.patch.part2 .github/patches/scope.patch.part3 .github/patches/scope.patch.part4 | base64 -d | gzip -d > /tmp/scope.patch
+          git apply --check --exclude=.github/workflows/_refactor-projscope-once.yml /tmp/scope.patch
+      - name: Apply reviewed patch and safe-delete correction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git apply --3way --exclude=.github/workflows/_refactor-projscope-once.yml /tmp/scope.patch
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('components/ProjScope.js')
+          s = p.read_text()
+          old = """  async function del(id) {\n    const { error } = await supabase.from('project_items').delete().eq('id', id);\n    if (error) throw new Error('تعذّر الحذف: ' + error.message);\n    setManageFor(null); await load(); notifyChange('scope');\n  }"""
+          new = """  async function del(id) {\n    const { data, error } = await supabase.rpc('fn_delete_project_item_safely', {\n      p_project_item_id: id,\n    });\n    if (error) throw new Error('تعذّر الحذف: ' + error.message);\n    if (!data?.deleted) throw new Error('لم يُحذف البند؛ أعد تحميل الصفحة وحاول مرة أخرى');\n    setManageFor(null); await load(); notifyChange('scope');\n  }"""
+          count = s.count(old)
+          assert count == 1, f'expected exactly one raw project-item delete block, got {count}'
+          p.write_text(s.replace(old, new, 1))
+          PY
+          if grep -q "from('project_items').delete" components/ProjScope.js; then
+            echo 'raw project_items delete still exists in ProjScope' >&2
+            exit 1
+          fi
+          grep -q "fn_delete_project_item_safely" components/ProjScope.js
+          cat > tests/project-item-delete-gateway.test.mjs <<'EOF'
+          import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const scope = fs.readFileSync('components/ProjScope.js', 'utf8');
+          const migration = fs.readFileSync('supabase/migrations/20260826183000_safe_project_item_delete_gateway.sql', 'utf8');
+          test('project item deletion uses the governed RPC gateway', () => {
+            assert.equal(scope.includes("fn_delete_project_item_safely"), true);
+            assert.equal(/from\(['\"]project_items['\"]\)\.delete\(/.test(scope), false);
+          });
+          test('safe delete preserves operational history', () => {
+            for (const marker of ['item_execution','day_items','item_measurements','claim_lines','project_cost_allocations','contractor_expenses','custody_transactions','progress_entries','project_change_events']) {
+              assert.equal(migration.includes(marker), true, `migration must govern ${marker}`);
+            }
+          });
+          EOF
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Constitution audit
+        run: npm run v2:audit
+      - name: Tests
+        run: npm test
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-build.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-key
+        run: npm run build
+      - name: Commit reviewed result and remove applicator
+        run: |
+          rm -f .github/patches/scope.patch.part1 .github/patches/scope.patch.part2 .github/patches/scope.patch.part3 .github/patches/scope.patch.part4
+          rm -f .github/workflows/_apply-scope-patch-reviewed.yml
+          rm -f .github/scope-patch-trigger
+          git add -A
+          git commit -m "refactor(projects): make scope table a safe focused workspace"
+      - name: Push reviewed result
+        run: git push origin HEAD:v2-system-constitution
