@@ -63,11 +63,15 @@ test('period roster applies the same overlap rule and keeps contractor history s
   assert.deepEqual(new Set(rosterContractorIdsForPeriod(rows,'2026-08-01','2026-08-31')),new Set(['C1','C2']));
 });
 
-test('attendance entry and timesheet reports consume the shared roster constitution', () => {
+test('attendance entry report center and printable output consume one roster constitution', () => {
   const attendance = read('app/dashboard/projects/[id]/operations/page.js');
   const reports = read('components/timesheet/TimesheetReportCenter.js');
+  const print = read('app/print/timesheet/page.js');
   assert.match(attendance, /selectRosterAssignmentsForDate/);
   assert.match(reports, /selectRosterAssignmentsForPeriod/);
   assert.match(reports, /rosterContractorIdsForPeriod/);
+  assert.match(print, /selectRosterAssignmentsForPeriod/);
   assert.equal(reports.includes('assignmentOverlaps('), false);
+  assert.equal(print.includes('assignmentOverlaps('), false);
+  assert.equal(print.includes('assignmentRows.sort('), false);
 });
