@@ -13,10 +13,10 @@ const PROJECT_ID = 'P1';
 const items = PROJECT_NAV_GROUPS.flatMap((group) => group.items);
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('project navigation keeps timesheet reports beside attendance', () => {
+test('project navigation puts labor before attendance and reports beside attendance', () => {
   assert.equal(PROJECT_NAV_GROUPS[0].key, 'daily');
   assert.deepEqual(PROJECT_NAV_GROUPS[0].items.map((item) => item.key), [
-    'attendance', 'timesheet-reports', 'daily-output', 'expenses', 'movements',
+    'labor', 'attendance', 'timesheet-reports', 'daily-output', 'expenses', 'movements',
   ]);
 });
 
@@ -54,6 +54,11 @@ test('project root navigation follows the selected view', () => {
 });
 
 test('nested operational routes resolve to exactly one project navigation item', () => {
+  assert.equal(activeProjectNavigationKey({
+    projectId:PROJECT_ID,
+    pathname:'/dashboard/projects/P1/operations/labor',
+    view:null,
+  }), 'labor');
   assert.equal(activeProjectNavigationKey({
     projectId:PROJECT_ID,
     pathname:'/dashboard/projects/P1/operations/reports',
