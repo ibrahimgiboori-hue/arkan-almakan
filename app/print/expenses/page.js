@@ -3,23 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
-import { getPrintLayoutPolicy } from '@/lib/print-governance';
+import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
 
 const REPORT_LAYOUT = getPrintLayoutPolicy('expense_report');
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 const PAYER_AR = { contractor:'المقاول', arkan_direct:'أركان مباشرة', arkan_custody:'أركان من العهدة', employee:'مدفوع من الحساب الشخصي' };
 const CHARGE_AR = { arkan:'أركان', contractor:'المقاول', owner:'المالك' };
 const fmt = (d) => d ? new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(`${d}T12:00:00`)) : '—';
-
-function paginateRows(rows){
-  const firstLimit=Number(REPORT_LAYOUT.pagination?.firstPageRows||13);
-  const nextLimit=Number(REPORT_LAYOUT.pagination?.continuationRows||18);
-  if(!rows.length)return [[]];
-  const pages=[];
-  pages.push(rows.slice(0,firstLimit));
-  for(let i=firstLimit;i<rows.length;i+=nextLimit)pages.push(rows.slice(i,i+nextLimit));
-  return pages;
-}
 
 export default function ExpensePrintPage(){
   const [query,setQuery]=useState(null),[cfg,setCfg]=useState(null),[project,setProject]=useState(null),[contractor,setContractor]=useState(null);
@@ -38,7 +28,7 @@ export default function ExpensePrintPage(){
   const employeeMap=useMemo(()=>Object.fromEntries(employees.map(x=>[x.id,x.full_name_ar])),[employees]);
   const total=useMemo(()=>rows.reduce((s,x)=>s+Number(x.amount||0),0),[rows]);
   const employeeDue=useMemo(()=>rows.reduce((s,x)=>s+(x.paid_by_employee_id?Math.max(0,Number(x.amount||0)-Number(x.reimbursed_amount||0)):0),0),[rows]);
-  const pages=useMemo(()=>paginateRows(rows),[rows]);
+  const pages=useMemo(()=>paginateRows(rows,REPORT_LAYOUT.pagination),[rows]);
 
   function changeRange(key,value){const next={...query,[key]:value};setQuery(next);const p=new URLSearchParams(window.location.search);p.set(key,value);history.replaceState(null,'',`${window.location.pathname}?${p.toString()}`);}
   function payerText(r){
