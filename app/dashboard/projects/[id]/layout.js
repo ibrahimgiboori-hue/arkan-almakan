@@ -25,11 +25,13 @@ export default function ProjectWorkspaceLayout({ children }) {
   useEffect(() => {
     let active = true;
     (async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      const userId = session?.user?.id || null;
       const [projectQ, capabilitiesQ, primaryQ, userQ] = await Promise.all([
         supabase.from('projects').select('id, project_no, name_ar, city, stage').eq('id', id).maybeSingle(),
         supabase.from('v_my_capabilities').select('capability_key,scope_type,scope_key'),
         supabase.rpc('fn_is_primary_user'),
-        supabase.from('app_users').select('is_system_admin').maybeSingle(),
+        userId ? supabase.from('app_users').select('is_system_admin').eq('id', userId).maybeSingle() : Promise.resolve({ data:null, error:null }),
       ]);
       if (!active) return;
       const full = primaryQ.data === true || Boolean(userQ.data?.is_system_admin);
