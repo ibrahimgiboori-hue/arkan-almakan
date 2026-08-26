@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { MODE_AR } from '@/lib/projects';
 import ItemBudget from '@/components/ItemBudget';
+import NumericField from '@/components/NumericField';
 import { notifyChange, useLiveRefresh } from '@/lib/live';
 
 export default function ProjScope({ projectId, canWrite, onChange }) {
@@ -300,18 +301,24 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
                            style={{width:'100%',border:'1px solid var(--hair)',padding:'4px',fontSize:13}} />
                   </td>
                   <td>
-                    <input type="number" step="any" dir="ltr" value={l.contract_qty ?? ''} disabled={!canWrite}
-                           onChange={(e)=>upd(l.id,{contract_qty:Number(e.target.value||0)})}
+                    <NumericField type="number" step="any" dir="ltr" value={l.contract_qty} disabled={!canWrite}
+                           aria-label="الكمية التعاقدية"
+                           onCommit={(v)=>upd(l.id,{contract_qty:v})}
+                           onInvalid={()=>setErr('الكمية غير صحيحة — أدخل رقمًا.')}
                            style={{width:'100%',border:'1px solid var(--hair)',padding:'4px',textAlign:'left'}} />
                   </td>
                   <td>
-                    <input type="number" step="0.01" dir="ltr" value={l.sell_price ?? ''} disabled={!canWrite}
-                           onChange={(e)=>upd(l.id,{sell_price:Number(e.target.value||0)})}
+                    <NumericField type="number" step="0.01" dir="ltr" value={l.sell_price} disabled={!canWrite}
+                           aria-label="سعر البيع"
+                           onCommit={(v)=>upd(l.id,{sell_price:v})}
+                           onInvalid={()=>setErr('سعر البيع غير صحيح — أدخل رقمًا.')}
                            style={{width:'100%',border:'1px solid var(--hair)',padding:'4px',textAlign:'left'}} />
                   </td>
                   <td>
-                    <input type="number" step="0.01" dir="ltr" value={l.budget_cost ?? ''} disabled={!canWrite}
-                           onChange={(e)=>upd(l.id,{budget_cost:Number(e.target.value||0)})}
+                    <NumericField type="number" step="0.01" dir="ltr" value={l.budget_cost} disabled={!canWrite}
+                           aria-label="التكلفة المخططة"
+                           onCommit={(v)=>upd(l.id,{budget_cost:v})}
+                           onInvalid={()=>setErr('التكلفة المخططة غير صحيحة — أدخل رقمًا.')}
                            style={{width:'100%',border:'1px solid var(--hair)',padding:'4px',textAlign:'left'}} />
                   </td>
                   <td className="num">{money(l.contract_value)}</td>

@@ -3,11 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { money, todayIsoInRiyadh } from '@/lib/format';
+import { interpretGuardedWrite } from '@/lib/guarded-write.mjs';
 import { openCustodyEvidence, removeCustodyEvidence, uploadCustodyEvidence } from './custody-evidence';
 import styles from './custody.module.css';
 
-const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const todayIso = () => new Date().toISOString().slice(0,10);
+// «اليوم» تشغيليًا هو يوم الرياض، لا يوم UTC: قبل الفجر كان هذا يفتح
+// العهدة ويسجّل حركاتها على تاريخ الأمس بينما شاشات التشغيل المجاورة على اليوم.
+const todayIso = todayIsoInRiyadh;
 const DIRECTION_AR = { issue:'تعزيز العهدة', spend:'صرف من العهدة', return:'إرجاع متبقي' };
 const CHARGE_AR = { arkan:'أركان', contractor:'المقاول', owner:'المالك' };
 
@@ -164,7 +167,9 @@ export default function CustodyPage(){
     if(!window.confirm('تسوية هذه العهدة؟ سيتم تغيير حالتها إلى «مسوّاة».'))return;
     setBusy(true); setFeedback(null);
     const q=await supabase.from('custodies').update({status:'settled'}).eq('id',selected.id).eq('status','open').select('id').maybeSingle();
-    if(q.error)setFeedback({type:'error',text:'تعذر تسوية العهدة: '+q.error.message}); else {setFeedback({type:'success',text:'تمت تسوية العهدة.'}); await load();}
+    const outcome=interpretGuardedWrite(q,{conflictMessage:'لم تتغيّر حالة العهدة — يبدو أنها سُوّيت أو أُغلقت من جهة أخرى. حدّثت العرض.'});
+    if(!outcome.ok){setFeedback({type:'error',text:outcome.message}); await load();}
+    else {setFeedback({type:'success',text:'تمت تسوية العهدة.'}); await load();}
     setBusy(false);
   }
 

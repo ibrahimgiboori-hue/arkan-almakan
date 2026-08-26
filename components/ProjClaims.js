@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { interpretGuardedWrite } from '@/lib/guarded-write.mjs';
 import { money, dateAr } from '@/lib/format';
 import { CLAIM_CLASS } from '@/lib/projects';
 
@@ -151,8 +152,12 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     if (value===null) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { setErr('أدخل التاريخ بصيغة YYYY-MM-DD'); return; }
     if (value > m.period_to) { setErr('بداية الفترة لا يمكن أن تكون بعد تاريخ القياس'); return; }
-    const { error } = await supabase.from('item_measurements').update({ period_from:value }).eq('id',m.measurement_id).eq('status','available');
-    if (error) setErr(error.message); else { setMsg('تم استكمال فترة التمتير'); load(); }
+    const outcome = interpretGuardedWrite(
+      await supabase.from('item_measurements').update({ period_from:value }).eq('id',m.measurement_id).eq('status','available').select('id'),
+      { conflictMessage:'لم يتغيّر هذا التمتير — لم يعد متاحًا للتعديل (رُبط بمستخلص أو أُلغي). حدّثت العرض.' },
+    );
+    if (!outcome.ok) setErr(outcome.message); else setMsg('تم استكمال فترة التمتير');
+    load();
   }
 
   async function editMeasurement(m) {
@@ -165,14 +170,22 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     const p = window.prompt('فئة السعر',String(m.unit_price ?? ''));
     if (p===null) return;
     if (!from || !to || from>to || Number(q)<=0 || Number(p)<0) { setErr('راجع فترة القياس والكمية وفئة السعر'); return; }
-    const { error } = await supabase.from('item_measurements').update({ period_from:from,period_to:to,qty_measured:Number(q),unit_price:Number(p) }).eq('id',m.measurement_id).eq('status','available');
-    if (error) setErr(error.message); else { setMsg('تم تعديل التمتير'); load(); }
+    const outcome = interpretGuardedWrite(
+      await supabase.from('item_measurements').update({ period_from:from,period_to:to,qty_measured:Number(q),unit_price:Number(p) }).eq('id',m.measurement_id).eq('status','available').select('id'),
+      { conflictMessage:'لم يتغيّر هذا التمتير — لم يعد متاحًا للتعديل (رُبط بمستخلص أو أُلغي). حدّثت العرض.' },
+    );
+    if (!outcome.ok) setErr(outcome.message); else setMsg('تم تعديل التمتير');
+    load();
   }
 
   async function cancelMeasurement(m) {
     if (!window.confirm(`إلغاء التمتير رقم ${m.measurement_no} للبند ${m.description_ar}؟`)) return;
-    const { error } = await supabase.from('item_measurements').update({status:'cancelled'}).eq('id',m.measurement_id).eq('status','available');
-    if (error) setErr(error.message); else { setMsg('تم إلغاء التمتير'); load(); }
+    const outcome = interpretGuardedWrite(
+      await supabase.from('item_measurements').update({status:'cancelled'}).eq('id',m.measurement_id).eq('status','available').select('id'),
+      { conflictMessage:'لم يتغيّر هذا التمتير — لم يعد متاحًا للإلغاء (رُبط بمستخلص أو أُلغي سابقًا). حدّثت العرض.' },
+    );
+    if (!outcome.ok) setErr(outcome.message); else setMsg('تم إلغاء التمتير');
+    load();
   }
 
   function toggleMeasurement(m) {
@@ -301,7 +314,12 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     setBusyDel(false);
   }
 
-  if (!claims) return <div className="empty">جارٍ التحميل</div>;
+  // الخطأ يُعرض قبل حارس التحميل: كان setErr يُضبط ثم يُرجَع بلا setClaims،
+  // فيبقى التبويب على «جارٍ التحميل» إلى الأبد والسبب محفوظ ولا يظهر أبدًا.
+  if (!claims) {
+    if (err) return <div className="msg err">{err}</div>;
+    return <div className="empty">جارٍ التحميل</div>;
+  }
 
   return <>
     {err && <div className="msg err" style={{marginBottom:12}}>{err}</div>}

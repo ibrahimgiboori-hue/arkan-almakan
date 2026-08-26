@@ -36,6 +36,15 @@ function dateLabel(value) {
   }).format(new Date(y, m - 1, d));
 }
 
+// «في الانتظار» ليست دائمًا انقطاع اتصال: saveOperationWithQueue تضع الحركة في
+// الطابور أيضًا عندما يرفض الخادم رفضًا قابلًا لإعادة المحاولة (429/502/503/504/مهلة).
+// عرض الحالتين برسالة واحدة يجعل فشل خادم حقيقي يبدو حفظًا ناجحًا على الجهاز.
+function queuedNotice(result, subject) {
+  return result?.error
+    ? `تعذّر حفظ ${subject} على الخادم الآن (${result.error.message || result.error}) — بقيت في انتظار إعادة المحاولة، فتحقّق قبل الاعتماد عليها.`
+    : `حُفظت ${subject} على هذا الجهاز وتنتظر عودة الاتصال.`;
+}
+
 export default function ProjectDailyOperations() {
   const { id: projectId } = useParams();
   const [date, setDate] = useState(iso(new Date()));
@@ -180,7 +189,7 @@ export default function ProjectDailyOperations() {
     setMsg('');
     try {
       const result = await writeAttendance([{ worker, status }]);
-      if (result?.status === 'queued') setMsg(`حُفظت محاولة تسجيل ${worker.full_name} على هذا الجهاز وتنتظر الاتصال.`);
+      if (result?.status === 'queued') setMsg(queuedNotice(result, `تسجيل ${worker.full_name}`));
       else if (result?.receipt) setMsg(`${worker.full_name} — ${STATUS[status]?.label || status} · ${receiptLabel(result.receipt)}`);
     } catch (e) {
       setSaveProof({ status: 'error' });
@@ -200,7 +209,7 @@ export default function ProjectDailyOperations() {
       if (result?.status === 'verified') {
         setMsg(`تم تسجيل ${selectedWorkers.length} عاملًا — ${label} · ${receiptLabel(result.receipt)}`);
       } else {
-        setMsg(`حُفظت ${selectedWorkers.length} حركة ${label} على الجهاز وتنتظر الاتصال.`);
+        setMsg(queuedNotice(result, `${selectedWorkers.length} حركة ${label}`));
       }
       setBusy('');
       return true;

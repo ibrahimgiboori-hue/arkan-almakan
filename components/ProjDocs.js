@@ -80,7 +80,10 @@ export default function ProjDocs({ project, canWrite, mode = 'all' }) {
 
   async function delMat(id) {
     if (!window.confirm('حذف هذه المادة؟')) return;
-    await supabase.from('project_materials').delete().eq('id', id); load();
+    // الخطأ كان يُبتلع كليًا: يعود الصف بعد load() بلا أي تفسير للمستخدم.
+    const { error } = await supabase.from('project_materials').delete().eq('id', id);
+    if (error) setErr('تعذّر حذف المادة: ' + error.message);
+    load();
   }
 
   const laborOnly = project.supply_scope === 'labor_only';
