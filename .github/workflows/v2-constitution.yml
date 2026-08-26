@@ -25,4 +25,10 @@ jobs:
       - name: Tests
         run: npm test
       - name: Production build
+        # Build-only placeholders let Next/Supabase instantiate the browser client
+        # during prerender without exposing or depending on production credentials.
+        # No CI page should perform authenticated/live data I/O at build time.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-build.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-key
         run: npm run build
