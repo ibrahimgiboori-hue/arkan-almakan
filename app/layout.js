@@ -3,6 +3,7 @@ import './ui-constitution.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import EntryTheaterController from '@/components/ui/EntryTheaterController';
+import NavigationMotionController from '@/components/ui/NavigationMotionController';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
 
 const plex = IBM_Plex_Sans_Arabic({
@@ -31,6 +32,7 @@ export default function RootLayout({ children }) {
     >
       <body>
         <QuoteTerminologyFix />
+        <NavigationMotionController />
         <EntryTheaterController />
         {children}
       </body>
