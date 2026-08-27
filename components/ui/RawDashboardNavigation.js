@@ -10,6 +10,7 @@ import {
   projectNavigationHref,
 } from '@/lib/app-constitution';
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
+import { PORTAL_SECTION_ITEMS, PORTAL_EXISTING_DESTINATION_CAPABILITIES } from '@/lib/portal-section-constitution';
 import styles from './RawDashboardNavigation.module.css';
 
 function uniqueByHref(items = []) {
@@ -25,6 +26,11 @@ function cleanPortalLabel(value = '') {
   return String(value).replace(/^بوابة\s+/, '').trim();
 }
 
+function cleanToolLabel(item) {
+  if (item?.sectionKey === 'disciplinary') return 'الإجراءات التأديبية';
+  return item?.label || 'أداة';
+}
+
 export default function RawDashboardNavigation({ me, onSignOut }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,20 +43,29 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
 
   const projectMatch = pathname.match(/^\/dashboard\/projects\/([^/]+)(?:\/|$)/);
   const projectId = projectMatch?.[1] || null;
+  const sectionMatch = pathname.match(/^\/dashboard\/workspace\/(projects|workforce|finance|documents|admin)\/section\/[^/]+/);
   const constitutionItem = activeConstitutionItem(pathname);
-  const currentAreaKey = projectId ? 'projects' : constitutionItem?.area?.key || null;
+  const currentAreaKey = projectId ? 'projects' : sectionMatch?.[1] || constitutionItem?.area?.key || null;
   const currentArea = visibleAreas.find((area) => area.key === currentAreaKey) || null;
 
   const globalTools = useMemo(() => {
     if (!currentArea) return [];
-    const canUseFullArea = Boolean(
-      me?.access?.fullAdmin ||
-      (currentArea.key === 'projects' && me?.access?.projectsScreen),
-    );
-    const items = currentArea.items
+    const capabilityKeys = me?.capabilityKeys || new Set();
+    const merged = uniqueByHref([
+      ...(currentArea.items || []),
+      ...(PORTAL_SECTION_ITEMS[currentArea.key] || []),
+    ]);
+
+    return merged
       .filter((item) => !item.hidden && !item.legacy)
-      .filter((item) => canUseFullArea || item.href === currentArea.href);
-    return uniqueByHref(items);
+      .filter((item) => {
+        if (me?.access?.fullAdmin) return true;
+        if (currentArea.key === 'projects' && !me?.access?.projectsScreen) return item.href === currentArea.href;
+        const required = item.capabilities || PORTAL_EXISTING_DESTINATION_CAPABILITIES[item.href] || [];
+        if (required.length) return required.some((key) => capabilityKeys.has(key));
+        return true;
+      })
+      .map((item) => ({ ...item, label: cleanToolLabel(item) }));
   }, [currentArea, me]);
 
   const currentGlobalTool = useMemo(() => {
@@ -93,13 +108,8 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
 
   return (
     <nav className={styles.nav} aria-label="الملاحة الرئيسية الخام">
-      <button type="button" className={styles.action} onClick={() => router.back()} title="العودة للصفحة السابقة">
-        ← رجوع
-      </button>
-
-      <button type="button" className={styles.action} onClick={() => router.push('/dashboard')} title="بداية لوحة التحكم">
-        الرئيسية
-      </button>
+      <button type="button" className={styles.action} onClick={() => router.back()} title="العودة للصفحة السابقة">← رجوع</button>
+      <button type="button" className={styles.action} onClick={() => router.push('/dashboard')} title="بداية لوحة التحكم">الرئيسية</button>
 
       <label className={styles.field}>
         <span>البوابة</span>
@@ -108,23 +118,15 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
           if (area) go(area.href);
         }}>
           <option value="">اختر بوابة</option>
-          {visibleAreas.map((area) => (
-            <option key={area.key} value={area.key}>{cleanPortalLabel(area.label)}</option>
-          ))}
+          {visibleAreas.map((area) => <option key={area.key} value={area.key}>{cleanPortalLabel(area.label)}</option>)}
         </select>
       </label>
 
       <label className={styles.field}>
         <span>الأداة</span>
-        <select
-          value={currentGlobalTool?.href || ''}
-          onChange={(e) => go(e.target.value)}
-          disabled={!currentArea || globalTools.length === 0}
-        >
+        <select value={currentGlobalTool?.href || ''} onChange={(e) => go(e.target.value)} disabled={!currentArea || globalTools.length === 0}>
           <option value="">{currentArea ? 'اختر أداة' : 'اختر البوابة أولًا'}</option>
-          {globalTools.map((item) => (
-            <option key={item.href} value={item.href}>{item.label}</option>
-          ))}
+          {globalTools.map((item) => <option key={item.href} value={item.href}>{item.label}</option>)}
         </select>
       </label>
 
@@ -136,20 +138,13 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
             {PROJECT_NAV_GROUPS.map((group) => {
               const groupItems = projectTools.filter((item) => item.groupLabel === group.label);
               if (!groupItems.length) return null;
-              return (
-                <optgroup label={group.label} key={group.key}>
-                  {groupItems.map((item) => (
-                    <option key={item.key} value={item.href}>{item.label}</option>
-                  ))}
-                </optgroup>
-              );
+              return <optgroup label={group.label} key={group.key}>{groupItems.map((item) => <option key={item.key} value={item.href}>{item.label}</option>)}</optgroup>;
             })}
           </select>
         </label>
       )}
 
       <div className={styles.path} title={pathname}>{pathname}</div>
-
       <button type="button" className={styles.signOut} onClick={onSignOut}>خروج</button>
     </nav>
   );
