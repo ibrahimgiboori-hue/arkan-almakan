@@ -33,22 +33,21 @@ function controlsIn(root) {
 }
 
 function hasCommitAction(root) {
-  const buttons = [...(root?.querySelectorAll?.("button,a,[role='button'],input[type='submit']") || [])];
-  return buttons.some((node) => /حفظ|إنشاء|إضافة|تعديل|تحديث|اعتماد|إرسال|تسجيل|save|create|update|submit/i.test(cleanText(node.textContent || node.value || '')));
+  const controls = [...(root?.querySelectorAll?.("button,input[type='submit'],[role='button']") || [])];
+  return controls.some((node) => {
+    const type = String(node.getAttribute?.('type') || '').toLowerCase();
+    if (type === 'submit') return true;
+    const text = cleanText(node.textContent || node.value || '');
+    // «تعديل» وحدها قد تكون زر صف داخل جدول وليست حفظاً لنموذج.
+    return /حفظ|إنشاء|إضافة|تحديث|اعتماد|إرسال|تسجيل|save|create|update|submit/i.test(text);
+  });
 }
 
-function qualifies(root, minimum=4) {
-  if (!root || looksLikeFilter(root)) return false;
+function qualifiesForm(root, minimum=2) {
+  if (!root || root.tagName !== 'FORM' || looksLikeFilter(root)) return false;
   const controls = controlsIn(root);
   if (controls.length < minimum) return false;
-  return hasCommitAction(root) || controls.length >= 6 || controls.some((node) => node.tagName === 'TEXTAREA' || node.getAttribute?.('contenteditable') === 'true');
-}
-
-function sectionLike(node) {
-  if (!node || node.nodeType !== 1) return false;
-  if (node.matches('[data-entry-surface],section,article')) return true;
-  const cls = typeof node.className === 'string' ? node.className.toLowerCase() : '';
-  return cls.includes('section') || cls.includes('editor') || cls.includes('form');
+  return hasCommitAction(root);
 }
 
 function isVisible(node) {
@@ -63,28 +62,28 @@ function findEntryRoot(target) {
   if (!(target instanceof Element)) return null;
   if (target.closest('[data-entry-ignore],[data-entry-theater-bar]')) return null;
 
+  // التعريف الصريح هو المرجع الأول دائماً.
   const explicit = target.closest('[data-entry-surface]');
   if (explicit) return explicit;
 
+  // لا نخمن من section/article أو كثرة الحقول. الجداول وشاشات العرض قد تحتوي
+  // عشرات select/buttons ولا يجوز أن تتحول إلى مسرح إدخال بسبب ذلك.
   const form = target.closest('form');
-  if (form && qualifies(form,3)) return form;
-
-  const content = target.closest('[data-content-governance]');
-  let node = target.parentElement;
-  let best = null;
-  while (node && node !== content && node !== document.body) {
-    if (sectionLike(node) && qualifies(node,4)) best = node;
-    node = node.parentElement;
-  }
-  return best;
+  return form && qualifiesForm(form,2) ? form : null;
 }
 
 function candidateFromNode(node) {
   if (!(node instanceof Element)) return null;
-  const candidates = [];
-  if (node.matches?.('[data-entry-surface],form,section,article')) candidates.push(node);
-  candidates.push(...node.querySelectorAll?.('[data-entry-surface],form,section,article') || []);
-  return candidates.find((candidate) => isVisible(candidate) && qualifies(candidate,3)) || null;
+
+  const explicit = node.matches?.('[data-entry-surface]')
+    ? node
+    : node.querySelector?.('[data-entry-surface]');
+  if (explicit && isVisible(explicit)) return explicit;
+
+  const forms = [];
+  if (node.matches?.('form')) forms.push(node);
+  forms.push(...(node.querySelectorAll?.('form') || []));
+  return forms.find((form) => isVisible(form) && qualifiesForm(form,2)) || null;
 }
 
 function inferTitle(root) {
@@ -145,6 +144,8 @@ export default function EntryTheaterController() {
       }
     }
 
+    // النماذج التي تظهر بعد الضغط على «إضافة/إنشاء» تدخل المسرح لحظة ظهورها.
+    // نراقب forms صريحة فقط، ولا نراقب sections أو articles إطلاقاً.
     const observer = new MutationObserver((mutations) => {
       if (routeTheater || activeRootRef.current) return;
       for (const mutation of mutations) {
