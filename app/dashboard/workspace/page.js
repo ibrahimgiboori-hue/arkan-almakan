@@ -24,6 +24,34 @@ const PORTAL_CAPABILITY = Object.freeze({
   '/dashboard/entities': 'projects.entities.view',
 });
 
+const PORTAL_COPY = Object.freeze({
+  projects: {
+    eyebrow: 'PROJECTS',
+    title: 'المشاريع',
+    description: 'المشروع الجاري هو سياق العمل. التشغيل وإدارة المشروع والوظائف العامة تبقى في مساحة واحدة.',
+  },
+  workforce: {
+    eyebrow: 'PEOPLE',
+    title: 'الموارد البشرية',
+    description: 'الموظفون والتوظيف والعروض والعقود والإجازات من بوابة واحدة وبنفس طريقة العمل.',
+  },
+  finance: {
+    eyebrow: 'FINANCE',
+    title: 'المالية',
+    description: 'الطلبات والاعتمادات والمديونيات والحركات المالية في سياق واحد واضح.',
+  },
+  documents: {
+    eyebrow: 'DOCUMENTS',
+    title: 'المستندات',
+    description: 'إنشاء المستندات والأرشيف والصادر والوارد ومحرر النماذج من مساحة عمل واحدة.',
+  },
+  admin: {
+    eyebrow: 'ADMIN',
+    title: 'الإدارة',
+    description: 'إدارة الشركة والدخول والصلاحيات والهيكل والنسخ الاحتياطي دون واجهة إدارية منفصلة.',
+  },
+});
+
 const EMPTY_PULSE = Object.freeze({
   loading: false,
   financial: null,
@@ -46,6 +74,7 @@ export default function WorkPlatformPage(){
   const [state,setState]=useState(null);
   const [err,setErr]=useState('');
   const [projectId,setProjectId]=useState('');
+  const [portalKey,setPortalKey]=useState('projects');
   const [managementKey,setManagementKey]=useState('execution');
   const [pulse,setPulse]=useState(EMPTY_PULSE);
   const [switchOpen,setSwitchOpen]=useState(false);
@@ -68,10 +97,10 @@ export default function WorkPlatformPage(){
     const fullAdmin=primaryQ.data===true||Boolean(userQ.data?.is_system_admin);
     const projects=projectsQ.data||[];
     setState({uid,employee:userQ.data?.employees||null,capabilities,projects,fullAdmin});
-    const saved=typeof window!=='undefined'?window.localStorage.getItem('arkan.workspace.project'):'';
+    const savedProject=typeof window!=='undefined'?window.localStorage.getItem('arkan.workspace.project'):'';
     setProjectId(current=>{
       if(current&&projects.some(p=>p.id===current))return current;
-      if(saved&&projects.some(p=>p.id===saved))return saved;
+      if(savedProject&&projects.some(p=>p.id===savedProject))return savedProject;
       return projects[0]?.id||'';
     });
   })();return()=>{alive=false;};},[]);
@@ -79,6 +108,10 @@ export default function WorkPlatformPage(){
   useEffect(()=>{
     if(typeof window!=='undefined'&&projectId)window.localStorage.setItem('arkan.workspace.project',projectId);
   },[projectId]);
+
+  useEffect(()=>{
+    if(typeof window!=='undefined'&&portalKey)window.localStorage.setItem('arkan.workspace.portal',portalKey);
+  },[portalKey]);
 
   useEffect(()=>{
     if(!projectId)return;
@@ -123,6 +156,38 @@ export default function WorkPlatformPage(){
     const admin=state.fullAdmin||caps.some(c=>c.module_key==='admin'||c.module_key==='system');
     return {fullProjects,projectScoped,hr,finance,documents,admin};
   },[state]);
+
+  const allowedPortals=useMemo(()=>{
+    if(!state||!access)return[];
+    return AREAS.filter(area=>{
+      if(area.key==='home')return false;
+      if(state.fullAdmin)return true;
+      if(area.key==='projects')return access.projectScoped;
+      if(area.key==='workforce')return access.hr;
+      if(area.key==='finance')return access.finance;
+      if(area.key==='documents')return access.documents;
+      if(area.key==='admin')return access.admin;
+      return false;
+    });
+  },[state,access]);
+
+  useEffect(()=>{
+    if(!allowedPortals.length)return;
+    const saved=typeof window!=='undefined'?window.localStorage.getItem('arkan.workspace.portal'):'';
+    setPortalKey(current=>{
+      if(allowedPortals.some(area=>area.key===current))return current;
+      if(saved&&allowedPortals.some(area=>area.key===saved))return saved;
+      if(allowedPortals.some(area=>area.key==='projects'))return 'projects';
+      return allowedPortals[0].key;
+    });
+  },[allowedPortals]);
+
+  const activePortal=allowedPortals.find(area=>area.key===portalKey)||allowedPortals[0]||null;
+  const activePortalCopy=activePortal?PORTAL_COPY[activePortal.key]||{eyebrow:'WORK',title:activePortal.label.replace(/^بوابة\s+/,'')||activePortal.label,description:'أدوات العمل المسموحة لهذا الحساب.'}:null;
+  const activePortalItems=useMemo(()=>{
+    if(!activePortal)return[];
+    return (activePortal.items||[]).filter(item=>!item.hidden);
+  },[activePortal]);
 
   const selectedProject=state?.projects.find(p=>p.id===projectId)||null;
   const otherProjects=useMemo(()=>state?.projects.filter(p=>p.id!==projectId)||[],[state,projectId]);
@@ -173,20 +238,6 @@ export default function WorkPlatformPage(){
 
   const activeManagement=secondarySections.find(section=>section.key===managementKey)||secondarySections[0]||null;
 
-  const allowedPortals=useMemo(()=>{
-    if(!state||!access)return[];
-    return AREAS.filter(area=>{
-      if(area.key==='home')return false;
-      if(state.fullAdmin)return true;
-      if(area.key==='projects')return access.projectScoped;
-      if(area.key==='workforce')return access.hr;
-      if(area.key==='finance')return access.finance;
-      if(area.key==='documents')return access.documents;
-      if(area.key==='admin')return access.admin;
-      return false;
-    });
-  },[state,access]);
-
   const projectPortalEntries=useMemo(()=>{
     if(!state||!access?.projectScoped)return[];
     const area=AREAS.find(item=>item.key==='projects');
@@ -197,8 +248,6 @@ export default function WorkPlatformPage(){
     });
   },[state,access]);
 
-  const otherPortals=allowedPortals.filter(area=>area.key!=='projects');
-
   function chooseProject(id){
     setProjectId(id);
     setSwitchOpen(false);
@@ -208,10 +257,7 @@ export default function WorkPlatformPage(){
   function operationStatus(key){
     if(pulse.loading)return 'جارٍ قراءة حالة اليوم…';
     if(key==='attendance')return pulse.attendanceCount?`${pulse.attendanceCount} تسجيل حضور اليوم`:'لم يبدأ تسجيل الحضور اليوم';
-    if(key==='daily-output')return pulse.outputCount?`${pulse.outputCount} بند إنجاز مسجل اليوم`:'لا يوجد إنجاز مسجل اليوم';
     if(key==='expenses')return pulse.expenseTotal?`${money(pulse.expenseTotal)} مصروفات اليوم`:'لا توجد مصروفات مسجلة اليوم';
-    if(key==='custody')return pulse.financial?`رصيد العهدة ${money(pulse.financial.custody_balance||0)}`:'استلام وصرف العهدة';
-    if(key==='labor')return 'تهيئة العمالة قبل التسجيل اليومي';
     return 'جاهز للعمل';
   }
 
@@ -225,11 +271,30 @@ export default function WorkPlatformPage(){
     <PageHeader
       eyebrow="WORK PLATFORM"
       title="منصة الأعمال"
-      description="المشروع الجاري هو السياق الوحيد أمامك. الأدوات مرتبة حسب العمل الفعلي، وما لا تحتاجه الآن يبقى خارج مجال التركيز."
+      description="واجهة واحدة لكل الحسابات. ما يتغير هو البوابات والأدوات المسموحة، لا شكل البرنامج ولا طريقة الملاحة."
     />
     {err&&<Notice tone="warning">{err}</Notice>}
 
-    {access.projectScoped&&(
+    {allowedPortals.length>1&&(
+      <section className={styles.portalSwitcher} aria-label="بوابات العمل">
+        <div className={styles.portalSwitcherCopy}>
+          <span>مساحة العمل</span>
+          <strong>اختر البوابة</strong>
+        </div>
+        <div className={styles.portalTabs} role="tablist">
+          {allowedPortals.map(area=>{
+            const copy=PORTAL_COPY[area.key];
+            const active=activePortal?.key===area.key;
+            return <button key={area.key} type="button" role="tab" aria-selected={active} className={active?styles.portalTabActive:styles.portalTab} onClick={()=>setPortalKey(area.key)}>
+              <small>{copy?.eyebrow||'WORK'}</small>
+              <span>{copy?.title||area.label.replace(/^بوابة\s+/,'')}</span>
+            </button>;
+          })}
+        </div>
+      </section>
+    )}
+
+    {activePortal?.key==='projects'&&access.projectScoped&&(
       <>
         {state.projects.length===0?(
           <Section title="المشروع الجاري"><EmptyState title="لا توجد مشاريع متاحة" description={access.fullProjects?'لا يوجد مشروع مسجل حاليًا ضمن بوابة المشاريع.':'لم يُسند أي مشروع إلى هذا الحساب.'}/></Section>
@@ -270,7 +335,7 @@ export default function WorkPlatformPage(){
         )}
 
         {selectedProject&&primaryOperation&&(
-          <Section title="ابدأ عمل اليوم" description="إجراء واحد رئيسي أمامك، والبقية اختصارات مباشرة. لا قوائم متساوية في الأهمية.">
+          <Section title="ابدأ عمل اليوم" description="التركيز التشغيلي محصور في الحضور والمصروفات؛ بقية الأدوات تبقى خارج مسرح اليوم.">
             <div className={styles.operationDeck}>
               <Link className={styles.primaryOperation} href={projectNavigationHref(selectedProject.id,primaryOperation)}>
                 <div className={styles.primaryKicker}>ابدأ من هنا</div>
@@ -290,7 +355,7 @@ export default function WorkPlatformPage(){
         )}
 
         {selectedProject&&activeManagement&&(
-          <Section title="إدارة المشروع" description="اختر مجالًا واحدًا فقط؛ تظهر أدواته دون فتح قوائم طويلة أو تكرار الأدوات اليومية.">
+          <Section title="إدارة المشروع" description="التقارير والمالية والتنفيذ وملف المشروع تظهر كمجال واحد في كل مرة.">
             <div className={styles.managementShell}>
               <div className={styles.managementTabs} role="tablist" aria-label="مجالات إدارة المشروع">
                 {secondarySections.map(section=><button key={section.key} type="button" role="tab" aria-selected={managementKey===section.key} className={managementKey===section.key?styles.managementTabActive:styles.managementTab} onClick={()=>setManagementKey(section.key)}>{section.shortLabel||section.label}</button>)}
@@ -310,6 +375,30 @@ export default function WorkPlatformPage(){
       </>
     )}
 
-    {otherPortals.length>0&&<div className={styles.otherPortalUtility}><span>بوابات أخرى</span>{otherPortals.map(area=><Link key={area.key} href={area.href}>{area.label}</Link>)}</div>}
+    {activePortal&&activePortal.key!=='projects'&&(
+      <section className={styles.genericPortalCockpit} aria-label={activePortalCopy?.title}>
+        <div className={styles.genericPortalHero}>
+          <div>
+            <span>{activePortalCopy?.eyebrow}</span>
+            <h1>{activePortalCopy?.title}</h1>
+            <p>{activePortalCopy?.description}</p>
+          </div>
+          <div className={styles.genericPortalCount}>
+            <strong>{activePortalItems.length}</strong>
+            <span>أداة متاحة</span>
+          </div>
+        </div>
+
+        <Section title={`أدوات ${activePortalCopy?.title}`} description="اختر وجهة واحدة؛ عند فتح الأداة تتحول الشاشة إلى مسرح للعمل عليها.">
+          <nav className={styles.portalToolList}>
+            {activePortalItems.map((item,index)=><Link key={item.href} href={item.href} className={styles.portalToolRow}>
+              <span className={styles.portalToolIndex}>{String(index+1).padStart(2,'0')}</span>
+              <div><strong>{item.label}</strong><small>{activePortal.label}</small></div>
+              <span className={styles.portalToolArrow}>فتح ←</span>
+            </Link>)}
+          </nav>
+        </Section>
+      </section>
+    )}
   </ConstitutionPage>;
 }
