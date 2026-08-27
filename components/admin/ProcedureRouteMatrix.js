@@ -11,6 +11,8 @@ const MODE_LABELS = Object.freeze({
   cross_portal: 'عابرة للبوابات',
 });
 
+const money = new Intl.NumberFormat('ar-SA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
 function normalizeTargets(rows = []) {
   const byCapability = new Map();
   for (const row of rows) {
@@ -46,6 +48,9 @@ export default function ProcedureRouteMatrix() {
   const [destinations, setDestinations] = useState([]);
   const [drafts, setDrafts] = useState({});
   const [loading, setLoading] = useState(true);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentStatus, setAgentStatus] = useState(null);
+  const [agentScan, setAgentScan] = useState(null);
   const [busyKey, setBusyKey] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -53,14 +58,23 @@ export default function ProcedureRouteMatrix() {
   const [moduleFilter, setModuleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('routing');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ scan = false } = {}) => {
     setLoading(true); setError('');
-    const [matrixQ, destQ, targetsQ] = await Promise.all([
+    let scanQ = null;
+    if (scan) {
+      setAgentBusy(true);
+      scanQ = await supabase.rpc('fn_procedure_auto_discover_sources');
+      if (!scanQ.error) setAgentScan(scanQ.data || null);
+    }
+    const [matrixQ, destQ, targetsQ, agentQ] = await Promise.all([
       supabase.rpc('fn_admin_procedure_route_matrix'),
       supabase.from('procedure_destinations').select('destination_key,label_ar,destination_type,portal_key,is_active,sort_order').eq('is_active', true).order('sort_order'),
       supabase.from('procedure_route_targets').select('capability_key,to_destination_key,is_mandatory,is_blocking,is_active').eq('is_active', true),
+      supabase.rpc('fn_procedure_agent_status'),
     ]);
-    const firstError = matrixQ.error || destQ.error || targetsQ.error;
+    setAgentBusy(false);
+    if (!agentQ.error) setAgentStatus(agentQ.data || null);
+    const firstError = scanQ?.error || matrixQ.error || destQ.error || targetsQ.error;
     if (firstError) {
       setError(firstError.message || 'تعذر تحميل دستور حركة المعاملات.');
       setRows([]); setDestinations([]); setDrafts({}); setLoading(false); return;
@@ -73,7 +87,7 @@ export default function ProcedureRouteMatrix() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load({ scan: true }); }, [load]);
 
   const modules = useMemo(() => {
     const map = new Map();
@@ -95,8 +109,8 @@ export default function ProcedureRouteMatrix() {
 
   const unclassifiedCount = useMemo(() => rows.filter(row => row.routing_candidate && row.classification_status === 'غير مصنفة').length, [rows]);
 
-  function patch(capabilityKey, patch) {
-    setDrafts(prev => ({ ...prev, [capabilityKey]: { ...prev[capabilityKey], ...patch } }));
+  function patch(capabilityKey, patchValue) {
+    setDrafts(prev => ({ ...prev, [capabilityKey]: { ...prev[capabilityKey], ...patchValue } }));
   }
 
   function patchTarget(capabilityKey, destinationKey, patchValue) {
@@ -186,9 +200,28 @@ export default function ProcedureRouteMatrix() {
     setBusyKey('');
   }
 
-  if (loading) return <div className={styles.state}>جارٍ حصر عمليات البرنامج وبناء جدول الحركة…</div>;
+  if (loading && !agentStatus) return <div className={styles.state}>جارٍ حصر عمليات البرنامج وزرع مستشعرات الإجراء…</div>;
 
   return <div className={styles.root} dir="rtl">
+    {agentStatus ? <div style={{border:'1px solid var(--ui-border,#ddd)',borderRadius:12,padding:14,marginBottom:14,background:'var(--ui-paper,#fff)',display:'grid',gap:10}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+        <div><strong style={{display:'block',fontSize:16}}>عامل الإجراءات التلقائي</strong><small>يفحص مصادر العمليات ويزرع المستشعر دون تعديل بيانات التشغيل الأصلية.</small></div>
+        <button type="button" disabled={agentBusy} onClick={() => load({ scan: true })}>{agentBusy ? 'جارٍ الفحص…' : 'فحص البرنامج الآن'}</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(145px,1fr))',gap:8}}>
+        <div><strong>{agentStatus.sources ?? 0}</strong><small style={{display:'block'}}>مصدر عملية مكتشف</small></div>
+        <div><strong>{agentStatus.instrumented ?? 0}</strong><small style={{display:'block'}}>مستشعر مزروع</small></div>
+        <div><strong>{agentStatus.financial_sources ?? 0}</strong><small style={{display:'block'}}>مصدر ذو أثر مالي</small></div>
+        <div><strong>{agentStatus.open_transactions ?? 0}</strong><small style={{display:'block'}}>معاملة تحت المعالجة</small></div>
+        <div><strong>{money.format(Number(agentStatus.settled_total || 0))} ر.س</strong><small style={{display:'block'}}>تمت تسويته</small></div>
+        <div><strong>{money.format(Number(agentStatus.outstanding_total || 0))} ر.س</strong><small style={{display:'block'}}>لم تتم تسويته</small></div>
+      </div>
+      <div style={{fontSize:12}}>
+        {agentStatus.unmapped > 0 ? <span>يوجد {agentStatus.unmapped} مصادر مكتشفة لم تُربط بصلاحية بعد؛ تركها العامل للمراجعة بدل اختراع مسار لها.</span> : <span>كل المصادر المكتشفة مرتبطة بمسار معروف.</span>}
+        {agentScan?.backfilled ? <span> · آخر فحص راجع {agentScan.backfilled} سجلًا قائمًا.</span> : null}
+      </div>
+    </div> : null}
+
     <div className={styles.toolbar}>
       <div className={styles.summary}>
         <strong>{rows.length}</strong><span>عملية/صلاحية مسجلة</span>
@@ -205,7 +238,7 @@ export default function ProcedureRouteMatrix() {
         <option value="classified">المصنفة فقط</option>
         <option value="all">كل العمليات بما فيها العرض</option>
       </select>
-      <button type="button" onClick={load}>تحديث الحصر</button>
+      <button type="button" onClick={() => load()}>تحديث الحصر</button>
     </div>
 
     {error ? <div className={styles.error}>{error}</div> : null}
