@@ -6,7 +6,8 @@ import ProcedureActionHook from '@/components/approval/ProcedureActionHook';
 import { TableFrame,EmptyState,Notice,SummaryStrip } from '@/components/ui/ConstitutionUI';
 
 const KIND={deduction:'خصم',warning:'إنذار',suspension:'إيقاف',investigation:'تحقيق'};
-const STATUS={draft:'مسودة',submitted:'مرسل',approved:'معتمد',rejected:'مرفوض',returned:'معاد',closed:'مغلق',completed:'مكتمل'};
+const STATUS={draft:'مسودة',submitted:'مرسل للاعتماد',hr_reviewed:'مراجع إداريًا',accountant_approved:'مراجع ماليًا',ceo_approved:'معتمد نهائيًا',approved:'معتمد',rejected:'مرفوض',returned:'معاد',cancelled:'ملغى',closed:'مغلق',completed:'مكتمل'};
+const TERMINAL=new Set(['accountant_approved','ceo_approved','approved','rejected','cancelled','closed','completed']);
 const money=v=>`${Number(v||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`;
 const date=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
 
@@ -21,7 +22,7 @@ export default function DisciplinaryActionsTable(){
   })();return()=>{alive=false;};},[]);
   const summary=useMemo(()=>{const list=rows||[];return[
     {key:'count',label:'الإجراءات',value:list.length,note:'المسجلة'},
-    {key:'open',label:'غير المغلقة',value:list.filter(r=>!['closed','completed'].includes(String(r.status||''))).length,note:'تحتاج متابعة'},
+    {key:'open',label:'غير المغلقة',value:list.filter(r=>!TERMINAL.has(String(r.status||''))).length,note:'تحتاج متابعة'},
     {key:'deductions',label:'إجمالي الخصومات',value:money(list.reduce((s,r)=>s+Number(r.deduction_amount||0),0)),note:'حسب السجل الحالي'},
   ];},[rows]);
   if(rows===null)return <EmptyState title="جارٍ تحميل العلاقات والإجراءات" description="نقرأ السجل ومسار كل معاملة."/>;
