@@ -13,152 +13,25 @@
   --border:#d8d3c8;
   --border-soft:#e8e4dc;
   --wine:#6f252b;
-  min-height:calc(100vh - 58px);
+  min-height:calc(100vh - var(--constitution-global-bar-height) - var(--constitution-back-bar-height));
   width:100%;
+  padding:18px clamp(18px,2.4vw,38px) 42px;
   background:var(--bg);
   color:var(--ink);
   direction:rtl;
 }
 
-.toolBar{
-  position:sticky;
-  top:58px;
-  z-index:35;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:20px;
-  min-height:76px;
-  padding:11px clamp(22px,3vw,48px);
-  border-bottom:1px solid var(--border);
-  background:rgba(251,250,247,.97);
-  backdrop-filter:blur(12px);
-  box-shadow:0 6px 18px rgba(17,17,15,.035);
-}
-
-.toolContext{
-  display:flex;
-  align-items:center;
-  gap:18px;
-  min-width:0;
-}
-
-.backButton{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:9px;
-  min-width:106px;
-  min-height:44px;
-  padding:0 15px;
-  border:1px solid #b9afa5;
-  border-radius:12px;
-  background:#fff;
-  color:var(--wine);
-  font:850 13px/1 inherit;
-  cursor:pointer;
-  box-shadow:0 3px 10px rgba(17,17,15,.045);
-  transition:border-color .12s ease,transform .12s ease,box-shadow .12s ease,background .12s ease;
-}
-.backButton:hover,
-.backButton:focus-visible{
-  border-color:var(--wine);
-  background:#fffdf9;
-  box-shadow:0 5px 16px rgba(111,37,43,.1);
-  outline:none;
-}
-.backButton:active{transform:translateY(1px)}
-.backIcon{
-  display:inline-grid;
-  place-items:center;
-  width:24px;
-  height:24px;
-  border-radius:8px;
-  background:#f3e9e8;
-  font-size:17px;
-  line-height:1;
-}
-
-.toolHeading{
-  display:grid;
-  gap:2px;
-  min-width:0;
-}
-.projectName{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  color:var(--muted);
-  font-size:10.5px;
-  font-weight:800;
-  min-width:0;
-}
-.projectName>span{
-  direction:ltr;
-  font:750 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
-  color:#918d86;
-}
-.toolHeading h1{
-  margin:0;
-  color:var(--ink);
-  font-size:20px;
-  line-height:1.3;
-  font-weight:950;
-  letter-spacing:-.025em;
-}
-.projectHint{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  color:var(--muted);
-  font-size:10.5px;
-  font-weight:750;
-}
-.projectHint span{
-  display:inline-flex;
-  align-items:center;
-  min-height:28px;
-  padding:0 9px;
-  border:1px solid var(--border-soft);
-  border-radius:9px;
-  background:#f7f4ee;
-}
+.focusWorkspaceShell > :global(.constitution-level-stage){margin:0 0 16px}
 
 .focusProjectMain{
   width:100%;
   min-width:0;
-  padding:16px clamp(18px,2.4vw,38px) 42px;
+  padding:0;
   direction:rtl;
 }
 .focusProjectMain :global(.page-head){display:none}
-.focusProjectMain :global([data-operation-shell]){margin-top:-16px}
+.focusProjectMain :global([data-operation-shell]){margin-top:0}
 
 @media (max-width:720px){
-  .toolBar{
-    position:sticky;
-    min-height:68px;
-    padding:9px 12px;
-  }
-  .toolContext{gap:10px}
-  .backButton{
-    min-width:88px;
-    min-height:42px;
-    padding-inline:11px;
-  }
-  .toolHeading h1{font-size:17px}
-  .projectName{max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .projectName>span{display:none}
-  .projectHint{display:none}
-  .focusProjectMain{padding:12px 10px 28px}
-  .focusProjectMain :global([data-operation-shell]){margin-top:-12px}
-}
-
-@media (max-width:430px){
-  .backButton{min-width:78px;gap:6px;font-size:12px}
-  .backIcon{width:22px;height:22px}
-  .toolHeading h1{font-size:16px}
-}
-
-@media (prefers-reduced-motion:reduce){
-  .backButton{transition:none}
+  .focusWorkspaceShell{padding:12px 10px 28px}
 }
