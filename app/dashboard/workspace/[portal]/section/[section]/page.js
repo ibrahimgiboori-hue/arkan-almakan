@@ -13,6 +13,35 @@ function hasSectionAccess(definition, capabilityKeys, fullAdmin){
   return definition.capabilities.some(key=>capabilityKeys.has(key));
 }
 
+function date(value){return value?new Date(value).toLocaleDateString('ar-SA'):'—';}
+
+async function loadAdminCatalogs(){
+  const [{data:sequences,error:sErr},{data:clauses,error:cErr}]=await Promise.all([
+    supabase.from('number_sequences').select('doc_type,year,prefix,last_number').order('doc_type'),
+    supabase.from('contract_clause_library').select('code,title,category,is_active,risk_level,updated_at').order('sort_order').limit(150),
+  ]);
+  if(sErr)throw sErr;if(cErr)throw cErr;
+  const rows=[
+    ...(sequences||[]).map(row=>['تسلسل',row.doc_type||'—',row.year||'—',row.prefix||'—',row.last_number??'—']),
+    ...(clauses||[]).map(row=>['بند عقد',row.title||row.code||'—',row.category||'—',row.is_active===false?'غير نشط':'نشط',row.risk_level||date(row.updated_at)]),
+  ];
+  return {
+    columns:['النوع','الاسم','السنة / التصنيف','البادئة / الحالة','آخر رقم / المخاطر'],
+    rows,
+    summary:[
+      {key:'seq',label:'التسلسلات',value:(sequences||[]).length,note:'ترقيم تلقائي'},
+      {key:'clauses',label:'بنود العقود',value:(clauses||[]).length,note:'في المكتبة'},
+      {key:'active',label:'بنود نشطة',value:(clauses||[]).filter(row=>row.is_active!==false).length,note:'متاحة للاستخدام'},
+    ],
+    note:'هذه القيم مرجعية للنظام؛ تعديلها لاحقًا سيدخل مسرح إدخال مستقل مع حفظ أثر التغيير.',
+  };
+}
+
+async function loadSection(definition){
+  if(definition?.dataKind==='admin-catalogs')return loadAdminCatalogs();
+  return loadPortalSectionData(definition.dataKind);
+}
+
 export default function PortalSectionPage(){
   const params=useParams();
   const portal=String(params?.portal||'');
@@ -45,7 +74,7 @@ export default function PortalSectionPage(){
         return;
       }
       try{
-        const data=await loadPortalSectionData(definition.dataKind);
+        const data=await loadSection(definition);
         if(alive)setState({loading:false,allowed:true,data,error:''});
       }catch(error){
         if(alive)setState({loading:false,allowed:true,data:null,error:error?.message||'تعذر قراءة بيانات القسم.'});
