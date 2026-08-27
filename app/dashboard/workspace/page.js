@@ -14,36 +14,20 @@ import {
   WORK_PLATFORM_OPERATION_COPY,
   PORTAL_DIRECT_WORK,
 } from '@/lib/work-platform-constitution';
+import {
+  PORTAL_MANAGEMENT_SECTIONS,
+  PORTAL_SECTION_ITEMS,
+  canSeePortalDestination,
+} from '@/lib/portal-section-constitution';
 import { ConstitutionPage, PageHeader, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
 import styles from './workspace.module.css';
 
 const PORTAL_COPY = Object.freeze({
   projects:{eyebrow:'PROJECTS',title:'المشاريع',description:'المشروع الجاري هو سياق العمل؛ التشغيل والإدارة يبقيان في مساحة واحدة.'},
-  workforce:{eyebrow:'PEOPLE',title:'الموارد البشرية',description:'الموظفون والتوظيف والعقود والإجازات ضمن مسار عمل واحد.'},
-  finance:{eyebrow:'FINANCE',title:'المالية',description:'الطلبات والاعتمادات والمديونيات والحركات المالية في سياق واحد.'},
-  documents:{eyebrow:'DOCUMENTS',title:'المستندات',description:'المستندات والأرشيف والصادر والوارد والنماذج من مساحة واحدة.'},
-  admin:{eyebrow:'ADMIN',title:'الإدارة',description:'الشركة والدخول والصلاحيات والهيكل والاستمرارية من بوابة واحدة.'},
-});
-
-const PORTAL_MANAGEMENT_SECTIONS = Object.freeze({
-  workforce:Object.freeze([
-    {key:'people',label:'الأفراد',shortLabel:'الأفراد',description:'ملفات الموظفين والإجازات وما يرتبط بحالة الموظف أثناء الخدمة.',hrefs:Object.freeze(['/dashboard/employees','/dashboard/leaves'])},
-    {key:'recruitment',label:'التوظيف',shortLabel:'التوظيف',description:'من المرشح والعرض الوظيفي إلى العقد والمباشرة والتهيئة.',hrefs:Object.freeze(['/dashboard/recruitment','/dashboard/recruitment/offers','/dashboard/recruitment/contracts','/dashboard/recruitment/onboarding'])},
-  ]),
-  finance:Object.freeze([
-    {key:'requests',label:'الطلبات والمديونيات',shortLabel:'الطلبات',description:'السلف والمديونيات والحركات التي تبدأ بطلب مالي.',hrefs:Object.freeze(['/dashboard/advances'])},
-    {key:'approvals',label:'الاعتمادات',shortLabel:'الاعتمادات',description:'الطلبات التي وصلت إلى مسار المراجعة والاعتماد.',hrefs:Object.freeze(['/dashboard/approvals'])},
-  ]),
-  documents:Object.freeze([
-    {key:'current',label:'العمل الجاري',shortLabel:'العمل الجاري',description:'إنشاء المستندات ومتابعة الصادر والوارد أثناء العمل.',hrefs:Object.freeze(['/dashboard/documents','/dashboard/register'])},
-    {key:'archive',label:'الأرشيف',shortLabel:'الأرشيف',description:'الوصول إلى النسخ والسجلات المحفوظة بعد انتهاء العمل عليها.',hrefs:Object.freeze(['/dashboard/archive'])},
-    {key:'templates',label:'النماذج',shortLabel:'النماذج',description:'بناء النماذج التي تستخدمها المستندات ومساحات الإدخال.',hrefs:Object.freeze(['/dashboard/formbuilder'])},
-  ]),
-  admin:Object.freeze([
-    {key:'company',label:'الشركة',shortLabel:'الشركة',description:'بيانات الشركة ومجلس الإدارة والهيكل التنظيمي.',hrefs:Object.freeze(['/dashboard/board','/dashboard/settings','/dashboard/org-structure'])},
-    {key:'access',label:'الدخول والصلاحيات',shortLabel:'الدخول',description:'إدارة دخول المستخدمين والصلاحيات ضمن المحرك المركزي.',hrefs:Object.freeze(['/dashboard/system-user'])},
-    {key:'governance',label:'الحوكمة والاستمرارية',shortLabel:'الحوكمة',description:'حماية استمرارية النظام والنسخ الاحتياطي للبيانات.',hrefs:Object.freeze(['/dashboard/backup'])},
-  ]),
+  workforce:{eyebrow:'PEOPLE',title:'الموارد البشرية',description:'دورة الموظف من الاحتياج والتوظيف إلى الرواتب والالتزام ونهاية الخدمة.'},
+  finance:{eyebrow:'FINANCE',title:'المالية',description:'المعاملات والخزينة والبنوك والتحصيل والسيولة والاعتمادات في سياق واحد.'},
+  documents:{eyebrow:'DOCUMENTS',title:'المستندات',description:'العمل الجاري والمراجعة والمراسلات والأرشيف والنماذج من مساحة واحدة.'},
+  admin:{eyebrow:'ADMIN',title:'الإدارة',description:'الشركة والدخول والهيكل وسير العمل والتدقيق والاستمرارية من بوابة واحدة.'},
 });
 
 const EMPTY_PULSE=Object.freeze({loading:false,financial:null,attendanceCount:0,outputCount:0,expenseTotal:0});
@@ -136,6 +120,8 @@ export default function WorkPlatformPage(){
     return()=>{alive=false;};
   },[projectId]);
 
+  const capabilityKeys=useMemo(()=>new Set((state?.capabilities||[]).map(c=>c.capability_key)),[state]);
+
   const access=useMemo(()=>{
     if(!state)return null;
     const caps=state.capabilities;
@@ -145,10 +131,10 @@ export default function WorkPlatformPage(){
       projectScoped:state.fullAdmin||projectCaps.length>0,
       hr:state.fullAdmin||caps.some(c=>c.module_key==='hr'),
       finance:state.fullAdmin||caps.some(c=>c.module_key==='finance'),
-      documents:state.fullAdmin||caps.some(c=>c.module_key==='documents'),
+      documents:state.fullAdmin||caps.some(c=>c.module_key==='documents')||capabilityKeys.has('system.approvals.view'),
       admin:state.fullAdmin||caps.some(c=>c.module_key==='admin'||c.module_key==='system'),
     };
-  },[state]);
+  },[state,capabilityKeys]);
 
   const allowedPortals=useMemo(()=>{
     if(!state||!access)return[];
@@ -172,20 +158,35 @@ export default function WorkPlatformPage(){
 
   const activePortal=allowedPortals.find(area=>area.key===portalKey)||allowedPortals[0]||null;
   const activePortalCopy=activePortal?PORTAL_COPY[activePortal.key]||{eyebrow:'WORK',title:activePortal.label.replace(/^بوابة\s+/,''),description:'أدوات العمل المسموحة لهذا الحساب.'}:null;
-  const activePortalItems=useMemo(()=>activePortal?(activePortal.items||[]).filter(item=>!item.hidden):[],[activePortal]);
+
+  const activePortalItems=useMemo(()=>{
+    if(!activePortal)return[];
+    const combined=[
+      ...(activePortal.items||[]).filter(item=>!item.hidden),
+      ...(PORTAL_SECTION_ITEMS[activePortal.key]||[]),
+    ];
+    const unique=combined.filter((item,index)=>combined.findIndex(candidate=>candidate.href===item.href)===index);
+    return unique.filter(item=>canSeePortalDestination(item,capabilityKeys,state?.fullAdmin));
+  },[activePortal,capabilityKeys,state?.fullAdmin]);
+
   const portalDirect=activePortal&&activePortal.key!=='projects'?PORTAL_DIRECT_WORK[activePortal.key]||null:null;
-  const portalDirectHrefs=useMemo(()=>new Set([portalDirect?.primaryHref,portalDirect?.secondaryHref].filter(Boolean)),[portalDirect]);
-  const portalPrimaryItem=activePortalItems.find(item=>item.href===portalDirect?.primaryHref)||null;
-  const portalSecondaryItem=activePortalItems.find(item=>item.href===portalDirect?.secondaryHref)||null;
+  const requestedPrimary=activePortalItems.find(item=>item.href===portalDirect?.primaryHref)||null;
+  const requestedSecondary=activePortalItems.find(item=>item.href===portalDirect?.secondaryHref)||null;
+  const portalPrimaryItem=requestedPrimary||activePortalItems[0]||null;
+  const portalSecondaryItem=requestedSecondary||activePortalItems.find(item=>item.href!==portalPrimaryItem?.href)||null;
+  const portalDirectHrefs=useMemo(()=>new Set([portalPrimaryItem?.href,portalSecondaryItem?.href].filter(Boolean)),[portalPrimaryItem,portalSecondaryItem]);
 
   const portalSections=useMemo(()=>{
     if(!activePortal||activePortal.key==='projects')return[];
     const itemByHref=new Map(activePortalItems.map(item=>[item.href,item]));
     const configured=PORTAL_MANAGEMENT_SECTIONS[activePortal.key]||[];
-    const sections=configured.map(section=>({...section,items:section.hrefs.map(href=>itemByHref.get(href)).filter(Boolean).filter(item=>!portalDirectHrefs.has(item.href))})).filter(section=>section.items.length>0);
+    const sections=configured.map(section=>({
+      ...section,
+      items:section.hrefs.map(href=>itemByHref.get(href)).filter(Boolean).filter(item=>!portalDirectHrefs.has(item.href)),
+    })).filter(section=>section.items.length>0);
     const assigned=new Set(configured.flatMap(section=>section.hrefs));
     const extra=activePortalItems.filter(item=>!assigned.has(item.href)&&!portalDirectHrefs.has(item.href));
-    if(extra.length)sections.push({key:'additional',label:'أدوات إضافية',shortLabel:'إضافية',description:'أدوات جديدة لم تُصنف بعد؛ تظهر مرة واحدة حتى يوضع لها موقع دائم.',items:extra});
+    if(extra.length)sections.push({key:'additional',label:'أدوات إضافية',shortLabel:'إضافية',description:'وجهات حقيقية لم توضع بعد في مجال دائم؛ تظهر هنا مرة واحدة فقط.',items:extra});
     return sections;
   },[activePortal,activePortalItems,portalDirectHrefs]);
 
@@ -300,7 +301,7 @@ export default function WorkPlatformPage(){
       </Section>}
     </section>}
 
-    {activePortal&&activePortal.key!=='projects'&&portalPrimaryItem&&<section className={styles.portalStage} aria-label={activePortalCopy?.title}>
+    {activePortal&&activePortal.key!=='projects'&&<section className={styles.portalStage} aria-label={activePortalCopy?.title}>
       <section className={styles.genericPortalCockpit} aria-label={activePortalCopy?.title}>
         <div className={styles.projectHero}>
           <div className={styles.heroMain}>
@@ -316,15 +317,15 @@ export default function WorkPlatformPage(){
         </div>
       </section>
 
-      <DirectWorkLayer
+      {portalPrimaryItem?<DirectWorkLayer
         primaryHref={portalPrimaryItem.href}
         primaryLabel={portalPrimaryItem.label}
-        primaryCopy={portalDirect?.primaryCopy||'فتح نقطة العمل الرئيسية في هذه البوابة.'}
+        primaryCopy={requestedPrimary?portalDirect?.primaryCopy||'فتح نقطة العمل الرئيسية في هذه البوابة.':'أقرب نقطة عمل مباشرة تسمح بها صلاحيات هذا الحساب.'}
         primaryStatus={portalDirect?.primaryStatus||'جاهز للعمل'}
         secondaryHref={portalSecondaryItem?.href||null}
         secondaryLabel={portalSecondaryItem?.label}
-        secondaryCopy={portalDirect?.secondaryCopy}
-      />
+        secondaryCopy={requestedSecondary?portalDirect?.secondaryCopy:'وصول مباشر إلى أداة ثانية مسموحة دون تكرارها في الإدارة.'}
+      />:<Section title="لا توجد أدوات متاحة"><EmptyState title="لا توجد وجهة تشغيل مسموحة" description="البوابة موجودة ضمن نطاق الحساب، لكن لا توجد أداة قراءة متاحة وفق الصلاحيات الحالية."/></Section>}
 
       {activePortalSection&&<Section className={styles.managementLayer} title={`إدارة ${activePortalCopy?.title}`} description="مجال واحد نشط في كل مرة، وكل وجهة لها مدخل واحد فقط.">
         <div className={styles.managementShell}>
