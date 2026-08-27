@@ -50,6 +50,14 @@ function sectionLike(node) {
   return cls.includes('section') || cls.includes('editor') || cls.includes('form');
 }
 
+function isVisible(node) {
+  if (!node?.isConnected) return false;
+  const style = window.getComputedStyle(node);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  const rect = node.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
 function findEntryRoot(target) {
   if (!(target instanceof Element)) return null;
   if (target.closest('[data-entry-ignore],[data-entry-theater-bar]')) return null;
@@ -68,6 +76,14 @@ function findEntryRoot(target) {
     node = node.parentElement;
   }
   return best;
+}
+
+function candidateFromNode(node) {
+  if (!(node instanceof Element)) return null;
+  const candidates = [];
+  if (node.matches?.('[data-entry-surface],form,section,article')) candidates.push(node);
+  candidates.push(...node.querySelectorAll?.('[data-entry-surface],form,section,article') || []);
+  return candidates.find((candidate) => isVisible(candidate) && qualifies(candidate,3)) || null;
 }
 
 function inferTitle(root) {
@@ -99,7 +115,7 @@ export default function EntryTheaterController() {
     else delete document.body.dataset.entryTheater;
 
     function activate(root) {
-      if (!root || routeTheater) return;
+      if (!root || routeTheater || !isVisible(root)) return;
       if (activeRootRef.current === root) return;
       if (activeRootRef.current?.isConnected) delete activeRootRef.current.dataset.entryTheaterRoot;
       activeRootRef.current = root;
@@ -128,10 +144,28 @@ export default function EntryTheaterController() {
       }
     }
 
+    // النماذج المدمجة في الصفحات القديمة تدخل المسرح لحظة ظهورها، لا بعد أن
+    // يضغط المستخدم داخل أول حقل. بهذا يصبح السلوك واحداً مع المحررات المستقلة.
+    const observer = new MutationObserver((mutations) => {
+      if (routeTheater || activeRootRef.current) return;
+      for (const mutation of mutations) {
+        for (const added of mutation.addedNodes) {
+          const candidate = candidateFromNode(added);
+          if (candidate) {
+            requestAnimationFrame(() => activate(candidate));
+            return;
+          }
+        }
+      }
+    });
+    const contentRoot = document.querySelector('[data-content-governance]') || document.body;
+    observer.observe(contentRoot,{childList:true,subtree:true});
+
     document.addEventListener('focusin',onFocusIn,true);
     document.addEventListener('pointerdown',onPointerDown,true);
     window.addEventListener('keydown',onKeyDown);
     return () => {
+      observer.disconnect();
       document.removeEventListener('focusin',onFocusIn,true);
       document.removeEventListener('pointerdown',onPointerDown,true);
       window.removeEventListener('keydown',onKeyDown);
