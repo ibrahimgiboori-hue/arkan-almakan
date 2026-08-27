@@ -1,0 +1,100 @@
+/* هندسة المستويات — كل شريط سياق خمري يملك الارتفاع نفسه بلا استثناء.
+   نستخدم العلامات الدلالية الموجودة في منصة الأعمال، لا أسماء CSS Module المولدة. */
+:root{
+  --constitution-context-stage-height:172px;
+}
+
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child{
+  height:var(--constitution-context-stage-height)!important;
+  min-height:var(--constitution-context-stage-height)!important;
+  max-height:var(--constitution-context-stage-height)!important;
+  overflow:hidden!important;
+}
+
+/* الجزء النصي في كل مستوى يستخدم المساحة نفسها. */
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:first-child{
+  min-height:0!important;
+  height:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  padding:14px 20px!important;
+  overflow:hidden!important;
+}
+
+/* عنوان المستوى في سطور أقل حتى لا يفرض المشروع ارتفاعًا خاصًا به. */
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:first-child > div:nth-child(2){
+  margin-top:4px!important;
+}
+
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:first-child h1{
+  margin-top:1px!important;
+  margin-bottom:0!important;
+  line-height:1.08!important;
+}
+
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:first-child > div:nth-child(3){
+  margin-top:6px!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* المشروع وحده يملك شريط إنجاز، لذلك نضغطه داخل نفس الارتفاع بدل زيادة البطاقة. */
+section[aria-label='المشروع الجاري'] > div:first-child > div:first-child > div:nth-child(4){
+  margin-top:9px!important;
+}
+
+/* عمود المؤشرات لا يغير ارتفاع المستوى مهما تغير النص. */
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:nth-child(2){
+  height:100%!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+
+@media(max-width:760px){
+  :root{--constitution-context-stage-height:154px}
+  :is(
+    section[aria-label='المشروع الجاري'],
+    section[aria-label='الموارد البشرية'],
+    section[aria-label='المالية'],
+    section[aria-label='المستندات'],
+    section[aria-label='الإدارة']
+  ) > div:first-child > div:first-child{padding:11px 14px!important}
+}
