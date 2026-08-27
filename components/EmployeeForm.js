@@ -122,7 +122,7 @@ export default function EmployeeForm({ initial, id }) {
       .forEach((k) => { payload[k] = Number(payload[k] || 0); });
     delete payload.id; delete payload.created_at; delete payload.updated_at;
 
-    if (!id) delete payload.employee_no; // القاعدة تولد الرقم داخل نفس عملية الحفظ لمنع التكرار.
+    if (!id) delete payload.employee_no;
     if (isTemporary) {
       payload.hire_date = null;
       payload.status = 'pending_start';
@@ -228,7 +228,7 @@ export default function EmployeeForm({ initial, id }) {
 
       <div className="rowsplit" style={{marginTop:18}}>
         <button className="btn" type="submit" disabled={busy}>{busy ? 'جارٍ الحفظ' : (id ? 'حفظ التعديلات' : 'إضافة الموظف')}</button>
-        <button className="btn ghost" type="button" onClick={()=>router.back()}>إلغاء</button>
+        <button className="btn ghost" type="button" onClick={()=>router.push('/dashboard/employees')}>إلغاء</button>
       </div>
     </form>
   );
