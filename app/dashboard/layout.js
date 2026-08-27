@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import './raw-phase.css';
 
 /**
  * RAW PROGRAMMING SHELL
