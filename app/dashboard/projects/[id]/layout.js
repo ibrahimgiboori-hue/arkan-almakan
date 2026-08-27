@@ -1,27 +1,24 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, usePathname, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { STAGE_AR } from '@/lib/projects';
-import {
-  PROJECT_NAV_GROUPS,
-  activeProjectNavigationKey,
-  projectNavigationHref,
-} from '@/lib/app-constitution';
+import { PROJECT_NAV_GROUPS, activeProjectNavigationKey } from '@/lib/app-constitution';
 import { projectNavRequirement } from '@/lib/access-ui';
 import styles from './project-workspace-shell.module.css';
 
+const PROJECT_ITEMS = PROJECT_NAV_GROUPS.flatMap((group) => group.items);
+
 export default function ProjectWorkspaceLayout({ children }) {
   const { id } = useParams();
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [project, setProject] = useState(undefined);
   const [access, setAccess] = useState({ ready:false, full:false, portalAll:false, projectFull:false, keys:new Set() });
   const view = searchParams.get('view');
   const activeKey = activeProjectNavigationKey({ projectId:id, pathname, view });
-  const operationTheater = new RegExp(`^/dashboard/projects/${id}/operations(?:/expenses)?/?$`).test(pathname);
+  const activeItem = PROJECT_ITEMS.find((item) => item.key === activeKey) || null;
 
   useEffect(() => {
     let active = true;
@@ -47,79 +44,64 @@ export default function ProjectWorkspaceLayout({ children }) {
     return () => { active = false; };
   }, [id]);
 
-  const visibleGroups = useMemo(() => PROJECT_NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => {
-      if (access.full || access.projectFull) return true;
-      const required = projectNavRequirement(item.key);
-      return required.length === 0 || required.some((key) => access.keys.has(key));
-    }),
-  })).filter((group) => group.items.length > 0), [access]);
-
   const activeAllowed = useMemo(() => {
     if (access.full || access.projectFull || !activeKey) return true;
     const required = projectNavRequirement(activeKey);
     return required.length === 0 || required.some((key) => access.keys.has(key));
   }, [access, activeKey]);
 
+  function goBack() {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/dashboard/workspace');
+  }
+
   if (project === undefined || !access.ready) return <div className="empty">جارٍ فتح المشروع…</div>;
 
   if (!project) return (
-    <div className="section" style={{padding:24,marginTop:0}}>
-      <h2 style={{marginTop:0}}>المشروع غير متاح لهذا الحساب</h2>
-      <p style={{lineHeight:1.9}}>لم يُسند هذا المشروع إلى المستخدم، أو لم يعد الحساب يملك صلاحية الاطلاع عليه.</p>
-      <Link className="btn ghost" href="/dashboard/today">العودة إلى اليوم</Link>
-    </div>
+    <section className={styles.focusWorkspaceShell} data-project-workspace="true" data-tool-theater="true">
+      <header className={styles.toolBar}>
+        <button type="button" className={styles.backButton} onClick={goBack} aria-label="الرجوع إلى الشاشة السابقة">
+          <span className={styles.backIcon} aria-hidden="true">→</span>
+          <span>رجوع</span>
+        </button>
+      </header>
+      <main className={styles.focusProjectMain}>
+        <div className="section" style={{padding:24,marginTop:0}}>
+          <h2 style={{marginTop:0}}>المشروع غير متاح لهذا الحساب</h2>
+          <p style={{lineHeight:1.9}}>لم يُسند هذا المشروع إلى المستخدم، أو لم يعد الحساب يملك صلاحية الاطلاع عليه.</p>
+        </div>
+      </main>
+    </section>
   );
 
-  const backHref = access.full || access.portalAll ? '/dashboard/workspace' : '/dashboard/today';
-  const backLabel = access.full || access.portalAll ? '← منصة الأعمال' : '← اليوم';
-
-  if (operationTheater) {
-    return (
-      <section className={styles.focusWorkspaceShell} data-project-workspace="true" data-operation-theater="true">
-        <main className={styles.focusProjectMain}>
-          {activeAllowed ? children : <div className="section" style={{padding:24,marginTop:0}}><h2 style={{marginTop:0}}>لا توجد صلاحية لمسرح العمليات</h2><p style={{lineHeight:1.9}}>المشروع مسند إليك، لكن مستوى الصلاحية الحالي لا يسمح بفتح هذا الجزء.</p><Link className="btn ghost" href={backHref}>{backLabel}</Link></div>}
-        </main>
-      </section>
-    );
-  }
-
   return (
-    <section className={styles.workspaceShell} data-project-workspace="true">
-      <aside className={styles.projectRail} aria-label="ملاحة المشروع">
-        <div className={styles.projectIdentity}>
-          <Link className={styles.backLink} href={backHref}>{backLabel}</Link>
-          <div className={styles.projectCode}>{project.project_no || 'PROJECT'}</div>
-          <h1>{project.name_ar || 'المشروع'}</h1>
-          <div className={styles.projectMeta}>
-            {project.city && <span>{project.city}</span>}
-            {project.stage && <span>{STAGE_AR[project.stage] || project.stage}</span>}
+    <section className={styles.focusWorkspaceShell} data-project-workspace="true" data-tool-theater="true">
+      <header className={styles.toolBar}>
+        <div className={styles.toolContext}>
+          <button type="button" className={styles.backButton} onClick={goBack} aria-label="الرجوع إلى الشاشة السابقة">
+            <span className={styles.backIcon} aria-hidden="true">→</span>
+            <span>رجوع</span>
+          </button>
+          <div className={styles.toolHeading}>
+            <div className={styles.projectName}>{project.name_ar || 'المشروع'}{project.project_no ? <span>{project.project_no}</span> : null}</div>
+            <h1>{activeItem?.label || 'المشروع'}</h1>
           </div>
         </div>
+        <div className={styles.projectHint} aria-label="سياق المشروع">
+          {project.city && <span>{project.city}</span>}
+        </div>
+      </header>
 
-        <nav className={styles.projectNav} aria-label="أقسام المشروع">
-          {visibleGroups.map((group) => (
-            <section key={group.key} className={styles.navGroup}>
-              <div className={styles.navGroupLabel}>{group.label}</div>
-              <div className={styles.navGroupLinks}>
-                {group.items.map((item) => {
-                  const href = projectNavigationHref(id, item);
-                  const active = activeKey === item.key;
-                  return (
-                    <Link key={item.key} href={href} aria-current={active ? 'page' : undefined} className={`${styles.navLink} ${active ? styles.navLinkActive : ''}`}>
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </nav>
-      </aside>
-
-      <main className={styles.projectMain}>
-        {activeAllowed ? children : <div className="section" style={{padding:24,marginTop:0}}><h2 style={{marginTop:0}}>لا توجد صلاحية لهذا الجزء</h2><p style={{lineHeight:1.9}}>المشروع مسند إليك، لكن مستوى الصلاحية الحالي لا يسمح بفتح هذا الجزء.</p></div>}
+      <main className={styles.focusProjectMain}>
+        {activeAllowed ? children : (
+          <div className="section" style={{padding:24,marginTop:0}}>
+            <h2 style={{marginTop:0}}>لا توجد صلاحية لهذه الأداة</h2>
+            <p style={{lineHeight:1.9}}>المشروع مسند إليك، لكن مستوى الصلاحية الحالي لا يسمح بفتح هذه الأداة.</p>
+          </div>
+        )}
       </main>
     </section>
   );
