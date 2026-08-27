@@ -3,25 +3,7 @@
 import { useEffect, useId, useRef } from 'react';
 import styles from './constitution-dialog.module.css';
 
-// الحوارات قد تتراكب (تأكيد فوق حوار إدارة). حفظ/استرجاع overflow لكل حوار
-// على حدة يترك الصفحة مقفلة عن التمرير عندما يُغلق حواران في نفس اللحظة،
-// لأن ترتيب تنظيف React قد يعيد القيمة القديمة بعد الجديدة. العدّاد يجعل
-// القفل ملكًا للمجموعة كلها: يُفك عند إغلاق آخر حوار فقط.
-let openDialogCount = 0;
-let overflowBeforeFirstDialog = '';
-
-function lockPageScroll() {
-  if (openDialogCount === 0) {
-    overflowBeforeFirstDialog = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-  }
-  openDialogCount += 1;
-}
-
-function unlockPageScroll() {
-  openDialogCount = Math.max(0, openDialogCount - 1);
-  if (openDialogCount === 0) document.body.style.overflow = overflowBeforeFirstDialog;
-}
+const FOCUSABLE = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export default function ConstitutionDialog({
   open = true,
@@ -31,56 +13,76 @@ export default function ConstitutionDialog({
   children,
   size = 'wide',
 }) {
-  const dialogRef = useRef(null);
-  // معرّف فريد لكل حوار: المعرّف الثابت كان يُنتج id مكرر في DOM عند التراكب.
   const titleId = useId();
-
-  // onClose يُمرَّر غالبًا كدالة سهمية داخل JSX، فتتغيّر مرجعيتها كل رسم.
-  // إبقاؤها في deps كان يعيد تشغيل الأثر (وقفل/فك التمرير) مع كل إعادة رسم.
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  const descriptionId = useId();
+  const dialogRef = useRef(null);
+  const returnFocusRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
-    lockPageScroll();
-    // الحوار الأعلى وحده يستجيب لـEscape، حتى لا يُغلق حوار التأكيد وما تحته معًا.
-    const onKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
-      const stack = document.querySelectorAll('[data-constitution-dialog]');
-      if (stack.length && stack[stack.length - 1] !== dialogRef.current) return;
-      onCloseRef.current?.();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    requestAnimationFrame(() => dialogRef.current?.focus());
+    returnFocusRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const timer = window.setTimeout(() => {
+      const first = dialogRef.current?.querySelector(FOCUSABLE);
+      (first || dialogRef.current)?.focus?.();
+    }, 0);
+
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose?.();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const items = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
+      if (!items.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
     return () => {
-      unlockPageScroll();
-      document.removeEventListener('keydown', onKeyDown);
+      window.clearTimeout(timer);
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus?.();
     };
-  }, [open]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div
-      className={styles.backdrop}
-      role="presentation"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}
-    >
+    <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
       <section
         ref={dialogRef}
         className={`${styles.dialog} ${styles[`size_${size}`] || ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        data-constitution-dialog=""
+        data-constitution-dialog="true"
       >
         <header className={styles.header}>
+          <button type="button" className={styles.back} onClick={onClose} aria-label="رجوع">
+            <span aria-hidden="true">←</span>
+            <span>رجوع</span>
+          </button>
           <div className={styles.heading}>
             <h2 id={titleId}>{title}</h2>
-            {description ? <p>{description}</p> : null}
+            {description ? <p id={descriptionId}>{description}</p> : null}
           </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="إغلاق">×</button>
         </header>
         <div className={styles.body}>{children}</div>
       </section>
