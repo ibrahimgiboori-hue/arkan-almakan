@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { recordLogicalRoute } from '@/lib/navigation-history';
 
 const DASHBOARD_PREFIX = '/dashboard';
 
@@ -60,6 +61,10 @@ export default function NavigationMotionController(){
   const intentRef=useRef('lateral');
 
   useEffect(()=>{
+    recordLogicalRoute(pathname);
+  },[pathname]);
+
+  useEffect(()=>{
     function onPointer(event){
       if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey) return;
       const target=event.target instanceof Element?event.target:null;
@@ -83,7 +88,6 @@ export default function NavigationMotionController(){
       const intent=nextDepth>currentDepth?'forward':nextDepth<currentDepth?'back':'lateral';
       intentRef.current=intent;
 
-      // بعض المستويات داخل نفس المسار تعتمد query string فقط؛ لا ينتج عنها pathname جديد.
       if(url.pathname===window.location.pathname&&url.search!==window.location.search){
         requestAnimationFrame(()=>animateElement(contentRoot(),intent));
       }
