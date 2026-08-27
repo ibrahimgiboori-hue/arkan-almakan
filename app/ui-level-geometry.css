@@ -1,7 +1,9 @@
-/* هندسة المستويات — كل شريط سياق خمري يملك الارتفاع نفسه بلا استثناء.
-   نستخدم العلامات الدلالية الموجودة في منصة الأعمال، لا أسماء CSS Module المولدة. */
+/* هندسة المستويات — Moonwalk Geometry
+   السقف ثابت، والسياق/العمل المباشر/الإدارة تشترك في نفس خطوط المحاذاة بين كل البوابات. */
 :root{
   --constitution-context-stage-height:172px;
+  --constitution-direct-band-height:304px;
+  --constitution-management-shell-height:210px;
   --constitution-context-metric-padding-block:7px;
   --constitution-context-metric-padding-inline:16px;
   --constitution-context-metric-gap:1px;
@@ -23,7 +25,8 @@
   overflow:hidden!important;
 }
 
-/* الجزء النصي في كل مستوى يستخدم المساحة نفسها. */
+/* ثلاثة Baselines ثابتة داخل السياق: kicker / title / meta.
+   مشروع 7 لا يملك صفًا إضافيًا؛ الإنجاز يدخل في سطر meta نفسه. */
 :is(
   section[aria-label='المشروع الجاري'],
   section[aria-label='الموارد البشرية'],
@@ -33,14 +36,13 @@
 ) > div:first-child > div:first-child{
   min-height:0!important;
   height:100%!important;
-  display:flex!important;
-  flex-direction:column!important;
-  justify-content:center!important;
+  display:grid!important;
+  grid-template-rows:18px minmax(0,1fr) 28px!important;
+  align-items:center!important;
   padding:14px 20px!important;
   overflow:hidden!important;
 }
 
-/* عنوان المستوى في سطور أقل حتى لا يفرض المشروع ارتفاعًا خاصًا به. */
 :is(
   section[aria-label='المشروع الجاري'],
   section[aria-label='الموارد البشرية'],
@@ -48,7 +50,9 @@
   section[aria-label='المستندات'],
   section[aria-label='الإدارة']
 ) > div:first-child > div:first-child > div:nth-child(2){
-  margin-top:4px!important;
+  min-height:0!important;
+  margin:0!important;
+  align-self:center!important;
 }
 
 :is(
@@ -58,8 +62,7 @@
   section[aria-label='المستندات'],
   section[aria-label='الإدارة']
 ) > div:first-child > div:first-child h1{
-  margin-top:1px!important;
-  margin-bottom:0!important;
+  margin:0!important;
   line-height:1.08!important;
 }
 
@@ -70,18 +73,13 @@
   section[aria-label='المستندات'],
   section[aria-label='الإدارة']
 ) > div:first-child > div:first-child > div:nth-child(3){
-  margin-top:6px!important;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  min-width:0!important;
+  margin:0!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
 }
 
-/* المشروع وحده يملك شريط إنجاز، لذلك نضغطه داخل نفس الارتفاع بدل زيادة البطاقة. */
-section[aria-label='المشروع الجاري'] > div:first-child > div:first-child > div:nth-child(4){
-  margin-top:9px!important;
-}
-
-/* عمود المؤشرات لا يغير ارتفاع المستوى مهما تغير النص. */
+/* عمود المؤشرات نفسه في كل سياق. */
 :is(
   section[aria-label='المشروع الجاري'],
   section[aria-label='الموارد البشرية'],
@@ -95,8 +93,6 @@ section[aria-label='المشروع الجاري'] > div:first-child > div:first-
   grid-template-rows:repeat(3,minmax(0,1fr))!important;
 }
 
-/* إيقاع المؤشرات داخل الشريط الخمري دستوري وموحد:
-   نقلل الفراغات الرأسية بدل قص النص أو زيادة ارتفاع المستوى. */
 :is(
   section[aria-label='المشروع الجاري'],
   section[aria-label='الموارد البشرية'],
@@ -122,7 +118,6 @@ section[aria-label='المشروع الجاري'] > div:first-child > div:first-
   line-height:1.05!important;
   margin:0!important;
 }
-
 :is(
   section[aria-label='المشروع الجاري'],
   section[aria-label='الموارد البشرية'],
@@ -134,7 +129,6 @@ section[aria-label='المشروع الجاري'] > div:first-child > div:first-
   line-height:1.05!important;
   margin:0!important;
 }
-
 :is(
   section[aria-label='المشروع الجاري'],
   section[aria-label='الموارد البشرية'],
@@ -150,19 +144,30 @@ section[aria-label='المشروع الجاري'] > div:first-child > div:first-
   text-overflow:ellipsis!important;
 }
 
-/* دستور الملاحة يمنع وجود مدخلين مرئيين لنفس الوجهة داخل المستوى نفسه.
-   هذا السطر يوقف شريط إدارة بوابة المشاريع القديم إذا بقي في Markup توافقية. */
-nav[aria-label='إدارة بوابة المشاريع']{
-  display:none!important;
-}
-nav[aria-label='إدارة بوابة المشاريع']:where(*){
-  margin:0!important;
-  padding:0!important;
-  border:0!important;
-}
-/* إذا كانت الملاحة المكررة داخل حاوية مستقلة فلا تترك الحاوية فراغًا مرئيًا. */
-div:has(> nav[aria-label='إدارة بوابة المشاريع']){
-  display:none!important;
+/* دفاع توافق فقط: أي شريط قديم يعيد نفس وجهات بوابة المشاريع لا يظهر. */
+nav[aria-label='إدارة بوابة المشاريع'],div:has(> nav[aria-label='إدارة بوابة المشاريع']){display:none!important}
+
+@media(max-width:1050px){
+  :is(
+    section[aria-label='المشروع الجاري'],
+    section[aria-label='الموارد البشرية'],
+    section[aria-label='المالية'],
+    section[aria-label='المستندات'],
+    section[aria-label='الإدارة']
+  ) > div:first-child{
+    height:auto!important;
+    min-height:var(--constitution-context-stage-height)!important;
+    max-height:none!important;
+  }
+  :is(
+    section[aria-label='المشروع الجاري'],
+    section[aria-label='الموارد البشرية'],
+    section[aria-label='المالية'],
+    section[aria-label='المستندات'],
+    section[aria-label='الإدارة']
+  ) > div:first-child > div:first-child{
+    min-height:var(--constitution-context-stage-height)!important;
+  }
 }
 
 @media(max-width:760px){
@@ -177,5 +182,10 @@ div:has(> nav[aria-label='إدارة بوابة المشاريع']){
     section[aria-label='المالية'],
     section[aria-label='المستندات'],
     section[aria-label='الإدارة']
-  ) > div:first-child > div:first-child{padding:11px 14px!important}
+  ) > div:first-child > div:first-child{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    padding:11px 14px!important;
+  }
 }
