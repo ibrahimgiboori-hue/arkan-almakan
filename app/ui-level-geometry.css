@@ -150,6 +150,21 @@ section[aria-label='المشروع الجاري'] > div:first-child > div:first-
   text-overflow:ellipsis!important;
 }
 
+/* دستور الملاحة يمنع وجود مدخلين مرئيين لنفس الوجهة داخل المستوى نفسه.
+   هذا السطر يوقف شريط إدارة بوابة المشاريع القديم إذا بقي في Markup توافقية. */
+nav[aria-label='إدارة بوابة المشاريع']{
+  display:none!important;
+}
+nav[aria-label='إدارة بوابة المشاريع']:where(*){
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+}
+/* إذا كانت الملاحة المكررة داخل حاوية مستقلة فلا تترك الحاوية فراغًا مرئيًا. */
+div:has(> nav[aria-label='إدارة بوابة المشاريع']){
+  display:none!important;
+}
+
 @media(max-width:760px){
   :root{
     --constitution-context-stage-height:154px;
