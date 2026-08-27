@@ -1,0 +1,131 @@
+/*
+  RawGrid — the one shared "Excel-like" grid used across every raw screen.
+  All colors/radius/sizes come from the global tokens in
+  app/dashboard/raw-tokens.css — nothing is hard-coded here so the whole
+  program can be re-skinned later by editing that one file only.
+*/
+.wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  margin-top: 12px;
+  border: 1px solid var(--raw-border);
+  border-radius: var(--raw-radius);
+}
+
+.table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  font-size: var(--raw-font-size);
+  color: var(--raw-ink);
+  background: var(--raw-paper);
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 7px;
+  border: 1px solid var(--raw-border);
+  background: var(--raw-border-soft);
+  color: var(--raw-muted);
+  font-size: var(--raw-font-size-sm);
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 5px;
+  border: 1px solid var(--raw-border-soft);
+  vertical-align: middle;
+  height: var(--raw-row-height);
+}
+
+.rowSaved { background: color-mix(in srgb, var(--raw-wine) 4%, var(--raw-paper)); }
+.rowNew { background: transparent; }
+
+.cellIndex, .cellBadge { text-align: center; white-space: nowrap; }
+
+.badge { font-weight: 800; font-size: var(--raw-font-size-sm); }
+.badgeSaved { color: var(--raw-green); }
+.badgeNew { color: var(--raw-amber); }
+.badgeMuted { color: var(--raw-muted); }
+
+.field {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 7px;
+  border: 1px solid var(--raw-border);
+  border-radius: var(--raw-radius-sm);
+  background: var(--raw-paper);
+  color: inherit;
+  font: inherit;
+  outline: 0;
+}
+.field:focus {
+  border-color: var(--raw-wine);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--raw-wine) 8%, transparent);
+}
+.fieldSaved {
+  background: color-mix(in srgb, var(--raw-wine) 5%, var(--raw-paper));
+  border-color: color-mix(in srgb, var(--raw-wine) 25%, var(--raw-border));
+}
+.fieldMuted { opacity: .45; }
+
+.actionCell { text-align: center; white-space: nowrap; }
+.actionButton {
+  padding: 7px 9px;
+  border: 1px solid var(--raw-border);
+  border-radius: var(--raw-radius-sm);
+  background: var(--raw-paper);
+  color: inherit;
+  font: 750 var(--raw-font-size-sm) inherit;
+  cursor: pointer;
+}
+.actionButton:hover { filter: brightness(.97); }
+.actionButton:disabled { opacity: .45; cursor: not-allowed; }
+.actionDanger { color: var(--raw-red); border-color: color-mix(in srgb, var(--raw-red) 35%, var(--raw-border)); }
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.footerActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.footerSummary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: var(--raw-font-size); }
+
+.primaryButton {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--raw-wine);
+  border-radius: var(--raw-radius-sm);
+  background: var(--raw-wine);
+  color: var(--raw-on-accent);
+  font: 800 var(--raw-font-size) inherit;
+  cursor: pointer;
+}
+.primaryButton:disabled { opacity: .5; cursor: not-allowed; }
+
+.plainButton {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--raw-border);
+  border-radius: var(--raw-radius-sm);
+  background: var(--raw-paper);
+  color: inherit;
+  font: 750 var(--raw-font-size-sm) inherit;
+  cursor: pointer;
+}
+.plainButton:disabled { opacity: .45; cursor: not-allowed; }
+
+.loading, .empty {
+  padding: 20px 8px;
+  color: var(--raw-muted);
+  font-size: var(--raw-font-size);
+  text-align: center;
+}
