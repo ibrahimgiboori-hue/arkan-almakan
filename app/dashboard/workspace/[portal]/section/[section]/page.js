@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { portalSectionDefinition } from '@/lib/portal-section-constitution';
 import { loadPortalSectionData } from '@/lib/portal-section-data';
+import { INVOICE_POLICY } from '@/lib/invoice-policy';
 import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice } from '@/components/ui/ConstitutionUI';
 
 function hasSectionAccess(definition, capabilityKeys, fullAdmin){
@@ -88,10 +89,12 @@ export default function PortalSectionPage(){
   if(!state.allowed)return <ConstitutionPage><Notice tone="warning">{state.error}</Notice></ConstitutionPage>;
 
   const data=state.data;
+  const isInvoiceSection=definition.dataKind==='finance-invoices';
   return <ConstitutionPage>
     {state.error&&<Notice tone="warning">تعذر تحميل البيانات الحالية: {state.error}</Notice>}
+    {isInvoiceSection&&<Notice tone="warning"><strong>{INVOICE_POLICY.preliminaryLabel}:</strong> {INVOICE_POLICY.preliminaryNotice.replace(`${INVOICE_POLICY.preliminaryLabel} — `,'')}</Notice>}
     {data?.summary?.length?<Section title="الملخص" description={definition.description}><SummaryStrip items={data.summary}/></Section>:null}
-    <Section title={definition.label} description="هذه مساحة بيانات فعلية مبنية على المصادر الموجودة في النظام؛ عمليات الإدخال والتحرير ستدخل مسرحها المستقل عند تفعيلها.">
+    <Section title={definition.label} description={isInvoiceSection?'هذه المساحة لمتابعة طلبات إصدار الفاتورة الضريبية وتسجيل الفاتورة الصادرة من نظام الفوترة المعتمد والتحصيل؛ لا تصدر فاتورة ضريبية رسمية من أركان المكان.':'هذه مساحة بيانات فعلية مبنية على المصادر الموجودة في النظام؛ عمليات الإدخال والتحرير ستدخل مسرحها المستقل عند تفعيلها.'}>
       {data?.rows?.length?(
         <TableFrame>
           <table>
