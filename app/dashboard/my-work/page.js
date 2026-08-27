@@ -11,6 +11,8 @@ const STATUS_AR = {new:'جديد',received:'مستلم',in_progress:'قيد ال
 const TYPE_AR = {personal_task:'مهمة شخصية',task:'مهمة',request:'مراسلة / طلب'};
 const PRIORITY_AR = {normal:'عادي',high:'مرتفع',urgent:'عاجل'};
 const ROLE_AR = {assignee:'مسؤول التنفيذ',collaborator:'مشارك في التنفيذ',follower:'متابع'};
+const SOURCE_AR = {today:'تواصل العمل',procedure:'إجراء نظامي'};
+const SOURCE_FILTERS = [['today','تواصل العمل'],['procedure','إجراء نظامي'],['all','الكل']];
 const EVENT_AR = {
   created:'إنشاء العمل',received:'استلام',started:'بدء التنفيذ',progress:'تحديث الإنجاز',waiting:'تعليق / انتظار',completed:'إكمال',closed:'إغلاق',reopened:'إعادة فتح',cancelled:'إلغاء',comment:'رسالة',participant_added:'إضافة مشارك',participant_removed:'إزالة مشارك',participant_role_changed:'تغيير دور مشارك',attachment_added:'رفع مرفق',attachment_removed:'حذف مرفق',document_created:'إضافة مستند',document_submitted:'إرسال مستند للاعتماد',document_approved:'اعتماد مستند',document_changes_requested:'طلب تعديل مستند',document_rejected:'رفض مستند'
 };
@@ -27,12 +29,17 @@ function fmtDate(value){
 }
 function safeFileName(name){return String(name||'file').replace(/[^\w.\-\u0600-\u06FF]+/g,'_').slice(-120);}
 function bytes(n){const v=Number(n||0);if(v<1024)return `${v} B`;if(v<1024*1024)return `${(v/1024).toFixed(1)} KB`;return `${(v/1024/1024).toFixed(1)} MB`;}
+function sourceLabel(task){
+  if(task?.work_source==='procedure')return task.source_label?`إجراء نظامي · ${task.source_label}`:'إجراء نظامي';
+  return 'تواصل العمل';
+}
 
 export default function MyWorkPage(){
   const [state,setState]=useState(null);
   const [err,setErr]=useState('');
   const [msg,setMsg]=useState('');
   const [tab,setTab]=useState('today');
+  const [sourceFilter,setSourceFilter]=useState('today');
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState('');
   const [createOpen,setCreateOpen]=useState(false);
@@ -52,7 +59,7 @@ export default function MyWorkPage(){
     const uid=session.user.id;
     const [userQ,tasksQ,peopleQ,projectsQ,notificationsQ,documentsQ]=await Promise.all([
       supabase.from('app_users').select('employees(full_name_ar,job_title)').eq('id',uid).maybeSingle(),
-      supabase.from('workspace_tasks').select('id,task_type,title,description,creator_user_id,assignee_user_id,status,priority,progress,due_at,project_id,received_at,started_at,completed_at,closed_at,created_at,updated_at,last_activity_at,projects(id,project_no,name_ar)').order('last_activity_at',{ascending:false}).limit(250),
+      supabase.from('workspace_tasks').select('id,task_type,title,description,creator_user_id,assignee_user_id,status,priority,progress,due_at,project_id,received_at,started_at,completed_at,closed_at,created_at,updated_at,last_activity_at,work_source,source_portal_key,target_portal_key,source_route,source_label,projects(id,project_no,name_ar)').order('last_activity_at',{ascending:false}).limit(250),
       supabase.rpc('fn_workspace_people_directory'),
       supabase.from('projects').select('id,project_no,name_ar').order('project_no'),
       supabase.from('notifications').select('id,title,body,link,severity,is_read,created_at').order('created_at',{ascending:false}).limit(50),
@@ -70,10 +77,10 @@ export default function MyWorkPage(){
       ]);
       participants=pQ.data||[];events=eQ.data||[];attachments=aQ.data||[];approvals=apQ.data||[];
       const secondaryErrors=[pQ.error,eQ.error,aQ.error,apQ.error].filter(Boolean);
-      if(secondaryErrors.length)setErr('تعذر تحميل بعض تفاصيل أعمالي، بينما بقيت المهام الأساسية متاحة.');
+      if(secondaryErrors.length)setErr('تعذر تحميل بعض تفاصيل تواصل العمل، بينما بقيت الأعمال الأساسية متاحة.');
     }
     const errors=[tasksQ.error,peopleQ.error,projectsQ.error].filter(Boolean);
-    if(errors.length)setErr('تعذر تحميل بعض عناصر أعمالي وفق صلاحيات الحساب الحالية.');
+    if(errors.length)setErr('تعذر تحميل بعض عناصر تواصل العمل وفق صلاحيات الحساب الحالية.');
     const next={uid,employee:userQ.data?.employees||null,tasks,people:peopleQ.data||[],projects:projectsQ.data||[],notifications:notificationsQ.data||[],documents:documentsQ.data||[],participants,events,attachments,approvals};
     setState(next);
     setSelectedId(current=>keep&&current&&tasks.some(t=>t.id===current)?current:(tasks[0]?.id||''));
@@ -86,18 +93,19 @@ export default function MyWorkPage(){
 
   const view=useMemo(()=>{
     if(!state)return null;
+    const sourceTasks=sourceFilter==='all'?state.tasks:state.tasks.filter(t=>(t.work_source||'today')===sourceFilter);
     const today=riyadhDay();
-    const active=state.tasks.filter(t=>!CLOSED.has(t.status));
+    const active=sourceTasks.filter(t=>!CLOSED.has(t.status));
     const overdue=active.filter(t=>t.due_at&&riyadhDay(t.due_at)<today);
     const dueToday=active.filter(t=>t.due_at&&riyadhDay(t.due_at)===today);
-    const incoming=state.tasks.filter(t=>t.assignee_user_id===state.uid&&t.creator_user_id!==state.uid&&!CLOSED.has(t.status));
-    const mine=state.tasks.filter(t=>(t.task_type==='personal_task'||t.assignee_user_id===state.uid)&&!CLOSED.has(t.status));
-    const created=state.tasks.filter(t=>t.creator_user_id===state.uid);
-    const followup=state.tasks.filter(t=>!CLOSED.has(t.status)&&((t.creator_user_id===state.uid&&t.assignee_user_id!==state.uid)||t.status==='waiting'));
-    const completed=state.tasks.filter(t=>CLOSED.has(t.status));
+    const incoming=sourceTasks.filter(t=>t.assignee_user_id===state.uid&&t.creator_user_id!==state.uid&&!CLOSED.has(t.status));
+    const mine=sourceTasks.filter(t=>(t.task_type==='personal_task'||t.assignee_user_id===state.uid)&&!CLOSED.has(t.status));
+    const created=sourceTasks.filter(t=>t.creator_user_id===state.uid);
+    const followup=sourceTasks.filter(t=>!CLOSED.has(t.status)&&((t.creator_user_id===state.uid&&t.assignee_user_id!==state.uid)||t.status==='waiting'));
+    const completed=sourceTasks.filter(t=>CLOSED.has(t.status));
     const todayRows=[...new Map([...overdue,...dueToday,...incoming.filter(t=>['new','received'].includes(t.status)),...mine.filter(t=>['in_progress','waiting'].includes(t.status))].map(t=>[t.id,t])).values()];
-    return {todayRows,incoming,mine,created,followup,completed,all:state.tasks,overdue,dueToday,unread:state.notifications.filter(n=>!n.is_read)};
-  },[state]);
+    return {todayRows,incoming,mine,created,followup,completed,all:sourceTasks,overdue,dueToday,unread:state.notifications.filter(n=>!n.is_read)};
+  },[state,sourceFilter]);
 
   const selected=useMemo(()=>state?.tasks.find(t=>t.id===selectedId)||null,[state,selectedId]);
   const selectedParticipants=useMemo(()=>state?.participants.filter(p=>p.task_id===selectedId)||[],[state,selectedId]);
@@ -118,9 +126,14 @@ export default function MyWorkPage(){
     if(!view)return[];
     let base=({today:view.todayRows,inbox:view.incoming,mine:view.mine,created:view.created,followup:view.followup,completed:view.completed,all:view.all})[tab]||[];
     const q=query.trim().toLowerCase();
-    if(q)base=base.filter(t=>`${t.title||''} ${t.description||''} ${t.projects?.name_ar||''} ${TYPE_AR[t.task_type]||''}`.toLowerCase().includes(q));
+    if(q)base=base.filter(t=>`${t.title||''} ${t.description||''} ${t.projects?.name_ar||''} ${TYPE_AR[t.task_type]||''} ${SOURCE_AR[t.work_source]||''} ${t.source_label||''}`.toLowerCase().includes(q));
     return base;
   },[view,tab,query]);
+
+  useEffect(()=>{
+    if(!rows.length){if(selectedId)setSelectedId('');return;}
+    if(!rows.some(row=>row.id===selectedId))setSelectedId(rows[0].id);
+  },[rows,selectedId]);
 
   async function createWork(e){
     e.preventDefault();setBusy('create');setErr('');setMsg('');
@@ -136,7 +149,7 @@ export default function MyWorkPage(){
       });
       if(error)throw error;
       setCreateOpen(false);setForm({type:'personal_task',title:'',description:'',assignee:'',priority:'normal',dueAt:'',projectId:'',collaborators:[],followers:[]});
-      setMsg('تم إنشاء العمل وإضافته إلى أعمالي.');
+      setMsg('تم إنشاء تواصل العمل وإضافته إلى صفحتك.');
       await load(false);if(data?.id)setSelectedId(data.id);
     }catch(ex){setErr(ex.message||'تعذر إنشاء العمل.');}
     setBusy('');
@@ -222,13 +235,13 @@ export default function MyWorkPage(){
     setBusy('');
   }
 
-  if(!state||!view)return <ConstitutionPage><EmptyState title="جارٍ تجهيز أعمالي" description="يتم جمع مهامك ومراسلاتك ومحادثاتك ومرفقاتك ضمن نطاقك المسموح."/></ConstitutionPage>;
+  if(!state||!view)return <ConstitutionPage><EmptyState title="جارٍ تجهيز تواصل العمل" description="يتم جمع مهامك وتوجيهاتك ومحادثاتك ومرفقاتك ضمن نطاقك المسموح."/></ConstitutionPage>;
 
   const activePeople=state.people.filter(p=>p.user_id&&p.account_active&&p.user_id!==state.uid);
   const selectablePeople=activePeople.filter(p=>p.user_id!==selected?.assignee_user_id&&!selectedParticipants.some(x=>x.user_id===p.user_id));
 
   return <ConstitutionPage>
-    <PageHeader eyebrow="MY WORK" title="أعمالي" description="مركز العمل الشخصي: مهامي، الوارد، المراسلات، المحادثات، التقدم، المرفقات والخطابات في سجل واحد.">
+    <PageHeader eyebrow="WORK COMMUNICATION" title="تواصل العمل" description="المهام والتوجيهات والمراسلات اليومية بين الزملاء والإدارات. الإجراءات النظامية القادمة من البوابات تبقى مميزة بمصدرها ولا تختلط افتراضيًا بعدادات العمل اليومي.">
       <button className="btn" onClick={()=>setCreateOpen(true)}>+ عمل جديد</button>
     </PageHeader>
     {err&&<Notice tone="warning">{err}</Notice>}
@@ -242,15 +255,21 @@ export default function MyWorkPage(){
     </div>
 
     <div className={styles.shell}>
-      <Section title="قائمة الأعمال" description="كل ما أنشأته أو وصل إليك أو تشارك فيه.">
-        <div className={styles.toolbar}><input className={styles.search} placeholder="ابحث في أعمالي…" value={query} onChange={e=>setQuery(e.target.value)}/><button className="btn" onClick={()=>setCreateOpen(true)}>+ جديد</button></div>
+      <Section title="قائمة الأعمال" description="المصدر الافتراضي تواصل العمل؛ ويمكن إظهار الأعمال الإجرائية عند الحاجة دون إدخالها في عدادات اليوم.">
+        <div className={styles.toolbar}>
+          <input className={styles.search} placeholder="ابحث في تواصل العمل…" value={query} onChange={e=>setQuery(e.target.value)}/>
+          <select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)} aria-label="مصدر العمل">
+            {SOURCE_FILTERS.map(([key,label])=><option key={key} value={key}>المصدر: {label}</option>)}
+          </select>
+          <button className="btn" onClick={()=>setCreateOpen(true)}>+ جديد</button>
+        </div>
         <div className={styles.filters}>{TABS.map(([key,label])=><button key={key} className={`btn ${tab===key?'':'ghost'}`} onClick={()=>setTab(key)}>{label} ({({today:view.todayRows,inbox:view.incoming,mine:view.mine,created:view.created,followup:view.followup,completed:view.completed,all:view.all})[key]?.length||0})</button>)}</div>
-        {rows.length===0?<EmptyState title="لا توجد أعمال هنا" description="أنشئ مهمة شخصية، أرسل مهمة أو مراسلة، أو غيّر التبويب."/>:<div className={styles.list}>{rows.map(task=><button key={task.id} className={`${styles.task} ${selectedId===task.id?styles.taskActive:''}`} onClick={()=>setSelectedId(task.id)}><div className={styles.taskTop}><div><div className={styles.taskTitle}>{task.title}</div><div className={styles.meta}><span>{TYPE_AR[task.task_type]||task.task_type}</span><span>{task.creator_user_id===state.uid?'أنشأتها أنا':`من: ${displayName(task.creator_user_id)}`}</span>{task.assignee_user_id!==state.uid&&<span>إلى: {displayName(task.assignee_user_id)}</span>}</div></div><span className={styles.badge}>{STATUS_AR[task.status]||task.status}</span></div><div className={styles.progressTrack}><div className={styles.progressFill} style={{width:`${Math.max(0,Math.min(100,Number(task.progress||0)))}%`}}/></div><div className={styles.meta}><span>الإنجاز {task.progress||0}%</span><span>الأولوية {PRIORITY_AR[task.priority]||task.priority}</span>{task.due_at&&<span>الموعد {fmtDate(task.due_at)}</span>}{task.projects?.name_ar&&<span>{task.projects.name_ar}</span>}</div></button>)}</div>}
+        {rows.length===0?<EmptyState title="لا توجد أعمال هنا" description="غيّر المصدر أو التبويب، أو أنشئ مهمة أو توجيه عمل جديد."/>:<div className={styles.list}>{rows.map(task=><button key={task.id} className={`${styles.task} ${selectedId===task.id?styles.taskActive:''}`} onClick={()=>setSelectedId(task.id)}><div className={styles.taskTop}><div><div className={styles.taskTitle}>{task.title}</div><div className={styles.meta}><span>{TYPE_AR[task.task_type]||task.task_type}</span><span>{sourceLabel(task)}</span><span>{task.creator_user_id===state.uid?'أنشأتها أنا':`من: ${displayName(task.creator_user_id)}`}</span>{task.assignee_user_id&&task.assignee_user_id!==state.uid&&<span>إلى: {displayName(task.assignee_user_id)}</span>}</div></div><span className={styles.badge}>{STATUS_AR[task.status]||task.status}</span></div><div className={styles.progressTrack}><div className={styles.progressFill} style={{width:`${Math.max(0,Math.min(100,Number(task.progress||0)))}%`}}/></div><div className={styles.meta}><span>الإنجاز {task.progress||0}%</span><span>الأولوية {PRIORITY_AR[task.priority]||task.priority}</span>{task.due_at&&<span>الموعد {fmtDate(task.due_at)}</span>}{task.projects?.name_ar&&<span>{task.projects.name_ar}</span>}</div></button>)}</div>}
       </Section>
 
       <div className={styles.detail}>
         {!selected?<div className={styles.emptyDetail}><div><strong>اختر عملًا من القائمة</strong><div>ستظهر هنا المحادثة والتقدم والمرفقات والخطابات.</div></div></div>:<Section title={TYPE_AR[selected.task_type]||'عمل'} description={`آخر حركة ${fmtDate(selected.last_activity_at)}`}>
-          <div className={styles.detailHead}><div><h2 className={styles.detailTitle}>{selected.title}</h2>{selected.description&&<div style={{lineHeight:1.8}}>{selected.description}</div>}<div className={styles.meta}><span className={styles.badge}>{STATUS_AR[selected.status]||selected.status}</span><span>أنشأه: {displayName(selected.creator_user_id)}</span><span>المسؤول: {displayName(selected.assignee_user_id)}</span>{selected.projects?.name_ar&&<span>المشروع: {selected.projects.name_ar}</span>}</div></div><div style={{minWidth:120,textAlign:'center'}}><div style={{fontSize:30,fontWeight:850}}>{selected.progress||0}%</div><div className={styles.muted}>نسبة الإنجاز</div></div></div>
+          <div className={styles.detailHead}><div><h2 className={styles.detailTitle}>{selected.title}</h2>{selected.description&&<div style={{lineHeight:1.8}}>{selected.description}</div>}<div className={styles.meta}><span className={styles.badge}>{STATUS_AR[selected.status]||selected.status}</span><span>{sourceLabel(selected)}</span><span>أنشأه: {displayName(selected.creator_user_id)}</span>{selected.assignee_user_id&&<span>المسؤول: {displayName(selected.assignee_user_id)}</span>}{selected.projects?.name_ar&&<span>المشروع: {selected.projects.name_ar}</span>}</div></div><div style={{minWidth:120,textAlign:'center'}}><div style={{fontSize:30,fontWeight:850}}>{selected.progress||0}%</div><div className={styles.muted}>نسبة الإنجاز</div></div></div>
           <div className={styles.progressTrack}><div className={styles.progressFill} style={{width:`${selected.progress||0}%`}}/></div>
 
           <div className={styles.actions}>
@@ -283,18 +302,18 @@ export default function MyWorkPage(){
             </div>
 
             <div>
-              <div className={styles.pane}><h3>الأشخاص</h3><div className={styles.people}><div className={styles.person}><div><strong>{displayName(selected.assignee_user_id)}</strong><div className={styles.muted}>مسؤول التنفيذ</div></div></div>{selectedParticipants.filter(p=>p.user_id!==selected.assignee_user_id).map(p=><div key={`${p.user_id}-${p.participant_role}`} className={styles.person}><div><strong>{displayName(p.user_id)}</strong><div className={styles.muted}>{ROLE_AR[p.participant_role]||p.participant_role}</div></div>{canManagePeople&&['collaborator','follower'].includes(p.participant_role)&&<button className="btn ghost" onClick={()=>manageParticipant(true,p.user_id,p.participant_role)}>إزالة</button>}</div>)}</div>
+              <div className={styles.pane}><h3>الأشخاص</h3><div className={styles.people}>{selected.assignee_user_id&&<div className={styles.person}><div><strong>{displayName(selected.assignee_user_id)}</strong><div className={styles.muted}>مسؤول التنفيذ</div></div></div>}{selectedParticipants.filter(p=>p.user_id!==selected.assignee_user_id).map(p=><div key={`${p.user_id}-${p.participant_role}`} className={styles.person}><div><strong>{displayName(p.user_id)}</strong><div className={styles.muted}>{ROLE_AR[p.participant_role]||p.participant_role}</div></div>{canManagePeople&&['collaborator','follower'].includes(p.participant_role)&&<button className="btn ghost" onClick={()=>manageParticipant(true,p.user_id,p.participant_role)}>إزالة</button>}</div>)}</div>
                 {canManagePeople&&selectablePeople.length>0&&<div className={styles.sectionGap}><div className="field"><label>إضافة شخص</label><select value={participantUser} onChange={e=>setParticipantUser(e.target.value)}><option value="">اختر</option>{selectablePeople.map(p=><option key={p.user_id} value={p.user_id}>{p.display_name}{p.job_title?` — ${p.job_title}`:''}</option>)}</select></div><div className={styles.toolbar}><select value={participantRole} onChange={e=>setParticipantRole(e.target.value)}><option value="collaborator">مشارك في التنفيذ</option><option value="follower">متابع</option></select><button className="btn ghost" onClick={()=>manageParticipant(false)} disabled={!participantUser||busy==='people'}>إضافة</button></div></div>}
               </div>
 
-              <div className={`${styles.pane} ${styles.sectionGap}`}><h3>تفاصيل العمل</h3><div className={styles.people}><div className={styles.person}><span>النوع</span><strong>{TYPE_AR[selected.task_type]||selected.task_type}</strong></div><div className={styles.person}><span>الأولوية</span><strong>{PRIORITY_AR[selected.priority]||selected.priority}</strong></div><div className={styles.person}><span>الموعد</span><strong>{fmtDate(selected.due_at)}</strong></div><div className={styles.person}><span>تاريخ الإنشاء</span><strong>{fmtDate(selected.created_at)}</strong></div>{selected.received_at&&<div className={styles.person}><span>الاستلام</span><strong>{fmtDate(selected.received_at)}</strong></div>}{selected.started_at&&<div className={styles.person}><span>بدء التنفيذ</span><strong>{fmtDate(selected.started_at)}</strong></div>}</div></div>
+              <div className={`${styles.pane} ${styles.sectionGap}`}><h3>تفاصيل العمل</h3><div className={styles.people}><div className={styles.person}><span>المصدر</span><strong>{sourceLabel(selected)}</strong></div><div className={styles.person}><span>النوع</span><strong>{TYPE_AR[selected.task_type]||selected.task_type}</strong></div><div className={styles.person}><span>الأولوية</span><strong>{PRIORITY_AR[selected.priority]||selected.priority}</strong></div><div className={styles.person}><span>الموعد</span><strong>{fmtDate(selected.due_at)}</strong></div><div className={styles.person}><span>تاريخ الإنشاء</span><strong>{fmtDate(selected.created_at)}</strong></div>{selected.received_at&&<div className={styles.person}><span>الاستلام</span><strong>{fmtDate(selected.received_at)}</strong></div>}{selected.started_at&&<div className={styles.person}><span>بدء التنفيذ</span><strong>{fmtDate(selected.started_at)}</strong></div>}</div></div>
             </div>
           </div>
         </Section>}
       </div>
     </div>
 
-    {createOpen&&<div className={styles.dialogBackdrop} onMouseDown={()=>setCreateOpen(false)}><div className={styles.dialog} onMouseDown={e=>e.stopPropagation()}><div className={styles.dialogHead}><div><h2>عمل جديد</h2><div className={styles.muted}>مهمة لنفسك، مهمة لمستخدم آخر، أو مراسلة/طلب ضمن نفس سجل المتابعة.</div></div><button className={styles.close} onClick={()=>setCreateOpen(false)} aria-label="إغلاق">×</button></div><form onSubmit={createWork} className={styles.newForm}>
+    {createOpen&&<div className={styles.dialogBackdrop} onMouseDown={()=>setCreateOpen(false)}><div className={styles.dialog} onMouseDown={e=>e.stopPropagation()}><div className={styles.dialogHead}><div><h2>عمل جديد</h2><div className={styles.muted}>مهمة لنفسك، مهمة لمستخدم آخر، أو مراسلة/طلب ضمن تواصل العمل اليومي.</div></div><button className={styles.close} onClick={()=>setCreateOpen(false)} aria-label="إغلاق">×</button></div><form onSubmit={createWork} className={styles.newForm}>
       <div className={styles.two}><div className="field"><label>النوع *</label><select value={form.type} onChange={e=>setForm({...form,type:e.target.value,assignee:'',collaborators:[],followers:[]})}><option value="personal_task">مهمة شخصية لنفسي</option><option value="task">مهمة لمستخدم</option><option value="request">مراسلة / طلب</option></select></div><div className="field"><label>الأولوية</label><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option value="normal">عادي</option><option value="high">مرتفع</option><option value="urgent">عاجل</option></select></div></div>
       <div className="field"><label>العنوان *</label><input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})} maxLength={180}/></div>
       <div className="field"><label>التفاصيل</label><textarea rows="4" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></div>
