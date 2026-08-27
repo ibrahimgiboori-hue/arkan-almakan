@@ -7,30 +7,52 @@ function cx(...values) {
 }
 
 export function ConstitutionPage({ children, className = '' }) {
-  return <div className={cx(styles.page, className)} data-ui-constitution="native">{children}</div>;
+  return <div className={cx(styles.page, className)} data-ui-constitution="native" data-page-surface="true">{children}</div>;
 }
 
 export function PageHeader({ title, description, actions, eyebrow, children }) {
   const headerActions = actions || children;
   return (
-    <div className={styles.pageHeader}>
+    <div className={styles.pageHeader} data-page-header="true">
       <div className={styles.pageHeaderCopy}>
         {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
       </div>
-      {headerActions ? <div className={styles.actions}>{headerActions}</div> : null}
+      {headerActions ? <div className={styles.actions} data-entry-ignore="true">{headerActions}</div> : null}
     </div>
   );
 }
 
 export function Section({ title, description, actions, children, className = '' }) {
   return (
-    <section className={cx(styles.section, className)}>
+    <section className={cx(styles.section, className)} data-data-surface="true">
       {(title || description || actions) ? (
         <header className={styles.sectionHeader}>
           <div>
-            {title ? <h2>{title}</h2> : null}
+            {title ? <h2 data-section-title="true">{title}</h2> : null}
+            {description ? <p>{description}</p> : null}
+          </div>
+          {actions ? <div className={styles.actions} data-entry-ignore="true">{actions}</div> : null}
+        </header>
+      ) : null}
+      <div className={styles.sectionBody}>{children}</div>
+    </section>
+  );
+}
+
+/*
+ * مساحة إدخال صريحة للشاشات الجديدة.
+ * الصفحات القديمة تُكتشف مركزيًا أيضًا، لكن أي تطوير جديد يستخدم هذا الغلاف
+ * حتى لا يحتاج المصمم أو المطور إلى اختراع سلوك ملء الشاشة من جديد.
+ */
+export function EntrySurface({ title, description, actions, children, className = '' }) {
+  return (
+    <section className={cx(styles.section, styles.entrySurface, className)} data-entry-surface="true" data-data-surface="true">
+      {(title || description || actions) ? (
+        <header className={styles.sectionHeader}>
+          <div>
+            {title ? <h2 data-section-title="true">{title}</h2> : null}
             {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className={styles.actions}>{actions}</div> : null}
@@ -51,11 +73,11 @@ export function Notice({ children, tone = 'neutral', actions }) {
 }
 
 export function Toolbar({ children, className = '' }) {
-  return <div className={cx(styles.toolbar, className)}>{children}</div>;
+  return <div className={cx(styles.toolbar, className)} data-entry-ignore="true">{children}</div>;
 }
 
 export function TableFrame({ children, className = '' }) {
-  return <div className={cx(styles.tableFrame, className)}>{children}</div>;
+  return <div className={cx(styles.tableFrame, className)} data-table-surface="true">{children}</div>;
 }
 
 export function EmptyState({ title = 'لا توجد بيانات', description }) {
