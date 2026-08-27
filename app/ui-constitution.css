@@ -3,6 +3,9 @@
 :root{
   --constitution-bg:#f3f0e9;
   --constitution-paper:#fbfaf7;
+  --constitution-surface:#ffffff;
+  --constitution-surface-soft:#f7f4ee;
+  --constitution-input-bg:#ffffff;
   --constitution-ink:#11110f;
   --constitution-muted:#66645f;
   --constitution-border:#d8d3c8;
@@ -21,9 +24,12 @@
   --constitution-on-dark-muted:#b8b8b2;
   --constitution-radius-sm:7px;
   --constitution-radius-md:9px;
-  --constitution-control-height:34px;
+  --constitution-radius-lg:12px;
+  --constitution-control-height:42px;
   --constitution-global-bar-height:58px;
+  --constitution-entry-bar-height:70px;
   --constitution-page-gap:18px;
+  --constitution-focus-ring:0 0 0 3px rgba(111,37,43,.08);
   --constitution-shadow-soft:0 1px 2px rgba(17,17,15,.035);
   --constitution-print-page-width:210mm;
   --constitution-print-page-height:297mm;
@@ -31,6 +37,9 @@
   /* Compatibility aliases: الصفحات القديمة تستمر بالعمل، لكن القيمة تأتي من الدستور. */
   --ui-bg:var(--constitution-bg);
   --ui-paper:var(--constitution-paper);
+  --ui-surface:var(--constitution-surface);
+  --ui-surface-soft:var(--constitution-surface-soft);
+  --ui-input-bg:var(--constitution-input-bg);
   --ui-ink:var(--constitution-ink);
   --ui-muted:var(--constitution-muted);
   --ui-border:var(--constitution-border);
@@ -44,28 +53,17 @@
   --ui-black:var(--constitution-black);
 }
 
-html[data-system-constitution='v2']{
-  color-scheme:light;
-}
-
-html[data-system-constitution='v2'] body{
-  text-rendering:optimizeLegibility;
-}
-
+html[data-system-constitution='v2']{color-scheme:light}
+html[data-system-constitution='v2'] body{text-rendering:optimizeLegibility}
 html[data-system-constitution='v2'] button,
 html[data-system-constitution='v2'] input,
 html[data-system-constitution='v2'] select,
-html[data-system-constitution='v2'] textarea{
-  font:inherit;
-}
+html[data-system-constitution='v2'] textarea{font:inherit}
+html[data-system-constitution='v2'] :focus-visible{outline:2px solid var(--constitution-brand);outline-offset:2px}
+html[data-system-constitution='v2'] input[type='checkbox'],
+html[data-system-constitution='v2'] input[type='radio']{accent-color:var(--constitution-brand)}
 
-html[data-system-constitution='v2'] :focus-visible{
-  outline:2px solid var(--constitution-brand);
-  outline-offset:2px;
-}
-
-/* قاعدة دستورية: مساحات العمل تستفيد من كامل العرض المتاح.
-   يمنع حشر صفحات التشغيل والإدارة في عمود مركزي ضيق بلا سبب وظيفي. */
+/* قاعدة دستورية: مساحات العمل تستفيد من كامل العرض المتاح. */
 html[data-system-constitution='v2'] .constitution-content,
 html[data-system-constitution='v2'] .constitution-content > *,
 html[data-system-constitution='v2'] .page:has(.workspaceShell){
@@ -74,10 +72,101 @@ html[data-system-constitution='v2'] .page:has(.workspaceShell){
   margin-inline:0!important;
 }
 
-/* رابط طباعة المصروفات القديم داخل بطاقة الإدخال أُلغي.
-   الطباعة الآن إجراء سياقي موحد في شريط التاريخ بجوار «اليوم». */
-html[data-system-constitution='v2'] a[href^='/print/expenses']{
+/* ============================================================
+   مسرح الإدخال العام
+   مكان الإدخال الفعلي يأخذ الشاشة وحده، والغلاف الخارجي يختفي.
+   التفعيل يأتي حصراً من ui-governance وليس من اكتشاف وجود form.
+   ============================================================ */
+body[data-entry-theater='true']{
+  min-height:100vh;
+  background:var(--constitution-bg);
+}
+body[data-entry-theater='true'] [data-ui-constitution='approved-v2'] > header{
   display:none!important;
+}
+body[data-entry-theater='true'] [data-ui-constitution='approved-v2'] > :not(header):not([data-content-governance]){
+  display:none!important;
+}
+body[data-entry-theater='true'] [data-content-governance]{
+  width:100%!important;
+  max-width:none!important;
+  min-height:calc(100vh - var(--constitution-entry-bar-height))!important;
+  margin:0!important;
+  padding:24px clamp(18px,3.2vw,58px) 56px!important;
+  background:var(--constitution-bg)!important;
+}
+body[data-entry-theater='true'] [data-content-governance] > *{
+  width:100%!important;
+  max-width:none!important;
+  margin-inline:0!important;
+}
+body[data-entry-theater='true'] [data-content-governance] .page-head{
+  display:none!important;
+}
+
+.constitution-entry-theater-bar{
+  position:sticky;
+  top:0;
+  z-index:1600;
+  min-height:var(--constitution-entry-bar-height);
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding:10px clamp(18px,3.2vw,58px);
+  border-bottom:1px solid var(--constitution-border);
+  background:rgba(251,250,247,.97);
+  backdrop-filter:blur(12px);
+  color:var(--constitution-ink);
+}
+.constitution-entry-theater-back{
+  flex:0 0 auto;
+  min-width:108px;
+  min-height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:0 16px;
+  border:1px solid var(--constitution-border);
+  border-radius:10px;
+  background:var(--constitution-surface);
+  color:var(--constitution-brand);
+  font-weight:850;
+  cursor:pointer;
+}
+.constitution-entry-theater-back:hover{
+  border-color:var(--constitution-brand);
+  background:#f6efed;
+}
+.constitution-entry-theater-back > span:first-child{
+  font-size:18px;
+  line-height:1;
+}
+.constitution-entry-theater-heading{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.constitution-entry-theater-heading span{
+  color:var(--constitution-muted);
+  font-size:10px;
+  font-weight:750;
+}
+.constitution-entry-theater-heading strong{
+  color:var(--constitution-ink);
+  font-size:18px;
+  line-height:1.25;
+  font-weight:900;
+}
+
+/* رابط طباعة المصروفات القديم داخل بطاقة الإدخال أُلغي. */
+html[data-system-constitution='v2'] a[href^='/print/expenses']{display:none!important}
+
+@media(max-width:640px){
+  .constitution-entry-theater-bar{padding:9px 12px;gap:12px}
+  .constitution-entry-theater-back{min-width:92px;min-height:42px;padding-inline:12px}
+  .constitution-entry-theater-heading strong{font-size:16px}
+  body[data-entry-theater='true'] [data-content-governance]{padding:16px 12px 36px!important}
 }
 
 @media (prefers-reduced-motion:reduce){
