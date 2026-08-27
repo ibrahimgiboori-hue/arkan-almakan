@@ -1,41 +1,47 @@
-/*
-  RAW DESIGN TOKENS — single source of visual truth for the raw phase.
-  Every raw-* component reads colors/radius/sizes from these variables only.
-  To re-skin the whole program later ("تلبيسة واحدة"): change the values
-  here (and only here) — every screen using RawGrid / raw-phase classes
-  updates together, with zero per-page edits.
-
-  Import this file ONCE, in app/dashboard/layout.js, before raw-phase.css.
-*/
+/* RAW UI TOKENS — the only dashboard visual source. */
 :root {
   --raw-bg: #f3f0e9;
   --raw-paper: #fbfaf7;
+  --raw-paper-strong: #ffffff;
   --raw-ink: #11110f;
   --raw-muted: #66645f;
   --raw-border: #d8d3c8;
   --raw-border-soft: #e8e4dc;
 
-  --raw-wine: #6f252b;
+  --raw-wine: #74262d;
+  --raw-wine-dark: #5f1e24;
   --raw-green: #126548;
   --raw-blue: #165f9f;
   --raw-red: #a12b29;
   --raw-amber: #8a6d1d;
   --raw-on-accent: #fff;
 
-  --raw-radius: 8px;
-  --raw-radius-sm: 6px;
+  --raw-radius: 10px;
+  --raw-radius-sm: 7px;
+  --raw-radius-lg: 18px;
   --raw-font-size: 16px;
   --raw-font-size-sm: 14.5px;
   --raw-row-height: 46px;
-  --raw-gap: 8px;
+  --raw-gap: 10px;
+  --raw-page-pad: 26px;
+
+  /* Compatibility aliases: old page classes now inherit the raw skin instead
+     of creating a second visual system. */
+  --maroon: var(--raw-wine);
+  --maroon-dark: var(--raw-wine-dark);
+  --maroon-light: #b88d90;
+  --rose-wash: color-mix(in srgb, var(--raw-wine) 5%, var(--raw-paper));
+  --paper: var(--raw-bg);
+  --card: var(--raw-paper);
+  --ink: var(--raw-ink);
+  --ink-soft: var(--raw-muted);
+  --hair: var(--raw-border-soft);
+  --hair-strong: var(--raw-border);
+  --ok: var(--raw-green);
+  --warn: var(--raw-amber);
+  --bad: var(--raw-red);
 }
 
-/*
-  Dashboard pages must fill the available working width. The global .page rule
-  can otherwise cap some routes at 1240px depending on stylesheet order. This
-  selector is intentionally more specific, so every raw dashboard route obeys
-  the same full-width rule without touching print layouts.
-*/
 html[data-system-constitution='v2'] .page {
   width: 100% !important;
   max-width: none !important;
