@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { dataEntryTheaterFor } from '@/lib/ui-governance';
+import { logicalBackTarget } from '@/lib/navigation-history';
 
 const CONTROL_SELECTOR = [
   "input:not([type='hidden']):not([type='search']):not([type='submit']):not([type='button'])",
@@ -144,8 +145,6 @@ export default function EntryTheaterController() {
       }
     }
 
-    // النماذج المدمجة في الصفحات القديمة تدخل المسرح لحظة ظهورها، لا بعد أن
-    // يضغط المستخدم داخل أول حقل. بهذا يصبح السلوك واحداً مع المحررات المستقلة.
     const observer = new MutationObserver((mutations) => {
       if (routeTheater || activeRootRef.current) return;
       for (const mutation of mutations) {
@@ -183,11 +182,7 @@ export default function EntryTheaterController() {
       clearInlineTheater();
       return;
     }
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push(routeTheater?.fallback || '/dashboard/workspace');
+    router.push(logicalBackTarget(pathname, routeTheater?.fallback || '/dashboard/workspace'));
   }
 
   return (
