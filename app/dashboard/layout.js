@@ -11,6 +11,7 @@ import { logicalBackTarget } from '@/lib/navigation-history';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
 import TypographyControls from '@/components/ui/TypographyControls';
+import ProgramLinksPanel from '@/components/ui/ProgramLinksPanel';
 import styles from './dashboard-redesign.module.css';
 import './constitution-content.css';
 
@@ -32,10 +33,11 @@ export default function DashboardLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [typographyOpen, setTypographyOpen] = useState(false);
+  const [programLinksOpen, setProgramLinksOpen] = useState(false);
 
   const isToday = pathname === TODAY_HREF;
   const isMyWork = pathname === MY_WORK_HREF || pathname.startsWith(`${MY_WORK_HREF}/`);
-  const isWorkspaceHome = pathname === WORKSPACE_HREF;
+  const isWorkspaceHome = pathname === WORKSPACE_HREF || pathname.startsWith(`${WORKSPACE_HREF}/`);
   const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+(?:\/|$)/.test(pathname);
   const routeEntryTheater = dataEntryTheaterFor(pathname);
 
@@ -98,6 +100,7 @@ export default function DashboardLayout({ children }) {
         setMobileOpen(false);
         setUserMenuOpen(false);
         setTypographyOpen(false);
+        setProgramLinksOpen(false);
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -241,6 +244,7 @@ export default function DashboardLayout({ children }) {
             {userMenuOpen && <div role="menu" style={{position:'absolute',top:'calc(100% + 10px)',insetInlineEnd:0,minWidth:245,padding:8,border:'1px solid var(--ui-border)',borderRadius:10,background:'var(--ui-paper,#fff)',boxShadow:'0 16px 40px rgba(0,0,0,.18)',zIndex:120,color:'var(--ui-ink,#111)'}}>
               <Link href={TODAY_HREF} onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>اليوم وأعمالي</Link>
               <Link href={WORKSPACE_HREF} onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>منصة الأعمال</Link>
+              <button onClick={()=>{setUserMenuOpen(false);setProgramLinksOpen(true);}} style={{display:'block',width:'100%',textAlign:'start',padding:'9px 10px',border:0,background:'transparent',cursor:'pointer',font:'inherit',color:'inherit',fontWeight:800}}>روابط البرنامج</button>
               <button onClick={()=>{setUserMenuOpen(false);setTypographyOpen(true);}} style={{display:'block',width:'100%',textAlign:'start',padding:'9px 10px',border:0,background:'transparent',cursor:'pointer',font:'inherit',color:'inherit'}}>أحجام الخطوط</button>
               {me.access.manageAccess && <Link href="/dashboard/system-user" onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7,fontWeight:700}}>إدارة الدخول والصلاحيات</Link>}
               <Link href="/change-password" onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>تغيير كلمة المرور</Link>
@@ -286,6 +290,7 @@ export default function DashboardLayout({ children }) {
         {children}
       </div>
 
+      <ProgramLinksPanel open={programLinksOpen} onClose={()=>setProgramLinksOpen(false)} access={me.access} capabilities={me.capabilities}/>
       <TypographyControls open={typographyOpen} onClose={()=>setTypographyOpen(false)} />
 
       {commandOpen && (
@@ -319,6 +324,7 @@ export default function DashboardLayout({ children }) {
             </div>
             <section className={styles.mobileArea}><Link href={TODAY_HREF} onClick={()=>setMobileOpen(false)} className={styles.mobileAreaTitle}><span>اليوم وأعمالي</span><span>←</span></Link></section>
             <section className={styles.mobileArea}><Link href={WORKSPACE_HREF} onClick={()=>setMobileOpen(false)} className={styles.mobileAreaTitle}><span>منصة الأعمال</span><span>←</span></Link></section>
+            <section className={styles.mobileArea}><button type="button" onClick={()=>{setMobileOpen(false);setProgramLinksOpen(true);}} className={styles.mobileAreaTitle} style={{width:'100%',border:0,background:'transparent',font:'inherit',cursor:'pointer'}}><span>روابط البرنامج</span><span>←</span></button></section>
             {me.access.manageAccess && <section className={styles.mobileArea}><Link href="/dashboard/system-user" onClick={()=>setMobileOpen(false)} className={styles.mobileAreaTitle}><span>إدارة الدخول والصلاحيات</span><span>←</span></Link></section>}
           </aside>
         </div>
