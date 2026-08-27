@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
+import ApprovalGuidanceRow from '@/components/approval/ApprovalGuidanceRow';
 
 const DECISION = { approved:'معتمد', rejected:'مرفوض' };
 const ENTITY = {
@@ -14,35 +15,55 @@ const ENTITY = {
 
 export default function ApprovalsPage() {
   const [rows, setRows] = useState(null);
+  const [guidance, setGuidance] = useState(null);
   const [err, setErr] = useState('');
 
   async function load() {
     setErr('');
-    const { data, error } = await supabase.from('v_approval_register')
-      .select('*').order('recorded_at', { ascending:false });
-    if (error) { setErr('تعذر تحميل سجل الاعتمادات: ' + error.message); setRows([]); return; }
-    setRows(data || []);
+    const [registerQ, guidanceQ] = await Promise.all([
+      supabase.from('v_approval_register').select('*').order('recorded_at', { ascending:false }),
+      supabase.rpc('fn_approval_guidance', { p_workflow_id:null }),
+    ]);
+    if (registerQ.error) {
+      setErr('تعذر تحميل بعض بيانات سجل الاعتمادات: ' + registerQ.error.message);
+      setRows([]);
+    } else setRows(registerQ.data || []);
+    if (guidanceQ.error) {
+      setErr(current => current || ('تعذر تحميل حالة مسارات الاعتماد: ' + guidanceQ.error.message));
+      setGuidance([]);
+    } else setGuidance(guidanceQ.data || []);
   }
 
   useEffect(() => { load(); }, []);
 
-  if (!rows) return <div className="empty">جارٍ التحميل</div>;
+  if (!rows || !guidance) return <div className="empty">جارٍ التحميل</div>;
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>سجل الاعتمادات</h1>
-          <p>صاحب القرار الفعلي مستقل عن مستخدم البرنامج الذي سجل القرار.</p>
+          <p>كل معاملة توضح حالتها، الجهة أو الشخص المسؤول حاليًا، والملاحظة المتاحة والإجراء التالي.</p>
         </div>
       </div>
 
       {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
 
       <div className="section" style={{marginTop:0}}>
-        <header><h2>الاعتمادات المسجلة</h2></header>
+        <header><h2>حالة المعاملات</h2></header>
+        {guidance.length === 0 ? (
+          <div className="empty"><h3>لا توجد معاملات في مسار اعتماد</h3><p>عند إرسال أي إجراء للاعتماد سيظهر هنا مع المسؤول عنه.</p></div>
+        ) : (
+          <div style={{padding:'0 8px'}}>
+            {guidance.map((item) => <ApprovalGuidanceRow key={item.workflow_id} guidance={item} compact onCommunicationCreated={load} />)}
+          </div>
+        )}
+      </div>
+
+      <div className="section">
+        <header><h2>القرارات المسجلة</h2></header>
         {rows.length === 0 ? (
-          <div className="empty"><h3>لا توجد اعتمادات مسجلة</h3><p>تظهر هنا القرارات بعد تسجيلها من العمليات المختلفة.</p></div>
+          <div className="empty"><h3>لا توجد قرارات مسجلة</h3><p>تظهر هنا القرارات بعد تسجيلها من العمليات المختلفة.</p></div>
         ) : (
           <div style={{overflowX:'auto'}}>
             <table>
