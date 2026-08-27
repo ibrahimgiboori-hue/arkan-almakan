@@ -20,6 +20,7 @@ import {
   canSeePortalDestination,
 } from '@/lib/portal-section-constitution';
 import { ConstitutionPage, PageHeader, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
+import PortalActionMetrics from './PortalActionMetrics';
 import styles from './workspace.module.css';
 
 const PORTAL_COPY = Object.freeze({
@@ -234,8 +235,6 @@ export default function WorkPlatformPage(){
   if(!state||!access)return <ConstitutionPage><EmptyState title="جارٍ تجهيز منصة الأعمال" description="يتم تحميل سياق العمل والأدوات التي يسمح بها هذا الحساب."/></ConstitutionPage>;
 
   const progress=clampPercent(pulse.financial?.computed_progress_pct);
-  const daysRemaining=pulse.financial?.days_remaining;
-  const reviewCount=Number(pulse.financial?.items_without_decision||0)+Number(pulse.financial?.unclassified_spend||0);
 
   return <ConstitutionPage>
     <PageHeader eyebrow="WORK PLATFORM" title="منصة الأعمال" description="واجهة واحدة لكل الحسابات. ما يتغير هو البوابات والأدوات المسموحة، لا شكل البرنامج ولا طريقة الملاحة."/>
@@ -270,11 +269,7 @@ export default function WorkPlatformPage(){
               <span className={styles.heroMetaProgress}><b>الإنجاز {pulse.loading?'…':`${Math.round(progress)}%`}</b><i><em style={{width:`${progress}%`}}/></i></span>
             </div>
           </div>
-          <div className={styles.heroMetrics}>
-            <div className={styles.heroMetric}><span>المدة</span><strong>{pulse.loading?'…':daysRemaining===null||daysRemaining===undefined?'—':daysRemaining<0?`${Math.abs(daysRemaining)} يوم تأخير`:`${daysRemaining} يوم`}</strong><small>{daysRemaining!==null&&daysRemaining!==undefined&&daysRemaining>=0?'متبقية':'حسب بيانات المشروع'}</small></div>
-            <div className={styles.heroMetric}><span>اليوم</span><strong>{pulse.loading?'…':pulse.attendanceCount}</strong><small>تسجيل حضور</small></div>
-            <div className={`${styles.heroMetric} ${reviewCount>0?styles.heroMetricAlert:''}`}><span>يحتاج مراجعة</span><strong>{pulse.loading?'…':reviewCount}</strong><small>{reviewCount?'حركة أو بند':'لا توجد ملاحظات حرجة'}</small></div>
-          </div>
+          <PortalActionMetrics portalKey="projects" projectId={selectedProject.id}/>
         </div>
         {switchOpen&&otherProjects.length>0&&<div className={styles.switchPanel}>
           <div className={styles.switchPanelHead}><div><strong>انتقل إلى مشروع آخر</strong><small>يتغير سياق العرض فقط؛ لا تتغير بيانات المشروع الحالي.</small></div><button type="button" onClick={()=>{setSwitchOpen(false);setProjectQuery('');}}>إغلاق</button></div>
@@ -309,11 +304,7 @@ export default function WorkPlatformPage(){
             <div className={styles.heroTitleRow}><h1>{activePortalCopy?.title}</h1></div>
             <div className={styles.heroMeta}><span>{activePortalCopy?.description}</span></div>
           </div>
-          <div className={styles.heroMetrics}>
-            <div className={styles.heroMetric}><span>المجالات</span><strong>{portalSections.length}</strong><small>مجال إدارة</small></div>
-            <div className={styles.heroMetric}><span>الأدوات</span><strong>{activePortalItems.length}</strong><small>أداة متاحة</small></div>
-            <div className={styles.heroMetric}><span>الوصول</span><strong>{state.fullAdmin?'كامل':'محدد'}</strong><small>{state.fullAdmin?'صلاحية كاملة':'حسب الحساب'}</small></div>
-          </div>
+          <PortalActionMetrics portalKey={activePortal.key}/>
         </div>
       </section>
 
