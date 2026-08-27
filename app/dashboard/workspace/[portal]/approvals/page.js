@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ConstitutionPage, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
 import styles from './portal-work-center.module.css';
@@ -43,7 +42,7 @@ export default function PortalWorkCenterPage(){
       supabase.rpc('fn_is_primary_user'),
     ]);
     setPrimary(primaryQ.data===true);
-    if(centerQ.error){setRows([]);setError(centerQ.error.message||'تعذر تحميل الاعتمادات والتكليفات.');return;}
+    if(centerQ.error){setRows([]);setError(centerQ.error.message||'تعذر تحميل مركز الإجراءات والاعتمادات.');return;}
     setRows(centerQ.data||[]);
   },[portalKey,projectId]);
 
@@ -79,6 +78,22 @@ export default function PortalWorkCenterPage(){
     setBusy(false);
   }
 
+  async function taskAction(row,action){
+    if(!row?.task_id)return;
+    let actionNote=null;
+    if(action==='wait'){
+      actionNote=window.prompt('اكتب سبب الانتظار أو التعليق:');
+      if(actionNote===null)return;
+    }
+    setBusy(true);setError('');setMessage('');
+    const {error:rpcError}=await supabase.rpc('fn_workspace_task_action',{
+      p_task_id:row.task_id,p_action:action,p_note:actionNote||null,p_progress:null,
+    });
+    if(rpcError)setError(rpcError.message||'تعذر تنفيذ التكليف.');
+    else{setMessage(action==='receive'?'تم استلام التكليف وأصبح مسندًا لك.':'تم تحديث التكليف.');await load();}
+    setBusy(false);
+  }
+
   async function sendInquiry(row){
     if(!row?.workflow_id)return;
     setBusy(true);setError('');setMessage('');
@@ -86,12 +101,12 @@ export default function PortalWorkCenterPage(){
       p_workflow_id:row.workflow_id,p_kind:'inquiry',p_note:note.trim()||null,
     });
     if(rpcError)setError(rpcError.message||'تعذر إرسال الاستفسار.');
-    else{setMessage('تم فتح الاستفسار وإضافته إلى أعمال الأطراف المعنية.');setComposer(null);setNote('');await load();}
+    else{setMessage('تم فتح الاستفسار وإضافته إلى سجل الإجراء.');setComposer(null);setNote('');await load();}
     setBusy(false);
   }
 
-  if(!PORTALS[portalKey])return <ConstitutionPage><EmptyState title="بوابة غير معروفة" description="لا يوجد مركز اعتماد لهذا المسار."/></ConstitutionPage>;
-  if(rows===null)return <ConstitutionPage><EmptyState title="جارٍ تجهيز مركز الاعتمادات" description="نقرأ الاعتمادات والتكليفات المرتبطة بهذه البوابة."/></ConstitutionPage>;
+  if(!PORTALS[portalKey])return <ConstitutionPage><EmptyState title="بوابة غير معروفة" description="لا يوجد مركز إجراءات لهذا المسار."/></ConstitutionPage>;
+  if(rows===null)return <ConstitutionPage><EmptyState title="جارٍ تجهيز مركز الإجراءات والاعتمادات" description="نقرأ الاعتمادات والتكليفات الإجرائية المرتبطة بهذه البوابة."/></ConstitutionPage>;
 
   const tabs=[
     ['mine','ينتظر إجراءك',counts.mine],['portal','بانتظار البوابة',counts.portal],['sent','صادر منك',counts.sent],['archive','أرشيف إجراءاتي',counts.archive],
@@ -101,13 +116,13 @@ export default function PortalWorkCenterPage(){
   return <ConstitutionPage>
     {error?<Notice tone="warning">{error}</Notice>:null}
     {message?<Notice tone="success">{message}</Notice>:null}
-    <Section title={`الاعتمادات والتكليفات — ${PORTALS[portalKey]}`} description={primary?'المستخدم الرئيسي يرى الحركة الحية والأرشيف كاملًا كنسخة CC؛ التنفيذ يبقى محكومًا بالمسند إليه والصلاحية.':'الوارد لك، الوارد للبوابة، الصادر منك، وأرشيف الإجراءات التي اتخذتها.'}>
+    <Section title={`مركز الإجراءات والاعتمادات — ${PORTALS[portalKey]}`} description={primary?'المستخدم الرئيسي يرى الحركة الحية والأرشيف كاملًا كنسخة CC؛ التنفيذ يبقى محكومًا بالمسند إليه والصلاحية.':'الوارد لك، الوارد للبوابة، الصادر منك، وأرشيف الإجراءات التي اتخذتها.'}>
       <div className={styles.tabs} role="tablist">
         {tabs.map(([key,label,count])=><button key={key} type="button" role="tab" aria-selected={view===key} className={view===key?styles.tabActive:styles.tab} onClick={()=>setView(key)}>{label} · {count}</button>)}
       </div>
       {visible.length===0?<div className={styles.empty}>لا توجد معاملات مطابقة لهذا العرض.</div>:<div className={styles.list}>
         {visible.map(row=><div className={styles.row} key={`${row.item_kind}-${row.item_id}`}>
-          <div className={`${styles.cell} ${styles.transaction}`}><strong>{row.title||'معاملة'}</strong><small>{row.reference_no||row.item_kind==='task'?'تكليف':'—'}</small></div>
+          <div className={`${styles.cell} ${styles.transaction}`}><strong>{row.title||'معاملة'}</strong><small>{row.reference_no||(row.item_kind==='task'?'تكليف إجرائي':'—')}</small></div>
           <div className={`${styles.cell} ${styles.action}`}>{row.action_label||'إجراء'}</div>
           <div className={`${styles.cell} ${styles.owner}`}><span>{displayOwner(row)}</span>{row.is_cc&&!row.can_act&&primary?<small><span className={styles.cc}>CC للمتابعة</span></small>:null}</div>
           <div className={`${styles.cell} ${styles.status}`}>{STATUS[row.status]||row.status||'—'}</div>
@@ -119,7 +134,10 @@ export default function PortalWorkCenterPage(){
               <button type="button" onClick={()=>{setComposer({kind:'reject',row});setNote('');}}>رفض</button>
             </>:null}
             {row.item_kind==='approval'?<button type="button" onClick={()=>{setComposer({kind:'inquiry',row});setNote('');}}>استفسار</button>:null}
-            {row.item_kind==='task'&&row.can_act?<Link href="/dashboard/today#my-work">فتح في أعمالي</Link>:null}
+            {row.item_kind==='task'&&row.can_act&&row.status==='new'?<button className={styles.primary} type="button" onClick={()=>taskAction(row,'receive')} disabled={busy}>استلام</button>:null}
+            {row.item_kind==='task'&&row.can_act&&['new','received','waiting'].includes(row.status)&&!row.is_portal?<button type="button" onClick={()=>taskAction(row,'start')} disabled={busy}>بدء</button>:null}
+            {row.item_kind==='task'&&row.can_act&&['received','in_progress'].includes(row.status)?<button type="button" onClick={()=>taskAction(row,'wait')} disabled={busy}>انتظار</button>:null}
+            {row.item_kind==='task'&&row.can_act&&['received','in_progress','waiting'].includes(row.status)?<button className={styles.primary} type="button" onClick={()=>taskAction(row,'complete')} disabled={busy}>إكمال</button>:null}
           </div>
         </div>)}
       </div>}
