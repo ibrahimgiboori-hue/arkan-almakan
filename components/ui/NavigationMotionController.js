@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { recordLogicalRoute } from '@/lib/navigation-history';
+import { recordLogicalRoute, rememberNavigationOrigin } from '@/lib/navigation-history';
 
 const DASHBOARD_PREFIX = '/dashboard';
 
@@ -83,6 +83,12 @@ export default function NavigationMotionController(){
       let url;
       try{url=new URL(anchor.href,window.location.href);}catch{return;}
       if(url.origin!==window.location.origin||!url.pathname.startsWith(DASHBOARD_PREFIX)) return;
+
+      const source=`${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const destination=`${url.pathname}${url.search}${url.hash}`;
+      // الدستور: الأداة تتذكر الشاشة التي فُتحت منها فعلياً، لا مجرد Browser History.
+      rememberNavigationOrigin(destination,source);
+
       const currentDepth=pathDepth(window.location.pathname);
       const nextDepth=pathDepth(url.pathname);
       const intent=nextDepth>currentDepth?'forward':nextDepth<currentDepth?'back':'lateral';
