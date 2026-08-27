@@ -9,7 +9,7 @@
  * should reuse, per the unification pass.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useCachedQuery, invalidateCachedQuery } from '@/lib/useCachedQuery';
 import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
@@ -85,6 +85,11 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
   const [busy,setBusy] = useState(false);
   const [feedback,setFeedback] = useState(null);
   const visibleFeedback = feedback || (loadError ? {type:'error',text:'تعذر تحميل مصروفات هذا اليوم: '+(loadError.message||loadError)} : null);
+
+  useEffect(() => {
+    setDraftRows(null);
+    setFeedback(null);
+  }, [cacheKey]);
 
   const entryRows = useMemo(() => {
     if (draftRows) return draftRows;
