@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { AREAS, QUICK_ACTIONS, activeConstitutionItem } from '@/lib/app-constitution';
 import { filterAreasForAccess } from '@/lib/access-ui';
+import { dataEntryTheaterFor } from '@/lib/ui-governance';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
 import styles from './dashboard-redesign.module.css';
@@ -14,6 +15,10 @@ import './constitution-content.css';
 const TODAY_HREF = '/dashboard/today';
 const MY_WORK_HREF = '/dashboard/my-work';
 const WORKSPACE_HREF = '/dashboard/workspace';
+
+function cleanPortalLabel(value='') {
+  return String(value).replace(/^بوابة\s+/, '').trim();
+}
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -29,6 +34,7 @@ export default function DashboardLayout({ children }) {
   const isMyWork = pathname === MY_WORK_HREF || pathname.startsWith(`${MY_WORK_HREF}/`);
   const isWorkspaceHome = pathname === WORKSPACE_HREF;
   const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+(?:\/|$)/.test(pathname);
+  const routeEntryTheater = dataEntryTheaterFor(pathname);
 
   useEffect(() => {
     let alive = true;
@@ -100,7 +106,6 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     if (!ready || !me?.is_active || !me?.role) return;
 
-    // دستور تجربة واحد لكل الحسابات: اليوم + منصة الأعمال.
     if (pathname === '/dashboard') {
       router.replace(TODAY_HREF);
       return;
@@ -110,7 +115,6 @@ export default function DashboardLayout({ children }) {
       return;
     }
 
-    // المدير يملك كل المسارات، لكن لا يحصل على Shell مختلف.
     if (me.access?.fullAdmin) return;
     if (isToday || isWorkspaceHome) return;
     if (isProjectWorkspace && me.access?.projectScoped) return;
@@ -124,6 +128,17 @@ export default function DashboardLayout({ children }) {
   async function signOut() {
     await supabase.auth.signOut();
     router.replace('/login');
+  }
+
+  function goBack() {
+    setUserMenuOpen(false);
+    setMobileOpen(false);
+    setCommandOpen(false);
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(WORKSPACE_HREF);
   }
 
   const canUseFullArea = (areaKey) => Boolean(
@@ -186,6 +201,10 @@ export default function DashboardLayout({ children }) {
   const userLabel = emp?.full_name_ar || me.email;
   const avatarText = String(userLabel || 'م').trim().slice(0, 2) || 'م';
   const workPlatformActive = !isToday && !isMyWork;
+  const showRouteBack = !isToday && !isWorkspaceHome && pathname !== '/dashboard' && !routeEntryTheater;
+  const showGenericLevelStage = showRouteBack && !isProjectWorkspace && Boolean(current);
+  const currentPortalLabel = cleanPortalLabel(current?.area?.label || 'منصة الأعمال');
+  const currentLevelLabel = current?.label || currentPortalLabel;
 
   return (
     <div className={styles.root} data-ui-constitution="approved-v2">
@@ -230,10 +249,37 @@ export default function DashboardLayout({ children }) {
         </div>
       </header>
 
+      {showRouteBack && (
+        <div className="constitution-route-back-bar" data-hierarchy-back="true">
+          <button type="button" className="constitution-entry-theater-back" onClick={goBack} aria-label="الرجوع إلى الشاشة السابقة">
+            <span aria-hidden="true">←</span>
+            <span>رجوع</span>
+          </button>
+          <div className="constitution-entry-theater-heading">
+            <span>{currentPortalLabel}</span>
+            <strong>{currentLevelLabel}</strong>
+          </div>
+        </div>
+      )}
+
       <div
         className={pathname === '/dashboard' ? styles.homeContent : 'page constitution-content'}
         data-content-governance={pathname === '/dashboard' ? 'native-approved' : 'compat-approved'}
+        data-hierarchy-stage={showGenericLevelStage ? 'true' : 'false'}
       >
+        {showGenericLevelStage && (
+          <section className="constitution-level-stage" aria-label={currentLevelLabel}>
+            <div className="constitution-level-stage-main">
+              <div className="constitution-level-stage-parent">{current?.area?.label || 'منصة الأعمال'}</div>
+              <h1 className="constitution-level-stage-title">{currentLevelLabel}</h1>
+              <p className="constitution-level-stage-description">أنت داخل مستوى أدنى من {currentPortalLabel}. الأدوات والبيانات هنا تتبع نفس هندسة البوابة، ثم ينتقل الإدخال إلى مسرحه الخاص.</p>
+            </div>
+            <div className="constitution-level-stage-meta">
+              <strong>{currentPortalLabel}</strong>
+              <span>السياق الأعلى</span>
+            </div>
+          </section>
+        )}
         {pathname.startsWith('/dashboard/formbuilder/') && <FormBuilderResizeOverlay />}
         {me.access.hr && <VacancyTargetingPanel />}
         {children}
