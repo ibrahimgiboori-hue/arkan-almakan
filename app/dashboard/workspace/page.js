@@ -6,7 +6,12 @@ import { supabase } from '@/lib/supabase';
 import { AREAS, PROJECT_NAV_GROUPS, projectNavigationHref } from '@/lib/app-constitution';
 import { projectNavRequirement } from '@/lib/access-ui';
 import { STAGE_AR } from '@/lib/projects';
-import { PORTAL_DIRECT_WORK, WORK_PLATFORM_OPERATION_COPY } from '@/lib/work-platform-constitution';
+import {
+  PORTAL_DIRECT_WORK,
+  WORK_PLATFORM_APPROVAL_CENTER,
+  WORK_PLATFORM_OPERATION_COPY,
+  WORK_PLATFORM_OPERATION_KEYS,
+} from '@/lib/work-platform-constitution';
 import {
   PORTAL_MANAGEMENT_SECTIONS,
   PORTAL_SECTION_ITEMS,
@@ -18,12 +23,15 @@ import styles from './unified-workspace.module.css';
 const PORTAL_COPY = Object.freeze({
   projects:{eyebrow:'PROJECTS',title:'المشاريع',description:'كل أدوات المشروع في مساحة واحدة؛ لا توجد أداة مخفية خلف البحث.'},
   workforce:{eyebrow:'PEOPLE',title:'الموارد البشرية',description:'دورة الموظف والتوظيف والرواتب والالتزام في واجهة واحدة.'},
-  finance:{eyebrow:'FINANCE',title:'المالية',description:'المعاملات والخزينة والبنوك والتحصيل والاعتمادات في واجهة واحدة.'},
+  finance:{eyebrow:'FINANCE',title:'المالية',description:'المعاملات والخزينة والبنوك والتحصيل في واجهة واحدة.'},
   documents:{eyebrow:'DOCUMENTS',title:'المستندات',description:'المستندات والمراجعة والمراسلات والأرشيف والنماذج في واجهة واحدة.'},
   admin:{eyebrow:'ADMIN',title:'الإدارة',description:'الشركة والدخول والهيكل وسير العمل والتدقيق والاستمرارية في واجهة واحدة.'},
 });
 
-const PROJECT_SHORTCUT_KEYS = Object.freeze(['attendance','expenses']);
+const CENTRAL_APPROVAL_NAV_PATHS = new Set([
+  '/dashboard/approvals',
+  '/dashboard/my-work/approvals',
+]);
 
 function cacheKey(uid){ return `arkan.workspace.bootstrap:${uid}`; }
 function readCache(uid){
@@ -66,11 +74,22 @@ function CompleteCatalog({title,description,groups=[]}){
   </section>;
 }
 
-function ShortcutBand({items=[]}){
-  if(!items.length)return null;
-  return <section className={styles.shortcutBand}>
-    <div className={styles.shortcutIntro}><span>ابدأ من هنا</span><strong>اختصارات العمل المتكرر</strong><small>هذه اختصارات فقط؛ نفس الأدوات موجودة أيضًا في الكتالوج الكامل أدناه.</small></div>
-    <div className={styles.shortcutLinks}>{items.map((item,index)=><Link key={item.href} className={index===0?styles.shortcutPrimary:styles.shortcutSecondary} href={item.href}><div><strong>{item.label}</strong><small>{item.copy}</small></div><span>فتح ←</span></Link>)}</div>
+function DailyWorkCenter({items=[],approvalCount=0}){
+  return <section className={styles.shortcutBand} aria-label="مركز العمل السريع">
+    <div className={styles.shortcutIntro}>
+      <span>ابدأ من هنا</span>
+      <strong>مركز العمل السريع</strong>
+      <small>أهم 2–3 أدوات تشغيلية فقط. الاعتمادات لها مدخل واحد ثابت على اليسار.</small>
+    </div>
+    <div className={styles.shortcutLinks}>
+      {items.map((item,index)=><Link key={item.href} className={index===0?styles.shortcutPrimary:styles.shortcutSecondary} href={item.href}><div><strong>{item.label}</strong><small>{item.copy}</small></div><span>فتح ←</span></Link>)}
+    </div>
+    <Link className={styles.approvalShortcut} href={WORK_PLATFORM_APPROVAL_CENTER.href}>
+      <div className={styles.approvalShortcutHead}><span>مدخل ثابت</span><strong>{WORK_PLATFORM_APPROVAL_CENTER.label}</strong></div>
+      <div className={styles.approvalCounter}>{approvalCount}</div>
+      <small>{approvalCount===1?'معاملة تنتظر إجراءك':approvalCount===2?'معاملتان تنتظران إجراءك':`${approvalCount} معاملات تنتظر إجراءك`}</small>
+      <b>فتح مركز الاعتمادات ←</b>
+    </Link>
   </section>;
 }
 
@@ -95,17 +114,21 @@ export default function WorkPlatformPage(){
       setProjectId(current=>current&&projects.some(p=>p.id===current)?current:savedProject&&projects.some(p=>p.id===savedProject)?savedProject:projects[0]?.id||'');
     }
 
-    const [userQ,capsQ,projectsQ,primaryQ]=await Promise.all([
+    const [userQ,capsQ,projectsQ,primaryQ,approvalsQ]=await Promise.all([
       supabase.from('app_users').select('is_system_admin,employees(full_name_ar,job_title)').eq('id',uid).maybeSingle(),
       supabase.from('v_my_capabilities').select('capability_key,module_key,scope_type,scope_key,source_key'),
       supabase.from('projects').select('id,project_no,name_ar,city,stage,status').order('project_no'),
       supabase.rpc('fn_is_primary_user'),
+      supabase.rpc('fn_my_approval_inbox'),
     ]);
     if(!alive)return;
     if(capsQ.error||projectsQ.error)setErr('تعذر تحديث بعض عناصر منصة الأعمال؛ تم إبقاء الأدوات التي كانت محملة بالفعل.');
     const capabilities=capsQ.error?(cached?.capabilities||[]):(capsQ.data||[]);
     const projects=projectsQ.error?(cached?.projects||[]):(projectsQ.data||[]);
-    const fresh={uid,employee:userQ.data?.employees||cached?.employee||null,capabilities,projects,fullAdmin:primaryQ.data===true||Boolean(userQ.data?.is_system_admin)};
+    const approvalCount=approvalsQ.error
+      ? Number(cached?.approvalCount||0)
+      : new Set((approvalsQ.data||[]).map(row=>row.workflow_id).filter(Boolean)).size;
+    const fresh={uid,employee:userQ.data?.employees||cached?.employee||null,capabilities,projects,approvalCount,fullAdmin:primaryQ.data===true||Boolean(userQ.data?.is_system_admin)};
     setState(fresh); writeCache(uid,fresh);
     const savedProject=typeof window!=='undefined'?window.localStorage.getItem('arkan.workspace.project'):'';
     setProjectId(current=>current&&projects.some(p=>p.id===current)?current:savedProject&&projects.some(p=>p.id===savedProject)?savedProject:projects[0]?.id||'');
@@ -168,7 +191,7 @@ export default function WorkPlatformPage(){
     if(!selectedProject)return[];
     const groups=PROJECT_NAV_GROUPS.map(group=>({
       key:group.key,label:group.label,description:group.key==='daily'?'التسجيل والتشغيل اليومي للمشروع.':group.key==='operational-finance'?'المالية التابعة لهذا المشروع دون خلطها بالمالية العامة.':group.key==='execution'?'الإسناد والقياسات والتخطيط والتغييرات.':group.key==='review'?'المتابعة والمستخلصات والضمانات.':'ملف المشروع ومستنداته وإعداداته.',
-      items:group.items.filter(item=>visibleProjectKeys.has(item.key)).map(item=>({key:item.key,label:item.label,href:projectNavigationHref(selectedProject.id,item)})),
+      items:group.items.filter(item=>visibleProjectKeys.has(item.key)).map(item=>({key:item.key,label:item.label,href:item.href||projectNavigationHref(selectedProject.id,item)})),
     })).filter(group=>group.items.length);
     if(state?.fullAdmin){
       groups.push({key:'project-register',label:'السجل العام',description:'أدوات عامة مرتبطة ببوابة المشاريع.',items:[
@@ -182,14 +205,20 @@ export default function WorkPlatformPage(){
 
   const projectShortcuts=useMemo(()=>{
     if(!selectedProject)return[];
-    return PROJECT_SHORTCUT_KEYS.map(key=>visibleProjectItems.find(item=>item.key===key)).filter(Boolean).map(item=>({href:projectNavigationHref(selectedProject.id,item),label:item.label,copy:WORK_PLATFORM_OPERATION_COPY[item.key]||'فتح الأداة مباشرة.'}));
+    return WORK_PLATFORM_OPERATION_KEYS
+      .map(key=>visibleProjectItems.find(item=>item.key===key))
+      .filter(Boolean)
+      .slice(0,3)
+      .map(item=>({href:item.href||projectNavigationHref(selectedProject.id,item),label:item.label,copy:WORK_PLATFORM_OPERATION_COPY[item.key]||'فتح الأداة مباشرة.'}));
   },[selectedProject,visibleProjectItems]);
 
   const activePortalItems=useMemo(()=>{
     if(!activePortal||activePortal.key==='projects')return[];
     const combined=[...(activePortal.items||[]),...(PORTAL_SECTION_ITEMS[activePortal.key]||[])];
     const unique=combined.filter((item,index)=>combined.findIndex(candidate=>candidate.href===item.href)===index);
-    return unique.filter(item=>canSeePortalDestination(item,capabilityKeys,state?.fullAdmin));
+    return unique
+      .filter(item=>!CENTRAL_APPROVAL_NAV_PATHS.has(item.href))
+      .filter(item=>canSeePortalDestination(item,capabilityKeys,state?.fullAdmin));
   },[activePortal,capabilityKeys,state?.fullAdmin]);
 
   const portalGroups=useMemo(()=>{
@@ -209,8 +238,16 @@ export default function WorkPlatformPage(){
   const portalShortcuts=useMemo(()=>{
     if(!activePortal||activePortal.key==='projects')return[];
     const config=PORTAL_DIRECT_WORK[activePortal.key]||{};
-    const wanted=[config.primaryHref,config.secondaryHref].filter(Boolean);
-    return wanted.map(href=>activePortalItems.find(item=>item.href===href)).filter(Boolean).map((item,index)=>({href:item.href,label:item.label,copy:index===0?(config.primaryCopy||'فتح نقطة العمل الرئيسية.'):(config.secondaryCopy||'فتح أداة متكررة.')}));
+    const preferred=(config.daily||[]).map(entry=>{
+      const item=activePortalItems.find(candidate=>candidate.href===entry.href);
+      return item?{href:item.href,label:item.label,copy:entry.copy||'فتح الأداة مباشرة.'}:null;
+    }).filter(Boolean);
+    const used=new Set(preferred.map(item=>item.href));
+    const fallback=activePortalItems
+      .filter(item=>!used.has(item.href))
+      .slice(0,Math.max(0,3-preferred.length))
+      .map(item=>({href:item.href,label:item.label,copy:'فتح الأداة مباشرة.'}));
+    return [...preferred,...fallback].slice(0,3);
   },[activePortal,activePortalItems]);
 
   function chooseProject(id){setProjectId(id);setSwitchOpen(false);setProjectQuery('');}
@@ -233,15 +270,15 @@ export default function WorkPlatformPage(){
           <div className={styles.heroActions}>{otherProjects.length>0&&<button type="button" onClick={()=>setSwitchOpen(open=>!open)}>تبديل المشروع <b>{otherProjects.length}</b></button>}</div>
         </section>
         {switchOpen&&<section className={styles.switchPanel}><div className={styles.switchHead}><strong>اختر المشروع</strong><button type="button" onClick={()=>{setSwitchOpen(false);setProjectQuery('');}}>إغلاق</button></div>{otherProjects.length>5&&<input value={projectQuery} onChange={e=>setProjectQuery(e.target.value)} placeholder="ابحث باسم المشروع أو الرقم أو المدينة…" autoFocus/>}<div className={styles.switchGrid}>{filteredOtherProjects.map(project=><button key={project.id} type="button" onClick={()=>chooseProject(project.id)}><span>{project.project_no||'—'}</span><strong>{project.name_ar}</strong><small>{project.city||'الموقع غير محدد'}</small></button>)}</div></section>}
-        <ShortcutBand items={projectShortcuts}/>
-        <CompleteCatalog title="كل أدوات المشروع" description="لا توجد أداة مخفية: العمالة والحضور والتقارير والمالية والتنفيذ والملف كلها ظاهرة في هذا المستوى." groups={projectGroups}/>
+        <DailyWorkCenter items={projectShortcuts} approvalCount={state.approvalCount||0}/>
+        <CompleteCatalog title="كل أدوات المشروع" description="كل أدوات التشغيل والمشروع ظاهرة هنا، بينما الاعتمادات لها مدخل موحد واحد في مركز العمل أعلاه." groups={projectGroups}/>
       </>}
     </section>}
 
     {activePortal&&activePortal.key!=='projects'&&<section className={styles.stage}>
       <section className={styles.hero}><div><span>{activePortalCopy?.eyebrow} · البوابة الحالية</span><h1>{activePortalCopy?.title}</h1><p>{activePortalCopy?.description}</p></div></section>
-      <ShortcutBand items={portalShortcuts}/>
-      <CompleteCatalog title={`كل أدوات ${activePortalCopy?.title}`} description="كل وجهة يسمح بها هذا الحساب تظهر هنا دائمًا؛ لا تحتاج إلى البحث لاكتشافها." groups={portalGroups}/>
+      <DailyWorkCenter items={portalShortcuts} approvalCount={state.approvalCount||0}/>
+      <CompleteCatalog title={`كل أدوات ${activePortalCopy?.title}`} description="كل وجهة تشغيلية يسمح بها هذا الحساب تظهر هنا دائمًا؛ الاعتمادات فقط لها مدخل موحد في مركز العمل أعلاه." groups={portalGroups}/>
     </section>}
   </ConstitutionPage>;
 }
