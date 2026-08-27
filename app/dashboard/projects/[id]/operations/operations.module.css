@@ -135,7 +135,7 @@
 .contractorMeta{flex:0 0 auto;text-align:left}.contractorMeta strong{display:block;font-size:9px}.contractorMeta span{display:block;margin-top:2px;color:var(--muted);font-size:7.5px}
 .workArea{
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(210px,250px);
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:18px;
   align-items:start;
   border-top:1px solid var(--border);
@@ -182,12 +182,12 @@
 
 .operationGrid{
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(210px,270px);
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:20px;
   align-items:start;
   border-top:1px solid var(--border);
 }
-.operationGrid:has(.historyPane .panelEmpty){grid-template-columns:minmax(0,1fr) minmax(180px,220px)}
+.operationGrid:has(.historyPane .panelEmpty){grid-template-columns:repeat(2,minmax(0,1fr))}
 .formPane{min-width:0;padding:14px 0 30px}
 .historyPane{
   min-width:0;
