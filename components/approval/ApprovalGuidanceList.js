@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import ApprovalGuidanceRow from './ApprovalGuidanceRow';
 
+// المصدر يعرض حالة الاعتماد فقط عندما تكون الحالة جزءًا طبيعيًا من بياناته.
+// مركز الاعتمادات نفسه هو المكان الوحيد لاتخاذ القرار؛ قسم الإدارة لا يكرر صندوق الاعتماد.
 const DATA_KIND_SOURCES = Object.freeze({
   'finance-invoices': ['progress_claims'],
   'finance-cases': ['financial_cases'],
   'finance-payroll': ['payroll_runs'],
   'documents-review': ['documents'],
-  'admin-workflows': ['*'],
 });
 
 export default function ApprovalGuidanceList({ dataKind, compact = true }) {
@@ -20,10 +21,7 @@ export default function ApprovalGuidanceList({ dataKind, compact = true }) {
     if (!sources.length) { setRows([]); return; }
     const { data, error } = await supabase.rpc('fn_approval_guidance', { p_workflow_id:null });
     if (error) { setRows([]); return; }
-    const filtered = sources.includes('*')
-      ? (data || [])
-      : (data || []).filter((row) => sources.includes(row.source_table));
-    setRows(filtered);
+    setRows((data || []).filter((row) => sources.includes(row.source_table)));
   }, [sources]);
 
   useEffect(() => { load(); }, [load]);
@@ -31,9 +29,9 @@ export default function ApprovalGuidanceList({ dataKind, compact = true }) {
   if (!sources.length || !rows || rows.length === 0) return null;
 
   return (
-    <div data-approval-context="true" style={{borderBottom:'1px solid var(--line,#ddd)'}}>
+    <div data-approval-context="true" style={{ borderBottom:'1px solid var(--line,#ddd)' }}>
       {rows.map((row) => (
-        <ApprovalGuidanceRow key={row.workflow_id} guidance={row} compact={compact} onCommunicationCreated={load} />
+        <ApprovalGuidanceRow key={row.workflow_id} guidance={row} compact={compact} />
       ))}
     </div>
   );
