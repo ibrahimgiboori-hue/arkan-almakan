@@ -37,7 +37,7 @@ export default function PortalActionMetrics({portalKey,projectId=null}){
 
   const items=[
     ['mine','بانتظار إجراءك','موجّه لك شخصيًا'],
-    ['portal','بانتظار البوابة','لم يستلمه شخص بعد'],
+    ['portal','بانتظار البوابة','إجراءات مفتوحة داخل البوابة'],
     ['sent','صادر منك','بانتظار جهة أخرى'],
   ];
 
