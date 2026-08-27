@@ -1,53 +1,154 @@
-/* Raw programming phase: readability only. No application chrome or visual redesign. */
+/*
+  RAW PROGRAMMING UI — one shell and one skin for the whole dashboard.
+  Screen-only: printable documents keep their own document CSS.
+*/
 @media screen {
+  html, body {
+    background: var(--raw-bg) !important;
+    color: var(--raw-ink);
+  }
+
   body {
     font-size: 17px;
     line-height: 1.65;
   }
 
-  .page {
-    max-width: none;
+  .rawDashboardShell {
+    min-height: 100vh;
     width: 100%;
+    min-width: 0;
+    background: var(--raw-bg);
+  }
+
+  .rawDashboardContent {
+    width: 100%;
+    min-width: 0;
+    background: var(--raw-bg);
+  }
+
+  /* Kill any surviving legacy application shell without touching page data. */
+  .shell { display: block !important; min-height: 0 !important; }
+  .shell > .side,
+  .side { display: none !important; }
+  .shell > .main,
+  .main { width: 100% !important; min-width: 0 !important; display: block !important; }
+  .topbar { display: none !important; }
+
+  .page {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: var(--raw-page-pad) !important;
+  }
+
+  .page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    width: 100%;
+    margin: 0 0 18px !important;
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--raw-border);
   }
 
   .page-head h1,
   .page h1 {
+    margin: 0;
+    color: var(--raw-ink) !important;
     font-size: 28px !important;
+    line-height: 1.25;
+  }
+
+  .page-head p,
+  .page p {
+    color: var(--raw-muted);
+    font-size: 16px;
   }
 
   .page h2,
   .section > header h2 {
+    color: var(--raw-ink) !important;
     font-size: 20px !important;
   }
 
   .page h3,
   .card h3,
   .empty h3 {
+    color: var(--raw-ink) !important;
     font-size: 17px !important;
   }
 
-  .page p,
+  /* Shared raw surfaces: close to the supplied proposal screenshot. */
   .section,
-  .card,
-  .msg,
-  .empty {
+  .card {
+    background: var(--raw-paper) !important;
+    border: 1px solid var(--raw-border) !important;
+    border-radius: var(--raw-radius) !important;
+    box-shadow: none !important;
+  }
+
+  .card {
+    padding: 16px 18px !important;
+  }
+
+  .section {
+    margin-top: 16px !important;
+    overflow: hidden;
     font-size: 16px;
   }
 
+  .section > header {
+    min-height: 52px;
+    padding: 12px 16px !important;
+    background: var(--raw-paper) !important;
+    border-bottom: 1px solid var(--raw-border) !important;
+  }
+
+  .grid { gap: 12px !important; }
+
+  /* All ordinary tables use the same ledger skeleton as RawGrid. */
   table {
+    width: 100%;
+    border-collapse: collapse !important;
+    background: var(--raw-paper);
+    color: var(--raw-ink);
     font-size: 15.5px !important;
   }
 
   thead th {
+    padding: 9px 8px !important;
+    background: var(--raw-border-soft) !important;
+    color: var(--raw-muted) !important;
+    border: 1px solid var(--raw-border) !important;
     font-size: 14.5px !important;
+    font-weight: 750 !important;
     line-height: 1.45;
+    text-align: right;
+    white-space: nowrap;
   }
 
   tbody td {
+    min-height: var(--raw-row-height);
+    padding: 7px 8px !important;
+    background: var(--raw-paper) !important;
+    color: var(--raw-ink);
+    border: 1px solid var(--raw-border-soft) !important;
     font-size: 15.5px !important;
     line-height: 1.55;
+    vertical-align: middle;
   }
 
+  tbody tr:nth-child(even),
+  tbody tr:hover {
+    background: transparent !important;
+  }
+
+  tbody tr:hover td {
+    background: color-mix(in srgb, var(--raw-wine) 3%, var(--raw-paper)) !important;
+  }
+
+  /* Inputs and actions: one vocabulary, no page-specific button skin. */
   input,
   select,
   textarea,
@@ -60,23 +161,130 @@
 
   input,
   select,
-  textarea {
+  textarea,
+  .search,
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: 40px;
+    padding: 8px 10px !important;
+    border: 1px solid var(--raw-border) !important;
+    border-radius: var(--raw-radius-sm) !important;
+    background: var(--raw-paper-strong) !important;
+    color: var(--raw-ink) !important;
     line-height: 1.5;
+    box-shadow: none !important;
+    outline: 0;
+  }
+
+  textarea { min-height: 92px; }
+
+  input:focus,
+  select:focus,
+  textarea:focus,
+  .search:focus {
+    border-color: var(--raw-wine) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--raw-wine) 8%, transparent) !important;
   }
 
   label,
   .field label {
+    color: var(--raw-muted) !important;
     font-size: 14.5px !important;
+    font-weight: 650;
   }
 
   .hint,
   .field .hint,
   small {
+    color: var(--raw-muted);
     font-size: 13.5px !important;
     line-height: 1.55;
   }
 
+  .btn {
+    min-height: 40px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 15px !important;
+    border: 1px solid var(--raw-wine) !important;
+    border-radius: var(--raw-radius-sm) !important;
+    background: var(--raw-wine) !important;
+    color: var(--raw-on-accent) !important;
+    font-weight: 750;
+    box-shadow: none !important;
+  }
+
+  .btn:hover {
+    background: var(--raw-wine-dark) !important;
+    border-color: var(--raw-wine-dark) !important;
+  }
+
+  .btn.ghost {
+    background: var(--raw-paper) !important;
+    color: var(--raw-ink) !important;
+    border-color: var(--raw-border) !important;
+  }
+
+  .btn.ghost:hover {
+    background: var(--raw-border-soft) !important;
+    border-color: var(--raw-ink) !important;
+  }
+
   .pill {
+    border-radius: 999px !important;
     font-size: 13.5px !important;
+  }
+
+  .msg {
+    border-radius: var(--raw-radius-sm) !important;
+    font-size: 15px !important;
+  }
+
+  .empty {
+    color: var(--raw-muted) !important;
+    font-size: 16px;
+  }
+
+  /* Tabs are direct visible choices, not a second navigation language. */
+  .tabs {
+    display: flex;
+    gap: 7px !important;
+    flex-wrap: wrap;
+    margin-bottom: 16px !important;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--raw-border) !important;
+  }
+
+  .tabs button {
+    min-height: 36px;
+    padding: 0 12px !important;
+    border: 1px solid var(--raw-border) !important;
+    border-radius: var(--raw-radius-sm) !important;
+    background: var(--raw-paper) !important;
+    color: var(--raw-ink) !important;
+  }
+
+  .tabs button.on {
+    background: var(--raw-wine) !important;
+    border-color: var(--raw-wine) !important;
+    color: var(--raw-on-accent) !important;
+  }
+
+  /* The old sticky page bar belonged to the previous shell. */
+  .stickybar {
+    position: static !important;
+    top: auto !important;
+    background: transparent !important;
+  }
+
+  @media (max-width: 760px) {
+    :root { --raw-page-pad: 14px; }
+    .page-head { align-items: flex-start; flex-direction: column; }
+    .grid.k4,
+    .grid.k2,
+    .form-grid { grid-template-columns: 1fr !important; }
   }
 }
