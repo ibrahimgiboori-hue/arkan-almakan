@@ -1,0 +1,67 @@
+.row{
+  display:grid;
+  grid-template-columns:minmax(170px,1.35fr) minmax(92px,.62fr) minmax(180px,1.25fr) minmax(76px,.5fr) minmax(170px,1.3fr) auto;
+  align-items:center;
+  gap:10px;
+  min-height:48px;
+  padding:7px 10px;
+  border-bottom:1px solid color-mix(in srgb,var(--line,#ddd) 72%,transparent);
+  background:transparent;
+  font-size:13px;
+}
+.row:last-child{border-bottom:0}
+.compact{min-height:42px;padding-block:5px}
+.transaction,.owner,.note{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transaction{display:flex;align-items:baseline;gap:7px}
+.transaction strong{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transaction small{font-size:11px;color:var(--ink-soft,#6c6c6c);white-space:nowrap}
+.status{justify-self:start;padding:3px 8px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.pending{background:rgba(142,92,29,.10);color:#76521f}
+.ok{background:rgba(31,128,78,.10);color:#256944}
+.warn{background:rgba(152,61,56,.10);color:#853f3b}
+.neutral{background:rgba(70,70,70,.08);color:var(--ink-soft,#666)}
+.owner{font-size:12.5px;color:var(--ink,#222)}
+.age{font-size:11.5px;color:var(--ink-soft,#707070);white-space:nowrap}
+.note{font-size:12px;color:var(--ink-soft,#666)}
+.missing{color:#8b5a2b;font-weight:600}
+.actions{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.actions button,.dialogActions button,.workLink{
+  border:1px solid color-mix(in srgb,var(--maroon,#7d2f2f) 35%,transparent);
+  background:transparent;
+  color:var(--maroon-dark,#6f2929);
+  border-radius:7px;
+  min-height:29px;
+  padding:4px 9px;
+  font:inherit;
+  font-size:11.5px;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.actions button:hover,.dialogActions button:hover,.workLink:hover{background:rgba(125,47,47,.06)}
+.overlay{position:fixed;inset:0;z-index:1200;background:rgba(15,15,15,.28);display:grid;place-items:center;padding:22px}
+.dialog{width:min(610px,96vw);background:var(--surface,#fff);border:1px solid var(--line,#ddd);border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.18);padding:16px;direction:rtl}
+.dialogHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}
+.dialogHead>div{display:grid;gap:3px}
+.dialogHead strong{font-size:17px}
+.dialogHead small{font-size:12px;color:var(--ink-soft,#666)}
+.close{border:0!important;background:transparent!important;font-size:24px!important;line-height:1!important;padding:0!important;min-height:auto!important}
+.reference{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:11.5px;color:var(--ink-soft,#666)}
+.reference span{padding:3px 7px;border-radius:6px;background:rgba(0,0,0,.035)}
+.dialog textarea{width:100%;resize:vertical;min-height:104px;border:1px solid var(--line,#d7d7d7);border-radius:9px;padding:10px 11px;font:inherit;line-height:1.65;background:var(--surface,#fff);color:var(--ink,#222)}
+.dialogActions{display:flex;align-items:center;gap:8px;justify-content:flex-start;margin-top:12px}
+.dialogActions .primary{background:var(--maroon-dark,#6f2929);color:#fff;border-color:var(--maroon-dark,#6f2929)}
+.error,.success{margin-top:9px;padding:7px 9px;border-radius:7px;font-size:12px}
+.error{background:rgba(152,61,56,.08);color:#853f3b}
+.success{background:rgba(31,128,78,.08);color:#256944}
+@media(max-width:1050px){
+  .row{grid-template-columns:minmax(160px,1.2fr) 95px minmax(160px,1.1fr) 72px minmax(140px,1fr) auto;gap:7px}
+}
+@media(max-width:760px){
+  .row{grid-template-columns:1fr auto;grid-template-areas:'tx st' 'owner owner' 'note age' 'act act';gap:5px 8px;padding:9px 8px}
+  .transaction{grid-area:tx}.status{grid-area:st}.owner{grid-area:owner}.note{grid-area:note}.age{grid-area:age}.actions{grid-area:act;justify-content:flex-start}
+}
+@media(prefers-reduced-motion:no-preference){.dialog{animation:approvalDialogIn .16s ease-out}}
+@keyframes approvalDialogIn{from{opacity:0;transform:translateY(5px) scale(.992)}to{opacity:1;transform:none}}
