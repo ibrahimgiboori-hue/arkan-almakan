@@ -1,14 +1,7 @@
 'use client';
 
 // تأكيد الإجراءات الخطرة داخل النظام نفسه، لا عبر window.confirm.
-//
-// السبب ليس شكليًا: window.confirm نافذة نظام تشغيل — لا تحمل سياق البند ولا
-// اسم المنفّذ، ولا يمكن أن تعرض تحذيرًا مفصّلًا لما سيُحذف، ولا أن تُظهر «جارٍ…»
-// أثناء التنفيذ، ولا أن تعرض خطأ الخادم في مكانه. وهي تختلف شكلًا وسلوكًا عن
-// بقية حوارات النظام، فيفقد المستخدم القدرة على تمييز «هذا سؤال من البرنامج».
-//
-// مبني على ConstitutionDialog لا بجواره: نفس الخلفية ونفس Escape ونفس إدارة
-// التركيز — هذا غلاف يضيف طبقة التأكيد فقط.
+// نافذة التأكيد تبقى صغيرة ومركزة؛ «رجوع» واحد فقط في صف الإجراءات.
 
 import ConstitutionDialog from './ConstitutionDialog';
 import styles from './constitution-dialog.module.css';
@@ -31,6 +24,7 @@ export default function ConfirmDialog({
       title={title}
       description={description}
       size="compact"
+      showBack={false}
       onClose={busy ? () => {} : onCancel}
     >
       {children}
