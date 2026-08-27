@@ -1,5 +1,6 @@
 import './globals.css';
 import './ui-constitution.css';
+import './ui-level-geometry.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import EntryTheaterController from '@/components/ui/EntryTheaterController';
