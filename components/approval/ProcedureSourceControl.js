@@ -7,7 +7,7 @@ const STATUS_LABELS={new:'جديد',received:'مستلم',in_progress:'قيد ا
 const TERMINAL=new Set(['completed','closed','cancelled','approved','rejected']);
 
 export default function ProcedureSourceControl({
-  capabilityKey,sourceTable,sourceId,sourceLabel,currentDestinationKey,scopeType='all',scopeKey=null,projectId=null,
+  capabilityKey,sourceTable,sourceId,sourceLabel,amount=0,currentDestinationKey,scopeType='all',scopeKey=null,projectId=null,
 }){
   const [rows,setRows]=useState([]);
   const [options,setOptions]=useState(null);
@@ -36,7 +36,7 @@ export default function ProcedureSourceControl({
       p_current_destination_key:currentDestinationKey||null,
       p_scope_type:scopeType,
       p_scope_key:scopeKey,
-      p_amount:0,
+      p_amount:Number(amount||0),
     });
     if(routeError)setError(routeError.message||'تعذر قراءة مسار الإجراء.');
     else setOptions(data||[]);
@@ -54,7 +54,7 @@ export default function ProcedureSourceControl({
       p_destination_key:option.destination_key,
       p_scope_type:scopeType,
       p_scope_key:scopeKey,
-      p_amount:0,
+      p_amount:Number(amount||0),
       p_project_id:projectId,
       p_note:null,
       p_source_route:typeof window!=='undefined'?window.location.pathname:null,
