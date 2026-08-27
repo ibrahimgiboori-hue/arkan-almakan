@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { PROJECT_NAV_GROUPS, activeProjectNavigationKey } from '@/lib/app-constitution';
 import { projectNavRequirement } from '@/lib/access-ui';
@@ -11,7 +11,6 @@ const PROJECT_ITEMS = PROJECT_NAV_GROUPS.flatMap((group) => group.items);
 
 export default function ProjectWorkspaceLayout({ children }) {
   const { id } = useParams();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [project, setProject] = useState(undefined);
@@ -50,24 +49,10 @@ export default function ProjectWorkspaceLayout({ children }) {
     return required.length === 0 || required.some((key) => access.keys.has(key));
   }, [access, activeKey]);
 
-  function goBack() {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push('/dashboard/workspace');
-  }
-
   if (project === undefined || !access.ready) return <div className="empty">جارٍ فتح المشروع…</div>;
 
   if (!project) return (
     <section className={styles.focusWorkspaceShell} data-project-workspace="true" data-tool-theater="true">
-      <header className={styles.toolBar}>
-        <button type="button" className={styles.backButton} onClick={goBack} aria-label="الرجوع إلى الشاشة السابقة">
-          <span className={styles.backIcon} aria-hidden="true">→</span>
-          <span>رجوع</span>
-        </button>
-      </header>
       <main className={styles.focusProjectMain}>
         <div className="section" style={{padding:24,marginTop:0}}>
           <h2 style={{marginTop:0}}>المشروع غير متاح لهذا الحساب</h2>
@@ -79,21 +64,17 @@ export default function ProjectWorkspaceLayout({ children }) {
 
   return (
     <section className={styles.focusWorkspaceShell} data-project-workspace="true" data-tool-theater="true">
-      <header className={styles.toolBar}>
-        <div className={styles.toolContext}>
-          <button type="button" className={styles.backButton} onClick={goBack} aria-label="الرجوع إلى الشاشة السابقة">
-            <span className={styles.backIcon} aria-hidden="true">→</span>
-            <span>رجوع</span>
-          </button>
-          <div className={styles.toolHeading}>
-            <div className={styles.projectName}>{project.name_ar || 'المشروع'}{project.project_no ? <span>{project.project_no}</span> : null}</div>
-            <h1>{activeItem?.label || 'المشروع'}</h1>
-          </div>
+      <section className="constitution-level-stage" aria-label={activeItem?.label || 'المشروع'}>
+        <div className="constitution-level-stage-main">
+          <div className="constitution-level-stage-parent">بوابة المشاريع · {project.name_ar || 'المشروع'}</div>
+          <h1 className="constitution-level-stage-title">{activeItem?.label || 'المشروع'}</h1>
+          <p className="constitution-level-stage-description">هذا هو المستوى الحالي داخل المشروع. تبقى هندسة الواجهة ثابتة، بينما تتغير الأداة فقط.</p>
         </div>
-        <div className={styles.projectHint} aria-label="سياق المشروع">
-          {project.city && <span>{project.city}</span>}
+        <div className="constitution-level-stage-meta">
+          <strong>{project.project_no || project.name_ar || 'المشروع'}</strong>
+          <span>{project.city || 'الموقع غير محدد'}</span>
         </div>
-      </header>
+      </section>
 
       <main className={styles.focusProjectMain}>
         {activeAllowed ? children : (
