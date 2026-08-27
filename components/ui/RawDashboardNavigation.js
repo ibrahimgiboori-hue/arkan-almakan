@@ -31,6 +31,10 @@ function cleanToolLabel(item) {
   return item?.label || 'أداة';
 }
 
+function isActionOnlyRoute(href = '') {
+  return /\/(?:new|create)\/?$/.test(href);
+}
+
 export default function RawDashboardNavigation({ me, onSignOut }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -58,7 +62,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
     ]);
 
     return merged
-      .filter((item) => !item.hidden && !item.legacy)
+      .filter((item) => !item.hidden && !item.legacy && !isActionOnlyRoute(item.href))
       .filter((item) => {
         if (me?.access?.fullAdmin) return true;
         if (currentArea.key === 'projects' && !me?.access?.projectsScreen) return item.href === currentArea.href;
