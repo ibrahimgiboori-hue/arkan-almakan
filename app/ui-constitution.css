@@ -28,7 +28,8 @@
   --constitution-radius-lg:12px;
   --constitution-control-height:44px;
   --constitution-global-bar-height:58px;
-  --constitution-entry-bar-height:72px;
+  --constitution-back-bar-height:54px;
+  --constitution-entry-bar-height:54px;
   --constitution-page-gap:18px;
   --constitution-content-max:1720px;
   --constitution-reading-max:1180px;
@@ -55,7 +56,7 @@
   --ui-black:var(--constitution-black);
 }
 
-html[data-system-constitution='v2']{color-scheme:light}
+html[data-system-constitution='v2']{color-scheme:light;scrollbar-gutter:stable}
 html[data-system-constitution='v2'] body{text-rendering:optimizeLegibility}
 html[data-system-constitution='v2'] button,
 html[data-system-constitution='v2'] input,
@@ -73,23 +74,97 @@ html[data-system-constitution='v2'] .page:has(.workspaceShell){
   margin-inline:0!important;
 }
 
+/* شريط الرجوع هو طبقة ملاحة عالمية ثابتة تحت الشريط الأسود. */
+.constitution-route-back-bar,
+.constitution-entry-theater-bar{
+  position:sticky;
+  top:var(--constitution-global-bar-height);
+  z-index:55;
+  min-height:var(--constitution-back-bar-height);
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:6px clamp(18px,3.2vw,58px);
+  border-bottom:1px solid var(--constitution-border);
+  background:rgba(251,250,247,.98);
+  backdrop-filter:blur(12px);
+  color:var(--constitution-ink);
+}
+.constitution-entry-theater-bar{
+  position:fixed;
+  inset:var(--constitution-global-bar-height) 0 auto 0;
+  z-index:1600;
+  height:var(--constitution-entry-bar-height);
+}
+.constitution-entry-theater-back{
+  flex:0 0 auto;
+  min-width:108px;
+  min-height:40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:0 15px;
+  border:1px solid var(--constitution-border);
+  border-radius:10px;
+  background:var(--constitution-surface);
+  color:var(--constitution-brand);
+  font-weight:850;
+  cursor:pointer;
+  box-shadow:0 2px 8px rgba(17,17,15,.035);
+}
+.constitution-entry-theater-back:hover{border-color:var(--constitution-brand);background:#f6efed}
+.constitution-entry-theater-back > span:first-child{font-size:17px;line-height:1}
+.constitution-entry-theater-heading{min-width:0;display:grid;gap:1px}
+.constitution-entry-theater-heading span{color:var(--constitution-muted);font-size:9.5px;font-weight:750}
+.constitution-entry-theater-heading strong{color:var(--constitution-ink);font-size:15px;line-height:1.25;font-weight:900}
+
+/* كل مستوى أدنى يرث نفس هندسة البوابة: سياق واضح واحد ثم أدواته. */
+.constitution-level-stage{
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:stretch;
+  overflow:hidden;
+  margin:0 0 16px;
+  border-radius:18px;
+  color:#fff;
+  background:var(--constitution-brand);
+  box-shadow:0 14px 34px rgba(42,20,19,.10);
+}
+.constitution-level-stage-main{min-width:0;padding:20px 24px}
+.constitution-level-stage-parent{font-size:9px;font-weight:850;letter-spacing:.08em;opacity:.62}
+.constitution-level-stage-title{margin:5px 0 4px;font-size:clamp(24px,2vw,31px);line-height:1.18;font-weight:900;color:inherit}
+.constitution-level-stage-description{margin:0;max-width:780px;font-size:11px;line-height:1.75;opacity:.75}
+.constitution-level-stage-meta{
+  min-width:175px;
+  display:grid;
+  place-content:center;
+  padding:16px 22px;
+  border-inline-start:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.075);
+  text-align:center;
+}
+.constitution-level-stage-meta strong{font-size:13px;line-height:1.35}
+.constitution-level-stage-meta span{margin-top:4px;font-size:9.5px;opacity:.68}
+
+/* مسرح الإدخال: الأسود + الرجوع يظلان ظاهرين، ثم النموذج وحده. */
 body[data-entry-theater]{
   min-height:100vh;
   overflow:hidden;
   background:var(--constitution-bg);
 }
-body[data-entry-theater] [data-ui-constitution='approved-v2'] > header{display:none!important}
 body[data-entry-theater] [data-ui-constitution='approved-v2'] > :not(header):not([data-content-governance]){display:none!important}
 body[data-entry-theater] [data-content-governance]{
   width:100%!important;
   max-width:none!important;
-  min-height:calc(100vh - var(--constitution-entry-bar-height))!important;
+  min-height:calc(100vh - var(--constitution-global-bar-height))!important;
   margin:0!important;
   padding:24px clamp(18px,3.2vw,58px) 56px!important;
   background:var(--constitution-bg)!important;
 }
 body[data-entry-theater='route'] [data-content-governance]{
-  height:100dvh!important;
+  height:calc(100dvh - var(--constitution-global-bar-height))!important;
   overflow:auto!important;
   padding-top:calc(var(--constitution-entry-bar-height) + 24px)!important;
 }
@@ -102,11 +177,11 @@ body[data-entry-theater] [data-content-governance] .page-head{display:none!impor
 
 body[data-entry-theater='inline'] [data-entry-theater-root='true']{
   position:fixed!important;
-  inset:var(--constitution-entry-bar-height) 0 0 0!important;
+  inset:calc(var(--constitution-global-bar-height) + var(--constitution-entry-bar-height)) 0 0 0!important;
   z-index:1590!important;
   width:100vw!important;
   max-width:none!important;
-  height:calc(100dvh - var(--constitution-entry-bar-height))!important;
+  height:calc(100dvh - var(--constitution-global-bar-height) - var(--constitution-entry-bar-height))!important;
   max-height:none!important;
   margin:0!important;
   padding:clamp(18px,2.4vw,34px) clamp(18px,3.2vw,58px) 54px!important;
@@ -130,48 +205,17 @@ body[data-entry-theater='inline'] [data-entry-theater-root='true'] > header:firs
 body[data-entry-theater='inline'] [data-entry-theater-root='true'] fieldset,
 body[data-entry-theater='route'] [data-content-governance] fieldset{background:transparent!important}
 
-.constitution-entry-theater-bar{
-  position:fixed;
-  inset:0 0 auto 0;
-  z-index:1600;
-  height:var(--constitution-entry-bar-height);
-  display:flex;
-  align-items:center;
-  gap:18px;
-  padding:10px clamp(18px,3.2vw,58px);
-  border-bottom:1px solid var(--constitution-border);
-  background:rgba(251,250,247,.98);
-  backdrop-filter:blur(12px);
-  color:var(--constitution-ink);
-}
-.constitution-entry-theater-back{
-  flex:0 0 auto;
-  min-width:112px;
-  min-height:44px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:9px;
-  padding:0 17px;
-  border:1px solid var(--constitution-border);
-  border-radius:10px;
-  background:var(--constitution-surface);
-  color:var(--constitution-brand);
-  font-weight:850;
-  cursor:pointer;
-}
-.constitution-entry-theater-back:hover{border-color:var(--constitution-brand);background:#f6efed}
-.constitution-entry-theater-back > span:first-child{font-size:18px;line-height:1}
-.constitution-entry-theater-heading{min-width:0;display:grid;gap:2px}
-.constitution-entry-theater-heading span{color:var(--constitution-muted);font-size:10px;font-weight:750}
-.constitution-entry-theater-heading strong{color:var(--constitution-ink);font-size:19px;line-height:1.25;font-weight:900}
-
 html[data-system-constitution='v2'] a[href^='/print/expenses']{display:none!important}
 
 @media(max-width:760px){
-  .constitution-entry-theater-bar{padding:9px 12px;gap:12px}
-  .constitution-entry-theater-back{min-width:92px;min-height:42px;padding-inline:12px}
-  .constitution-entry-theater-heading strong{font-size:16px}
+  .constitution-route-back-bar,
+  .constitution-entry-theater-bar{padding:6px 12px;gap:10px}
+  .constitution-entry-theater-back{min-width:88px;min-height:40px;padding-inline:11px}
+  .constitution-entry-theater-heading strong{font-size:14px}
+  .constitution-level-stage{grid-template-columns:1fr;border-radius:14px}
+  .constitution-level-stage-main{padding:18px}
+  .constitution-level-stage-meta{min-width:0;border-inline-start:0;border-top:1px solid rgba(255,255,255,.16);padding:10px 18px;text-align:start;place-content:start}
+  .constitution-level-stage-title{font-size:23px}
   body[data-entry-theater] [data-content-governance]{padding:16px 12px 36px!important}
   body[data-entry-theater='route'] [data-content-governance]{padding-top:calc(var(--constitution-entry-bar-height) + 16px)!important}
   body[data-entry-theater='inline'] [data-entry-theater-root='true']{padding:16px 12px 36px!important}
