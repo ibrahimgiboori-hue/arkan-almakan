@@ -39,6 +39,10 @@ function animateElement(element,intent='lateral'){
   animation.id='arkan-navigation-motion';
 }
 
+function contentRoot(){
+  return document.querySelector('[data-content-governance]');
+}
+
 function findTabTarget(tab){
   const tablist=tab.closest('[role="tablist"]');
   if(!tablist) return null;
@@ -63,7 +67,7 @@ export default function NavigationMotionController(){
 
       const tab=target.closest('[role="tab"]');
       if(tab){
-        requestAnimationFrame(()=>requestAnimationFrame(()=>animateElement(findTabTarget(tab),'lateral')));
+        requestAnimationFrame(()=>requestAnimationFrame(()=>animateElement(findTabTarget(tab)||contentRoot(),'lateral')));
         return;
       }
 
@@ -76,10 +80,19 @@ export default function NavigationMotionController(){
       if(url.origin!==window.location.origin||!url.pathname.startsWith(DASHBOARD_PREFIX)) return;
       const currentDepth=pathDepth(window.location.pathname);
       const nextDepth=pathDepth(url.pathname);
-      intentRef.current=nextDepth>currentDepth?'forward':nextDepth<currentDepth?'back':'lateral';
+      const intent=nextDepth>currentDepth?'forward':nextDepth<currentDepth?'back':'lateral';
+      intentRef.current=intent;
+
+      // بعض المستويات داخل نفس المسار تعتمد query string فقط؛ لا ينتج عنها pathname جديد.
+      if(url.pathname===window.location.pathname&&url.search!==window.location.search){
+        requestAnimationFrame(()=>animateElement(contentRoot(),intent));
+      }
     }
 
-    function onPopState(){intentRef.current='back';}
+    function onPopState(){
+      intentRef.current='back';
+      requestAnimationFrame(()=>animateElement(contentRoot(),'back'));
+    }
 
     document.addEventListener('click',onPointer,true);
     window.addEventListener('popstate',onPopState);
@@ -97,8 +110,7 @@ export default function NavigationMotionController(){
     const intent=intentRef.current||'lateral';
     previousPath.current=pathname;
     requestAnimationFrame(()=>{
-      const root=document.querySelector('[data-content-governance]');
-      if(root) animateElement(root,intent);
+      animateElement(contentRoot(),intent);
       intentRef.current='lateral';
     });
   },[pathname]);
