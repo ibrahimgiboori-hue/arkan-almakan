@@ -43,6 +43,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
 
   const projectMatch = pathname.match(/^\/dashboard\/projects\/([^/]+)(?:\/|$)/);
   const projectId = projectMatch?.[1] || null;
+  const projectBase = projectId ? `/dashboard/projects/${projectId}` : null;
   const sectionMatch = pathname.match(/^\/dashboard\/workspace\/(projects|workforce|finance|documents|admin)\/section\/[^/]+/);
   const constitutionItem = activeConstitutionItem(pathname);
   const currentAreaKey = projectId ? 'projects' : sectionMatch?.[1] || constitutionItem?.area?.key || null;
@@ -101,15 +102,27 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
     : null;
   const currentProjectTool = projectTools.find((item) => item.key === activeProjectKey) || null;
 
+  const parentHref = useMemo(() => {
+    if (projectId) {
+      const isProjectRoot = pathname === projectBase && !searchParams.get('view');
+      return isProjectRoot ? '/dashboard/projects' : projectBase;
+    }
+    if (currentArea) {
+      if (pathname === currentArea.href) return '/dashboard';
+      return currentArea.href;
+    }
+    return '/dashboard';
+  }, [currentArea, pathname, projectBase, projectId, searchParams]);
+
   function go(value) {
-    if (!value) return;
+    if (!value || value === pathname) return;
     router.push(value);
   }
 
   return (
     <nav className={styles.nav} aria-label="الملاحة الرئيسية الخام">
-      <button type="button" className={styles.action} onClick={() => router.back()} title="العودة للصفحة السابقة">← رجوع</button>
-      <button type="button" className={styles.action} onClick={() => router.push('/dashboard')} title="بداية لوحة التحكم">الرئيسية</button>
+      <button type="button" className={styles.action} onClick={() => go(parentHref)} title="العودة للمستوى الأعلى">← المستوى السابق</button>
+      <button type="button" className={styles.action} onClick={() => go('/dashboard')} title="بداية لوحة التحكم">الرئيسية</button>
 
       <label className={styles.field}>
         <span>البوابة</span>
@@ -144,7 +157,6 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
         </label>
       )}
 
-      <div className={styles.path} title={pathname}>{pathname}</div>
       <button type="button" className={styles.signOut} onClick={onSignOut}>خروج</button>
     </nav>
   );
