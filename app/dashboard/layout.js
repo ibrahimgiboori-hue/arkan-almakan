@@ -8,6 +8,7 @@ import { AREAS, QUICK_ACTIONS, activeConstitutionItem } from '@/lib/app-constitu
 import { filterAreasForAccess } from '@/lib/access-ui';
 import { dataEntryTheaterFor } from '@/lib/ui-governance';
 import { logicalBackTarget } from '@/lib/navigation-history';
+import { portalSectionDefinition } from '@/lib/portal-section-constitution';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
 import TypographyControls from '@/components/ui/TypographyControls';
@@ -18,6 +19,7 @@ import './constitution-content.css';
 const TODAY_HREF = '/dashboard/today';
 const MY_WORK_HREF = '/dashboard/my-work';
 const WORKSPACE_HREF = '/dashboard/workspace';
+const WORKSPACE_PORTAL_ROOT_RE = /^\/dashboard\/workspace\/(projects|workforce|finance|documents|admin)\/?$/;
 
 function cleanPortalLabel(value='') {
   return String(value).replace(/^بوابة\s+/, '').trim();
@@ -37,7 +39,9 @@ export default function DashboardLayout({ children }) {
 
   const isToday = pathname === TODAY_HREF;
   const isMyWork = pathname === MY_WORK_HREF || pathname.startsWith(`${MY_WORK_HREF}/`);
-  const isWorkspaceHome = pathname === WORKSPACE_HREF || pathname.startsWith(`${WORKSPACE_HREF}/`);
+  const isWorkspaceHome = pathname === WORKSPACE_HREF || WORKSPACE_PORTAL_ROOT_RE.test(pathname);
+  const workspaceSectionMatch = pathname.match(/^\/dashboard\/workspace\/(projects|workforce|finance|documents|admin)\/section\/([^/]+)\/?$/);
+  const workspaceSectionDef = workspaceSectionMatch ? portalSectionDefinition(workspaceSectionMatch[1], workspaceSectionMatch[2]) : null;
   const isProjectWorkspace = /^\/dashboard\/projects\/[^/]+(?:\/|$)/.test(pathname);
   const routeEntryTheater = dataEntryTheaterFor(pathname);
 
@@ -77,7 +81,7 @@ export default function DashboardLayout({ children }) {
         projectScoped,
         hr: fullAdmin || capabilities.some((item) => item.module_key === 'hr'),
         finance: fullAdmin || capabilities.some((item) => item.module_key === 'finance'),
-        documents: fullAdmin || capabilities.some((item) => item.module_key === 'documents'),
+        documents: fullAdmin || capabilities.some((item) => item.module_key === 'documents') || capabilityKeys.has('system.approvals.view'),
         admin: fullAdmin || capabilities.some((item) => item.module_key === 'admin' || item.module_key === 'system'),
         manageAccess: fullAdmin || capabilityKeys.has('system.access.manage_access'),
         approvals: fullAdmin || capabilityKeys.has('system.approvals.view'),
@@ -108,7 +112,9 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   const visibleAreas = useMemo(() => me ? filterAreasForAccess(AREAS, me.access) : [], [me]);
-  const current = activeConstitutionItem(pathname);
+  const constitutionCurrent = activeConstitutionItem(pathname);
+  const workspaceSectionArea = workspaceSectionMatch ? AREAS.find((area) => area.key === workspaceSectionMatch[1]) : null;
+  const current = constitutionCurrent || (workspaceSectionDef && workspaceSectionArea ? { label: workspaceSectionDef.label, area: workspaceSectionArea } : null);
 
   useEffect(() => {
     if (!ready || !me?.is_active || !me?.role) return;
