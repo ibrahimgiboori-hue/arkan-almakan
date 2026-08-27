@@ -2,6 +2,12 @@
    نستخدم العلامات الدلالية الموجودة في منصة الأعمال، لا أسماء CSS Module المولدة. */
 :root{
   --constitution-context-stage-height:172px;
+  --constitution-context-metric-padding-block:7px;
+  --constitution-context-metric-padding-inline:16px;
+  --constitution-context-metric-gap:1px;
+  --constitution-context-metric-label-size:9.5px;
+  --constitution-context-metric-value-size:18px;
+  --constitution-context-metric-hint-size:8.5px;
 }
 
 :is(
@@ -86,10 +92,70 @@ section[aria-label='المشروع الجاري'] > div:first-child > div:first-
   height:100%!important;
   min-height:0!important;
   overflow:hidden!important;
+  grid-template-rows:repeat(3,minmax(0,1fr))!important;
+}
+
+/* إيقاع المؤشرات داخل الشريط الخمري دستوري وموحد:
+   نقلل الفراغات الرأسية بدل قص النص أو زيادة ارتفاع المستوى. */
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:nth-child(2) > div{
+  min-height:0!important;
+  align-content:center!important;
+  gap:var(--constitution-context-metric-gap) 12px!important;
+  padding:var(--constitution-context-metric-padding-block) var(--constitution-context-metric-padding-inline)!important;
+  overflow:hidden!important;
+}
+
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:nth-child(2) > div > span{
+  font-size:var(--constitution-context-metric-label-size)!important;
+  line-height:1.05!important;
+  margin:0!important;
+}
+
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:nth-child(2) > div > strong{
+  font-size:var(--constitution-context-metric-value-size)!important;
+  line-height:1.05!important;
+  margin:0!important;
+}
+
+:is(
+  section[aria-label='المشروع الجاري'],
+  section[aria-label='الموارد البشرية'],
+  section[aria-label='المالية'],
+  section[aria-label='المستندات'],
+  section[aria-label='الإدارة']
+) > div:first-child > div:nth-child(2) > div > small{
+  font-size:var(--constitution-context-metric-hint-size)!important;
+  line-height:1.08!important;
+  margin:0!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
 }
 
 @media(max-width:760px){
-  :root{--constitution-context-stage-height:154px}
+  :root{
+    --constitution-context-stage-height:154px;
+    --constitution-context-metric-padding-block:5px;
+    --constitution-context-metric-padding-inline:12px;
+  }
   :is(
     section[aria-label='المشروع الجاري'],
     section[aria-label='الموارد البشرية'],
