@@ -17,10 +17,10 @@ export default function DisciplinarySectionPage(){
     const allowed=primaryQ.data===true||Boolean(userQ.data?.is_system_admin)||keys.has('hr.disciplinary.view');
     if(alive)setState({loading:false,allowed,error:allowed?'':'هذا القسم خارج الصلاحيات الممنوحة لهذا الحساب.'});
   })();return()=>{alive=false;};},[]);
-  if(state.loading)return <ConstitutionPage><EmptyState title="جارٍ تجهيز العلاقات والإجراءات" description="نقرأ المعاملات ومساراتها الحالية."/></ConstitutionPage>;
+  if(state.loading)return <ConstitutionPage><EmptyState title="جارٍ تجهيز الإجراءات التأديبية" description="نقرأ المعاملات ومساراتها الحالية."/></ConstitutionPage>;
   if(!state.allowed)return <ConstitutionPage><Notice tone="warning">{state.error}</Notice></ConstitutionPage>;
   return <ConstitutionPage>
-    <Section title="العلاقات والإجراءات" description="كل معاملة تعرض في نفس السطر حالتها التشغيلية وموقع الإجراء الحالي. زر «إجراء» يقرأ الخيارات من دستور حركة المعاملات في بوابة الإدارة.">
+    <Section title="الإجراءات التأديبية" description="السجل للعرض والمتابعة. افتح المعاملة لإرسالها أو قراءة موقعها الحالي؛ القرارات لا تظهر في صفوف الجدول.">
       <DisciplinaryActionsTable/>
     </Section>
   </ConstitutionPage>;
