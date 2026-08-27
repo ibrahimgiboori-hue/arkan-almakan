@@ -12,6 +12,7 @@ export default function ConstitutionDialog({
   onClose,
   children,
   size = 'wide',
+  showBack = true,
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -73,12 +74,15 @@ export default function ConstitutionDialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         data-constitution-dialog="true"
+        data-dialog-size={size}
       >
-        <header className={styles.header}>
-          <button type="button" className={styles.back} onClick={onClose} aria-label="رجوع">
-            <span aria-hidden="true">←</span>
-            <span>رجوع</span>
-          </button>
+        <header className={`${styles.header} ${!showBack ? styles.headerWithoutBack : ''}`}>
+          {showBack ? (
+            <button type="button" className={styles.back} onClick={onClose} aria-label="رجوع">
+              <span aria-hidden="true">←</span>
+              <span>رجوع</span>
+            </button>
+          ) : null}
           <div className={styles.heading}>
             <h2 id={titleId}>{title}</h2>
             {description ? <p id={descriptionId}>{description}</p> : null}
