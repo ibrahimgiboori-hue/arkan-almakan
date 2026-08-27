@@ -3,51 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { dataEntryTheaterFor } from '@/lib/ui-governance';
+import { NAVIGATION_POLICY } from '@/lib/navigation-constitution';
 import { logicalBackTarget } from '@/lib/navigation-history';
-
-const CONTROL_SELECTOR = [
-  "input:not([type='hidden']):not([type='search']):not([type='submit']):not([type='button'])",
-  'select',
-  'textarea',
-  "[contenteditable='true']",
-].join(',');
 
 function cleanText(value='') {
   return String(value).replace(/\s+/g,' ').trim();
-}
-
-function looksLikeFilter(root) {
-  if (!root) return true;
-  if (root.matches?.('[data-entry-ignore]') || root.closest?.('[data-entry-ignore]')) return true;
-  const heading = cleanText(root.querySelector?.('h1,h2,h3,legend,[data-section-title]')?.textContent || '');
-  const text = `${heading} ${cleanText(root.getAttribute?.('aria-label') || '')}`;
-  return /بحث|التصفية|فلتر|filter|search/i.test(text);
-}
-
-function controlsIn(root) {
-  return [...(root?.querySelectorAll?.(CONTROL_SELECTOR) || [])].filter((node) => {
-    if (node.disabled) return false;
-    if (node.closest('[data-entry-ignore]')) return false;
-    return true;
-  });
-}
-
-function hasCommitAction(root) {
-  const controls = [...(root?.querySelectorAll?.("button,input[type='submit'],[role='button']") || [])];
-  return controls.some((node) => {
-    const type = String(node.getAttribute?.('type') || '').toLowerCase();
-    if (type === 'submit') return true;
-    const text = cleanText(node.textContent || node.value || '');
-    // «تعديل» وحدها قد تكون زر صف داخل جدول وليست حفظاً لنموذج.
-    return /حفظ|إنشاء|إضافة|تحديث|اعتماد|إرسال|تسجيل|save|create|update|submit/i.test(text);
-  });
-}
-
-function qualifiesForm(root, minimum=2) {
-  if (!root || root.tagName !== 'FORM' || looksLikeFilter(root)) return false;
-  const controls = controlsIn(root);
-  if (controls.length < minimum) return false;
-  return hasCommitAction(root);
 }
 
 function isVisible(node) {
@@ -58,32 +18,19 @@ function isVisible(node) {
   return rect.width > 0 && rect.height > 0;
 }
 
-function findEntryRoot(target) {
+function explicitEntryRoot(target) {
   if (!(target instanceof Element)) return null;
   if (target.closest('[data-entry-ignore],[data-entry-theater-bar]')) return null;
-
-  // التعريف الصريح هو المرجع الأول دائماً.
-  const explicit = target.closest('[data-entry-surface]');
-  if (explicit) return explicit;
-
-  // لا نخمن من section/article أو كثرة الحقول. الجداول وشاشات العرض قد تحتوي
-  // عشرات select/buttons ولا يجوز أن تتحول إلى مسرح إدخال بسبب ذلك.
-  const form = target.closest('form');
-  return form && qualifiesForm(form,2) ? form : null;
+  const root = target.closest('[data-entry-surface]');
+  return root && isVisible(root) ? root : null;
 }
 
-function candidateFromNode(node) {
+function explicitCandidateFromNode(node) {
   if (!(node instanceof Element)) return null;
-
-  const explicit = node.matches?.('[data-entry-surface]')
+  const root = node.matches?.('[data-entry-surface]')
     ? node
     : node.querySelector?.('[data-entry-surface]');
-  if (explicit && isVisible(explicit)) return explicit;
-
-  const forms = [];
-  if (node.matches?.('form')) forms.push(node);
-  forms.push(...(node.querySelectorAll?.('form') || []));
-  return forms.find((form) => isVisible(form) && qualifiesForm(form,2)) || null;
+  return root && isVisible(root) ? root : null;
 }
 
 function inferTitle(root) {
@@ -116,6 +63,8 @@ export default function EntryTheaterController() {
 
     function activate(root) {
       if (!root || routeTheater || !isVisible(root)) return;
+      if (NAVIGATION_POLICY.entryActivation !== 'explicit-only') return;
+      if (!root.matches?.('[data-entry-surface]')) return;
       if (activeRootRef.current === root) return;
       if (activeRootRef.current?.isConnected) delete activeRootRef.current.dataset.entryTheaterRoot;
       activeRootRef.current = root;
@@ -125,14 +74,12 @@ export default function EntryTheaterController() {
     }
 
     function onFocusIn(event) {
-      const root = findEntryRoot(event.target);
+      const root = explicitEntryRoot(event.target);
       if (root) activate(root);
     }
 
     function onPointerDown(event) {
-      const editable = event.target instanceof Element ? event.target.closest(CONTROL_SELECTOR) : null;
-      if (!editable) return;
-      const root = findEntryRoot(editable);
+      const root = explicitEntryRoot(event.target);
       if (root) activate(root);
     }
 
@@ -144,13 +91,13 @@ export default function EntryTheaterController() {
       }
     }
 
-    // النماذج التي تظهر بعد الضغط على «إضافة/إنشاء» تدخل المسرح لحظة ظهورها.
-    // نراقب forms صريحة فقط، ولا نراقب sections أو articles إطلاقاً.
+    // لا يوجد تخمين من form/select/table. المسرح لا يبدأ إلا بعلامة صريحة
+    // data-entry-surface أو بمسار إدخال رسمي في الدستور.
     const observer = new MutationObserver((mutations) => {
       if (routeTheater || activeRootRef.current) return;
       for (const mutation of mutations) {
         for (const added of mutation.addedNodes) {
-          const candidate = candidateFromNode(added);
+          const candidate = explicitCandidateFromNode(added);
           if (candidate) {
             requestAnimationFrame(() => activate(candidate));
             return;
