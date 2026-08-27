@@ -1,0 +1,34 @@
+/*
+  RAW DESIGN TOKENS — single source of visual truth for the raw phase.
+  Every raw-* component reads colors/radius/sizes from these variables only.
+  To re-skin the whole program later ("تلبيسة واحدة"): change the values
+  here (and only here) — every screen using RawGrid / raw-phase classes
+  updates together, with zero per-page edits.
+
+  Import this file ONCE, in app/dashboard/layout.js, before raw-phase.css.
+*/
+:root {
+  /* Ledger palette — the current "Excel-like" raw skin */
+  --raw-bg: #f3f0e9;
+  --raw-paper: #fbfaf7;
+  --raw-ink: #11110f;
+  --raw-muted: #66645f;
+  --raw-border: #d8d3c8;
+  --raw-border-soft: #e8e4dc;
+
+  /* Semantic accents — reused for status/badges/buttons everywhere */
+  --raw-wine: #6f252b;   /* primary action / brand accent */
+  --raw-green: #126548;  /* success / saved / complete */
+  --raw-blue: #165f9f;   /* informational / half-state */
+  --raw-red: #a12b29;    /* danger / absent / delete */
+  --raw-amber: #8a6d1d;  /* pending / new-unsaved */
+  --raw-on-accent: #fff;
+
+  /* Shape + rhythm — shared across every raw table/grid/panel */
+  --raw-radius: 8px;
+  --raw-radius-sm: 6px;
+  --raw-font-size: 16px;
+  --raw-font-size-sm: 14.5px;
+  --raw-row-height: 46px;
+  --raw-gap: 8px;
+}
