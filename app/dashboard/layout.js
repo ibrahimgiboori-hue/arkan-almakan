@@ -7,8 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { AREAS, QUICK_ACTIONS, activeConstitutionItem } from '@/lib/app-constitution';
 import { filterAreasForAccess } from '@/lib/access-ui';
 import { dataEntryTheaterFor } from '@/lib/ui-governance';
+import { logicalBackTarget } from '@/lib/navigation-history';
 import FormBuilderResizeOverlay from '@/components/formbuilder/FormBuilderResizeOverlay';
 import VacancyTargetingPanel from '@/components/recruitment/VacancyTargetingPanel';
+import TypographyControls from '@/components/ui/TypographyControls';
 import styles from './dashboard-redesign.module.css';
 import './constitution-content.css';
 
@@ -29,6 +31,7 @@ export default function DashboardLayout({ children }) {
   const [commandQuery, setCommandQuery] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [typographyOpen, setTypographyOpen] = useState(false);
 
   const isToday = pathname === TODAY_HREF;
   const isMyWork = pathname === MY_WORK_HREF || pathname.startsWith(`${MY_WORK_HREF}/`);
@@ -94,6 +97,7 @@ export default function DashboardLayout({ children }) {
         setCommandOpen(false);
         setMobileOpen(false);
         setUserMenuOpen(false);
+        setTypographyOpen(false);
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -134,11 +138,7 @@ export default function DashboardLayout({ children }) {
     setUserMenuOpen(false);
     setMobileOpen(false);
     setCommandOpen(false);
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push(WORKSPACE_HREF);
+    router.push(logicalBackTarget(pathname, WORKSPACE_HREF));
   }
 
   const canUseFullArea = (areaKey) => Boolean(
@@ -241,6 +241,7 @@ export default function DashboardLayout({ children }) {
             {userMenuOpen && <div role="menu" style={{position:'absolute',top:'calc(100% + 10px)',insetInlineEnd:0,minWidth:245,padding:8,border:'1px solid var(--ui-border)',borderRadius:10,background:'var(--ui-paper,#fff)',boxShadow:'0 16px 40px rgba(0,0,0,.18)',zIndex:120,color:'var(--ui-ink,#111)'}}>
               <Link href={TODAY_HREF} onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>اليوم وأعمالي</Link>
               <Link href={WORKSPACE_HREF} onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>منصة الأعمال</Link>
+              <button onClick={()=>{setUserMenuOpen(false);setTypographyOpen(true);}} style={{display:'block',width:'100%',textAlign:'start',padding:'9px 10px',border:0,background:'transparent',cursor:'pointer',font:'inherit',color:'inherit'}}>أحجام الخطوط</button>
               {me.access.manageAccess && <Link href="/dashboard/system-user" onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7,fontWeight:700}}>إدارة الدخول والصلاحيات</Link>}
               <Link href="/change-password" onClick={()=>setUserMenuOpen(false)} style={{display:'block',padding:'9px 10px',borderRadius:7}}>تغيير كلمة المرور</Link>
               <button onClick={signOut} style={{display:'block',width:'100%',textAlign:'start',padding:'9px 10px',border:0,background:'transparent',cursor:'pointer',font:'inherit',color:'inherit'}}>خروج</button>
@@ -284,6 +285,8 @@ export default function DashboardLayout({ children }) {
         {me.access.hr && <VacancyTargetingPanel />}
         {children}
       </div>
+
+      <TypographyControls open={typographyOpen} onClose={()=>setTypographyOpen(false)} />
 
       {commandOpen && (
         <div className={styles.paletteBackdrop} onMouseDown={() => setCommandOpen(false)}>
