@@ -1,0 +1,82 @@
+/* Raw programming phase: readability only. No application chrome or visual redesign. */
+@media screen {
+  body {
+    font-size: 17px;
+    line-height: 1.65;
+  }
+
+  .page {
+    max-width: none;
+    width: 100%;
+  }
+
+  .page-head h1,
+  .page h1 {
+    font-size: 28px !important;
+  }
+
+  .page h2,
+  .section > header h2 {
+    font-size: 20px !important;
+  }
+
+  .page h3,
+  .card h3,
+  .empty h3 {
+    font-size: 17px !important;
+  }
+
+  .page p,
+  .section,
+  .card,
+  .msg,
+  .empty {
+    font-size: 16px;
+  }
+
+  table {
+    font-size: 15.5px !important;
+  }
+
+  thead th {
+    font-size: 14.5px !important;
+    line-height: 1.45;
+  }
+
+  tbody td {
+    font-size: 15.5px !important;
+    line-height: 1.55;
+  }
+
+  input,
+  select,
+  textarea,
+  button,
+  .btn,
+  .search,
+  .tabs button {
+    font-size: 15.5px !important;
+  }
+
+  input,
+  select,
+  textarea {
+    line-height: 1.5;
+  }
+
+  label,
+  .field label {
+    font-size: 14.5px !important;
+  }
+
+  .hint,
+  .field .hint,
+  small {
+    font-size: 13.5px !important;
+    line-height: 1.55;
+  }
+
+  .pill {
+    font-size: 13.5px !important;
+  }
+}
