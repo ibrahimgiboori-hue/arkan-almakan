@@ -30,6 +30,7 @@
   --constitution-global-bar-height:58px;
   --constitution-back-bar-height:54px;
   --constitution-entry-bar-height:54px;
+  --constitution-context-stage-height:172px;
   --constitution-page-gap:18px;
   --constitution-content-max:1720px;
   --constitution-reading-max:1180px;
@@ -72,6 +73,12 @@ html[data-system-constitution='v2'] .page:has(.workspaceShell){
   width:100%!important;
   max-width:none!important;
   margin-inline:0!important;
+}
+
+/* سقف البرنامج ثابت بلا استثناء، بما في ذلك مسرح الإدخال. */
+html[data-system-constitution='v2'] [data-ui-constitution='approved-v2'] > header{
+  display:flex!important;
+  min-height:var(--constitution-global-bar-height);
 }
 
 /* شريط الرجوع هو طبقة ملاحة عالمية ثابتة تحت الشريط الأسود. */
@@ -119,9 +126,12 @@ html[data-system-constitution='v2'] .page:has(.workspaceShell){
 .constitution-entry-theater-heading span{color:var(--constitution-muted);font-size:9.5px;font-weight:750}
 .constitution-entry-theater-heading strong{color:var(--constitution-ink);font-size:15px;line-height:1.25;font-weight:900}
 
-/* كل مستوى أدنى يرث نفس هندسة البوابة: سياق واضح واحد ثم أدواته. */
+/* كل مستوى ملاحي يملك نفس المستطيل الخمري ونفس الارتفاع.
+   الاستثناء الوحيد: مسرح إدخال البيانات لأنه مساحة عمليات لا مستوى ملاحة. */
 .constitution-level-stage{
   width:100%;
+  height:var(--constitution-context-stage-height);
+  min-height:var(--constitution-context-stage-height);
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
   align-items:stretch;
@@ -132,12 +142,20 @@ html[data-system-constitution='v2'] .page:has(.workspaceShell){
   background:var(--constitution-brand);
   box-shadow:0 14px 34px rgba(42,20,19,.10);
 }
-.constitution-level-stage-main{min-width:0;padding:20px 24px}
+.constitution-level-stage-main{
+  min-width:0;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:20px 24px;
+}
 .constitution-level-stage-parent{font-size:9px;font-weight:850;letter-spacing:.08em;opacity:.62}
 .constitution-level-stage-title{margin:5px 0 4px;font-size:clamp(24px,2vw,31px);line-height:1.18;font-weight:900;color:inherit}
 .constitution-level-stage-description{margin:0;max-width:780px;font-size:11px;line-height:1.75;opacity:.75}
 .constitution-level-stage-meta{
   min-width:175px;
+  height:100%;
   display:grid;
   place-content:center;
   padding:16px 22px;
@@ -208,13 +226,14 @@ body[data-entry-theater='route'] [data-content-governance] fieldset{background:t
 html[data-system-constitution='v2'] a[href^='/print/expenses']{display:none!important}
 
 @media(max-width:760px){
+  :root{--constitution-context-stage-height:154px}
   .constitution-route-back-bar,
   .constitution-entry-theater-bar{padding:6px 12px;gap:10px}
   .constitution-entry-theater-back{min-width:88px;min-height:40px;padding-inline:11px}
   .constitution-entry-theater-heading strong{font-size:14px}
   .constitution-level-stage{grid-template-columns:1fr;border-radius:14px}
-  .constitution-level-stage-main{padding:18px}
-  .constitution-level-stage-meta{min-width:0;border-inline-start:0;border-top:1px solid rgba(255,255,255,.16);padding:10px 18px;text-align:start;place-content:start}
+  .constitution-level-stage-main{padding:14px 18px}
+  .constitution-level-stage-meta{display:none}
   .constitution-level-stage-title{font-size:23px}
   body[data-entry-theater] [data-content-governance]{padding:16px 12px 36px!important}
   body[data-entry-theater='route'] [data-content-governance]{padding-top:calc(var(--constitution-entry-bar-height) + 16px)!important}
