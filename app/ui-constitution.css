@@ -37,7 +37,6 @@
   --constitution-print-page-width:210mm;
   --constitution-print-page-height:297mm;
 
-  /* Compatibility aliases: الصفحات القديمة تستمر بالعمل، لكن القيمة تأتي من الدستور. */
   --ui-bg:var(--constitution-bg);
   --ui-paper:var(--constitution-paper);
   --ui-surface:var(--constitution-surface);
@@ -66,7 +65,6 @@ html[data-system-constitution='v2'] :focus-visible{outline:2px solid var(--const
 html[data-system-constitution='v2'] input[type='checkbox'],
 html[data-system-constitution='v2'] input[type='radio']{accent-color:var(--constitution-brand)}
 
-/* قاعدة دستورية: مساحة البيانات تستفيد من العرض، لكن القراءة والإدخال لا يصبحان سطرًا بلا نهاية. */
 html[data-system-constitution='v2'] .constitution-content,
 html[data-system-constitution='v2'] .constitution-content > *,
 html[data-system-constitution='v2'] .page:has(.workspaceShell){
@@ -75,24 +73,13 @@ html[data-system-constitution='v2'] .page:has(.workspaceShell){
   margin-inline:0!important;
 }
 
-/* ============================================================
-   مسرح الإدخال العام
-   مكان الإدخال الفعلي يأخذ الشاشة وحده. التفعيل مركزي:
-   - route: محرر مستقل معروف للنظام.
-   - inline: النظام يكتشف مجموعة إدخال حقيقية ويعزلها عن الشاشة المحيطة.
-   البحث والفلاتر لا تدخل المسرح.
-   ============================================================ */
 body[data-entry-theater]{
   min-height:100vh;
   overflow:hidden;
   background:var(--constitution-bg);
 }
-body[data-entry-theater] [data-ui-constitution='approved-v2'] > header{
-  display:none!important;
-}
-body[data-entry-theater] [data-ui-constitution='approved-v2'] > :not(header):not([data-content-governance]){
-  display:none!important;
-}
+body[data-entry-theater] [data-ui-constitution='approved-v2'] > header{display:none!important}
+body[data-entry-theater] [data-ui-constitution='approved-v2'] > :not(header):not([data-content-governance]){display:none!important}
 body[data-entry-theater] [data-content-governance]{
   width:100%!important;
   max-width:none!important;
@@ -101,16 +88,18 @@ body[data-entry-theater] [data-content-governance]{
   padding:24px clamp(18px,3.2vw,58px) 56px!important;
   background:var(--constitution-bg)!important;
 }
+body[data-entry-theater='route'] [data-content-governance]{
+  height:100dvh!important;
+  overflow:auto!important;
+  padding-top:calc(var(--constitution-entry-bar-height) + 24px)!important;
+}
 body[data-entry-theater] [data-content-governance] > *{
   width:100%!important;
   max-width:none!important;
   margin-inline:0!important;
 }
-body[data-entry-theater] [data-content-governance] .page-head{
-  display:none!important;
-}
+body[data-entry-theater] [data-content-governance] .page-head{display:none!important}
 
-/* الإدخال الداخلي يصبح شاشة مستقلة من غير تغيير مساره أو نسخه إلى صفحة أخرى. */
 body[data-entry-theater='inline'] [data-entry-theater-root='true']{
   position:fixed!important;
   inset:var(--constitution-entry-bar-height) 0 0 0!important;
@@ -139,9 +128,7 @@ body[data-entry-theater='inline'] [data-entry-theater-root='true'] > header:firs
   backdrop-filter:blur(10px);
 }
 body[data-entry-theater='inline'] [data-entry-theater-root='true'] fieldset,
-body[data-entry-theater='route'] [data-content-governance] fieldset{
-  background:transparent!important;
-}
+body[data-entry-theater='route'] [data-content-governance] fieldset{background:transparent!important}
 
 .constitution-entry-theater-bar{
   position:fixed;
@@ -173,32 +160,12 @@ body[data-entry-theater='route'] [data-content-governance] fieldset{
   font-weight:850;
   cursor:pointer;
 }
-.constitution-entry-theater-back:hover{
-  border-color:var(--constitution-brand);
-  background:#f6efed;
-}
-.constitution-entry-theater-back > span:first-child{
-  font-size:18px;
-  line-height:1;
-}
-.constitution-entry-theater-heading{
-  min-width:0;
-  display:grid;
-  gap:2px;
-}
-.constitution-entry-theater-heading span{
-  color:var(--constitution-muted);
-  font-size:10px;
-  font-weight:750;
-}
-.constitution-entry-theater-heading strong{
-  color:var(--constitution-ink);
-  font-size:19px;
-  line-height:1.25;
-  font-weight:900;
-}
+.constitution-entry-theater-back:hover{border-color:var(--constitution-brand);background:#f6efed}
+.constitution-entry-theater-back > span:first-child{font-size:18px;line-height:1}
+.constitution-entry-theater-heading{min-width:0;display:grid;gap:2px}
+.constitution-entry-theater-heading span{color:var(--constitution-muted);font-size:10px;font-weight:750}
+.constitution-entry-theater-heading strong{color:var(--constitution-ink);font-size:19px;line-height:1.25;font-weight:900}
 
-/* رابط طباعة المصروفات القديم داخل بطاقة الإدخال أُلغي. */
 html[data-system-constitution='v2'] a[href^='/print/expenses']{display:none!important}
 
 @media(max-width:760px){
@@ -206,6 +173,7 @@ html[data-system-constitution='v2'] a[href^='/print/expenses']{display:none!impo
   .constitution-entry-theater-back{min-width:92px;min-height:42px;padding-inline:12px}
   .constitution-entry-theater-heading strong{font-size:16px}
   body[data-entry-theater] [data-content-governance]{padding:16px 12px 36px!important}
+  body[data-entry-theater='route'] [data-content-governance]{padding-top:calc(var(--constitution-entry-bar-height) + 16px)!important}
   body[data-entry-theater='inline'] [data-entry-theater-root='true']{padding:16px 12px 36px!important}
 }
 
