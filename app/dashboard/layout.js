@@ -7,15 +7,6 @@ import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
 import './raw-tokens.css';
 import './raw-phase.css';
 
-/**
- * RAW PROGRAMMING SHELL
- *
- * One minimal navigation surface only. No decorative dashboard chrome,
- * duplicated shortcuts, portal overlays, or secondary navigation systems.
- *
- * raw-tokens.css is imported once here so raw-phase components can share one
- * visual source without bringing back a second interface layer.
- */
 export default function DashboardLayout({ children }) {
   const router = useRouter();
   const [state, setState] = useState({ ready:false, allowed:false, message:'', me:null });
@@ -104,9 +95,9 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <>
+    <div className="rawDashboardShell">
       <RawDashboardNavigation me={state.me} onSignOut={signOut} />
-      {children}
-    </>
+      <main className="rawDashboardContent">{children}</main>
+    </div>
   );
 }
