@@ -8,6 +8,7 @@ import { loadPortalSectionData } from '@/lib/portal-section-data';
 import { INVOICE_POLICY } from '@/lib/invoice-policy';
 import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice } from '@/components/ui/ConstitutionUI';
 import ApprovalGuidanceList from '@/components/approval/ApprovalGuidanceList';
+import ProcedureRouteMatrix from '@/components/admin/ProcedureRouteMatrix';
 
 function hasSectionAccess(definition, capabilityKeys, fullAdmin){
   if(fullAdmin)return true;
@@ -40,6 +41,7 @@ async function loadAdminCatalogs(){
 }
 
 async function loadSection(definition){
+  if(definition?.dataKind==='admin-procedure-routes')return {custom:'procedure-routes'};
   if(definition?.dataKind==='admin-catalogs')return loadAdminCatalogs();
   return loadPortalSectionData(definition.dataKind);
 }
@@ -88,6 +90,13 @@ export default function PortalSectionPage(){
   if(!definition)return <ConstitutionPage><EmptyState title="قسم غير معروف" description="المسار المطلوب غير موجود في دستور منصة الأعمال."/></ConstitutionPage>;
   if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`} description="نقرأ البيانات من مصادرها الأصلية وفق صلاحيات الحساب."/></ConstitutionPage>;
   if(!state.allowed)return <ConstitutionPage><Notice tone="warning">{state.error}</Notice></ConstitutionPage>;
+
+  if(definition.dataKind==='admin-procedure-routes')return <ConstitutionPage>
+    <Section title="دستور حركة المعاملات" description="كل سطر عملية فعلية في البرنامج. حدّد هل تحتاج إجراءً، هل تصعد داخل بوابتها، وما مجال الجهات التي تستطيع «سنارة الإجراء» عرضها للمستخدم أثناء المعاملة.">
+      <ProcedureRouteMatrix/>
+    </Section>
+    <Notice tone="neutral">أي قدرة جديدة تضاف إلى محرك الصلاحيات ستظهر تلقائيًا هنا كعملية غير مصنفة. لا توجد قائمة موازية تحتاج تحديثًا يدويًا.</Notice>
+  </ConstitutionPage>;
 
   const data=state.data;
   const isInvoiceSection=definition.dataKind==='finance-invoices';
