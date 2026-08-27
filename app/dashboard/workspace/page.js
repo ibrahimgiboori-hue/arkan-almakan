@@ -52,6 +52,94 @@ const PORTAL_COPY = Object.freeze({
   },
 });
 
+// نفس هندسة «إدارة المشروع» لكل البوابات. المحتوى فقط هو الذي يتغير.
+// لا تتكرر أي أداة بين مجالين، وأي أداة مستقبلية غير مصنفة تظهر مرة واحدة في «إضافية».
+const PORTAL_MANAGEMENT_SECTIONS = Object.freeze({
+  workforce: Object.freeze([
+    {
+      key:'people',
+      label:'الأفراد',
+      shortLabel:'الأفراد',
+      description:'ملفات الموظفين والإجازات وما يرتبط بحالة الموظف أثناء الخدمة.',
+      hrefs:Object.freeze(['/dashboard/employees','/dashboard/leaves']),
+    },
+    {
+      key:'recruitment',
+      label:'التوظيف',
+      shortLabel:'التوظيف',
+      description:'من المرشح والعرض الوظيفي إلى العقد والمباشرة والتهيئة.',
+      hrefs:Object.freeze([
+        '/dashboard/recruitment',
+        '/dashboard/recruitment/offers',
+        '/dashboard/recruitment/contracts',
+        '/dashboard/recruitment/onboarding',
+      ]),
+    },
+  ]),
+  finance: Object.freeze([
+    {
+      key:'requests',
+      label:'الطلبات والمديونيات',
+      shortLabel:'الطلبات',
+      description:'السلف والمديونيات والحركات التي تبدأ بطلب مالي.',
+      hrefs:Object.freeze(['/dashboard/advances']),
+    },
+    {
+      key:'approvals',
+      label:'الاعتمادات',
+      shortLabel:'الاعتمادات',
+      description:'الطلبات التي وصلت إلى مسار المراجعة والاعتماد.',
+      hrefs:Object.freeze(['/dashboard/approvals']),
+    },
+  ]),
+  documents: Object.freeze([
+    {
+      key:'current',
+      label:'العمل الجاري',
+      shortLabel:'العمل الجاري',
+      description:'إنشاء المستندات ومتابعة الصادر والوارد أثناء العمل.',
+      hrefs:Object.freeze(['/dashboard/documents','/dashboard/register']),
+    },
+    {
+      key:'archive',
+      label:'الأرشيف',
+      shortLabel:'الأرشيف',
+      description:'الوصول إلى النسخ والسجلات المحفوظة بعد انتهاء العمل عليها.',
+      hrefs:Object.freeze(['/dashboard/archive']),
+    },
+    {
+      key:'templates',
+      label:'النماذج',
+      shortLabel:'النماذج',
+      description:'بناء النماذج التي تستخدمها المستندات ومساحات الإدخال.',
+      hrefs:Object.freeze(['/dashboard/formbuilder']),
+    },
+  ]),
+  admin: Object.freeze([
+    {
+      key:'company',
+      label:'الشركة',
+      shortLabel:'الشركة',
+      description:'بيانات الشركة ومجلس الإدارة والهيكل التنظيمي.',
+      hrefs:Object.freeze(['/dashboard/board','/dashboard/settings','/dashboard/org-structure']),
+    },
+    {
+      key:'access',
+      label:'الدخول والصلاحيات',
+      shortLabel:'الدخول',
+      description:'إدارة دخول المستخدمين والصلاحيات ضمن المحرك المركزي.',
+      hrefs:Object.freeze(['/dashboard/system-user']),
+    },
+    {
+      key:'governance',
+      label:'الحوكمة والاستمرارية',
+      shortLabel:'الحوكمة',
+      description:'حماية استمرارية النظام والنسخ الاحتياطي للبيانات.',
+      hrefs:Object.freeze(['/dashboard/backup']),
+    },
+  ]),
+});
+
 const EMPTY_PULSE = Object.freeze({
   loading: false,
   financial: null,
@@ -76,6 +164,7 @@ export default function WorkPlatformPage(){
   const [projectId,setProjectId]=useState('');
   const [portalKey,setPortalKey]=useState('projects');
   const [managementKey,setManagementKey]=useState('execution');
+  const [portalManagementKey,setPortalManagementKey]=useState('');
   const [pulse,setPulse]=useState(EMPTY_PULSE);
   const [switchOpen,setSwitchOpen]=useState(false);
   const [projectQuery,setProjectQuery]=useState('');
@@ -188,6 +277,45 @@ export default function WorkPlatformPage(){
     if(!activePortal)return[];
     return (activePortal.items||[]).filter(item=>!item.hidden);
   },[activePortal]);
+
+  const portalSections=useMemo(()=>{
+    if(!activePortal||activePortal.key==='projects')return[];
+    const itemByHref=new Map(activePortalItems.map(item=>[item.href,item]));
+    const configured=PORTAL_MANAGEMENT_SECTIONS[activePortal.key]||[];
+    const sections=configured.map(section=>({
+      ...section,
+      items:section.hrefs.map(href=>itemByHref.get(href)).filter(Boolean),
+    })).filter(section=>section.items.length>0);
+    const assigned=new Set(configured.flatMap(section=>section.hrefs));
+    const extra=activePortalItems.filter(item=>!assigned.has(item.href));
+    if(extra.length){
+      sections.push({
+        key:'additional',
+        label:'أدوات إضافية',
+        shortLabel:'إضافية',
+        description:'أدوات جديدة في البوابة لم تُصنف بعد؛ تظهر هنا مرة واحدة حتى يوضع لها موقعها الدائم.',
+        items:extra,
+      });
+    }
+    return sections.length?sections:[{
+      key:'all',
+      label:activePortalCopy?.title||'الأدوات',
+      shortLabel:'الأدوات',
+      description:'الأدوات المسموحة في هذه البوابة.',
+      items:activePortalItems,
+    }];
+  },[activePortal,activePortalItems,activePortalCopy]);
+
+  useEffect(()=>{
+    if(activePortal?.key==='projects')return;
+    if(!portalSections.length){
+      setPortalManagementKey('');
+      return;
+    }
+    setPortalManagementKey(current=>portalSections.some(section=>section.key===current)?current:portalSections[0].key);
+  },[activePortal?.key,portalSections]);
+
+  const activePortalSection=portalSections.find(section=>section.key===portalManagementKey)||portalSections[0]||null;
 
   const selectedProject=state?.projects.find(p=>p.id===projectId)||null;
   const otherProjects=useMemo(()=>state?.projects.filter(p=>p.id!==projectId)||[],[state,projectId]);
@@ -375,28 +503,44 @@ export default function WorkPlatformPage(){
       </>
     )}
 
-    {activePortal&&activePortal.key!=='projects'&&(
+    {activePortal&&activePortal.key!=='projects'&&activePortalSection&&(
       <section className={styles.genericPortalCockpit} aria-label={activePortalCopy?.title}>
-        <div className={styles.genericPortalHero}>
-          <div>
-            <span>{activePortalCopy?.eyebrow}</span>
-            <h1>{activePortalCopy?.title}</h1>
-            <p>{activePortalCopy?.description}</p>
+        <div className={styles.projectHero}>
+          <div className={styles.heroMain}>
+            <div className={styles.heroKicker}>{activePortalCopy?.eyebrow}</div>
+            <div className={styles.heroTitleRow}>
+              <div>
+                <div className={styles.projectNo}>البوابة الحالية</div>
+                <h1>{activePortalCopy?.title}</h1>
+              </div>
+            </div>
+            <div className={styles.heroMeta}>
+              <span>{activePortalCopy?.description}</span>
+            </div>
           </div>
-          <div className={styles.genericPortalCount}>
-            <strong>{activePortalItems.length}</strong>
-            <span>أداة متاحة</span>
+          <div className={styles.heroMetrics}>
+            <div className={styles.heroMetric}><span>المجالات</span><strong>{portalSections.length}</strong><small>مجال عمل منظم</small></div>
+            <div className={styles.heroMetric}><span>الأدوات</span><strong>{activePortalItems.length}</strong><small>أداة متاحة</small></div>
+            <div className={styles.heroMetric}><span>الوصول</span><strong>{state.fullAdmin?'كامل':'محدد'}</strong><small>{state.fullAdmin?'حسب صلاحية المدير':'حسب صلاحيات الحساب'}</small></div>
           </div>
         </div>
 
-        <Section title={`أدوات ${activePortalCopy?.title}`} description="اختر وجهة واحدة؛ عند فتح الأداة تتحول الشاشة إلى مسرح للعمل عليها.">
-          <nav className={styles.portalToolList}>
-            {activePortalItems.map((item,index)=><Link key={item.href} href={item.href} className={styles.portalToolRow}>
-              <span className={styles.portalToolIndex}>{String(index+1).padStart(2,'0')}</span>
-              <div><strong>{item.label}</strong><small>{activePortal.label}</small></div>
-              <span className={styles.portalToolArrow}>فتح ←</span>
-            </Link>)}
-          </nav>
+        <Section title={`إدارة ${activePortalCopy?.title}`} description="نفس هندسة إدارة المشروع: مجال واحد نشط في كل مرة، ولا تظهر الأداة في أكثر من مكان.">
+          <div className={styles.managementShell}>
+            <div className={styles.managementTabs} role="tablist" aria-label={`مجالات ${activePortalCopy?.title}`}>
+              {portalSections.map(section=><button key={section.key} type="button" role="tab" aria-selected={portalManagementKey===section.key} className={portalManagementKey===section.key?styles.managementTabActive:styles.managementTab} onClick={()=>setPortalManagementKey(section.key)}>{section.shortLabel||section.label}</button>)}
+            </div>
+            <div className={styles.managementPanel} role="tabpanel">
+              <div className={styles.managementIntro}>
+                <span>المجال الحالي</span>
+                <h3>{activePortalSection.label}</h3>
+                <p>{activePortalSection.description}</p>
+              </div>
+              <nav className={styles.managementLinks}>
+                {activePortalSection.items.map(item=><Link key={item.href} href={item.href}><strong>{item.label}</strong><span>فتح ←</span></Link>)}
+              </nav>
+            </div>
+          </div>
         </Section>
       </section>
     )}
