@@ -115,7 +115,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
   }, [currentArea, pathname, projectBase, projectId, searchParams]);
 
   function go(value) {
-    if (!value || value === pathname) return;
+    if (!value) return;
     router.push(value);
   }
 
