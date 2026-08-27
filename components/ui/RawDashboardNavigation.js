@@ -35,6 +35,29 @@ function isActionOnlyRoute(href = '') {
   return /\/(?:new|create)\/?$/.test(href);
 }
 
+function TabRow({ label, children }) {
+  return (
+    <div className={styles.tabRow}>
+      {label && <span className={styles.tabRowLabel}>{label}</span>}
+      <div className={styles.tabScroller}>{children}</div>
+    </div>
+  );
+}
+
+function Tab({ active, tone, onClick, children, title }) {
+  const toneClass = tone === 'alt' ? styles.tabOnAlt : styles.tabOn;
+  return (
+    <button
+      type="button"
+      className={`${styles.tab} ${active ? toneClass : ''}`}
+      onClick={onClick}
+      title={title}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function RawDashboardNavigation({ me, onSignOut }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -106,6 +129,14 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
     : null;
   const currentProjectTool = projectTools.find((item) => item.key === activeProjectKey) || null;
 
+  const projectToolsByGroup = useMemo(() => {
+    return PROJECT_NAV_GROUPS.map((group) => ({
+      key: group.key,
+      label: group.label,
+      items: projectTools.filter((item) => item.groupLabel === group.label),
+    })).filter((group) => group.items.length > 0);
+  }, [projectTools]);
+
   const parentHref = useMemo(() => {
     if (projectId) {
       const isProjectRoot = pathname === projectBase && !searchParams.get('view');
@@ -125,43 +156,39 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
 
   return (
     <nav className={styles.nav} aria-label="الملاحة الرئيسية الخام">
-      <button type="button" className={styles.action} onClick={() => go(parentHref)} title="العودة للمستوى الأعلى">← المستوى السابق</button>
-      <button type="button" className={styles.action} onClick={() => go('/dashboard')} title="بداية لوحة التحكم">الرئيسية</button>
+      <div className={styles.topBar}>
+        <button type="button" className={styles.action} onClick={() => go(parentHref)} title="العودة للمستوى الأعلى">← المستوى السابق</button>
+        <button type="button" className={styles.action} onClick={() => go('/dashboard')} title="بداية لوحة التحكم">الرئيسية</button>
+        <button type="button" className={styles.signOut} onClick={onSignOut}>خروج</button>
+      </div>
 
-      <label className={styles.field}>
-        <span>البوابة</span>
-        <select value={currentArea?.key || ''} onChange={(e) => {
-          const area = visibleAreas.find((item) => item.key === e.target.value);
-          if (area) go(area.href);
-        }}>
-          <option value="">اختر بوابة</option>
-          {visibleAreas.map((area) => <option key={area.key} value={area.key}>{cleanPortalLabel(area.label)}</option>)}
-        </select>
-      </label>
+      <TabRow label="البوابة">
+        {visibleAreas.map((area) => (
+          <Tab key={area.key} active={currentArea?.key === area.key} onClick={() => go(area.href)}>
+            {cleanPortalLabel(area.label)}
+          </Tab>
+        ))}
+      </TabRow>
 
-      <label className={styles.field}>
-        <span>الأداة</span>
-        <select value={currentGlobalTool?.href || ''} onChange={(e) => go(e.target.value)} disabled={!currentArea || globalTools.length === 0}>
-          <option value="">{currentArea ? 'اختر أداة' : 'اختر البوابة أولًا'}</option>
-          {globalTools.map((item) => <option key={item.href} value={item.href}>{item.label}</option>)}
-        </select>
-      </label>
-
-      {projectId && projectTools.length > 0 && (
-        <label className={`${styles.field} ${styles.projectField}`}>
-          <span>داخل المشروع</span>
-          <select value={currentProjectTool?.href || ''} onChange={(e) => go(e.target.value)}>
-            <option value="">اختر أداة المشروع</option>
-            {PROJECT_NAV_GROUPS.map((group) => {
-              const groupItems = projectTools.filter((item) => item.groupLabel === group.label);
-              if (!groupItems.length) return null;
-              return <optgroup label={group.label} key={group.key}>{groupItems.map((item) => <option key={item.key} value={item.href}>{item.label}</option>)}</optgroup>;
-            })}
-          </select>
-        </label>
+      {currentArea && globalTools.length > 0 && (
+        <TabRow label="الأداة">
+          {globalTools.map((item) => (
+            <Tab key={item.href} tone="alt" active={currentGlobalTool?.href === item.href} onClick={() => go(item.href)}>
+              {item.label}
+            </Tab>
+          ))}
+        </TabRow>
       )}
 
-      <button type="button" className={styles.signOut} onClick={onSignOut}>خروج</button>
+      {projectId && projectToolsByGroup.map((group) => (
+        <TabRow key={group.key} label={group.label}>
+          {group.items.map((item) => (
+            <Tab key={item.key} active={currentProjectTool?.key === item.key} onClick={() => go(item.href)}>
+              {item.label}
+            </Tab>
+          ))}
+        </TabRow>
+      ))}
     </nav>
   );
 }
