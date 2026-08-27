@@ -7,6 +7,7 @@ import { portalSectionDefinition } from '@/lib/portal-section-constitution';
 import { loadPortalSectionData } from '@/lib/portal-section-data';
 import { INVOICE_POLICY } from '@/lib/invoice-policy';
 import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice } from '@/components/ui/ConstitutionUI';
+import ApprovalGuidanceList from '@/components/approval/ApprovalGuidanceList';
 
 function hasSectionAccess(definition, capabilityKeys, fullAdmin){
   if(fullAdmin)return true;
@@ -94,7 +95,8 @@ export default function PortalSectionPage(){
     {state.error&&<Notice tone="warning">تعذر تحميل البيانات الحالية: {state.error}</Notice>}
     {isInvoiceSection&&<Notice tone="warning"><strong>{INVOICE_POLICY.preliminaryLabel}:</strong> {INVOICE_POLICY.preliminaryNotice.replace(`${INVOICE_POLICY.preliminaryLabel} — `,'')}</Notice>}
     {data?.summary?.length?<Section title="الملخص" description={definition.description}><SummaryStrip items={data.summary}/></Section>:null}
-    <Section title={definition.label} description={isInvoiceSection?'هذه المساحة لمتابعة طلبات إصدار الفاتورة الضريبية وتسجيل الفاتورة الصادرة من نظام الفوترة المعتمد والتحصيل؛ لا تصدر فاتورة ضريبية رسمية من أركان المكان.':'هذه مساحة بيانات فعلية مبنية على المصادر الموجودة في النظام؛ عمليات الإدخال والتحرير ستدخل مسرحها المستقل عند تفعيلها.'}>
+    <Section title={definition.label} description={isInvoiceSection?'هذه المساحة لمتابعة طلبات إصدار الفاتورة الضريبية وتسجيل الفاتورة الصادرة من نظام الفوترة المعتمد والتحصيل؛ لا تصدر فاتورة ضريبية رسمية من أركان المكان.':'هذه مساحة بيانات فعلية مبنية على المصادر الموجودة في النظام؛ وإذا احتاجت معاملة اعتمادًا أو إجراءً يظهر المسؤول والملاحظة والإجراء بجانبها مباشرة.'}>
+      <ApprovalGuidanceList dataKind={definition.dataKind}/>
       {data?.rows?.length?(
         <TableFrame>
           <table>
