@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
+import './raw-tokens.css';
 import './raw-phase.css';
 
 /**
@@ -11,6 +12,9 @@ import './raw-phase.css';
  *
  * One minimal navigation surface only. No decorative dashboard chrome,
  * duplicated shortcuts, portal overlays, or secondary navigation systems.
+ *
+ * raw-tokens.css is imported once here so raw-phase components can share one
+ * visual source without bringing back a second interface layer.
  */
 export default function DashboardLayout({ children }) {
   const router = useRouter();
