@@ -1,8 +1,7 @@
 /*
  * V2 approved UI compatibility layer.
- * This is intentionally global inside .constitution-content so existing pages
- * inherit the approved visual constitution before their markup is migrated.
- * No business logic lives here.
+ * طبقة البيانات والإدخال المشتركة: الصفحات القديمة ترث الشكل المعتمد قبل ترحيل markup.
+ * لا يوجد منطق أعمال هنا.
  */
 .constitution-content{
   min-height:calc(100vh - 104px);
@@ -10,9 +9,9 @@
   background:var(--ui-bg,#f3f0e9);
   color:var(--ui-ink,#11110f);
 }
-
 .constitution-content > *{max-width:1480px;margin-inline:auto}
 
+/* ---------- عنوان الشاشة ---------- */
 .constitution-content .page-head{
   display:flex;
   align-items:flex-end;
@@ -31,13 +30,9 @@
   font-weight:850;
   letter-spacing:-.03em;
 }
-.constitution-content .page-head p{
-  margin:6px 0 0;
-  color:var(--ui-muted,#66645f);
-  font-size:11px;
-  line-height:1.7;
-}
+.constitution-content .page-head p{margin:6px 0 0;color:var(--ui-muted,#66645f);font-size:11px;line-height:1.7}
 
+/* ---------- أسطح المعلومات ---------- */
 .constitution-content .section,
 .constitution-content .card{
   overflow:hidden;
@@ -59,25 +54,44 @@
   background:transparent;
 }
 .constitution-content .section > header h2,
-.constitution-content .card > header h2{
+.constitution-content .card > header h2,
+.constitution-content .section > header h3,
+.constitution-content .card > header h3{
   margin:0;
   color:var(--ui-ink,#11110f);
   font-size:12px;
   font-weight:820;
 }
 
+/* لا تتحول كل معلومة إلى بطاقة: المجموعات الداخلية تفصل بخط ومسافة فقط. */
+.constitution-content fieldset{
+  min-width:0;
+  margin:20px 0 0;
+  padding:18px 0 0;
+  border:0;
+  border-top:1px solid var(--ui-border-soft,#e8e4dc);
+}
+.constitution-content fieldset:first-child{margin-top:0}
+.constitution-content legend{
+  padding:0 0 8px;
+  color:var(--ui-ink,#11110f);
+  font-size:13px;
+  font-weight:850;
+}
+
+/* ---------- الأزرار ---------- */
 .constitution-content .btn{
-  min-height:34px;
+  min-height:38px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:7px;
-  padding:0 12px;
+  padding:0 14px;
   border:1px solid var(--ui-wine,#6f252b);
-  border-radius:8px;
+  border-radius:9px;
   color:#fff;
   background:var(--ui-wine,#6f252b);
-  font:750 10.5px/1 var(--font-body),system-ui,sans-serif;
+  font:780 11px/1 var(--font-body),system-ui,sans-serif;
   box-shadow:none;
   cursor:pointer;
   transition:background 140ms ease,border-color 140ms ease,opacity 140ms ease;
@@ -93,63 +107,83 @@
 .constitution-content .btn.secondary:hover{background:#f1eee7;border-color:#bdb7ab}
 .constitution-content .btn:disabled{opacity:.48;cursor:not-allowed}
 
-.constitution-content .rowsplit{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  flex-wrap:wrap;
-  gap:8px;
-}
+.constitution-content .rowsplit{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
+/* ---------- الإدخال ---------- */
 .constitution-content .form-grid{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:13px 12px;
+  gap:15px 14px;
 }
-.constitution-content .field{min-width:0}
+.constitution-content .field{min-width:0;margin-bottom:0}
 .constitution-content .field.span2{grid-column:span 2}
-.constitution-content .field label{
-  display:block;
-  margin:0 0 6px;
+.constitution-content .field label,
+.constitution-content form label{
   color:var(--ui-muted,#66645f);
-  font-size:9.5px;
-  font-weight:750;
+  font-size:10.5px;
+  font-weight:760;
 }
+.constitution-content .field label{display:block;margin:0 0 6px}
+
 .constitution-content .field input,
 .constitution-content .field select,
-.constitution-content .field textarea{
+.constitution-content .field textarea,
+.constitution-content form input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='button']),
+.constitution-content form select,
+.constitution-content form textarea{
   width:100%;
-  min-height:38px;
-  padding:8px 10px;
+  min-height:42px;
+  padding:9px 11px;
   border:1px solid var(--ui-border,#d8d3c8);
-  border-radius:8px;
+  border-radius:9px;
   outline:0;
   color:var(--ui-ink,#11110f);
-  background:#fff;
-  font:500 11px/1.5 var(--font-body),system-ui,sans-serif;
+  background:var(--ui-input-bg,#fff);
+  font:520 11.5px/1.5 var(--font-body),system-ui,sans-serif;
+  transition:border-color 120ms ease,box-shadow 120ms ease,background 120ms ease;
 }
-.constitution-content .field textarea{min-height:84px;resize:vertical}
+.constitution-content .field textarea,
+.constitution-content form textarea{min-height:96px;resize:vertical}
 .constitution-content .field input:focus,
 .constitution-content .field select:focus,
-.constitution-content .field textarea:focus{
-  border-color:#9b817f;
-  box-shadow:0 0 0 3px rgba(111,37,43,.07);
+.constitution-content .field textarea:focus,
+.constitution-content form input:focus,
+.constitution-content form select:focus,
+.constitution-content form textarea:focus{
+  border-color:#987c7b;
+  box-shadow:var(--constitution-focus-ring,0 0 0 3px rgba(111,37,43,.08));
 }
 .constitution-content .field input[readonly],
 .constitution-content .field textarea[readonly],
 .constitution-content .field input:disabled,
-.constitution-content .field select:disabled{
+.constitution-content .field select:disabled,
+.constitution-content form input[readonly],
+.constitution-content form textarea[readonly],
+.constitution-content form input:disabled,
+.constitution-content form select:disabled{
   color:#77736c;
-  background:#f2efe9;
+  background:#f0ede7;
 }
-.constitution-content .hint{
-  display:block;
-  margin-top:5px;
-  color:var(--ui-muted,#66645f);
-  font-size:9px;
-  line-height:1.55;
+.constitution-content input[type='checkbox'],
+.constitution-content input[type='radio']{accent-color:var(--ui-wine,#6f252b)}
+.constitution-content .hint{display:block;margin-top:5px;color:var(--ui-muted,#66645f);font-size:9.5px;line-height:1.55}
+
+/* في مسرح الإدخال نعطي النموذج مساحة حقيقية بدلاً من صندوق ضيق وسط الشاشة. */
+body[data-entry-theater='true'] .constitution-content form,
+body[data-entry-theater='true'] .constitution-content .section,
+body[data-entry-theater='true'] .constitution-content .card{
+  max-width:none;
+}
+body[data-entry-theater='true'] .constitution-content .section,
+body[data-entry-theater='true'] .constitution-content .card{
+  border-radius:12px;
+}
+body[data-entry-theater='true'] .constitution-content .form-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:18px 16px;
 }
 
+/* ---------- الجداول ---------- */
 .constitution-content .table-wrap{
   width:100%;
   overflow:auto;
@@ -169,69 +203,38 @@
   border-bottom:1px solid var(--ui-border,#d8d3c8);
   color:var(--ui-muted,#66645f);
   background:#f4f1eb;
-  font-size:9px;
-  font-weight:800;
+  font-size:9.5px;
+  font-weight:820;
   text-align:right;
   white-space:nowrap;
 }
-.constitution-content td{
-  padding:10px 11px;
-  border-bottom:1px solid var(--ui-border-soft,#e8e4dc);
-  vertical-align:middle;
-}
+.constitution-content td{padding:10px 11px;border-bottom:1px solid var(--ui-border-soft,#e8e4dc);vertical-align:middle}
 .constitution-content tbody tr:last-child td{border-bottom:0}
 .constitution-content tbody tr:hover{background:rgba(111,37,43,.025)}
 
-.constitution-content .msg{
-  padding:10px 12px;
-  border:1px solid var(--ui-border,#d8d3c8);
-  border-radius:9px;
-  background:var(--ui-paper,#fbfaf7);
-  font-size:10.5px;
-  line-height:1.65;
-}
+/* ---------- الحالات ---------- */
+.constitution-content .msg{padding:10px 12px;border:1px solid var(--ui-border,#d8d3c8);border-radius:9px;background:var(--ui-paper,#fbfaf7);font-size:10.5px;line-height:1.65}
 .constitution-content .msg.ok{color:var(--ui-green,#126548);border-color:rgba(18,101,72,.28);background:rgba(18,101,72,.055)}
 .constitution-content .msg.err{color:var(--ui-red,#a12b29);border-color:rgba(161,43,41,.28);background:rgba(161,43,41,.05)}
 .constitution-content .msg.warn{color:var(--ui-amber,#83570f);border-color:rgba(131,87,15,.3);background:rgba(131,87,15,.055)}
-
 .constitution-content .badge,
 .constitution-content .status,
-.constitution-content .pill{
-  display:inline-flex;
-  align-items:center;
-  min-height:23px;
-  padding:0 8px;
-  border:1px solid var(--ui-border,#d8d3c8);
-  border-radius:999px;
-  color:var(--ui-muted,#66645f);
-  background:#f4f1eb;
-  font-size:9px;
-  font-weight:750;
-}
+.constitution-content .pill{display:inline-flex;align-items:center;min-height:23px;padding:0 8px;border:1px solid var(--ui-border,#d8d3c8);border-radius:999px;color:var(--ui-muted,#66645f);background:#f4f1eb;font-size:9px;font-weight:750}
 .constitution-content .ok{color:var(--ui-green,#126548)}
 .constitution-content .bad{color:var(--ui-red,#a12b29)}
 .constitution-content .warn{color:var(--ui-amber,#83570f)}
+.constitution-content .empty{min-height:170px;display:grid;place-items:center;padding:24px;color:var(--ui-muted,#66645f);border:1px dashed var(--ui-border,#d8d3c8);border-radius:12px;background:rgba(251,250,247,.55);font-size:11px}
 
-.constitution-content .empty{
-  min-height:170px;
-  display:grid;
-  place-items:center;
-  padding:24px;
-  color:var(--ui-muted,#66645f);
-  border:1px dashed var(--ui-border,#d8d3c8);
-  border-radius:12px;
-  background:rgba(251,250,247,.55);
-  font-size:11px;
-}
-
-@media (max-width:980px){
+@media(max-width:980px){
   .constitution-content{padding:18px 18px 30px}
-  .constitution-content .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .constitution-content .form-grid,
+  body[data-entry-theater='true'] .constitution-content .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media (max-width:640px){
+@media(max-width:640px){
   .constitution-content{padding:14px 12px 24px}
   .constitution-content .page-head{align-items:flex-start;flex-direction:column}
-  .constitution-content .form-grid{grid-template-columns:1fr}
+  .constitution-content .form-grid,
+  body[data-entry-theater='true'] .constitution-content .form-grid{grid-template-columns:1fr}
   .constitution-content .field.span2{grid-column:span 1}
   .constitution-content .rowsplit{align-items:stretch}
   .constitution-content .rowsplit > .btn{flex:1}
