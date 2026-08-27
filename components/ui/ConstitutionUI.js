@@ -41,11 +41,26 @@ export function Section({ title, description, actions, children, className = '' 
   );
 }
 
-/*
- * مساحة إدخال صريحة للشاشات الجديدة.
- * الصفحات القديمة تُكتشف مركزيًا أيضًا، لكن أي تطوير جديد يستخدم هذا الغلاف
- * حتى لا يحتاج المصمم أو المطور إلى اختراع سلوك ملء الشاشة من جديد.
- */
+export function SummaryStrip({ items = [], label = 'الملخص' }) {
+  if (!items.length) return null;
+  return (
+    <div className={styles.summaryStrip} aria-label={label}>
+      {items.map((item, index) => (
+        <div className={styles.summaryItem} key={item.key || item.label || index}>
+          <strong>{item.value}</strong>
+          <span>{item.label}</span>
+          {item.note ? <small>{item.note}</small> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function FilterSurface({ children }) {
+  return <div className={styles.filterSurface} data-entry-ignore="true">{children}</div>;
+}
+
+/* مساحة إدخال صريحة للشاشات الجديدة. */
 export function EntrySurface({ title, description, actions, children, className = '' }) {
   return (
     <section className={cx(styles.section, styles.entrySurface, className)} data-entry-surface="true" data-data-surface="true">
