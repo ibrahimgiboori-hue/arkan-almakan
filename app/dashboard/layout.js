@@ -7,7 +7,6 @@ import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
 import './raw-tokens.css';
 import './raw-phase.css';
-import './work-sheet-kernel.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
