@@ -5,6 +5,25 @@ import styles from './constitution-dialog.module.css';
 
 const FOCUSABLE = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
+let openDialogCount = 0;
+let pageOverflowBeforeDialogs = '';
+
+function lockPageScroll() {
+  if (openDialogCount === 0) {
+    pageOverflowBeforeDialogs = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  openDialogCount += 1;
+}
+
+function unlockPageScroll() {
+  openDialogCount = Math.max(0, openDialogCount - 1);
+  if (openDialogCount === 0) {
+    document.body.style.overflow = pageOverflowBeforeDialogs;
+    pageOverflowBeforeDialogs = '';
+  }
+}
+
 export default function ConstitutionDialog({
   open = true,
   title,
@@ -18,21 +37,29 @@ export default function ConstitutionDialog({
   const descriptionId = useId();
   const dialogRef = useRef(null);
   const returnFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return undefined;
     returnFocusRef.current = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockPageScroll();
+
     const timer = window.setTimeout(() => {
       const first = dialogRef.current?.querySelector(FOCUSABLE);
       (first || dialogRef.current)?.focus?.();
     }, 0);
 
+    function isTopmostDialog() {
+      const dialogs = document.querySelectorAll('[data-constitution-dialog]');
+      return dialogs.length > 0 && dialogs[dialogs.length - 1] === dialogRef.current;
+    }
+
     function onKeyDown(event) {
+      if (!isTopmostDialog()) return;
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -56,15 +83,17 @@ export default function ConstitutionDialog({
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockPageScroll();
       returnFocusRef.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
+  const close = () => onCloseRef.current?.();
+
   return (
-    <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
+    <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section
         ref={dialogRef}
         className={`${styles.dialog} ${styles[`size_${size}`] || ''}`}
@@ -78,7 +107,7 @@ export default function ConstitutionDialog({
       >
         <header className={`${styles.header} ${!showBack ? styles.headerWithoutBack : ''}`}>
           {showBack ? (
-            <button type="button" className={styles.back} onClick={onClose} aria-label="رجوع">
+            <button type="button" className={styles.back} onClick={close} aria-label="رجوع">
               <span aria-hidden="true">←</span>
               <span>رجوع</span>
             </button>
