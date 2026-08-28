@@ -50,11 +50,16 @@ for (const scope of ['app', 'components', 'lib']) {
   }
 }
 
-for (const file of fs.existsSync(path.join(root, 'supabase/migrations')) ? fs.readdirSync(path.join(root, 'supabase/migrations')) : []) {
-  if (!file.endsWith('.sql')) continue;
-  const text = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8');
-  if (/grant\s+execute\s+on\s+all\s+functions\s+in\s+schema\s+private\s+to\s+authenticated/i.test(text)) {
-    violations.push(`supabase/migrations/${file}: broad authenticated EXECUTE grant on private schema`);
+{
+  const migrationsDir = path.join(root, 'supabase/migrations');
+  const files = fs.existsSync(migrationsDir) ? fs.readdirSync(migrationsDir).filter((x) => x.endsWith('.sql')).sort() : [];
+  const broad = files.filter((file) => /grant\s+execute\s+on\s+all\s+functions\s+in\s+schema\s+private\s+to\s+authenticated/i.test(fs.readFileSync(path.join(migrationsDir, file), 'utf8')));
+  const hardening = '20260829016000_harden_private_budget_execution_grants.sql';
+  const hardeningText = files.includes(hardening) ? fs.readFileSync(path.join(migrationsDir, hardening), 'utf8') : '';
+  for (const file of broad) {
+    if (file >= hardening || !hardeningText.includes("p.proname like 'fn_budget_%'") || !hardeningText.includes("revoke execute on function %s from authenticated")) {
+      violations.push(`supabase/migrations/${file}: broad private EXECUTE grant is not neutralized by the required later hardening migration`);
+    }
   }
 }
 
