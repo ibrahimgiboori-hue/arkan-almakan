@@ -105,7 +105,7 @@ export default function OperationToolShell({ type }){
   if(!contextReady)return <div className={styles.empty}>جارٍ فتح سياق المشروع…</div>;
 
   return <div className={styles.root} dir="rtl">
-    <section className={styles.contextBar}>
+    <section className={styles.contextBar} data-work-context-bar="true">
       <div className={styles.mode}><span>التشغيل اليومي</span><strong>{title}</strong></div>
       <div className={styles.dateNav}>
         <button type="button" onClick={()=>setDate(d=>moveOperationalDate(d,1))} aria-label="اليوم التالي">←</button>
