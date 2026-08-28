@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useDashboardSession } from '@/lib/dashboard-session-context';
 import RawGrid, { RawGridFooter } from '@/components/ui/RawGrid';
-import { ConstitutionPage, Section, EmptyState, Notice } from '@/components/ui/ConstitutionUI';
+import { ConstitutionPage, Section, Notice } from '@/components/ui/ConstitutionUI';
 
 const n=(v)=>Number(v||0);
 const money=(v)=>`${n(v).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`;
@@ -35,25 +36,16 @@ function newLine(runId,employee){
 }
 
 export default function PayrollOperationalPage(){
-  const [auth,setAuth]=useState({loading:true,allowed:false,canEdit:false,canSubmit:false,error:''});
+  const me=useDashboardSession();
+  const auth=useMemo(()=>{
+    const admin=Boolean(me?.access?.fullAdmin);const keys=me?.capabilityKeys||new Set();
+    const allowed=admin||keys.has('hr.payroll.view')||keys.has('finance.payroll.view');
+    return {allowed,canEdit:admin||keys.has('hr.payroll.create')||keys.has('hr.payroll.edit'),canSubmit:admin||keys.has('hr.payroll.submit'),error:allowed?'':'هذا القسم خارج الصلاحيات الممنوحة لهذا الحساب.'};
+  },[me]);
   const [runs,setRuns]=useState([]),[run,setRun]=useState(null),[lines,setLines]=useState([]),[employees,setEmployees]=useState([]);
   const [guard,setGuard]=useState(null);
   const [month,setMonth]=useState(isoMonth()),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const empMap=useMemo(()=>new Map(employees.map(e=>[e.id,e])),[employees]);
-
-  useEffect(()=>{let alive=true;(async()=>{
-    const session=(await supabase.auth.getSession()).data.session;
-    if(!session){if(alive)setAuth({loading:false,allowed:false,canEdit:false,canSubmit:false,error:'يلزم تسجيل الدخول.'});return;}
-    const [capsQ,primaryQ,userQ]=await Promise.all([
-      supabase.from('v_my_capabilities').select('capability_key'),supabase.rpc('fn_is_primary_user'),supabase.from('app_users').select('is_system_admin').eq('id',session.user.id).maybeSingle(),
-    ]);
-    const keys=new Set((capsQ.data||[]).map(r=>r.capability_key));
-    const admin=primaryQ.data===true||Boolean(userQ.data?.is_system_admin);
-    const allowed=admin||keys.has('hr.payroll.view')||keys.has('finance.payroll.view');
-    const canEdit=admin||keys.has('hr.payroll.create')||keys.has('hr.payroll.edit');
-    const canSubmit=admin||keys.has('hr.payroll.submit');
-    if(alive)setAuth({loading:false,allowed,canEdit,canSubmit,error:allowed?'':'هذا القسم خارج الصلاحيات الممنوحة لهذا الحساب.'});
-  })();return()=>{alive=false;};},[]);
 
   async function readRun(runId){
     const [linesQ,guardQ]=await Promise.all([
@@ -150,7 +142,6 @@ export default function PayrollOperationalPage(){
   const locked=!auth.canEdit||run?.status!=='draft';
   const routeLabel=guard?.execution_status?EXECUTION_STATUS[guard.execution_status]||guard.execution_status:(run?.status==='draft'?'لم تُرسل بعد':STATUS[run?.status]||run?.status||'—');
 
-  if(auth.loading)return <ConstitutionPage><EmptyState title="جارٍ تجهيز الرواتب" description="نتحقق من الصلاحيات ونقرأ البيانات."/></ConstitutionPage>;
   if(!auth.allowed)return <ConstitutionPage><Notice tone="warning">{auth.error}</Notice></ConstitutionPage>;
 
   return <ConstitutionPage>
