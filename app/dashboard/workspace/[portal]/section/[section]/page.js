@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { portalSectionDefinition } from '@/lib/portal-section-constitution';
 import { loadPortalSectionData } from '@/lib/portal-section-data';
 import { INVOICE_POLICY } from '@/lib/invoice-policy';
@@ -17,7 +18,7 @@ const WORKFORCE_OPERATIONAL_KINDS=new Set(['hr-payroll','hr-compliance','hr-end-
 function hasSectionAccess(definition, capabilityKeys, fullAdmin){
   if(fullAdmin)return true;
   if(!definition?.capabilities?.length)return true;
-  return definition.capabilities.some(key=>capabilityKeys.has(key));
+  return definition.capabilities.some(key=>capabilityKeys?.has(key));
 }
 
 function date(value){return value?new Date(value).toLocaleDateString('ar-SA'):'—';}
@@ -53,48 +54,32 @@ async function loadSection(definition){
 
 export default function PortalSectionPage(){
   const params=useParams();
+  const me=useDashboardSession();
   const portal=String(params?.portal||'');
   const sectionKey=String(params?.section||'');
   const definition=useMemo(()=>portalSectionDefinition(portal,sectionKey),[portal,sectionKey]);
-  const [state,setState]=useState({loading:true,allowed:false,data:null,error:''});
+  const allowed=useMemo(()=>hasSectionAccess(definition,me?.capabilityKeys,Boolean(me?.access?.fullAdmin)),[definition,me]);
+  const [state,setState]=useState({loading:true,data:null,error:''});
 
   useEffect(()=>{
     let alive=true;
+    if(!definition){setState({loading:false,data:null,error:'هذا القسم غير معرف في دستور البوابات.'});return()=>{alive=false;};}
+    if(!allowed){setState({loading:false,data:null,error:'هذا القسم خارج الصلاحيات الممنوحة لهذا الحساب.'});return()=>{alive=false;};}
+    setState({loading:true,data:null,error:''});
     (async()=>{
-      if(!definition){
-        if(alive)setState({loading:false,allowed:false,data:null,error:'هذا القسم غير معرف في دستور البوابات.'});
-        return;
-      }
-      const session=(await supabase.auth.getSession()).data.session;
-      if(!session){
-        if(alive)setState({loading:false,allowed:false,data:null,error:'يلزم تسجيل الدخول.'});
-        return;
-      }
-      const [userQ,capsQ,primaryQ]=await Promise.all([
-        supabase.from('app_users').select('is_system_admin').eq('id',session.user.id).maybeSingle(),
-        supabase.from('v_my_capabilities').select('capability_key'),
-        supabase.rpc('fn_is_primary_user'),
-      ]);
-      const fullAdmin=primaryQ.data===true||Boolean(userQ.data?.is_system_admin);
-      const keys=new Set((capsQ.data||[]).map(row=>row.capability_key));
-      const allowed=hasSectionAccess(definition,keys,fullAdmin);
-      if(!allowed){
-        if(alive)setState({loading:false,allowed:false,data:null,error:'هذا القسم خارج الصلاحيات الممنوحة لهذا الحساب.'});
-        return;
-      }
       try{
         const data=await loadSection(definition);
-        if(alive)setState({loading:false,allowed:true,data,error:''});
+        if(alive)setState({loading:false,data,error:''});
       }catch(error){
-        if(alive)setState({loading:false,allowed:true,data:null,error:error?.message||'تعذر قراءة بيانات القسم.'});
+        if(alive)setState({loading:false,data:null,error:error?.message||'تعذر قراءة بيانات القسم.'});
       }
     })();
     return()=>{alive=false;};
-  },[definition]);
+  },[definition,allowed]);
 
   if(!definition)return <ConstitutionPage><EmptyState title="قسم غير معروف" description="المسار المطلوب غير موجود في دستور منصة الأعمال."/></ConstitutionPage>;
-  if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`} description="نقرأ البيانات من مصادرها الأصلية وفق صلاحيات الحساب."/></ConstitutionPage>;
-  if(!state.allowed)return <ConstitutionPage><Notice tone="warning">{state.error}</Notice></ConstitutionPage>;
+  if(!allowed)return <ConstitutionPage><Notice tone="warning">هذا القسم خارج الصلاحيات الممنوحة لهذا الحساب.</Notice></ConstitutionPage>;
+  if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`} description="نقرأ بيانات الأداة مباشرة؛ الصلاحيات محملة مسبقًا من لوحة التحكم."/></ConstitutionPage>;
 
   if(definition.dataKind==='hr-payroll')return <PayrollOperationalPage/>;
 
@@ -126,7 +111,7 @@ export default function PortalSectionPage(){
             <tbody>{data.rows.map((row,rowIndex)=><tr key={rowIndex}>{row.map((cell,cellIndex)=><td key={cellIndex}>{cell??'—'}</td>)}</tr>)}</tbody>
           </table>
         </TableFrame>
-      ):<EmptyState title="لا توجد بيانات مسجلة" description="القسم جاهز ويقرأ من قاعدة البيانات، لكن لا توجد سجلات مطابقة حاليًا."/>}
+      ):<EmptyState title="لا توجد بيانات مسجلة" description="القسم يعمل ويقرأ من قاعدة البيانات، ولا توجد سجلات مطابقة حاليًا."/>}
     </Section>
     {data?.note?<Notice tone="neutral">{data.note}</Notice>:null}
   </ConstitutionPage>;
