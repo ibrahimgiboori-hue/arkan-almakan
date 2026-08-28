@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import { operationalDate } from '@/lib/system-constitution';
+import { useDashboardSession } from '@/lib/dashboard-session-context';
 import {
   OPERATING_BUDGET,
   budgetInputFields,
@@ -37,22 +38,33 @@ const EMPTY_SUMMARY = {
   min_expected_free_balance: null,
 };
 
-const EMPTY_ITEM = {
-  parent_item_id: '',
-  group_key: 'other',
-  name: '',
-  unit_label: 'شهر',
-  calculation_type: 'fixed_amount',
-  cost_behavior: 'fixed_contractual',
-  amount: '',
-  valid_from: monthStart(operationalDate()),
-  recurrence_unit: 'month',
-  recurrence_interval_count: 1,
-  anchor_date: '',
-  accrual_start_rule: 'from_period_start',
-  accrual_lead_months: '',
-  notes: '',
-};
+const EDITABLE_CALC_TYPES = [
+  'fixed_amount',
+  'variable_monthly',
+  'manual_actual',
+  'quantity_x_unit_price',
+  'percentage_of_base',
+];
+
+function emptyItem(validFrom = monthStart(operationalDate())) {
+  return {
+    parent_item_id: '',
+    group_key: 'other',
+    name: '',
+    unit_label: 'شهر',
+    calculation_type: 'fixed_amount',
+    cost_behavior: 'fixed_contractual',
+    rate_inputs: {},
+    valid_from: validFrom,
+    recurrence_unit: 'month',
+    recurrence_interval_count: 1,
+    anchor_date: '',
+    accrual_start_rule: 'from_period_start',
+    accrual_lead_months: '',
+    is_active: true,
+    notes: '',
+  };
+}
 
 function num(value) {
   const n = Number(value);
@@ -63,9 +75,31 @@ function amountLabel(value) {
   return `${money(value)} ريال`;
 }
 
+function hasCapability(me, capability) {
+  return Boolean(me?.access?.fullAdmin || me?.capabilityKeys?.has?.(capability));
+}
+
+function sameJson(a, b) {
+  return JSON.stringify(a || {}) === JSON.stringify(b || {});
+}
+
+function rateDisplay(item, rate) {
+  if (item.calculation_type === 'external_forecast_actual') return 'من النظام';
+  if (!rate?.params) return '—';
+  const p = rate.params;
+  if (['fixed_amount', 'variable_monthly', 'manual_actual'].includes(item.calculation_type)) return amountLabel(p.amount || 0);
+  if (item.calculation_type === 'quantity_x_unit_price') return `${num(p.quantity)} × ${money(p.unit_price)} = ${money(num(p.quantity) * num(p.unit_price))} ريال`;
+  if (item.calculation_type === 'percentage_of_base') return `${money(p.base_amount)} × ${num(p.percentage)}%`;
+  return '—';
+}
+
 export default function OperatingBudgetPage() {
+  const me = useDashboardSession();
+  const canView = hasCapability(me, OPERATING_BUDGET.capability.view);
+  const canEdit = hasCapability(me, OPERATING_BUDGET.capability.edit);
+  const canReopen = hasCapability(me, OPERATING_BUDGET.capability.reopen);
+
   const [month, setMonth] = useState(monthKey(operationalDate()));
-  const [periods, setPeriods] = useState([]);
   const [period, setPeriod] = useState(null);
   const [statement, setStatement] = useState([]);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
@@ -82,7 +116,7 @@ export default function OperatingBudgetPage() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [showNewItem, setShowNewItem] = useState(false);
-  const [itemForm, setItemForm] = useState({ ...EMPTY_ITEM });
+  const [itemForm, setItemForm] = useState(() => emptyItem());
   const [openingBalance, setOpeningBalance] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -92,6 +126,9 @@ export default function OperatingBudgetPage() {
   const groups = useMemo(() => catalog.filter((x) => x.node_type === 'group'), [catalog]);
   const items = useMemo(() => catalog.filter((x) => x.node_type === 'item'), [catalog]);
   const selectedMonthStart = monthStart(month);
+  const catalogRateFields = budgetInputFields(itemForm.calculation_type);
+  const periodEditable = period?.status !== 'closed';
+  const canMutatePeriod = canEdit && periodEditable;
 
   async function loadBase() {
     const [p, c, s, r, a] = await Promise.all([
@@ -103,7 +140,6 @@ export default function OperatingBudgetPage() {
     ]);
     const firstError = p.error || c.error || s.error || r.error;
     if (firstError) throw firstError;
-    setPeriods(p.data || []);
     setCatalog(c.data || []);
     setSchedules(s.data || []);
     setRates(r.data || []);
@@ -140,8 +176,8 @@ export default function OperatingBudgetPage() {
   async function loadAll() {
     setLoading(true); setErr('');
     try {
-      const p = await loadBase();
-      const row = p.find((x) => monthKey(x.period_start) === month) || null;
+      const periods = await loadBase();
+      const row = periods.find((x) => monthKey(x.period_start) === month) || null;
       await Promise.all([loadPeriod(row), loadForecast()]);
     } catch (e) {
       setErr(e?.message || 'تعذر تحميل ميزانية التشغيل.');
@@ -150,7 +186,13 @@ export default function OperatingBudgetPage() {
     }
   }
 
-  useEffect(() => { loadAll(); }, [month, forecastMonths]);
+  useEffect(() => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
+    loadAll();
+  }, [month, forecastMonths, canView]);
 
   async function run(action, successMessage) {
     setBusy(true); setErr(''); setMsg('');
@@ -169,20 +211,19 @@ export default function OperatingBudgetPage() {
   }
 
   async function openMonth() {
+    if (!canEdit) return;
     await run(() => supabase.rpc('budget_open_period', { p_period_start: selectedMonthStart }), `تم فتح ${monthLabelAr(month)} وتوليد كشفه التشغيلي.`);
   }
 
   async function saveOpeningBalance(e) {
     e.preventDefault();
-    if (!period) return;
+    if (!period || !canMutatePeriod) return;
     await run(() => supabase.rpc('budget_set_opening_balance', { p_period_id: period.id, p_amount: num(openingBalance) }), 'تم تحديث رصيد بداية الشهر.');
   }
 
   function editLine(line) {
     setSelectedLine(line);
-    const base = line.variable_inputs || {};
-    const override = line.line_override_params || {};
-    setLineInputs({ ...base, ...override });
+    setLineInputs({ ...(line.variable_inputs || {}), ...(line.line_override_params || {}) });
     setConfirmedAmount(line.confirmed_amount ?? '');
     setPaymentAmount(line.unpaid_amount || '');
     setPaymentAccount(accounts[0]?.id || '');
@@ -191,7 +232,7 @@ export default function OperatingBudgetPage() {
   }
 
   async function saveLineEstimate(scope) {
-    if (!selectedLine) return;
+    if (!selectedLine || !canMutatePeriod) return;
     const fields = budgetInputFields(selectedLine.calculation_type);
     const payload = Object.fromEntries(fields.map((f) => [f.key, num(lineInputs[f.key])]));
     await run(() => supabase.rpc('budget_save_line_inputs', {
@@ -204,7 +245,7 @@ export default function OperatingBudgetPage() {
   }
 
   async function confirmActual() {
-    if (!selectedLine) return;
+    if (!selectedLine || !canMutatePeriod) return;
     await run(() => supabase.rpc('budget_confirm_line', {
       p_line_id: selectedLine.line_id,
       p_confirmed: num(confirmedAmount),
@@ -215,7 +256,7 @@ export default function OperatingBudgetPage() {
   }
 
   async function reserveGap(line) {
-    if (!period || num(line.reserve_gap) <= 0) return;
+    if (!period || !canMutatePeriod || num(line.reserve_gap) <= 0) return;
     await run(() => supabase.rpc('budget_reserve_adjust', {
       p_obligation_id: line.obligation_id,
       p_period_id: period.id,
@@ -227,7 +268,7 @@ export default function OperatingBudgetPage() {
 
   async function paySelected(e) {
     e.preventDefault();
-    if (!selectedLine || !paymentAccount) return;
+    if (!selectedLine || !paymentAccount || !canMutatePeriod) return;
     await run(() => supabase.rpc('budget_pay_from_treasury', {
       p_line_id: selectedLine.line_id,
       p_account_id: paymentAccount,
@@ -238,33 +279,35 @@ export default function OperatingBudgetPage() {
   }
 
   async function closePeriod() {
-    if (!period || !window.confirm(`إقفال ${monthLabelAr(month)}؟ بعد الإقفال يلزم تصريح إعادة فتح.`)) return;
+    if (!period || !canEdit || !window.confirm(`إقفال ${monthLabelAr(month)}؟ بعد الإقفال يلزم تصريح إعادة فتح.`)) return;
     await run(() => supabase.rpc('budget_close_period', { p_period_id: period.id }), 'تم إقفال الشهر.');
   }
 
   async function reopenPeriod() {
-    if (!period) return;
+    if (!period || !canReopen) return;
     const reason = window.prompt('سبب إعادة فتح الشهر:');
     if (!reason) return;
     await run(() => supabase.rpc('budget_reopen_period', { p_period_id: period.id, p_reason: reason }), 'تمت إعادة فتح الشهر مع تسجيل السبب.');
   }
 
-  function currentSchedule(itemId) {
-    return schedules.find((x) => x.item_id === itemId && (!x.valid_to || x.valid_to >= selectedMonthStart)) || schedules.find((x) => x.item_id === itemId) || null;
+  function effectiveSchedule(itemId) {
+    return schedules.find((x) => x.item_id === itemId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || null;
   }
 
-  function currentRate(itemId) {
-    return rates.find((x) => x.item_id === itemId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || rates.find((x) => x.item_id === itemId) || null;
+  function effectiveRate(itemId) {
+    return rates.find((x) => x.item_id === itemId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || null;
   }
 
   function startNewItem() {
-    setItemForm({ ...EMPTY_ITEM, valid_from: selectedMonthStart });
+    if (!canEdit) return;
+    setItemForm(emptyItem(selectedMonthStart));
     setShowNewItem(true); setErr(''); setMsg('');
   }
 
   function configureItem(item) {
-    const schedule = currentSchedule(item.id);
-    const rate = currentRate(item.id);
+    if (!canEdit) return;
+    const schedule = effectiveSchedule(item.id);
+    const rate = effectiveRate(item.id);
     setItemForm({
       item_id: item.id,
       parent_item_id: item.parent_item_id || '',
@@ -273,13 +316,14 @@ export default function OperatingBudgetPage() {
       unit_label: item.unit_label || 'شهر',
       calculation_type: item.calculation_type,
       cost_behavior: item.cost_behavior || 'fixed_contractual',
-      amount: rate?.params?.amount ?? '',
+      rate_inputs: { ...(rate?.params || {}) },
       valid_from: selectedMonthStart,
       recurrence_unit: schedule?.recurrence_unit || 'month',
       recurrence_interval_count: schedule?.recurrence_interval_count || 1,
       anchor_date: schedule?.anchor_date || '',
       accrual_start_rule: schedule?.accrual_start_rule || 'from_period_start',
       accrual_lead_months: schedule?.accrual_lead_months || '',
+      is_active: item.is_active,
       notes: item.notes || '',
     });
     setShowNewItem(true); setErr(''); setMsg('');
@@ -287,10 +331,25 @@ export default function OperatingBudgetPage() {
 
   async function saveCatalogItem(e) {
     e.preventDefault();
+    if (!canEdit) return;
     setBusy(true); setErr(''); setMsg('');
     try {
       const parent = groups.find((g) => g.id === itemForm.parent_item_id);
-      const { data: itemId, error: itemError } = await supabase.rpc('budget_upsert_item', {
+      const fields = budgetInputFields(itemForm.calculation_type);
+      const filled = fields.filter((f) => String(itemForm.rate_inputs?.[f.key] ?? '').trim() !== '');
+      if (filled.length > 0 && filled.length < fields.length) throw new Error('أكمل جميع حقول التعرفة أو اتركها كلها فارغة.');
+      const rateParams = filled.length === fields.length && fields.length > 0
+        ? Object.fromEntries(fields.map((f) => [f.key, num(itemForm.rate_inputs[f.key])]))
+        : null;
+      const schedulePayload = itemForm.anchor_date ? {
+        recurrence_unit: itemForm.recurrence_unit,
+        recurrence_interval_count: Number(itemForm.recurrence_interval_count || 1),
+        anchor_date: itemForm.anchor_date,
+        accrual_start_rule: itemForm.accrual_start_rule,
+        accrual_lead_months: itemForm.accrual_start_rule === 'fixed_months_before_due' ? Number(itemForm.accrual_lead_months || 1) : null,
+      } : null;
+
+      const { error } = await supabase.rpc('budget_save_catalog_item', {
         p_item_id: itemForm.item_id || null,
         p_parent_item_id: itemForm.parent_item_id || null,
         p_branch_scope_id: null,
@@ -300,39 +359,18 @@ export default function OperatingBudgetPage() {
         p_calculation_type: itemForm.calculation_type,
         p_external_source: itemForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
         p_cost_behavior: itemForm.cost_behavior,
-        p_is_active: true,
+        p_is_active: itemForm.is_active,
         p_notes: itemForm.notes || null,
         p_sort_order: 50,
+        p_rate_valid_from: itemForm.valid_from,
+        p_rate_params: rateParams,
+        p_rate_source: rateParams ? 'manual_entry' : null,
+        p_schedule_valid_from: itemForm.valid_from,
+        p_schedule: schedulePayload,
       });
-      if (itemError) throw itemError;
+      if (error) throw error;
 
-      if (itemForm.calculation_type !== 'external_forecast_actual' && itemForm.amount !== '') {
-        const { error } = await supabase.rpc('budget_set_item_rate', {
-          p_item_id: itemId,
-          p_valid_from: itemForm.valid_from,
-          p_params: { amount: num(itemForm.amount) },
-          p_source: 'manual_entry',
-          p_source_note: 'إعداد من كتالوج ميزانية وتشغيل الشركة',
-          p_verified_at: null,
-          p_bands: [],
-        });
-        if (error) throw error;
-      }
-
-      if (itemForm.anchor_date) {
-        const { error } = await supabase.rpc('budget_set_schedule', {
-          p_item_id: itemId,
-          p_valid_from: itemForm.valid_from,
-          p_recurrence_unit: itemForm.recurrence_unit,
-          p_recurrence_interval_count: Number(itemForm.recurrence_interval_count || 1),
-          p_anchor_date: itemForm.anchor_date,
-          p_accrual_start_rule: itemForm.accrual_start_rule,
-          p_accrual_lead_months: itemForm.accrual_start_rule === 'fixed_months_before_due' ? Number(itemForm.accrual_lead_months || 1) : null,
-        });
-        if (error) throw error;
-      }
-
-      setMsg('تم حفظ البند وجدولته ضمن المحرك المركزي.');
+      setMsg('تم حفظ البند وتعريفه ضمن المحرك المركزي كعملية واحدة.');
       setShowNewItem(false);
       await loadAll();
     } catch (e2) {
@@ -343,14 +381,17 @@ export default function OperatingBudgetPage() {
   }
 
   if (loading) return <ConstitutionPage><EmptyState title="جارٍ تحميل ميزانية التشغيل" description="يتم تحميل الالتزامات والمخصصات والتوقعات." /></ConstitutionPage>;
+  if (!canView) return <ConstitutionPage><Notice tone="error">لا تملك صلاحية عرض ميزانية وتشغيل الشركة.</Notice></ConstitutionPage>;
 
-  const editable = period?.status !== 'closed';
   const grouped = statement.reduce((acc, row) => {
     const key = row.parent_name || OPERATING_BUDGET.groupLabels[row.group_key] || row.group_key;
     if (!acc[key]) acc[key] = [];
     acc[key].push(row);
     return acc;
   }, {});
+  const calcOptions = itemForm.calculation_type === 'external_forecast_actual'
+    ? [...EDITABLE_CALC_TYPES, 'external_forecast_actual']
+    : EDITABLE_CALC_TYPES;
 
   return <ConstitutionPage>
     <PageHeader
@@ -367,10 +408,14 @@ export default function OperatingBudgetPage() {
     {msg && <Notice tone="success">{msg}</Notice>}
 
     {!period ? <EntrySurface title={`فتح ${monthLabelAr(month)}`} description="لم يُفتح هذا الشهر بعد. فتحه يولد البنود الجارية من الكتالوج دون نسخ مصروفات فعلية.">
-      <div style={{ padding: 22 }}><Toolbar><button className="btn" onClick={openMonth} disabled={busy}>فتح الشهر وتوليد الكشف</button></Toolbar></div>
+      <div style={{ padding: 22 }}>
+        {canEdit ? <Toolbar><button className="btn" onClick={openMonth} disabled={busy}>فتح الشهر وتوليد الكشف</button></Toolbar> : <Notice>لديك صلاحية عرض فقط؛ فتح شهر جديد يحتاج صلاحية إدارة ميزانية التشغيل.</Notice>}
+      </div>
     </EntrySurface> : <>
       <Section title={`ملخص ${monthLabelAr(month)}`} actions={<>
-        {period.status === 'closed' ? <button className="btn ghost" onClick={reopenPeriod} disabled={busy}>إعادة فتح</button> : <button className="btn ghost" onClick={closePeriod} disabled={busy}>إقفال الشهر</button>}
+        {period.status === 'closed'
+          ? canReopen && <button className="btn ghost" onClick={reopenPeriod} disabled={busy}>إعادة فتح</button>
+          : canEdit && <button className="btn ghost" onClick={closePeriod} disabled={busy}>إقفال الشهر</button>}
       </>}>
         <SummaryStrip items={[
           { key: 'due', value: money(summary.confirmed_due || summary.expected_due), label: 'المطلوب هذا الشهر', note: 'ريال' },
@@ -387,27 +432,27 @@ export default function OperatingBudgetPage() {
       <EntrySurface title="رصيد بداية الشهر" description="استخدم رصيد الحسابات البنكية المتاح عند بداية التخطيط لهذا الشهر.">
         <form onSubmit={saveOpeningBalance} style={{ padding: 22 }}>
           <div className="form-grid">
-            <div className="field"><label>الرصيد (ريال)</label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!editable} onChange={(e) => setOpeningBalance(e.target.value)} /></div>
+            <div className="field"><label>الرصيد (ريال)</label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!canMutatePeriod} onChange={(e) => setOpeningBalance(e.target.value)} /></div>
             <div className="field"><label>أدنى رصيد حر متوقع</label><strong>{summary.min_expected_free_balance == null ? '—' : amountLabel(summary.min_expected_free_balance)}</strong></div>
           </div>
-          {editable && <Toolbar><button className="btn" type="submit" disabled={busy}>حفظ الرصيد</button></Toolbar>}
+          {canMutatePeriod && <Toolbar><button className="btn" type="submit" disabled={busy}>حفظ الرصيد</button></Toolbar>}
         </form>
       </EntrySurface>
 
       {selectedLine && <EntrySurface title={selectedLine.item_name} description={`${selectedLine.cash_effect_type === 'due_now' ? 'مستحق هذا الشهر' : 'التزام مستقبلي'} · الاستحقاق ${dateAr(selectedLine.due_date)}`}>
         <div style={{ padding: 22 }}>
           <div className="form-grid">
-            {budgetInputFields(selectedLine.calculation_type).map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step="0.01" dir="ltr" disabled={!editable} value={lineInputs[field.key] ?? ''} onChange={(e) => setLineInputs({ ...lineInputs, [field.key]: e.target.value })} /></div>)}
+            {budgetInputFields(selectedLine.calculation_type).map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step="0.01" dir="ltr" disabled={!canMutatePeriod} value={lineInputs[field.key] ?? ''} onChange={(e) => setLineInputs({ ...lineInputs, [field.key]: e.target.value })} /></div>)}
             <div className="field"><label>التقدير الحالي</label><strong>{amountLabel(selectedLine.expected_amount)}</strong></div>
             <div className="field"><label>المدفوع</label><strong>{amountLabel(selectedLine.paid_amount)}</strong></div>
             <div className="field"><label>المخصص المحمي</label><strong>{amountLabel(selectedLine.reserved_outstanding)}</strong></div>
           </div>
-          {editable && budgetInputFields(selectedLine.calculation_type).length > 0 && <Toolbar>
+          {canMutatePeriod && budgetInputFields(selectedLine.calculation_type).length > 0 && <Toolbar>
             <button className="btn" type="button" onClick={() => saveLineEstimate('ongoing')} disabled={busy}>اعتماد التقدير الجاري</button>
             <button className="btn ghost" type="button" onClick={() => saveLineEstimate('this_month')} disabled={busy}>هذا الشهر فقط</button>
           </Toolbar>}
 
-          {editable && selectedLine.cash_effect_type === 'due_now' && <>
+          {canMutatePeriod && selectedLine.cash_effect_type === 'due_now' && <>
             <hr />
             <div className="form-grid">
               <div className="field"><label>القيمة الفعلية المؤكدة</label><input type="number" step="0.01" dir="ltr" value={confirmedAmount} onChange={(e) => setConfirmedAmount(e.target.value)} /></div>
@@ -441,7 +486,7 @@ export default function OperatingBudgetPage() {
               <td>{money(row.reserved_outstanding)}</td>
               <td><Toolbar>
                 <button className="btn ghost" type="button" onClick={() => editLine(row)}>فتح</button>
-                {editable && row.cash_effect_type === 'reserve_only' && num(row.reserve_gap) > 0 && <button className="btn" type="button" disabled={busy} onClick={() => reserveGap(row)}>حجز المطلوب</button>}
+                {canMutatePeriod && row.cash_effect_type === 'reserve_only' && num(row.reserve_gap) > 0 && <button className="btn" type="button" disabled={busy} onClick={() => reserveGap(row)}>حجز المطلوب</button>}
               </Toolbar></td>
             </tr>)}
           </tbody></table></TableFrame>
@@ -461,25 +506,27 @@ export default function OperatingBudgetPage() {
           <div className="field"><label>المجموعة *</label><select required value={itemForm.parent_item_id} onChange={(e) => setItemForm({ ...itemForm, parent_item_id: e.target.value })}><option value="">اختر المجموعة</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
           <div className="field"><label>اسم البند *</label><input required value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></div>
           <div className="field"><label>سلوك التكلفة *</label><select value={itemForm.cost_behavior} onChange={(e) => setItemForm({ ...itemForm, cost_behavior: e.target.value })}>{Object.entries(OPERATING_BUDGET.costBehaviorLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="field"><label>طريقة الحساب *</label><select value={itemForm.calculation_type} onChange={(e) => setItemForm({ ...itemForm, calculation_type: e.target.value })}>{['fixed_amount','variable_monthly','manual_actual','quantity_x_unit_price','percentage_of_base'].map((k) => <option key={k} value={k}>{OPERATING_BUDGET.calculationLabels[k]}</option>)}</select></div>
-          <div className="field"><label>القيمة/التقدير</label><input type="number" step="0.01" dir="ltr" value={itemForm.amount} onChange={(e) => setItemForm({ ...itemForm, amount: e.target.value })} /></div>
+          <div className="field"><label>طريقة الحساب *</label><select disabled={itemForm.calculation_type === 'external_forecast_actual'} value={itemForm.calculation_type} onChange={(e) => setItemForm({ ...itemForm, calculation_type: e.target.value, rate_inputs: {} })}>{calcOptions.map((k) => <option key={k} value={k}>{OPERATING_BUDGET.calculationLabels[k]}</option>)}</select>{itemForm.calculation_type === 'external_forecast_actual' && <span className="hint">هذا البند مرتبط بمصدر نظامي ولا تتغير طريقة حسابه من الكتالوج.</span>}</div>
+          <div className="field"><label>وحدة العرض</label><input value={itemForm.unit_label} onChange={(e) => setItemForm({ ...itemForm, unit_label: e.target.value })} /></div>
           <div className="field"><label>تاريخ سريان الإعداد</label><input type="date" dir="ltr" value={itemForm.valid_from} onChange={(e) => setItemForm({ ...itemForm, valid_from: e.target.value })} /></div>
+          {catalogRateFields.map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step="0.01" dir="ltr" value={itemForm.rate_inputs?.[field.key] ?? ''} onChange={(e) => setItemForm({ ...itemForm, rate_inputs: { ...(itemForm.rate_inputs || {}), [field.key]: e.target.value } })} /><span className="hint">اترك جميع حقول التعرفة فارغة إذا كانت القيمة غير معروفة بعد.</span></div>)}
           <div className="field"><label>الدورية</label><select value={itemForm.recurrence_unit} onChange={(e) => setItemForm({ ...itemForm, recurrence_unit: e.target.value })}>{Object.entries(OPERATING_BUDGET.recurrenceLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="field"><label>تاريخ الاستحقاق المرجعي</label><input type="date" dir="ltr" value={itemForm.anchor_date} onChange={(e) => setItemForm({ ...itemForm, anchor_date: e.target.value })} /><span className="hint">اتركه فارغًا إذا لم تعرف موعد التجديد بعد.</span></div>
+          <div className="field"><label>تاريخ الاستحقاق المرجعي</label><input type="date" dir="ltr" value={itemForm.anchor_date} onChange={(e) => setItemForm({ ...itemForm, anchor_date: e.target.value })} /><span className="hint">اتركه فارغًا إذا لم تعرف موعد الدفع أو التجديد بعد؛ لن نخترع تاريخًا.</span></div>
           <div className="field"><label>بدء تكوين المخصص</label><select value={itemForm.accrual_start_rule} onChange={(e) => setItemForm({ ...itemForm, accrual_start_rule: e.target.value })}><option value="from_period_start">من بداية فترة الاستحقاق</option><option value="immediately_after_previous_due">بعد الاستحقاق السابق مباشرة</option><option value="fixed_months_before_due">قبل الاستحقاق بعدد أشهر</option></select></div>
           {itemForm.accrual_start_rule === 'fixed_months_before_due' && <div className="field"><label>عدد أشهر التجهيز</label><input type="number" min="1" dir="ltr" value={itemForm.accrual_lead_months} onChange={(e) => setItemForm({ ...itemForm, accrual_lead_months: e.target.value })} /></div>}
+          <div className="field"><label>الحالة</label><label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={itemForm.is_active} onChange={(e) => setItemForm({ ...itemForm, is_active: e.target.checked })} /> نشط في التخطيط</label></div>
           <div className="field span2"><label>ملاحظات</label><textarea rows="3" value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} /></div>
         </div>
         <Toolbar><button className="btn" type="submit" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ الإعداد'}</button><button className="btn ghost" type="button" onClick={() => setShowNewItem(false)}>إلغاء</button></Toolbar>
       </form>
     </EntrySurface>}
 
-    <Section title="كتالوج التشغيل" description="هذه تعريفات التخطيط، وليست مصروفات مدفوعة. الفعلي يأتي من الخزينة أو الفاتورة المؤكدة." actions={<button className="btn" onClick={startNewItem}>+ التزام أو مصروف</button>}>
-      <TableFrame><table><thead><tr><th>المجموعة</th><th>البند</th><th>السلوك</th><th>الدورية</th><th>التقدير الحالي</th><th>الحالة</th><th></th></tr></thead><tbody>
+    <Section title="كتالوج التشغيل" description="هذه تعريفات التخطيط، وليست مصروفات مدفوعة. الفعلي يأتي من الخزينة أو الفاتورة المؤكدة." actions={canEdit ? <button className="btn" onClick={startNewItem}>+ التزام أو مصروف</button> : null}>
+      <TableFrame><table><thead><tr><th>المجموعة</th><th>البند</th><th>السلوك</th><th>الدورية</th><th>التعرفة السارية</th><th>الحالة</th><th></th></tr></thead><tbody>
         {items.map((item) => {
-          const schedule = currentSchedule(item.id);
-          const rate = currentRate(item.id);
-          return <tr key={item.id}><td>{OPERATING_BUDGET.groupLabels[item.group_key] || item.group_key}</td><td><strong>{item.name}</strong></td><td>{OPERATING_BUDGET.costBehaviorLabels[item.cost_behavior] || '—'}</td><td>{schedule ? OPERATING_BUDGET.recurrenceLabels[schedule.recurrence_unit] : 'غير مجدول'}</td><td>{item.calculation_type === 'external_forecast_actual' ? 'من النظام' : rate?.params?.amount == null ? '—' : amountLabel(rate.params.amount)}</td><td>{item.is_active ? 'نشط' : 'متوقف'}</td><td><button className="btn ghost" onClick={() => configureItem(item)}>إعداد</button></td></tr>;
+          const schedule = effectiveSchedule(item.id);
+          const rate = effectiveRate(item.id);
+          return <tr key={item.id}><td>{OPERATING_BUDGET.groupLabels[item.group_key] || item.group_key}</td><td><strong>{item.name}</strong></td><td>{OPERATING_BUDGET.costBehaviorLabels[item.cost_behavior] || '—'}</td><td>{schedule ? OPERATING_BUDGET.recurrenceLabels[schedule.recurrence_unit] : 'غير مجدول'}</td><td>{rateDisplay(item, rate)}</td><td>{item.is_active ? 'نشط' : 'متوقف'}</td><td>{canEdit && <button className="btn ghost" onClick={() => configureItem(item)}>إعداد</button>}</td></tr>;
         })}
       </tbody></table></TableFrame>
     </Section>
