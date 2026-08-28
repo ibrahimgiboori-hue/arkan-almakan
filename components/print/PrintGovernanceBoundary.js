@@ -21,7 +21,11 @@ export default function PrintGovernanceBoundary({ children }) {
         data-print-status="unregistered"
         data-print-governance-version={PRINT_GOVERNANCE_VERSION}
       >
-        {children}
+        <div className="print-constitution-error">
+          <strong>الطباعة موقوفة لهذه الصفحة.</strong>
+          <div>هذا المسار غير مسجل في دستور الطباعة المركزي، لذلك لن يسمح النظام بإخراج مطبوعة مستقلة خارج الدستور.</div>
+          <small>{pathname}</small>
+        </div>
       </div>
     );
   }
