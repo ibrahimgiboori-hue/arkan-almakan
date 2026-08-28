@@ -10,6 +10,7 @@ import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice
 import ApprovalGuidanceList from '@/components/approval/ApprovalGuidanceList';
 import ProcedureRouteMatrix from '@/components/admin/ProcedureRouteMatrix';
 import WorkforceOperationalSection from '@/components/workforce/WorkforceOperationalSection';
+import PayrollOperationalPage from '@/app/dashboard/workspace/workforce/section/payroll/page';
 
 const WORKFORCE_OPERATIONAL_KINDS=new Set(['hr-payroll','hr-compliance','hr-end-service','hr-performance']);
 
@@ -94,6 +95,8 @@ export default function PortalSectionPage(){
   if(!definition)return <ConstitutionPage><EmptyState title="قسم غير معروف" description="المسار المطلوب غير موجود في دستور منصة الأعمال."/></ConstitutionPage>;
   if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`} description="نقرأ البيانات من مصادرها الأصلية وفق صلاحيات الحساب."/></ConstitutionPage>;
   if(!state.allowed)return <ConstitutionPage><Notice tone="warning">{state.error}</Notice></ConstitutionPage>;
+
+  if(definition.dataKind==='hr-payroll')return <PayrollOperationalPage/>;
 
   if(definition.dataKind==='admin-procedure-routes')return <ConstitutionPage>
     <Section title="دستور حركة المعاملات" description="كل سطر عملية فعلية في البرنامج. حدّد هل تحتاج إجراءً، هل تصعد داخل بوابتها، وما مجال الجهات التي تستطيع «سنارة الإجراء» عرضها للمستخدم أثناء المعاملة.">
