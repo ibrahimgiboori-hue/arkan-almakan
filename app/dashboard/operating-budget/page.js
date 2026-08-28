@@ -7,7 +7,10 @@ import { operationalDate } from '@/lib/system-constitution';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import {
   OPERATING_BUDGET,
+  budgetDefaultRateProfile,
   budgetInputFields,
+  budgetRateFields,
+  budgetRateSummary,
   monthKey,
   monthLabelAr,
   monthStart,
@@ -38,33 +41,11 @@ const EMPTY_SUMMARY = {
   min_expected_free_balance: null,
 };
 
-const EDITABLE_CALC_TYPES = [
-  'fixed_amount',
-  'variable_monthly',
-  'manual_actual',
-  'quantity_x_unit_price',
-  'percentage_of_base',
-];
-
-function emptyItem(validFrom = monthStart(operationalDate())) {
-  return {
-    parent_item_id: '',
-    group_key: 'other',
-    name: '',
-    unit_label: 'شهر',
-    calculation_type: 'fixed_amount',
-    cost_behavior: 'fixed_contractual',
-    rate_inputs: {},
-    valid_from: validFrom,
-    recurrence_unit: 'month',
-    recurrence_interval_count: 1,
-    anchor_date: '',
-    accrual_start_rule: 'from_period_start',
-    accrual_lead_months: '',
-    is_active: true,
-    notes: '',
-  };
-}
+const CALC_TYPES = Object.keys(OPERATING_BUDGET.calculationLabels);
+const COST_BEHAVIORS = Object.keys(OPERATING_BUDGET.costBehaviorLabels);
+const RECURRENCES = Object.keys(OPERATING_BUDGET.recurrenceLabels);
+const COMPONENT_MODES = Object.keys(OPERATING_BUDGET.componentModeLabels);
+const BUCKETS = Object.keys(OPERATING_BUDGET.metricBucketLabels);
 
 function num(value) {
   const n = Number(value);
@@ -79,18 +60,77 @@ function hasCapability(me, capability) {
   return Boolean(me?.access?.fullAdmin || me?.capabilityKeys?.has?.(capability));
 }
 
-function sameJson(a, b) {
-  return JSON.stringify(a || {}) === JSON.stringify(b || {});
+function emptyNode(validFrom = monthStart(operationalDate()), parent = null, nodeType = 'item') {
+  return {
+    node_id: '',
+    node_type: nodeType,
+    parent_item_id: parent?.id || '',
+    group_key: parent?.group_key || 'other',
+    name: '',
+    unit_label: nodeType === 'item' ? 'شهر' : '',
+    calculation_type: nodeType === 'item' ? 'fixed_amount' : '',
+    cost_behavior: nodeType === 'item' ? 'fixed_contractual' : '',
+    rate_inputs: {},
+    input_schema: [],
+    components: [],
+    bands: [],
+    valid_from: validFrom,
+    recurrence_unit: 'month',
+    recurrence_interval_count: 1,
+    anchor_date: '',
+    accrual_start_rule: 'from_period_start',
+    accrual_lead_months: '',
+    is_active: true,
+    notes: '',
+    sort_order: 50,
+  };
 }
 
-function rateDisplay(item, rate) {
-  if (item.calculation_type === 'external_forecast_actual') return 'من النظام';
-  if (!rate?.params) return '—';
-  const p = rate.params;
-  if (['fixed_amount', 'variable_monthly', 'manual_actual'].includes(item.calculation_type)) return amountLabel(p.amount || 0);
-  if (item.calculation_type === 'quantity_x_unit_price') return `${num(p.quantity)} × ${money(p.unit_price)} = ${money(num(p.quantity) * num(p.unit_price))} ريال`;
-  if (item.calculation_type === 'percentage_of_base') return `${money(p.base_amount)} × ${num(p.percentage)}%`;
-  return '—';
+function normalizeComponent(component = {}) {
+  return {
+    key: component.key || `component_${Date.now()}`,
+    label: component.label || '',
+    mode: component.mode || 'fixed',
+    bucket: component.bucket || 'other',
+    include_in_total: component.include_in_total !== false,
+    input_key: component.input_key || '',
+    input_label: component.input_label || '',
+    left_input_key: component.left_input_key || '',
+    right_input_key: component.right_input_key || '',
+    amount: component.amount ?? '',
+    rate_percent: component.rate_percent ?? '',
+    unit_price: component.unit_price ?? '',
+    included_units: component.included_units ?? 0,
+    factor: component.factor ?? '',
+  };
+}
+
+function componentForType(calculationType) {
+  if (calculationType === 'employee_based_contribution') {
+    return normalizeComponent({
+      mode: 'percentage_of_input',
+      input_key: 'contributory_wages',
+      input_label: 'إجمالي الأجور الخاضعة للاشتراك',
+      bucket: 'employer_cost',
+      label: 'حصة المنشأة',
+    });
+  }
+  if (calculationType === 'subscription_plus_usage') {
+    return normalizeComponent({ mode: 'fixed', bucket: 'subscription', label: 'الاشتراك الأساسي' });
+  }
+  return normalizeComponent();
+}
+
+function buildGroupMaps(catalog) {
+  const byId = new Map(catalog.map((node) => [node.id, node]));
+  const children = new Map();
+  for (const node of catalog) {
+    const key = node.parent_item_id || '__root__';
+    if (!children.has(key)) children.set(key, []);
+    children.get(key).push(node);
+  }
+  for (const list of children.values()) list.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.name.localeCompare(b.name, 'ar'));
+  return { byId, children };
 }
 
 export default function OperatingBudgetPage() {
@@ -108,15 +148,17 @@ export default function OperatingBudgetPage() {
   const [catalog, setCatalog] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [rates, setRates] = useState([]);
+  const [bands, setBands] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [collapsed, setCollapsed] = useState({});
   const [selectedLine, setSelectedLine] = useState(null);
   const [lineInputs, setLineInputs] = useState({});
   const [confirmedAmount, setConfirmedAmount] = useState('');
   const [paymentAccount, setPaymentAccount] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
-  const [showNewItem, setShowNewItem] = useState(false);
-  const [itemForm, setItemForm] = useState(() => emptyItem());
+  const [showNodeEditor, setShowNodeEditor] = useState(false);
+  const [nodeForm, setNodeForm] = useState(() => emptyNode());
   const [openingBalance, setOpeningBalance] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -124,25 +166,30 @@ export default function OperatingBudgetPage() {
   const [msg, setMsg] = useState('');
 
   const groups = useMemo(() => catalog.filter((x) => x.node_type === 'group'), [catalog]);
-  const items = useMemo(() => catalog.filter((x) => x.node_type === 'item'), [catalog]);
+  const { byId: catalogById, children: catalogChildren } = useMemo(() => buildGroupMaps(catalog), [catalog]);
   const selectedMonthStart = monthStart(month);
-  const catalogRateFields = budgetInputFields(itemForm.calculation_type);
   const periodEditable = period?.status !== 'closed';
   const canMutatePeriod = canEdit && periodEditable;
+  const simpleRateFields = budgetRateFields(nodeForm.calculation_type);
+  const effectiveNodeRate = nodeForm.node_id ? effectiveRate(nodeForm.node_id) : null;
+  const selectedLineRate = selectedLine ? effectiveRate(selectedLine.item_id) : null;
+  const selectedLineFields = selectedLine ? budgetInputFields(selectedLine.calculation_type, selectedLineRate?.params || {}) : [];
 
   async function loadBase() {
-    const [p, c, s, r, a] = await Promise.all([
+    const [p, c, s, r, b, a] = await Promise.all([
       supabase.from('budget_periods').select('id,period_start,period_end,status,opening_bank_balance').order('period_start', { ascending: false }),
       supabase.from('budget_item_definitions').select('id,parent_item_id,node_type,branch_scope_id,group_key,name,unit_label,calculation_type,external_source,cost_behavior,is_active,notes,sort_order').order('sort_order').order('name'),
       supabase.from('budget_item_schedules').select('*').order('valid_from', { ascending: false }),
       supabase.from('budget_rate_versions').select('id,item_id,valid_from,valid_to,params,source,source_note,verified_at').order('valid_from', { ascending: false }),
+      supabase.from('budget_tariff_bands').select('id,rate_version_id,band_order,min_count,max_count,band_mode,band_amount').order('band_order'),
       supabase.from('v_treasury_balances').select('id,name_ar,account_type,current_balance').eq('is_active', true),
     ]);
-    const firstError = p.error || c.error || s.error || r.error;
+    const firstError = p.error || c.error || s.error || r.error || b.error;
     if (firstError) throw firstError;
     setCatalog(c.data || []);
     setSchedules(s.data || []);
     setRates(r.data || []);
+    setBands(b.data || []);
     setAccounts(a.error ? [] : (a.data || []));
     return p.data || [];
   }
@@ -187,10 +234,7 @@ export default function OperatingBudgetPage() {
   }
 
   useEffect(() => {
-    if (!canView) {
-      setLoading(false);
-      return;
-    }
+    if (!canView) { setLoading(false); return; }
     loadAll();
   }, [month, forecastMonths, canView]);
 
@@ -210,6 +254,18 @@ export default function OperatingBudgetPage() {
     }
   }
 
+  function effectiveSchedule(nodeId) {
+    return schedules.find((x) => x.item_id === nodeId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || null;
+  }
+
+  function effectiveRate(nodeId) {
+    return rates.find((x) => x.item_id === nodeId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || null;
+  }
+
+  function bandsForRate(rateId) {
+    return bands.filter((b) => b.rate_version_id === rateId).sort((a, b) => a.band_order - b.band_order);
+  }
+
   async function openMonth() {
     if (!canEdit) return;
     await run(() => supabase.rpc('budget_open_period', { p_period_start: selectedMonthStart }), `تم فتح ${monthLabelAr(month)} وتوليد كشفه التشغيلي.`);
@@ -222,8 +278,11 @@ export default function OperatingBudgetPage() {
   }
 
   function editLine(line) {
+    const rate = effectiveRate(line.item_id);
+    const fields = budgetInputFields(line.calculation_type, rate?.params || {});
+    const baseline = Object.fromEntries(fields.map((f) => [f.key, rate?.params?.[f.key] ?? '']));
     setSelectedLine(line);
-    setLineInputs({ ...(line.variable_inputs || {}), ...(line.line_override_params || {}) });
+    setLineInputs({ ...baseline, ...(line.variable_inputs || {}), ...(line.line_override_params || {}) });
     setConfirmedAmount(line.confirmed_amount ?? '');
     setPaymentAmount(line.unpaid_amount || '');
     setPaymentAccount(accounts[0]?.id || '');
@@ -233,14 +292,13 @@ export default function OperatingBudgetPage() {
 
   async function saveLineEstimate(scope) {
     if (!selectedLine || !canMutatePeriod) return;
-    const fields = budgetInputFields(selectedLine.calculation_type);
-    const payload = Object.fromEntries(fields.map((f) => [f.key, num(lineInputs[f.key])]));
+    const payload = Object.fromEntries(selectedLineFields.map((f) => [f.key, num(lineInputs[f.key])]));
     await run(() => supabase.rpc('budget_save_line_inputs', {
       p_line_id: selectedLine.line_id,
       p_inputs: payload,
       p_scope: scope,
-      p_reason: scope === 'this_month' ? 'تعديل تقدير هذا الشهر فقط' : 'تحديث التقدير التشغيلي الجاري',
-    }), scope === 'this_month' ? 'تم تعديل هذا الشهر فقط.' : 'تم تحديث التقدير الجاري.');
+      p_reason: scope === 'this_month' ? 'تعديل هذا الشهر فقط' : 'تحديث خط الأساس من هذا الشهر وما بعده',
+    }), scope === 'this_month' ? 'تم تعديل هذا الشهر فقط.' : 'تم تحديث خط الأساس الجاري.');
     setSelectedLine(null);
   }
 
@@ -250,7 +308,7 @@ export default function OperatingBudgetPage() {
       p_line_id: selectedLine.line_id,
       p_confirmed: num(confirmedAmount),
       p_source: 'invoice',
-      p_note: 'قيمة فعلية مؤكدة من شاشة ميزانية التشغيل',
+      p_note: 'قيمة فعلية مؤكدة من ميزانية التشغيل',
     }), 'تم تأكيد القيمة الفعلية.');
     setSelectedLine(null);
   }
@@ -279,7 +337,7 @@ export default function OperatingBudgetPage() {
   }
 
   async function closePeriod() {
-    if (!period || !canEdit || !window.confirm(`إقفال ${monthLabelAr(month)}؟ بعد الإقفال يلزم تصريح إعادة فتح.`)) return;
+    if (!period || !canEdit || !window.confirm(`إقفال ${monthLabelAr(month)}؟`)) return;
     await run(() => supabase.rpc('budget_close_period', { p_period_id: period.id }), 'تم إقفال الشهر.');
   }
 
@@ -290,88 +348,152 @@ export default function OperatingBudgetPage() {
     await run(() => supabase.rpc('budget_reopen_period', { p_period_id: period.id, p_reason: reason }), 'تمت إعادة فتح الشهر مع تسجيل السبب.');
   }
 
-  function effectiveSchedule(itemId) {
-    return schedules.find((x) => x.item_id === itemId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || null;
-  }
-
-  function effectiveRate(itemId) {
-    return rates.find((x) => x.item_id === itemId && x.valid_from <= selectedMonthStart && (!x.valid_to || x.valid_to >= selectedMonthStart)) || null;
-  }
-
-  function startNewItem() {
+  function startNode(nodeType = 'item', parent = null) {
     if (!canEdit) return;
-    setItemForm(emptyItem(selectedMonthStart));
-    setShowNewItem(true); setErr(''); setMsg('');
+    setNodeForm(emptyNode(selectedMonthStart, parent, nodeType));
+    setShowNodeEditor(true); setErr(''); setMsg('');
   }
 
-  function configureItem(item) {
+  function configureNode(node) {
     if (!canEdit) return;
-    const schedule = effectiveSchedule(item.id);
-    const rate = effectiveRate(item.id);
-    setItemForm({
-      item_id: item.id,
-      parent_item_id: item.parent_item_id || '',
-      group_key: item.group_key,
-      name: item.name,
-      unit_label: item.unit_label || 'شهر',
-      calculation_type: item.calculation_type,
-      cost_behavior: item.cost_behavior || 'fixed_contractual',
-      rate_inputs: { ...(rate?.params || {}) },
+    const schedule = node.node_type === 'item' ? effectiveSchedule(node.id) : null;
+    const rate = node.node_type === 'item' ? effectiveRate(node.id) : null;
+    const profile = rate?.params || budgetDefaultRateProfile(node.calculation_type);
+    setNodeForm({
+      node_id: node.id,
+      node_type: node.node_type,
+      parent_item_id: node.parent_item_id || '',
+      group_key: node.group_key,
+      name: node.name,
+      unit_label: node.unit_label || '',
+      calculation_type: node.calculation_type || '',
+      cost_behavior: node.cost_behavior || '',
+      rate_inputs: { ...(profile || {}) },
+      input_schema: Array.isArray(profile?.input_schema) ? profile.input_schema.map((x) => ({ ...x })) : [],
+      components: Array.isArray(profile?.components) ? profile.components.map(normalizeComponent) : [],
+      bands: rate ? bandsForRate(rate.id).map((b) => ({
+        band_order: b.band_order,
+        min_count: b.min_count,
+        max_count: b.max_count ?? '',
+        band_mode: b.band_mode,
+        band_amount: b.band_amount,
+      })) : [],
       valid_from: selectedMonthStart,
       recurrence_unit: schedule?.recurrence_unit || 'month',
       recurrence_interval_count: schedule?.recurrence_interval_count || 1,
       anchor_date: schedule?.anchor_date || '',
       accrual_start_rule: schedule?.accrual_start_rule || 'from_period_start',
       accrual_lead_months: schedule?.accrual_lead_months || '',
-      is_active: item.is_active,
-      notes: item.notes || '',
+      is_active: node.is_active,
+      notes: node.notes || '',
+      sort_order: node.sort_order || 50,
     });
-    setShowNewItem(true); setErr(''); setMsg('');
+    setShowNodeEditor(true); setErr(''); setMsg('');
   }
 
-  async function saveCatalogItem(e) {
+  function changeCalculationType(next) {
+    const profile = budgetDefaultRateProfile(next);
+    setNodeForm((old) => ({
+      ...old,
+      calculation_type: next,
+      rate_inputs: { ...profile },
+      input_schema: Array.isArray(profile.input_schema) ? profile.input_schema.map((x) => ({ ...x })) : [],
+      components: Array.isArray(profile.components) ? profile.components.map(normalizeComponent) : [],
+      bands: [],
+    }));
+  }
+
+  function updateComponent(index, patch) {
+    setNodeForm((old) => ({ ...old, components: old.components.map((c, i) => i === index ? { ...c, ...patch } : c) }));
+  }
+
+  function updateInputSchema(index, patch) {
+    setNodeForm((old) => ({ ...old, input_schema: old.input_schema.map((f, i) => i === index ? { ...f, ...patch } : f) }));
+  }
+
+  function buildRateParams() {
+    if (nodeForm.node_type !== 'item' || nodeForm.calculation_type === 'external_forecast_actual') return null;
+    if (nodeForm.calculation_type === 'tiered') return nodeForm.bands.length ? {} : null;
+    if (['employee_based_contribution', 'subscription_plus_usage', 'composite_formula'].includes(nodeForm.calculation_type)) {
+      if (!nodeForm.components.length) return null;
+      const components = nodeForm.components.map((c, index) => {
+        const out = {
+          key: c.key || `component_${index + 1}`,
+          label: c.label || `مكون ${index + 1}`,
+          mode: c.mode,
+          bucket: c.bucket || 'other',
+          include_in_total: c.include_in_total !== false,
+        };
+        if (c.input_key) out.input_key = c.input_key;
+        if (c.input_label) out.input_label = c.input_label;
+        if (c.left_input_key) out.left_input_key = c.left_input_key;
+        if (c.right_input_key) out.right_input_key = c.right_input_key;
+        if (c.mode === 'fixed') out.amount = num(c.amount);
+        if (c.mode === 'percentage_of_input') out.rate_percent = num(c.rate_percent);
+        if (c.mode === 'per_unit') { out.unit_price = num(c.unit_price); out.included_units = num(c.included_units); }
+        if (c.mode === 'input_times_constant') out.factor = num(c.factor);
+        return out;
+      });
+      return { input_schema: nodeForm.input_schema, components };
+    }
+    const fields = budgetRateFields(nodeForm.calculation_type);
+    if (!fields.length) return null;
+    const filled = fields.filter((f) => String(nodeForm.rate_inputs?.[f.key] ?? '').trim() !== '');
+    if (!filled.length) return null;
+    if (filled.length !== fields.length) throw new Error('أكمل جميع حقول خط الأساس أو اتركها كلها فارغة.');
+    return Object.fromEntries(fields.map((f) => [f.key, num(nodeForm.rate_inputs[f.key])]));
+  }
+
+  async function saveCatalogNode(e) {
     e.preventDefault();
     if (!canEdit) return;
     setBusy(true); setErr(''); setMsg('');
     try {
-      const parent = groups.find((g) => g.id === itemForm.parent_item_id);
-      const fields = budgetInputFields(itemForm.calculation_type);
-      const filled = fields.filter((f) => String(itemForm.rate_inputs?.[f.key] ?? '').trim() !== '');
-      if (filled.length > 0 && filled.length < fields.length) throw new Error('أكمل جميع حقول التعرفة أو اتركها كلها فارغة.');
-      const rateParams = filled.length === fields.length && fields.length > 0
-        ? Object.fromEntries(fields.map((f) => [f.key, num(itemForm.rate_inputs[f.key])]))
-        : null;
-      const schedulePayload = itemForm.anchor_date ? {
-        recurrence_unit: itemForm.recurrence_unit,
-        recurrence_interval_count: Number(itemForm.recurrence_interval_count || 1),
-        anchor_date: itemForm.anchor_date,
-        accrual_start_rule: itemForm.accrual_start_rule,
-        accrual_lead_months: itemForm.accrual_start_rule === 'fixed_months_before_due' ? Number(itemForm.accrual_lead_months || 1) : null,
+      const parent = groups.find((g) => g.id === nodeForm.parent_item_id);
+      const rateParams = buildRateParams();
+      const schedulePayload = nodeForm.node_type === 'item' && nodeForm.anchor_date ? {
+        recurrence_unit: nodeForm.recurrence_unit,
+        recurrence_interval_count: Number(nodeForm.recurrence_interval_count || 1),
+        anchor_date: nodeForm.anchor_date,
+        accrual_start_rule: nodeForm.accrual_start_rule,
+        accrual_lead_months: nodeForm.accrual_start_rule === 'fixed_months_before_due' ? Number(nodeForm.accrual_lead_months || 1) : null,
       } : null;
+      if (schedulePayload && nodeForm.calculation_type !== 'external_forecast_actual' && !rateParams && !effectiveNodeRate) {
+        throw new Error('عرّف قاعدة الحساب أولًا قبل جدولة الاستحقاق.');
+      }
 
-      const { error } = await supabase.rpc('budget_save_catalog_item', {
-        p_item_id: itemForm.item_id || null,
-        p_parent_item_id: itemForm.parent_item_id || null,
+      const normalizedBands = nodeForm.bands.map((b, i) => ({
+        band_order: i + 1,
+        min_count: num(b.min_count),
+        max_count: String(b.max_count ?? '').trim() === '' ? null : num(b.max_count),
+        band_mode: b.band_mode || 'flat_fee_on_entry',
+        band_amount: num(b.band_amount),
+      }));
+
+      const { error } = await supabase.rpc('budget_save_catalog_node', {
+        p_node_id: nodeForm.node_id || null,
+        p_node_type: nodeForm.node_type,
+        p_parent_item_id: nodeForm.parent_item_id || null,
         p_branch_scope_id: null,
-        p_group_key: parent?.group_key || itemForm.group_key,
-        p_name: itemForm.name,
-        p_unit_label: itemForm.unit_label || null,
-        p_calculation_type: itemForm.calculation_type,
-        p_external_source: itemForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
-        p_cost_behavior: itemForm.cost_behavior,
-        p_is_active: itemForm.is_active,
-        p_notes: itemForm.notes || null,
-        p_sort_order: 50,
-        p_rate_valid_from: itemForm.valid_from,
+        p_group_key: parent?.group_key || nodeForm.group_key,
+        p_name: nodeForm.name,
+        p_unit_label: nodeForm.node_type === 'item' ? nodeForm.unit_label || null : null,
+        p_calculation_type: nodeForm.node_type === 'item' ? nodeForm.calculation_type : null,
+        p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
+        p_cost_behavior: nodeForm.node_type === 'item' ? nodeForm.cost_behavior : null,
+        p_is_active: nodeForm.is_active,
+        p_notes: nodeForm.notes || null,
+        p_sort_order: Number(nodeForm.sort_order || 0),
+        p_rate_valid_from: nodeForm.node_type === 'item' ? nodeForm.valid_from : null,
         p_rate_params: rateParams,
         p_rate_source: rateParams ? 'manual_entry' : null,
-        p_schedule_valid_from: itemForm.valid_from,
+        p_rate_bands: normalizedBands,
+        p_schedule_valid_from: nodeForm.node_type === 'item' ? nodeForm.valid_from : null,
         p_schedule: schedulePayload,
       });
       if (error) throw error;
-
-      setMsg('تم حفظ البند وتعريفه ضمن المحرك المركزي كعملية واحدة.');
-      setShowNewItem(false);
+      setMsg(nodeForm.node_type === 'group' ? 'تم حفظ التصنيف. قيمته ستأتي من أبنائه فقط.' : 'تم حفظ العنصر وقاعدة حسابه ضمن المحرك الموحد.');
+      setShowNodeEditor(false);
       await loadAll();
     } catch (e2) {
       setErr(e2?.message || 'تعذر حفظ البند.');
@@ -380,155 +502,176 @@ export default function OperatingBudgetPage() {
     }
   }
 
+  function lineValue(line) {
+    return num(line.confirmed_amount ?? line.expected_amount);
+  }
+
+  function descendantLineTotal(groupId) {
+    const directItemIds = new Set((catalogChildren.get(groupId) || []).filter((n) => n.node_type === 'item').map((n) => n.id));
+    let total = statement.filter((line) => directItemIds.has(line.item_id)).reduce((sum, line) => sum + lineValue(line), 0);
+    for (const child of (catalogChildren.get(groupId) || []).filter((n) => n.node_type === 'group')) total += descendantLineTotal(child.id);
+    return total;
+  }
+
+  function renderReportGroup(group, depth = 0) {
+    const children = catalogChildren.get(group.id) || [];
+    const childGroups = children.filter((n) => n.node_type === 'group');
+    const childItems = new Set(children.filter((n) => n.node_type === 'item').map((n) => n.id));
+    const lines = statement.filter((line) => childItems.has(line.item_id));
+    const isCollapsed = collapsed[group.id] !== false;
+    const total = descendantLineTotal(group.id);
+    if (!lines.length && !childGroups.some((g) => descendantLineTotal(g.id) > 0)) return null;
+
+    return <div key={group.id} style={{ marginInlineStart: depth * 14, marginBottom: 10 }}>
+      <button type="button" className="btn ghost" style={{ width: '100%', justifyContent: 'space-between' }} onClick={() => setCollapsed((old) => ({ ...old, [group.id]: !isCollapsed }))}>
+        <strong>{isCollapsed ? '▸' : '▾'} {group.name}</strong><span>{amountLabel(total)}</span>
+      </button>
+      {!isCollapsed && <div style={{ marginTop: 8 }}>
+        {lines.length > 0 && <TableFrame><table><thead><tr><th>التفصيل</th><th>المتوقع</th><th>المؤكد</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th></tr></thead><tbody>
+          {lines.map((line) => <tr key={line.line_id}>
+            <td><strong>{line.item_name}</strong><div className="muted">{line.unit_label || ''}</div></td>
+            <td>{amountLabel(line.expected_amount)}</td>
+            <td>{line.confirmed_amount == null ? '—' : amountLabel(line.confirmed_amount)}</td>
+            <td>{amountLabel(line.paid_amount)}</td>
+            <td>{line.cash_effect_type === 'reserve_only' ? amountLabel(line.required_reserve) : '—'}</td>
+            <td>{line.cash_effect_type === 'due_now' ? 'مستحق' : `استحقاق ${dateAr(line.due_date)}`}</td>
+            <td><Toolbar>
+              {canMutatePeriod && <button className="btn ghost" onClick={() => editLine(line)}>تعديل</button>}
+              {canMutatePeriod && num(line.reserve_gap) > 0 && <button className="btn ghost" onClick={() => reserveGap(line)}>تم حجز المطلوب</button>}
+            </Toolbar></td>
+          </tr>)}
+        </tbody></table></TableFrame>}
+        {childGroups.map((child) => renderReportGroup(child, depth + 1))}
+      </div>}
+    </div>;
+  }
+
+  function renderCatalogNode(node, depth = 0) {
+    const children = catalogChildren.get(node.id) || [];
+    const rate = node.node_type === 'item' ? effectiveRate(node.id) : null;
+    const schedule = node.node_type === 'item' ? effectiveSchedule(node.id) : null;
+    const nodeBands = rate ? bandsForRate(rate.id) : [];
+    return <div key={node.id} style={{ marginInlineStart: depth * 18, borderInlineStart: depth ? '1px solid var(--line, #333)' : 'none', paddingInlineStart: depth ? 10 : 0, marginBottom: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) minmax(160px,.8fr) minmax(130px,.6fr) auto', gap: 10, alignItems: 'center', padding: '10px 12px', border: '1px solid var(--line, #333)', borderRadius: 8 }}>
+        <div><strong>{node.node_type === 'group' ? '▦' : '•'} {node.name}</strong><div className="muted">{node.node_type === 'group' ? 'تصنيف؛ لا يحمل قيمة مستقلة' : OPERATING_BUDGET.calculationLabels[node.calculation_type]}</div></div>
+        <div>{node.node_type === 'group' ? `${children.length} عنصر/تصنيف` : budgetRateSummary(node.calculation_type, rate?.params || {}, nodeBands)}</div>
+        <div>{node.node_type === 'group' ? '—' : schedule ? OPERATING_BUDGET.recurrenceLabels[schedule.recurrence_unit] : 'غير مجدول'}</div>
+        <Toolbar>
+          {canEdit && node.node_type === 'group' && <button className="btn ghost" onClick={() => startNode('item', node)}>+ تفصيل</button>}
+          {canEdit && node.node_type === 'group' && <button className="btn ghost" onClick={() => startNode('group', node)}>+ تصنيف</button>}
+          {canEdit && <button className="btn ghost" onClick={() => configureNode(node)}>إعداد</button>}
+        </Toolbar>
+      </div>
+      {children.map((child) => renderCatalogNode(child, depth + 1))}
+    </div>;
+  }
+
   if (loading) return <ConstitutionPage><EmptyState title="جارٍ تحميل ميزانية التشغيل" description="يتم تحميل الالتزامات والمخصصات والتوقعات." /></ConstitutionPage>;
   if (!canView) return <ConstitutionPage><Notice tone="error">لا تملك صلاحية عرض ميزانية وتشغيل الشركة.</Notice></ConstitutionPage>;
 
-  const grouped = statement.reduce((acc, row) => {
-    const key = row.parent_name || OPERATING_BUDGET.groupLabels[row.group_key] || row.group_key;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(row);
-    return acc;
-  }, {});
-  const calcOptions = itemForm.calculation_type === 'external_forecast_actual'
-    ? [...EDITABLE_CALC_TYPES, 'external_forecast_actual']
-    : EDITABLE_CALC_TYPES;
+  const rootGroups = (catalogChildren.get('__root__') || []).filter((n) => n.node_type === 'group');
 
   return <ConstitutionPage>
     <PageHeader
       eyebrow="المالية"
       title="ميزانية وتشغيل الشركة"
-      description="كم أحتاج للتشغيل؟ كم يجب أن أحجز؟ ومتى سيخرج كل ريال؟ الالتزام والمخصص منفصلان عن حركة الخزينة الفعلية."
-      actions={<>
-        <input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} />
-        <button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button>
-      </>}
+      description="التفاصيل هي التي تصنع القيمة؛ التصنيفات تجمعها فقط. نفس المحرك يخدم المستهلكات والتأمينات والشرائح والاشتراكات والمعادلات المركبة."
+      actions={<><input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} /><button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button></>}
     />
 
     {err && <Notice tone="error">{err}</Notice>}
     {msg && <Notice tone="success">{msg}</Notice>}
 
-    {!period ? <EntrySurface title={`فتح ${monthLabelAr(month)}`} description="لم يُفتح هذا الشهر بعد. فتحه يولد البنود الجارية من الكتالوج دون نسخ مصروفات فعلية.">
-      <div style={{ padding: 22 }}>
-        {canEdit ? <Toolbar><button className="btn" onClick={openMonth} disabled={busy}>فتح الشهر وتوليد الكشف</button></Toolbar> : <Notice>لديك صلاحية عرض فقط؛ فتح شهر جديد يحتاج صلاحية إدارة ميزانية التشغيل.</Notice>}
-      </div>
+    {!period ? <EntrySurface title={`فتح ${monthLabelAr(month)}`} description="فتح الشهر يولد الأوراق الحسابية المجدولة فقط؛ التصنيفات لا تولد مبالغ.">
+      <div style={{ padding: 22 }}>{canEdit ? <button className="btn" onClick={openMonth} disabled={busy}>فتح الشهر وتوليد الكشف</button> : <Notice>فتح شهر جديد يحتاج صلاحية إدارة ميزانية التشغيل.</Notice>}</div>
     </EntrySurface> : <>
-      <Section title={`ملخص ${monthLabelAr(month)}`} actions={<>
-        {period.status === 'closed'
-          ? canReopen && <button className="btn ghost" onClick={reopenPeriod} disabled={busy}>إعادة فتح</button>
-          : canEdit && <button className="btn ghost" onClick={closePeriod} disabled={busy}>إقفال الشهر</button>}
-      </>}>
+      <Section title={`ملخص ${monthLabelAr(month)}`} actions={<>{period.status === 'closed' ? canReopen && <button className="btn ghost" onClick={reopenPeriod}>إعادة فتح</button> : canEdit && <button className="btn ghost" onClick={closePeriod}>إقفال الشهر</button>}</>}>
         <SummaryStrip items={[
           { key: 'due', value: money(summary.confirmed_due || summary.expected_due), label: 'المطلوب هذا الشهر', note: 'ريال' },
           { key: 'reserve', value: money(summary.required_reserve), label: 'المطلوب حجزه', note: 'ريال' },
           { key: 'protected', value: money(summary.protected_balance), label: 'الرصيد المحمي', note: 'ريال' },
-          { key: 'free', value: summary.free_opening_balance == null ? '—' : money(summary.free_opening_balance), label: 'المتاح الحر عند بداية الشهر', note: summary.free_opening_balance == null ? 'أدخل رصيد البداية' : 'ريال' },
+          { key: 'free', value: summary.free_opening_balance == null ? '—' : money(summary.free_opening_balance), label: 'المتاح الحر', note: summary.free_opening_balance == null ? 'أدخل رصيد البداية' : 'ريال' },
           { key: 'paid', value: money(summary.paid), label: 'المدفوع فعليًا', note: 'ريال' },
-          { key: 'plan', value: summary.plan_surplus_deficit == null ? '—' : money(summary.plan_surplus_deficit), label: 'فائض/عجز الخطة', note: summary.plan_surplus_deficit == null ? 'بعد إدخال الرصيد' : 'ريال' },
+          { key: 'plan', value: summary.plan_surplus_deficit == null ? '—' : money(summary.plan_surplus_deficit), label: 'فائض/عجز الخطة', note: 'ريال' },
         ]} />
       </Section>
 
-      <Notice>«الرصيد المحمي» مخصص افتراضي داخل النظام، وليس تحويلًا بنكيًا. السداد الحقيقي لا يُسجل هنا كمصروف جديد؛ بل يُربط بحركة الخزينة الواحدة حتى لا يتكرر الأثر المالي.</Notice>
-
-      <EntrySurface title="رصيد بداية الشهر" description="استخدم رصيد الحسابات البنكية المتاح عند بداية التخطيط لهذا الشهر.">
-        <form onSubmit={saveOpeningBalance} style={{ padding: 22 }}>
-          <div className="form-grid">
-            <div className="field"><label>الرصيد (ريال)</label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!canMutatePeriod} onChange={(e) => setOpeningBalance(e.target.value)} /></div>
-            <div className="field"><label>أدنى رصيد حر متوقع</label><strong>{summary.min_expected_free_balance == null ? '—' : amountLabel(summary.min_expected_free_balance)}</strong></div>
-          </div>
-          {canMutatePeriod && <Toolbar><button className="btn" type="submit" disabled={busy}>حفظ الرصيد</button></Toolbar>}
-        </form>
+      <EntrySurface title="رصيد بداية الشهر" description="المخصص لا يخرج من البنك؛ لذلك نعرض الرصيد النقدي والرصيد الحر منفصلين.">
+        <form onSubmit={saveOpeningBalance} style={{ padding: 22 }}><div className="form-grid"><div className="field"><label>الرصيد (ريال)</label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!canMutatePeriod} onChange={(e) => setOpeningBalance(e.target.value)} /></div><div className="field"><label>أدنى رصيد حر متوقع</label><strong>{summary.min_expected_free_balance == null ? '—' : amountLabel(summary.min_expected_free_balance)}</strong></div></div>{canMutatePeriod && <Toolbar><button className="btn" type="submit">حفظ الرصيد</button></Toolbar>}</form>
       </EntrySurface>
 
-      {selectedLine && <EntrySurface title={selectedLine.item_name} description={`${selectedLine.cash_effect_type === 'due_now' ? 'مستحق هذا الشهر' : 'التزام مستقبلي'} · الاستحقاق ${dateAr(selectedLine.due_date)}`}>
-        <div style={{ padding: 22 }}>
-          <div className="form-grid">
-            {budgetInputFields(selectedLine.calculation_type).map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step="0.01" dir="ltr" disabled={!canMutatePeriod} value={lineInputs[field.key] ?? ''} onChange={(e) => setLineInputs({ ...lineInputs, [field.key]: e.target.value })} /></div>)}
-            <div className="field"><label>التقدير الحالي</label><strong>{amountLabel(selectedLine.expected_amount)}</strong></div>
-            <div className="field"><label>المدفوع</label><strong>{amountLabel(selectedLine.paid_amount)}</strong></div>
-            <div className="field"><label>المخصص المحمي</label><strong>{amountLabel(selectedLine.reserved_outstanding)}</strong></div>
-          </div>
-          {canMutatePeriod && budgetInputFields(selectedLine.calculation_type).length > 0 && <Toolbar>
-            <button className="btn" type="button" onClick={() => saveLineEstimate('ongoing')} disabled={busy}>اعتماد التقدير الجاري</button>
-            <button className="btn ghost" type="button" onClick={() => saveLineEstimate('this_month')} disabled={busy}>هذا الشهر فقط</button>
-          </Toolbar>}
-
-          {canMutatePeriod && selectedLine.cash_effect_type === 'due_now' && <>
-            <hr />
-            <div className="form-grid">
-              <div className="field"><label>القيمة الفعلية المؤكدة</label><input type="number" step="0.01" dir="ltr" value={confirmedAmount} onChange={(e) => setConfirmedAmount(e.target.value)} /></div>
-            </div>
-            <Toolbar><button className="btn ghost" type="button" onClick={confirmActual} disabled={busy || confirmedAmount === ''}>تأكيد الفاتورة/القيمة الفعلية</button></Toolbar>
-
-            {accounts.length > 0 && <form onSubmit={paySelected}>
-              <div className="form-grid">
-                <div className="field"><label>حساب الخزينة</label><select value={paymentAccount} onChange={(e) => setPaymentAccount(e.target.value)}>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name_ar} — {money(a.current_balance)} ريال</option>)}</select></div>
-                <div className="field"><label>مبلغ السداد</label><input type="number" min="0.01" step="0.01" dir="ltr" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
-                <div className="field"><label>المرجع</label><input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="رقم التحويل أو الفاتورة" /></div>
-              </div>
-              <Toolbar><button className="btn" type="submit" disabled={busy || !paymentAccount || num(paymentAmount) <= 0}>سداد من الخزينة</button></Toolbar>
-            </form>}
-          </>}
-          <Toolbar><button className="btn ghost" type="button" onClick={() => setSelectedLine(null)}>إغلاق</button></Toolbar>
-        </div>
-      </EntrySurface>}
-
-      <Section title="كشف الشهر" description="الجدول يجمع الاستحقاقات الحالية ومساهمات الحجز للمستقبل. لا يوجد مجموع سنوي ÷ 12 داخل الصفحة.">
-        {statement.length === 0 ? <EmptyState title="لا توجد بنود مولدة" description="أضف أو فعّل بندًا وجدول استحقاقه من الكتالوج." /> : Object.entries(grouped).map(([group, rows]) => <div key={group} style={{ marginBottom: 24 }}>
-          <h3>{group}</h3>
-          <TableFrame><table><thead><tr><th>البند</th><th>الاستحقاق</th><th>التقدير</th><th>الفعلي</th><th>المدفوع</th><th>مطلوب حجزه</th><th>المحمي</th><th>الإجراء</th></tr></thead><tbody>
-            {rows.map((row) => <tr key={row.line_id}>
-              <td><strong>{row.item_name}</strong><br /><small>{OPERATING_BUDGET.calculationLabels[row.calculation_type] || row.calculation_type}</small></td>
-              <td>{dateAr(row.due_date)}<br /><small>{row.cash_effect_type === 'due_now' ? 'مستحق الآن' : 'تجهيز للمستقبل'}</small></td>
-              <td>{money(row.expected_amount)}</td>
-              <td>{row.confirmed_amount == null ? '—' : money(row.confirmed_amount)}</td>
-              <td>{money(row.paid_amount)}</td>
-              <td>{money(row.required_reserve)}</td>
-              <td>{money(row.reserved_outstanding)}</td>
-              <td><Toolbar>
-                <button className="btn ghost" type="button" onClick={() => editLine(row)}>فتح</button>
-                {canMutatePeriod && row.cash_effect_type === 'reserve_only' && num(row.reserve_gap) > 0 && <button className="btn" type="button" disabled={busy} onClick={() => reserveGap(row)}>حجز المطلوب</button>}
-              </Toolbar></td>
-            </tr>)}
-          </tbody></table></TableFrame>
-        </div>)}
+      <Section title="كشف الشهر" description="اضغط التصنيف لعرض الإجمالي فقط أو فتح التفاصيل. الإجمالي لا يُخزن على التصنيف؛ هو مجموع أوراقه الحسابية.">
+        {rootGroups.map((group) => renderReportGroup(group))}
+        {!statement.length && <EmptyState title="لا توجد أوراق حسابية لهذا الشهر" description="أضف أو جدْول التفاصيل من كتالوج التشغيل." />}
       </Section>
     </>}
 
-    <Section title="التوقع النقدي" description="استحقاقات فعلية متوقعة + المبلغ الواجب حجزه للوصول لكل التزام في موعده." actions={<Toolbar>{[3, 6, 12].map((n) => <button key={n} className={`btn ${forecastMonths === n ? '' : 'ghost'}`} onClick={() => setForecastMonths(n)}>{n} أشهر</button>)}</Toolbar>}>
-      <TableFrame><table><thead><tr><th>الشهر</th><th>استحقاقات الشهر</th><th>مخصصات مطلوبة</th><th>إجمالي المطلوب</th></tr></thead><tbody>
-        {forecast.map((row) => <tr key={row.period_start}><td>{monthLabelAr(row.period_start)}</td><td>{amountLabel(row.expected_due)}</td><td>{amountLabel(row.required_reserve)}</td><td><strong>{amountLabel(row.planned_total)}</strong></td></tr>)}
-      </tbody></table></TableFrame>
+    {selectedLine && <EntrySurface title={selectedLine.item_name} description={`${selectedLine.cash_effect_type === 'due_now' ? 'مستحق هذا الشهر' : 'التزام مستقبلي'} · ${dateAr(selectedLine.due_date)}`}>
+      <div style={{ padding: 22 }}>
+        <div className="form-grid">
+          {selectedLineFields.map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step={field.step || '0.01'} dir="ltr" disabled={!canMutatePeriod} value={lineInputs[field.key] ?? ''} onChange={(e) => setLineInputs((old) => ({ ...old, [field.key]: e.target.value }))} />{field.help && <small>{field.help}</small>}</div>)}
+          <div className="field"><label>القيمة المؤكدة/الفاتورة</label><input type="number" step="0.01" dir="ltr" disabled={!canMutatePeriod} value={confirmedAmount} onChange={(e) => setConfirmedAmount(e.target.value)} /></div>
+        </div>
+        {canMutatePeriod && <Toolbar>
+          {selectedLineFields.length > 0 && <button className="btn" onClick={() => saveLineEstimate('this_month')}>هذا الشهر فقط</button>}
+          {selectedLineFields.length > 0 && <button className="btn ghost" onClick={() => saveLineEstimate('from_now')}>من هذا الشهر وما بعده</button>}
+          <button className="btn ghost" onClick={confirmActual}>تأكيد الفاتورة</button>
+          <button className="btn ghost" onClick={() => setSelectedLine(null)}>إغلاق</button>
+        </Toolbar>}
+        {canMutatePeriod && selectedLine.cash_effect_type === 'due_now' && <form onSubmit={paySelected} style={{ marginTop: 18 }}><div className="form-grid"><div className="field"><label>حساب الخزينة</label><select value={paymentAccount} onChange={(e) => setPaymentAccount(e.target.value)}><option value="">اختر</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name_ar} — {money(a.current_balance)}</option>)}</select></div><div className="field"><label>مبلغ السداد</label><input type="number" step="0.01" dir="ltr" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div><div className="field"><label>المرجع</label><input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} /></div></div><Toolbar><button className="btn" type="submit">سداد وربط بالخزينة</button></Toolbar></form>}
+      </div>
+    </EntrySurface>}
+
+    <Section title="التوقع" description="قراءة صافية لا تنشئ التزامات وهمية." actions={<select value={forecastMonths} onChange={(e) => setForecastMonths(Number(e.target.value))}><option value={3}>3 أشهر</option><option value={6}>6 أشهر</option><option value={12}>12 شهرًا</option></select>}>
+      <TableFrame><table><thead><tr><th>الشهر</th><th>استحقاقات</th><th>مخصص مطلوب</th><th>إجمالي الخطة</th></tr></thead><tbody>{forecast.map((row) => <tr key={row.period_start}><td>{monthLabelAr(row.period_start)}</td><td>{amountLabel(row.expected_due)}</td><td>{amountLabel(row.required_reserve)}</td><td><strong>{amountLabel(row.planned_total)}</strong></td></tr>)}</tbody></table></TableFrame>
     </Section>
 
-    {showNewItem && <EntrySurface title={itemForm.item_id ? `إعداد ${itemForm.name}` : 'إضافة التزام أو مصروف'} description="التصنيف يجيب: ما هو؟ وسلوك التكلفة يجيب: كيف يتصرف ماليًا؟">
-      <form onSubmit={saveCatalogItem} style={{ padding: 22 }}>
+    {showNodeEditor && <EntrySurface title={nodeForm.node_id ? `إعداد: ${nodeForm.name}` : nodeForm.node_type === 'group' ? 'إضافة تصنيف' : 'إضافة تفصيل حسابي'} description="التصنيف لا يحمل مبلغًا. العنصر النهائي فقط يملك طريقة حساب وتعرفة وجدولة.">
+      <form onSubmit={saveCatalogNode} style={{ padding: 22 }}>
         <div className="form-grid">
-          <div className="field"><label>المجموعة *</label><select required value={itemForm.parent_item_id} onChange={(e) => setItemForm({ ...itemForm, parent_item_id: e.target.value })}><option value="">اختر المجموعة</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
-          <div className="field"><label>اسم البند *</label><input required value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></div>
-          <div className="field"><label>سلوك التكلفة *</label><select value={itemForm.cost_behavior} onChange={(e) => setItemForm({ ...itemForm, cost_behavior: e.target.value })}>{Object.entries(OPERATING_BUDGET.costBehaviorLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="field"><label>طريقة الحساب *</label><select disabled={itemForm.calculation_type === 'external_forecast_actual'} value={itemForm.calculation_type} onChange={(e) => setItemForm({ ...itemForm, calculation_type: e.target.value, rate_inputs: {} })}>{calcOptions.map((k) => <option key={k} value={k}>{OPERATING_BUDGET.calculationLabels[k]}</option>)}</select>{itemForm.calculation_type === 'external_forecast_actual' && <span className="hint">هذا البند مرتبط بمصدر نظامي ولا تتغير طريقة حسابه من الكتالوج.</span>}</div>
-          <div className="field"><label>وحدة العرض</label><input value={itemForm.unit_label} onChange={(e) => setItemForm({ ...itemForm, unit_label: e.target.value })} /></div>
-          <div className="field"><label>تاريخ سريان الإعداد</label><input type="date" dir="ltr" value={itemForm.valid_from} onChange={(e) => setItemForm({ ...itemForm, valid_from: e.target.value })} /></div>
-          {catalogRateFields.map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step="0.01" dir="ltr" value={itemForm.rate_inputs?.[field.key] ?? ''} onChange={(e) => setItemForm({ ...itemForm, rate_inputs: { ...(itemForm.rate_inputs || {}), [field.key]: e.target.value } })} /><span className="hint">اترك جميع حقول التعرفة فارغة إذا كانت القيمة غير معروفة بعد.</span></div>)}
-          <div className="field"><label>الدورية</label><select value={itemForm.recurrence_unit} onChange={(e) => setItemForm({ ...itemForm, recurrence_unit: e.target.value })}>{Object.entries(OPERATING_BUDGET.recurrenceLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-          <div className="field"><label>تاريخ الاستحقاق المرجعي</label><input type="date" dir="ltr" value={itemForm.anchor_date} onChange={(e) => setItemForm({ ...itemForm, anchor_date: e.target.value })} /><span className="hint">اتركه فارغًا إذا لم تعرف موعد الدفع أو التجديد بعد؛ لن نخترع تاريخًا.</span></div>
-          <div className="field"><label>بدء تكوين المخصص</label><select value={itemForm.accrual_start_rule} onChange={(e) => setItemForm({ ...itemForm, accrual_start_rule: e.target.value })}><option value="from_period_start">من بداية فترة الاستحقاق</option><option value="immediately_after_previous_due">بعد الاستحقاق السابق مباشرة</option><option value="fixed_months_before_due">قبل الاستحقاق بعدد أشهر</option></select></div>
-          {itemForm.accrual_start_rule === 'fixed_months_before_due' && <div className="field"><label>عدد أشهر التجهيز</label><input type="number" min="1" dir="ltr" value={itemForm.accrual_lead_months} onChange={(e) => setItemForm({ ...itemForm, accrual_lead_months: e.target.value })} /></div>}
-          <div className="field"><label>الحالة</label><label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={itemForm.is_active} onChange={(e) => setItemForm({ ...itemForm, is_active: e.target.checked })} /> نشط في التخطيط</label></div>
-          <div className="field span2"><label>ملاحظات</label><textarea rows="3" value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} /></div>
+          {!nodeForm.node_id && <div className="field"><label>نوع العقدة</label><select value={nodeForm.node_type} onChange={(e) => setNodeForm(emptyNode(selectedMonthStart, groups.find((g) => g.id === nodeForm.parent_item_id), e.target.value))}><option value="group">تصنيف تجميعي</option><option value="item">عنصر حسابي</option></select></div>}
+          <div className="field"><label>التصنيف الأب</label><select value={nodeForm.parent_item_id} onChange={(e) => { const parent = groups.find((g) => g.id === e.target.value); setNodeForm((old) => ({ ...old, parent_item_id: e.target.value, group_key: parent?.group_key || old.group_key })); }}><option value="">بدون أب</option>{groups.filter((g) => g.id !== nodeForm.node_id).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
+          <div className="field"><label>الاسم</label><input required value={nodeForm.name} onChange={(e) => setNodeForm((old) => ({ ...old, name: e.target.value }))} /></div>
+          <div className="field"><label>نشط</label><select value={nodeForm.is_active ? '1' : '0'} onChange={(e) => setNodeForm((old) => ({ ...old, is_active: e.target.value === '1' }))}><option value="1">نعم</option><option value="0">متوقف</option></select></div>
         </div>
-        <Toolbar><button className="btn" type="submit" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ الإعداد'}</button><button className="btn ghost" type="button" onClick={() => setShowNewItem(false)}>إلغاء</button></Toolbar>
+
+        {nodeForm.node_type === 'item' && <>
+          <div className="form-grid">
+            <div className="field"><label>طريقة الحساب</label><select value={nodeForm.calculation_type} onChange={(e) => changeCalculationType(e.target.value)}>{CALC_TYPES.map((type) => <option key={type} value={type}>{OPERATING_BUDGET.calculationLabels[type]}</option>)}</select></div>
+            <div className="field"><label>سلوك التكلفة</label><select value={nodeForm.cost_behavior} onChange={(e) => setNodeForm((old) => ({ ...old, cost_behavior: e.target.value }))}>{COST_BEHAVIORS.map((type) => <option key={type} value={type}>{OPERATING_BUDGET.costBehaviorLabels[type]}</option>)}</select></div>
+            <div className="field"><label>الوحدة</label><input value={nodeForm.unit_label} onChange={(e) => setNodeForm((old) => ({ ...old, unit_label: e.target.value }))} /></div>
+            <div className="field"><label>سريان القاعدة</label><input type="date" dir="ltr" value={nodeForm.valid_from} onChange={(e) => setNodeForm((old) => ({ ...old, valid_from: e.target.value }))} /></div>
+          </div>
+
+          {simpleRateFields.length > 0 && <Section title="خط الأساس"><div className="form-grid" style={{ padding: 14 }}>{simpleRateFields.map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step={field.step || '0.01'} dir="ltr" value={nodeForm.rate_inputs?.[field.key] ?? ''} onChange={(e) => setNodeForm((old) => ({ ...old, rate_inputs: { ...old.rate_inputs, [field.key]: e.target.value } }))} /></div>)}</div></Section>}
+
+          {nodeForm.calculation_type === 'tiered' && <Section title="الشرائح" description="قيمة الشريحة كاملة أو سعر لكل وحدة حسب نوعها."><div style={{ padding: 14 }}>{nodeForm.bands.map((band, i) => <div className="form-grid" key={i}><div className="field"><label>من</label><input type="number" value={band.min_count} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, min_count: e.target.value } : b) }))} /></div><div className="field"><label>إلى (فارغ = بلا حد)</label><input type="number" value={band.max_count ?? ''} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, max_count: e.target.value } : b) }))} /></div><div className="field"><label>طريقة الشريحة</label><select value={band.band_mode || 'flat_fee_on_entry'} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, band_mode: e.target.value } : b) }))}><option value="flat_fee_on_entry">قيمة الشريحة كاملة</option><option value="per_unit_in_band">سعر × العدد</option><option value="per_unit_cumulative">تراكمي</option></select></div><div className="field"><label>القيمة</label><input type="number" step="0.01" value={band.band_amount} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, band_amount: e.target.value } : b) }))} /></div><button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, bands: old.bands.filter((_, j) => j !== i) }))}>حذف</button></div>)}<button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, bands: [...old.bands, { band_order: old.bands.length + 1, min_count: 0, max_count: '', band_mode: 'flat_fee_on_entry', band_amount: '' }] }))}>+ شريحة</button></div></Section>}
+
+          {['employee_based_contribution', 'subscription_plus_usage', 'composite_formula'].includes(nodeForm.calculation_type) && <Section title="مكونات الحساب" description={nodeForm.calculation_type === 'employee_based_contribution' ? 'في التأمينات أدخل نسب المكونات هنا، ويكون الإدخال الشهري إجمالي الأجور الخاضعة فقط.' : 'كل مكون قاعدة صغيرة آمنة؛ المحرك يجمع نواتجها.'}><div style={{ padding: 14 }}>
+            {nodeForm.calculation_type === 'composite_formula' && <><h4>مدخلات المعادلة</h4>{nodeForm.input_schema.map((field, i) => <div className="form-grid" key={i}><div className="field"><label>المفتاح</label><input value={field.key || ''} onChange={(e) => updateInputSchema(i, { key: e.target.value })} /></div><div className="field"><label>الاسم الظاهر</label><input value={field.label || ''} onChange={(e) => updateInputSchema(i, { label: e.target.value })} /></div><div className="field"><label>النوع</label><select value={field.kind || 'money'} onChange={(e) => updateInputSchema(i, { kind: e.target.value })}><option value="money">مبلغ</option><option value="number">رقم</option><option value="count">عدد</option></select></div><button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, input_schema: old.input_schema.filter((_, j) => j !== i) }))}>حذف</button></div>)}<button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, input_schema: [...old.input_schema, { key: `input_${old.input_schema.length + 1}`, label: '', kind: 'money', required: true }] }))}>+ مدخل</button></>}
+
+            {nodeForm.components.map((c, i) => <div key={i} style={{ border: '1px solid var(--line, #333)', borderRadius: 8, padding: 12, marginTop: 10 }}><div className="form-grid"><div className="field"><label>اسم المكون</label><input value={c.label} onChange={(e) => updateComponent(i, { label: e.target.value })} /></div><div className="field"><label>نوع الحساب</label><select value={c.mode} onChange={(e) => updateComponent(i, { mode: e.target.value })}>{COMPONENT_MODES.map((mode) => <option key={mode} value={mode}>{OPERATING_BUDGET.componentModeLabels[mode]}</option>)}</select></div><div className="field"><label>التجميع</label><select value={c.bucket} onChange={(e) => updateComponent(i, { bucket: e.target.value })}>{BUCKETS.map((bucket) => <option key={bucket} value={bucket}>{OPERATING_BUDGET.metricBucketLabels[bucket]}</option>)}</select></div></div>
+              {c.mode === 'fixed' && <div className="field"><label>القيمة</label><input type="number" step="0.01" value={c.amount} onChange={(e) => updateComponent(i, { amount: e.target.value })} /></div>}
+              {['input_amount','percentage_of_input','per_unit','input_times_constant'].includes(c.mode) && <div className="field"><label>مفتاح المدخل</label><input value={c.input_key} disabled={nodeForm.calculation_type === 'employee_based_contribution'} onChange={(e) => updateComponent(i, { input_key: e.target.value })} /></div>}
+              {c.mode === 'percentage_of_input' && <div className="field"><label>النسبة %</label><input type="number" step="0.0001" value={c.rate_percent} onChange={(e) => updateComponent(i, { rate_percent: e.target.value })} /></div>}
+              {c.mode === 'per_unit' && <div className="form-grid"><div className="field"><label>سعر الوحدة</label><input type="number" step="0.01" value={c.unit_price} onChange={(e) => updateComponent(i, { unit_price: e.target.value })} /></div><div className="field"><label>وحدات مشمولة</label><input type="number" value={c.included_units} onChange={(e) => updateComponent(i, { included_units: e.target.value })} /></div></div>}
+              {c.mode === 'input_times_constant' && <div className="field"><label>المعامل</label><input type="number" step="0.0001" value={c.factor} onChange={(e) => updateComponent(i, { factor: e.target.value })} /></div>}
+              {c.mode === 'multiply_inputs' && <div className="form-grid"><div className="field"><label>المدخل الأول</label><input value={c.left_input_key} onChange={(e) => updateComponent(i, { left_input_key: e.target.value })} /></div><div className="field"><label>المدخل الثاني</label><input value={c.right_input_key} onChange={(e) => updateComponent(i, { right_input_key: e.target.value })} /></div></div>}
+              <button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, components: old.components.filter((_, j) => j !== i) }))}>حذف المكون</button>
+            </div>)}
+            <button type="button" className="btn ghost" style={{ marginTop: 10 }} onClick={() => setNodeForm((old) => ({ ...old, components: [...old.components, componentForType(old.calculation_type)] }))}>+ مكون حساب</button>
+          </div></Section>}
+
+          <Section title="الجدولة" description="اترك تاريخ الاستحقاق المرجعي فارغًا إذا لم تعرف توقيت البند بعد."><div className="form-grid" style={{ padding: 14 }}><div className="field"><label>الدورية</label><select value={nodeForm.recurrence_unit} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_unit: e.target.value }))}>{RECURRENCES.map((r) => <option key={r} value={r}>{OPERATING_BUDGET.recurrenceLabels[r]}</option>)}</select></div><div className="field"><label>كل كم دورة</label><input type="number" min="1" value={nodeForm.recurrence_interval_count} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_interval_count: e.target.value }))} /></div><div className="field"><label>تاريخ الاستحقاق المرجعي</label><input type="date" dir="ltr" value={nodeForm.anchor_date} onChange={(e) => setNodeForm((old) => ({ ...old, anchor_date: e.target.value }))} /></div><div className="field"><label>بداية الحجز</label><select value={nodeForm.accrual_start_rule} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_start_rule: e.target.value }))}><option value="from_period_start">من بداية دورة الاستحقاق</option><option value="immediately_after_previous_due">بعد الاستحقاق السابق مباشرة</option><option value="fixed_months_before_due">قبل الاستحقاق بعدد أشهر</option></select></div>{nodeForm.accrual_start_rule === 'fixed_months_before_due' && <div className="field"><label>عدد الأشهر</label><input type="number" min="1" value={nodeForm.accrual_lead_months} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_lead_months: e.target.value }))} /></div>}</div></Section>
+        </>}
+
+        <div className="field"><label>ملاحظات</label><textarea value={nodeForm.notes} onChange={(e) => setNodeForm((old) => ({ ...old, notes: e.target.value }))} /></div>
+        <Toolbar><button className="btn" type="submit" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button><button className="btn ghost" type="button" onClick={() => setShowNodeEditor(false)}>إلغاء</button></Toolbar>
       </form>
     </EntrySurface>}
 
-    <Section title="كتالوج التشغيل" description="هذه تعريفات التخطيط، وليست مصروفات مدفوعة. الفعلي يأتي من الخزينة أو الفاتورة المؤكدة." actions={canEdit ? <button className="btn" onClick={startNewItem}>+ التزام أو مصروف</button> : null}>
-      <TableFrame><table><thead><tr><th>المجموعة</th><th>البند</th><th>السلوك</th><th>الدورية</th><th>التعرفة السارية</th><th>الحالة</th><th></th></tr></thead><tbody>
-        {items.map((item) => {
-          const schedule = effectiveSchedule(item.id);
-          const rate = effectiveRate(item.id);
-          return <tr key={item.id}><td>{OPERATING_BUDGET.groupLabels[item.group_key] || item.group_key}</td><td><strong>{item.name}</strong></td><td>{OPERATING_BUDGET.costBehaviorLabels[item.cost_behavior] || '—'}</td><td>{schedule ? OPERATING_BUDGET.recurrenceLabels[schedule.recurrence_unit] : 'غير مجدول'}</td><td>{rateDisplay(item, rate)}</td><td>{item.is_active ? 'نشط' : 'متوقف'}</td><td>{canEdit && <button className="btn ghost" onClick={() => configureItem(item)}>إعداد</button>}</td></tr>;
-        })}
-      </tbody></table></TableFrame>
+    <Section title="كتالوج التشغيل" description="اختر تصنيفًا موجودًا ثم أضف تحته التفاصيل الفعلية التي يشتريها المحاسب أو التي تنتج الالتزام." actions={canEdit ? <Toolbar><button className="btn" onClick={() => startNode('group')}>+ تصنيف رئيسي</button><button className="btn" onClick={() => startNode('item')}>+ عنصر مستقل</button></Toolbar> : null}>
+      {rootGroups.map((node) => renderCatalogNode(node))}
     </Section>
   </ConstitutionPage>;
 }
