@@ -7,6 +7,7 @@ import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
 import './raw-tokens.css';
 import './raw-phase.css';
+import './work-sheet-kernel.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -97,9 +98,9 @@ export default function DashboardLayout({ children }) {
 
   return (
     <DashboardSessionProvider value={state.me}>
-      <div className="rawDashboardShell">
+      <div className="rawDashboardShell" data-work-kernel="operational-notebook-v1">
         <RawDashboardNavigation me={state.me} onSignOut={signOut} />
-        <main className="rawDashboardContent">{children}</main>
+        <main className="rawDashboardContent" data-work-book="true">{children}</main>
       </div>
     </DashboardSessionProvider>
   );
