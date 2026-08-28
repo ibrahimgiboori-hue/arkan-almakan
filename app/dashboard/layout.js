@@ -100,7 +100,9 @@ export default function DashboardLayout({ children }) {
     <DashboardSessionProvider value={state.me}>
       <div className="rawDashboardShell" data-work-kernel="operational-notebook-v1">
         <RawDashboardNavigation me={state.me} onSignOut={signOut} />
-        <main className="rawDashboardContent" data-work-book="true">{children}</main>
+        <main className="rawDashboardContent" data-work-book="true">
+          <div className="workSheetMount" data-work-sheet-mount="true">{children}</div>
+        </main>
       </div>
     </DashboardSessionProvider>
   );
