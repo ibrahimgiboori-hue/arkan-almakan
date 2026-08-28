@@ -9,6 +9,9 @@ import { INVOICE_POLICY } from '@/lib/invoice-policy';
 import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice } from '@/components/ui/ConstitutionUI';
 import ApprovalGuidanceList from '@/components/approval/ApprovalGuidanceList';
 import ProcedureRouteMatrix from '@/components/admin/ProcedureRouteMatrix';
+import WorkforceOperationalSection from '@/components/workforce/WorkforceOperationalSection';
+
+const WORKFORCE_OPERATIONAL_KINDS=new Set(['hr-payroll','hr-compliance','hr-end-service','hr-performance']);
 
 function hasSectionAccess(definition, capabilityKeys, fullAdmin){
   if(fullAdmin)return true;
@@ -43,6 +46,7 @@ async function loadAdminCatalogs(){
 async function loadSection(definition){
   if(definition?.dataKind==='admin-procedure-routes')return {custom:'procedure-routes'};
   if(definition?.dataKind==='admin-catalogs')return loadAdminCatalogs();
+  if(WORKFORCE_OPERATIONAL_KINDS.has(definition?.dataKind))return {custom:'workforce-operational'};
   return loadPortalSectionData(definition.dataKind);
 }
 
@@ -96,6 +100,12 @@ export default function PortalSectionPage(){
       <ProcedureRouteMatrix/>
     </Section>
     <Notice tone="neutral">أي قدرة جديدة تضاف إلى محرك الصلاحيات ستظهر تلقائيًا هنا كعملية غير مصنفة. لا توجد قائمة موازية تحتاج تحديثًا يدويًا.</Notice>
+  </ConstitutionPage>;
+
+  if(state.data?.custom==='workforce-operational')return <ConstitutionPage>
+    <Section title={definition.label} description={definition.description}>
+      <WorkforceOperationalSection dataKind={definition.dataKind}/>
+    </Section>
   </ConstitutionPage>;
 
   const data=state.data;
