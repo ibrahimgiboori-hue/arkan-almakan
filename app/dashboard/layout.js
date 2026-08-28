@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
 import './raw-tokens.css';
 import './raw-phase.css';
@@ -74,7 +75,7 @@ export default function DashboardLayout({ children }) {
         ready:true,
         allowed:true,
         message:'',
-        me:{ ...userRow, email:session.user.email, capabilities, capabilityKeys, access },
+        me:{ ...userRow, email:session.user.email, userId:session.user.id, capabilities, capabilityKeys, access },
       });
     })();
 
@@ -95,9 +96,11 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div className="rawDashboardShell">
-      <RawDashboardNavigation me={state.me} onSignOut={signOut} />
-      <main className="rawDashboardContent">{children}</main>
-    </div>
+    <DashboardSessionProvider value={state.me}>
+      <div className="rawDashboardShell">
+        <RawDashboardNavigation me={state.me} onSignOut={signOut} />
+        <main className="rawDashboardContent">{children}</main>
+      </div>
+    </DashboardSessionProvider>
   );
 }
