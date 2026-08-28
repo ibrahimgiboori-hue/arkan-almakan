@@ -14,6 +14,10 @@ const forbidden = [
   { re:/(^|[\s,{])html\s*,\s*body\s*\{/i, label:'تعريف html/body للطباعة محليًا' },
   { re:/\.print-page\s*\{/i, label:'إعادة تعريف هندسة .print-page' },
   { re:/\.constitution-paged-sheet\s*\{/i, label:'إعادة تعريف هندسة الصفحة متعددة الصفحات' },
+  { re:/\bstamp_image_path\b/i, label:'قراءة ملف الختم خارج طبقة PrintMarks الموحدة' },
+  { re:/\bsignature_image_path\b/i, label:'قراءة ملف التوقيع خارج طبقة PrintMarks الموحدة' },
+  { re:/\.print-master-stamp\s*\{/i, label:'تعريف هندسة الختم محليًا خارج دستور الطباعة' },
+  { re:/\.print-master-signature\s*\{/i, label:'تعريف هندسة التوقيع محليًا خارج دستور الطباعة' },
 ];
 
 function walk(dir) {
@@ -50,7 +54,7 @@ if (fs.existsSync(layoutPath)) {
 
 if (violations.length) {
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('صفحات المحتوى لا تملك هندسة الورق. انقل القاعدة إلى دستور الطباعة المركزي.\n');
+  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية. انقل القاعدة إلى دستور الطباعة وPrintMarks المركزيين.\n');
   for (const item of violations) console.error(`- ${item}`);
   process.exit(1);
 }
