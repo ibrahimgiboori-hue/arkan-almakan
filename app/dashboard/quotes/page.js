@@ -65,6 +65,7 @@ export default function Quotes() {
       doc_kind:kind,
       language:newLang,
       client_name:english ? 'New Client' : 'عميل جديد',
+      client_kind:'entity',
       vat_rate:cfg?.vat_rate ?? SYSTEM.vatRate,
       terms_text:english ? EN_TERMS : (cfg?.quote_terms_default || ''),
       intro_text:english ? EN_INTRO : 'يسرنا في أركان المكان أن نضع بين أيديكم عرض السعر التالي لتنفيذ الأعمال الموضحة أدناه وفقاً للمواصفات الفنية المعتمدة.',
@@ -136,21 +137,21 @@ export default function Quotes() {
     <div className="section" style={{marginTop:0}}>
       <header><h2>السجل</h2></header>
       {rows.length === 0 ? <div className="empty"><h3>لا عروض بعد</h3><p>{access.canCreate?'اختر اللغة ثم أنشئ عرض سعر أو جدول كميات.':'لا توجد عروض متاحة لهذا الحساب.'}</p></div> : <table>
-        <thead><tr><th>الرقم</th><th>النوع</th><th>لغة المستند</th><th>العميل</th><th>التاريخ</th><th className="num">المجموع</th><th>الحالة</th><th style={{width:280}}>الإجراء</th></tr></thead>
+        <thead><tr><th>الرقم</th><th>النوع</th><th>لغة المستند</th><th>العميل</th><th>التاريخ</th><th className="num">المجموع</th><th>الحالة</th><th style={{width:420,minWidth:420}}>الإجراء</th></tr></thead>
         <tbody>{rows.map((row) => <tr key={row.id}>
           <td className="mono">{row.quote_no}</td>
           <td>{row.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</td>
           <td>{access.canEdit ? <select value={row.language || 'ar'} onChange={(event)=>setLanguage(row,event.target.value)} aria-label={`لغة ${row.quote_no}`} style={{fontSize:12.5,padding:'2px 4px',minWidth:92}}><option value="ar">العربية</option><option value="en">English</option></select> : <span className="pill">{row.language === 'en' ? 'EN' : 'AR'}</span>}</td>
-          <td>{row.client_name}</td>
+          <td>{row.client_name}{row.client_kind==='individual'&&<small style={{display:'block',marginTop:2}}>عميل فرد</small>}</td>
           <td className="mono">{dateAr(row.quote_date)}</td>
           <td className="num">{money(tot[row.id]?.grand_total || 0)}</td>
           <td>{access.canEdit ? <select value={row.status} onChange={(event)=>setStatus(row,event.target.value)} style={{fontSize:12.5,padding:'2px 4px'}}>{Object.entries(QSTATUS_AR).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select> : <span className="pill">{QSTATUS_AR[row.status]}</span>}</td>
-          <td><div className="rowsplit">
-            <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} href={`/dashboard/quotes/${row.id}`}>{access.canEdit?'تعديل':'فتح'}</Link>
-            <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} href={`/print/quote/${row.id}`} target="_blank">طباعة</Link>
-            {access.canCreate && access.canEdit && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} disabled={busy} onClick={()=>duplicate(row)}>نسخ</button>}
-            {access.canEdit && access.canCreateProject && row.status === 'accepted' && <button className="btn" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toProject(row)}>تحويل إلى مشروع</button>}
-            {access.canEdit && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(row)}>حذف</button>}
+          <td style={{width:420,minWidth:420}}><div className="rowsplit" style={{flexWrap:'nowrap',justifyContent:'flex-start',gap:6}}>
+            <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,whiteSpace:'nowrap'}} href={`/dashboard/quotes/${row.id}`}>{access.canEdit?'تعديل':'فتح'}</Link>
+            <Link className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,whiteSpace:'nowrap'}} href={`/print/quote/${row.id}`} target="_blank">طباعة</Link>
+            {access.canCreate && access.canEdit && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,whiteSpace:'nowrap'}} disabled={busy} onClick={()=>duplicate(row)}>نسخ</button>}
+            {access.canEdit && access.canCreateProject && row.status === 'accepted' && <button className="btn" style={{padding:'4px 9px',fontSize:12.5,whiteSpace:'nowrap'}} onClick={()=>toProject(row)}>تحويل إلى مشروع</button>}
+            {access.canEdit && <button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24',whiteSpace:'nowrap'}} onClick={()=>remove(row)}>حذف</button>}
           </div></td>
         </tr>)}</tbody>
       </table>}
