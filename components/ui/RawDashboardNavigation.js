@@ -10,11 +10,7 @@ import {
   projectNavigationHref,
 } from '@/lib/app-constitution';
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
-import {
-  PORTAL_SECTION_ITEMS,
-  PORTAL_EXISTING_DESTINATION_CAPABILITIES,
-  PORTAL_MANAGEMENT_SECTIONS,
-} from '@/lib/portal-section-constitution';
+import { PORTAL_SECTION_ITEMS, PORTAL_EXISTING_DESTINATION_CAPABILITIES } from '@/lib/portal-section-constitution';
 import styles from './RawDashboardNavigation.module.css';
 
 function uniqueByHref(items = []) {
@@ -55,49 +51,22 @@ function TabRow({ label, children }) {
   );
 }
 
-// عارض واحد لكل مجموعات الأدوات في جميع البوابات والمشاريع.
-// الاختلاف يأتي من دستور المجموعات فقط، لا من شكل أو سلوك الملاحة.
-function GroupedToolRow({ label, groups }) {
+// صف واحد يحتوي كل مجموعات أدوات المشروع معًا، بفواصل صغيرة بدل صف كامل
+// لكل مجموعة. هذا هو الفرق الوحيد بين "تكديس شرائط" و"شريط واحد يُمسح
+// بالعين" — نفس عدد الأدوات، مساحة رأسية أقل بكثير.
+function GroupedToolRow({ groups }) {
   return (
     <div className={styles.tabRow}>
-      {label && <span className={styles.tabRowLabel}>{label}</span>}
       <div className={styles.tabScroller}>
         {groups.map((group) => (
           <div className={styles.toolGroup} key={group.key}>
-            {group.label && <span className={styles.groupMark}>{group.label}</span>}
+            <span className={styles.groupMark}>{group.label}</span>
             {group.children}
           </div>
         ))}
       </div>
     </div>
   );
-}
-
-function groupToolsByConstitution(areaKey, items = []) {
-  const sections = PORTAL_MANAGEMENT_SECTIONS[areaKey] || [];
-  if (!sections.length) {
-    return items.length ? [{ key: `${areaKey || 'area'}-tools`, label: null, items }] : [];
-  }
-
-  const byHref = new Map(items.map((item) => [item.href, item]));
-  const used = new Set();
-  const groups = sections.map((section) => {
-    const sectionItems = (section.hrefs || [])
-      .map((href) => byHref.get(href))
-      .filter(Boolean);
-    sectionItems.forEach((item) => used.add(item.href));
-    return {
-      key: section.key,
-      label: section.shortLabel || section.label,
-      items: sectionItems,
-    };
-  }).filter((group) => group.items.length > 0);
-
-  const remaining = items.filter((item) => !used.has(item.href));
-  if (remaining.length) {
-    groups.push({ key: `${areaKey}-other`, label: 'أخرى', items: remaining });
-  }
-  return groups;
 }
 
 function Tab({ active, tone, onClick, children, title }) {
@@ -184,11 +153,6 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
       .sort((a, b) => b.href.length - a.href.length)[0] || null;
   }, [globalTools, pathname]);
 
-  const globalToolsByGroup = useMemo(
-    () => groupToolsByConstitution(currentArea?.key, globalTools),
-    [currentArea, globalTools],
-  );
-
   const projectTools = useMemo(() => {
     if (!projectId) return [];
     const globallyVisibleHrefs = new Set(globalTools.map((item) => item.href));
@@ -263,24 +227,18 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
         ))}
       </TabRow>
 
-      {currentArea && globalToolsByGroup.length > 0 && (
-        <GroupedToolRow
-          label="الأداة"
-          groups={globalToolsByGroup.map((group) => ({
-            key: group.key,
-            label: group.label,
-            children: group.items.map((item) => (
-              <Tab key={item.href} tone="alt" active={currentGlobalTool?.href === item.href} onClick={() => go(item.href)}>
-                {item.label}
-              </Tab>
-            )),
-          }))}
-        />
+      {currentArea && globalTools.length > 0 && (
+        <TabRow label="الأداة">
+          {globalTools.map((item) => (
+            <Tab key={item.href} tone="alt" active={currentGlobalTool?.href === item.href} onClick={() => go(item.href)}>
+              {item.label}
+            </Tab>
+          ))}
+        </TabRow>
       )}
 
       {projectId && projectToolsByGroup.length > 0 && (
         <GroupedToolRow
-          label="المشروع"
           groups={projectToolsByGroup.map((group) => ({
             key: group.key,
             label: group.label,
