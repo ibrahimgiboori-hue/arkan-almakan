@@ -1,8 +1,8 @@
 /*
   WORK SHEET KERNEL — structural geometry, not final UI skin.
   ----------------------------------------------------------
-  Every dashboard tool is a sheet from the same operational notebook.
-  Pages may change data and controls, but they must not invent another page geometry.
+  Every dashboard route is mounted as one sheet from the same operational notebook.
+  Pages may change data and controls, but they do not own the sheet geometry.
 */
 @media screen {
   html {
@@ -15,6 +15,7 @@
     --work-sheet-top: 12px;
     --work-sheet-bottom: 58px;
     --work-header-min-height: 76px;
+    --work-context-min-height: 76px;
     --work-section-header-min-height: 52px;
     --work-dock-height: 46px;
     --work-row-height: var(--raw-row-height, 46px);
@@ -28,20 +29,34 @@
     box-sizing: border-box;
   }
 
-  /* One sheet geometry for new kernel pages and legacy dashboard pages alike. */
-  .rawDashboardContent [data-work-sheet='true'],
-  .rawDashboardContent [data-page-surface='true'],
-  .rawDashboardContent .page {
+  /* The route mount owns page rails. This removes the need for every page to
+     remember its own .page wrapper, which was the main source of lateral jumps. */
+  .rawDashboardContent > .workSheetMount {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: calc(100dvh - 80px);
+    margin: 0;
+    padding: var(--work-sheet-top) var(--work-sheet-inline) var(--work-sheet-bottom);
+    position: relative;
+  }
+
+  /* Internal page wrappers are semantic containers only. They cannot create a
+     second sheet inside the route sheet or change its horizontal starting line. */
+  .rawDashboardContent .workSheetMount [data-work-sheet='true'],
+  .rawDashboardContent .workSheetMount [data-page-surface='true'],
+  .rawDashboardContent .workSheetMount .page {
     box-sizing: border-box;
     width: 100% !important;
     max-width: none !important;
     min-width: 0;
     margin: 0 !important;
-    padding: var(--work-sheet-top) var(--work-sheet-inline) var(--work-sheet-bottom) !important;
+    padding: 0 !important;
     position: relative;
   }
 
-  /* The first text line and the first action line always start on the same axes. */
+  /* The first text line and first page action line always sit on the same axes. */
   .rawDashboardContent [data-work-header='true'],
   .rawDashboardContent [data-page-header='true'],
   .rawDashboardContent .page-head {
@@ -54,6 +69,16 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end !important;
     gap: 16px;
+    border-bottom: 1px solid var(--work-rule) !important;
+  }
+
+  /* Custom operational context bars keep their own internal control layout but
+     occupy the same vertical header rail as normal page headers. */
+  .rawDashboardContent [data-work-context-bar='true'] {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--work-context-min-height) !important;
+    margin: 0 0 10px !important;
     border-bottom: 1px solid var(--work-rule) !important;
   }
 
@@ -79,7 +104,7 @@
     line-height: 1.55 !important;
   }
 
-  /* Sections occupy the same horizontal rails. Content can differ; geometry cannot. */
+  /* Sections occupy the same horizontal rails. Content may differ; geometry cannot. */
   .rawDashboardContent [data-work-section='true'],
   .rawDashboardContent [data-data-surface='true'],
   .rawDashboardContent .section,
@@ -108,7 +133,7 @@
     gap: 14px;
   }
 
-  /* Ledger rail: tables and grids always touch the same right/left axes. */
+  /* Ledger rail: tables and shared grids always touch the same right/left axes. */
   .rawDashboardContent [data-work-ledger='true'],
   .rawDashboardContent [data-table-surface='true'] {
     width: 100%;
@@ -129,8 +154,7 @@
     min-height: var(--work-row-height);
   }
 
-  /* Explicit bottom dock for operational pages. It is part of the skeleton,
-     not an ad-hoc sticky toolbar. Pages opt into it through WorkDock/ActionDock. */
+  /* Canonical bottom rail for sheet-wide operations such as save/add/reload/status. */
   .rawDashboardContent [data-work-dock='true'] {
     box-sizing: border-box;
     position: sticky;
@@ -164,25 +188,18 @@
     text-overflow: ellipsis;
   }
 
-  /* Forms follow the same notebook columns instead of choosing arbitrary widths. */
-  .rawDashboardContent .form-grid {
+  /* A page may opt into the notebook form grid explicitly. Existing forms keep
+     their established span semantics until migrated, so the kernel never breaks data entry. */
+  .rawDashboardContent [data-work-form-grid='true'] {
     width: 100%;
+    display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 10px 12px !important;
+    gap: 10px 12px;
   }
 
-  .rawDashboardContent .form-grid > .field {
-    grid-column: span 6;
-    min-width: 0;
-  }
-
-  .rawDashboardContent .form-grid > .field.span2 {
-    grid-column: 1 / -1;
-  }
-
-  /* Avoid layout animation: moving between sheets should feel like turning a page,
-     not like each page is negotiating its own geometry. */
+  /* Avoid layout animation: navigation should feel like turning a notebook page. */
   .rawDashboardContent,
+  .rawDashboardContent > .workSheetMount,
   .rawDashboardContent [data-work-sheet='true'],
   .rawDashboardContent [data-page-surface='true'],
   .rawDashboardContent .page {
@@ -195,6 +212,7 @@
       --work-sheet-top: 10px;
       --work-sheet-bottom: 54px;
       --work-header-min-height: 70px;
+      --work-context-min-height: 70px;
     }
 
     .rawDashboardContent [data-work-header='true'],
@@ -205,10 +223,6 @@
     .rawDashboardContent .section > header {
       grid-template-columns: minmax(0, 1fr) !important;
       align-items: start !important;
-    }
-
-    .rawDashboardContent .form-grid > .field {
-      grid-column: 1 / -1;
     }
 
     .rawDashboardContent [data-work-dock='true'] {
