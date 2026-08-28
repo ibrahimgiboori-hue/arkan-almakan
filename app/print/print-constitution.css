@@ -1,0 +1,248 @@
+@import './print-system.css';
+
+/* ============================================================
+   ARKAN PRINT CONSTITUTION v2
+   One physical-print law for every /print document.
+   Document pages provide content only. Geometry, identity assets,
+   pagination safety, print states and procedure regions live here.
+   ============================================================ */
+
+:root{
+  --arkan-print-accent:#8B3332;
+  --arkan-print-text:#222;
+  --arkan-print-muted:#606060;
+  --arkan-print-border:#9b9b9b;
+  --arkan-print-label:#f1f1f1;
+  --arkan-print-page-width:210mm;
+  --arkan-print-page-height:297mm;
+  --arkan-print-side-margin:19mm;
+}
+
+@page arkan-portrait{size:A4 portrait;margin:0}
+@page arkan-landscape{size:A4 landscape;margin:0}
+
+/* ----- Constitution geometry ----- */
+.print-constitution{
+  --print-page-width:var(--arkan-print-page-width);
+  --print-page-height:var(--arkan-print-page-height);
+  --print-side-margin:var(--arkan-print-side-margin);
+  --print-content-width:calc(var(--print-page-width) - (var(--print-side-margin) * 2));
+  color:var(--arkan-print-text);
+}
+
+.print-orientation-portrait .print-page,
+.print-orientation-portrait .constitution-paged-sheet{page:arkan-portrait}
+
+.print-orientation-landscape{
+  --print-page-width:297mm;
+  --print-page-height:210mm;
+}
+.print-orientation-landscape .print-page,
+.print-orientation-landscape .constitution-paged-sheet{
+  page:arkan-landscape;
+  width:297mm!important;
+  min-width:297mm!important;
+  max-width:297mm!important;
+  height:210mm!important;
+  min-height:210mm!important;
+  max-height:210mm!important;
+}
+.print-orientation-landscape .print-content{
+  width:297mm!important;
+  height:210mm!important;
+}
+.print-orientation-landscape .print-master-full,
+.print-orientation-landscape .constitution-paged-full{
+  width:297mm!important;
+  height:210mm!important;
+}
+.print-orientation-landscape .print-master-header,
+.print-orientation-landscape .print-master-footer,
+.print-orientation-landscape .constitution-paged-header,
+.print-orientation-landscape .constitution-paged-footer{
+  width:297mm!important;
+}
+.print-orientation-landscape .constitution-paged-pages{align-items:center}
+
+/* ----- Uploaded identity assets: never degrade ----- */
+.print-constitution .print-assets,
+.print-constitution .print-master-full,
+.print-constitution .print-master-header,
+.print-constitution .print-master-footer,
+.print-constitution .print-master-watermark,
+.print-constitution .print-master-stamp,
+.print-constitution .print-master-signature,
+.print-constitution .constitution-paged-assets,
+.print-constitution .constitution-paged-full,
+.print-constitution .constitution-paged-header,
+.print-constitution .constitution-paged-footer,
+.print-constitution .constitution-paged-watermark{
+  opacity:1!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  image-rendering:auto!important;
+}
+
+/* ----- Tables are governed globally ----- */
+.print-constitution table{
+  width:100%;
+  max-width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+}
+.print-constitution thead{display:table-header-group}
+.print-constitution tfoot{display:table-footer-group}
+.print-constitution tr,
+.print-constitution .print-row,
+.print-constitution [data-print-row]{
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+.print-constitution td,
+.print-constitution th,
+.print-constitution .xlsx-cell{
+  min-width:0;
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+.print-constitution img,
+.print-constitution svg,
+.print-constitution canvas{max-width:100%}
+.print-constitution p{orphans:3;widows:3}
+
+/* ----- Shared document content vocabulary ----- */
+.print-document{
+  direction:rtl;
+  color:var(--arkan-print-text);
+  font-size:8.2pt;
+  line-height:1.4;
+}
+.print-document-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:6mm;
+  margin:0 0 3mm;
+  padding-bottom:2mm;
+  border-bottom:.3mm solid var(--arkan-print-border);
+  break-after:avoid;
+  page-break-after:avoid;
+}
+.print-document-title{margin:0;color:#7C2B28;font-size:14pt;line-height:1.25}
+.print-document-subtitle{margin-top:.8mm;color:var(--arkan-print-muted);font-size:7.5pt}
+.print-document-state{
+  flex:0 0 auto;
+  padding:1.4mm 2.4mm;
+  border:.3mm solid currentColor;
+  font-weight:700;
+  font-size:8pt;
+  white-space:nowrap;
+}
+.print-state-draft{color:#6d5b22;border-style:dashed}
+.print-state-review{color:#6b4b20}
+.print-state-approved{color:#245c31}
+.print-state-rejected{color:#8a2727}
+.print-state-cancelled{color:#555}
+
+.print-meta-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:0;
+  border-top:.2mm solid var(--arkan-print-border);
+  border-right:.2mm solid var(--arkan-print-border);
+  margin:0 0 3mm;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.print-meta-item{
+  min-width:0;
+  min-height:8mm;
+  padding:1mm 1.4mm;
+  border-left:.2mm solid var(--arkan-print-border);
+  border-bottom:.2mm solid var(--arkan-print-border);
+}
+.print-meta-item span{display:block;color:var(--arkan-print-muted);font-size:6.8pt;margin-bottom:.5mm}
+.print-meta-item strong{display:block;font-size:8pt;overflow-wrap:anywhere}
+
+.print-data-table{font-size:7.2pt}
+.print-data-table th,
+.print-data-table td{
+  border:.2mm solid var(--arkan-print-border);
+  padding:.9mm 1mm;
+  vertical-align:middle;
+}
+.print-data-table thead th{background:var(--arkan-print-label);font-weight:700}
+.print-data-table .num{direction:ltr;unicode-bidi:isolate;text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal}
+.print-data-table .text{text-align:right}
+.print-data-table tfoot th,
+.print-data-table tfoot td{font-weight:700;background:#eee5e5;border-top:.4mm solid var(--arkan-print-accent)}
+
+.print-approval-block{margin-top:3mm;break-inside:avoid;page-break-inside:avoid}
+.print-approval-title{font-size:8.5pt;font-weight:700;color:#7C2B28;margin:0 0 1mm}
+.print-approval-list{border-top:.2mm solid var(--arkan-print-border);border-right:.2mm solid var(--arkan-print-border)}
+.print-approval-step{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:1mm 3mm;
+  padding:1mm 1.4mm;
+  border-left:.2mm solid var(--arkan-print-border);
+  border-bottom:.2mm solid var(--arkan-print-border);
+  font-size:7pt;
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.print-approval-step small{grid-column:1/-1;color:var(--arkan-print-muted)}
+.print-document-footer{
+  margin-top:3mm;
+  padding-top:1.2mm;
+  border-top:.2mm solid #c7c7c7;
+  color:var(--arkan-print-muted);
+  font-size:6.5pt;
+  text-align:center;
+}
+
+/* ----- Shared procedure system ----- */
+.procedure-electronic{display:block}
+.procedure-manual{display:none}
+.procedure-electronic .xlsx-grid,.procedure-manual .xlsx-grid{margin-bottom:2.2mm}
+.procedure-stage-grid{
+  --procedure-stage-columns:3;
+  position:relative;
+  display:grid;
+  grid-template-columns:repeat(var(--procedure-stage-columns),minmax(0,1fr));
+  gap:0;
+  border-top:.2mm solid #a8a8a8;
+  border-right:.2mm solid #a8a8a8;
+  margin-top:0;
+  background:#fff;
+}
+.procedure-stage-grid::before{content:"";position:absolute;z-index:0;top:3.15mm;right:8%;left:8%;border-top:.16mm solid rgba(124,43,40,.14);pointer-events:none}
+.procedure-stage-slot{position:relative;z-index:1;min-width:0;min-height:18mm;padding:5.1mm 1.15mm 1mm;border-left:.2mm solid #a8a8a8;border-bottom:.2mm solid #a8a8a8;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.38mm;background:transparent;overflow-wrap:anywhere}
+.procedure-stage-slot::before{content:"";position:absolute;top:2.45mm;left:50%;transform:translateX(-50%);width:1.25mm;height:1.25mm;border-radius:50%;background:#f7f1f1;border:.16mm solid rgba(124,43,40,.18)}
+.procedure-stage-action{font-size:7.55pt;line-height:1.25;font-weight:700;color:#7C2B28}
+.procedure-stage-actor{font-size:7.15pt;line-height:1.25;font-weight:600;color:#222}
+.procedure-stage-title{font-size:6.65pt;line-height:1.3;color:#555}
+.procedure-stage-meta{font-size:6.35pt;line-height:1.3;color:#666}
+.procedure-signature-grid{--procedure-stage-columns:3;display:grid;grid-template-columns:repeat(var(--procedure-stage-columns),minmax(0,1fr));gap:0;border-top:.2mm solid #a8a8a8;border-right:.2mm solid #a8a8a8;margin-top:2.2mm}
+.procedure-signature-slot{min-width:0;min-height:23.5mm;padding:1.2mm 1.4mm 1.1mm;border-left:.2mm solid #a8a8a8;border-bottom:.2mm solid #a8a8a8;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.55mm}
+.procedure-signature-role{font-size:7.4pt;font-weight:700;color:#7C2B28;line-height:1.25}
+.procedure-signature-name{font-size:6.9pt;font-weight:600;color:#222;line-height:1.25}
+.procedure-signature-fields{width:100%;margin-top:auto;font-size:6.45pt;color:#444;text-align:right;direction:rtl}
+.procedure-signature-date{display:flex;align-items:baseline;gap:.7mm;width:100%;white-space:nowrap}
+.procedure-signature-date-dots{flex:1;min-width:0;overflow:hidden;color:#666;letter-spacing:.08mm;text-align:right}
+.procedure-signature-handwriting-space{height:5.6mm;width:100%}
+.procedure-signature-sign{width:100%;min-height:3mm;text-align:right;font-weight:500;color:#444}
+
+/* Unregistered /print routes are visible in preview only as an error and never printable. */
+.print-unregistered{min-height:100vh;padding:32px;direction:rtl;background:#fff;color:#7a2925;font-family:Arial,Tahoma,sans-serif}
+.print-constitution-error{max-width:760px;margin:60px auto;border:1px solid #c9a9a9;padding:20px;background:#fff8f8}
+
+@media print{
+  html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .no-print,.print-toolbar,.print-fitbar,.print-layoutbar,.constitution-paged-layoutbar{display:none!important}
+  .procedure-electronic{display:none!important}
+  .procedure-manual{display:block!important}
+  .print-constitution .print-page{box-shadow:none!important;margin:0!important}
+  .print-unregistered>*{display:none!important}
+  .print-unregistered::after{content:'الطباعة موقوفة: هذه المطبوعة غير مسجلة في دستور الطباعة.';display:block!important;padding:20mm;font-size:14pt;color:#7a2925;direction:rtl}
+}
