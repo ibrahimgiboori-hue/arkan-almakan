@@ -201,6 +201,80 @@
   text-align:center;
 }
 
+/* ----- One symmetric paper-signoff law for every printable document ----- */
+.print-signoff-block{
+  width:100%;
+  box-sizing:border-box;
+  margin-top:2.2mm;
+  padding-top:1.4mm;
+  border-top:.3mm solid var(--arkan-print-accent);
+  break-inside:avoid;
+  page-break-inside:avoid;
+  direction:inherit;
+  text-align:start;
+}
+.print-signoff-declaration{
+  margin:0 0 1.8mm;
+  font-size:7.7pt;
+  line-height:1.35;
+  color:var(--arkan-print-text);
+  text-align:start;
+}
+.print-signoff-grid{
+  --print-signoff-columns:2;
+  display:grid;
+  grid-template-columns:repeat(var(--print-signoff-columns),minmax(0,1fr));
+  gap:3mm;
+  width:100%;
+  align-items:stretch;
+}
+.print-signoff-card{
+  min-width:0;
+  min-height:24mm;
+  box-sizing:border-box;
+  padding:1.8mm 2.2mm;
+  border:.22mm solid rgba(124,43,40,.62);
+  display:flex;
+  flex-direction:column;
+  background:rgba(255,255,255,.38);
+}
+.print-signoff-card h3{
+  margin:0 0 1.4mm;
+  min-height:3.8mm;
+  color:#7C2B28;
+  font-size:8.1pt;
+  line-height:1.25;
+  font-weight:700;
+  text-align:start;
+}
+.print-signoff-fields{display:grid;gap:.8mm;width:100%}
+.print-signoff-field{
+  display:grid;
+  grid-template-columns:max-content minmax(0,1fr);
+  align-items:end;
+  gap:1.4mm;
+  min-height:4mm;
+  font-size:7.35pt;
+  line-height:1.2;
+}
+.print-signoff-label{white-space:nowrap;color:#444}
+.print-signoff-line{
+  display:block;
+  min-width:0;
+  width:100%;
+  height:3.4mm;
+  border-bottom:.18mm solid #666;
+}
+.print-signoff-stamp{
+  margin-top:auto;
+  padding-top:1.2mm;
+  min-height:5mm;
+  font-size:7pt;
+  color:#666;
+  text-align:start;
+}
+.print-signoff-stamp.is-empty{visibility:hidden}
+
 /* ----- Shared procedure system ----- */
 .procedure-electronic{display:block}
 .procedure-manual{display:none}
@@ -223,15 +297,31 @@
 .procedure-stage-actor{font-size:7.15pt;line-height:1.25;font-weight:600;color:#222}
 .procedure-stage-title{font-size:6.65pt;line-height:1.3;color:#555}
 .procedure-stage-meta{font-size:6.35pt;line-height:1.3;color:#666}
-.procedure-signature-grid{--procedure-stage-columns:3;display:grid;grid-template-columns:repeat(var(--procedure-stage-columns),minmax(0,1fr));gap:0;border-top:.2mm solid #a8a8a8;border-right:.2mm solid #a8a8a8;margin-top:2.2mm}
-.procedure-signature-slot{min-width:0;min-height:23.5mm;padding:1.2mm 1.4mm 1.1mm;border-left:.2mm solid #a8a8a8;border-bottom:.2mm solid #a8a8a8;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.55mm}
-.procedure-signature-role{font-size:7.4pt;font-weight:700;color:#7C2B28;line-height:1.25}
-.procedure-signature-name{font-size:6.9pt;font-weight:600;color:#222;line-height:1.25}
-.procedure-signature-fields{width:100%;margin-top:auto;font-size:6.45pt;color:#444;text-align:right;direction:rtl}
-.procedure-signature-date{display:flex;align-items:baseline;gap:.7mm;width:100%;white-space:nowrap}
-.procedure-signature-date-dots{flex:1;min-width:0;overflow:hidden;color:#666;letter-spacing:.08mm;text-align:right}
-.procedure-signature-handwriting-space{height:5.6mm;width:100%}
-.procedure-signature-sign{width:100%;min-height:3mm;text-align:right;font-weight:500;color:#444}
+.procedure-signature-grid{
+  --procedure-stage-columns:3;
+  display:grid;
+  grid-template-columns:repeat(var(--procedure-stage-columns),minmax(0,1fr));
+  gap:2.5mm;
+  border:0;
+  margin-top:2.2mm;
+  align-items:stretch;
+}
+.procedure-signature-slot{
+  min-width:0;
+  min-height:20mm;
+  padding:1.5mm 2mm;
+  border:.2mm solid #a8a8a8;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  text-align:start;
+  gap:.5mm;
+}
+.procedure-signature-role{font-size:7.4pt;font-weight:700;color:#7C2B28;line-height:1.25;text-align:start}
+.procedure-signature-name{font-size:6.9pt;font-weight:600;color:#222;line-height:1.25;text-align:start}
+.procedure-signature-fields{width:100%;margin-top:auto;font-size:6.7pt;color:#444;text-align:start;direction:rtl;display:grid;gap:.9mm}
+.procedure-signature-field{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:end;gap:1.2mm;min-height:3.8mm}
+.procedure-signature-line{display:block;width:100%;height:3.1mm;border-bottom:.18mm solid #666}
 
 /* Unregistered /print routes are visible in preview only as an error and never printable. */
 .print-unregistered{min-height:100vh;padding:32px;direction:rtl;background:#fff;color:#7a2925;font-family:Arial,Tahoma,sans-serif}
