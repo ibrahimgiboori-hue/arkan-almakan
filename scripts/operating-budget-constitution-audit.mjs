@@ -18,7 +18,23 @@ function rel(file) {
   return path.relative(root, file).replaceAll('\\', '/');
 }
 
-const budgetWrite = /\.from\(\s*['"](?:budget_[^'"]+|company_branches)['"]\s*\)[\s\S]{0,500}?\.(?:insert|update|upsert|delete)\s*\(/m;
+const governedTables = [
+  'company_branches',
+  'budget_item_definitions',
+  'budget_item_schedules',
+  'budget_rate_versions',
+  'budget_tariff_bands',
+  'budget_obligations',
+  'budget_obligation_estimate_events',
+  'budget_periods',
+  'budget_period_reopen_log',
+  'budget_period_cash_events',
+  'budget_period_lines',
+  'budget_line_settlements',
+  'budget_reserve_movements',
+];
+const escapedTables = governedTables.join('|');
+const budgetWrite = new RegExp(`\\.from\\(\\s*['\"](?:${escapedTables})['\"]\\s*\\)[\\s\\S]{0,500}?\\.(?:insert|update|upsert|delete)\\s*\\(`, 'm');
 const legacyLedger = /company_fixed_expenses/;
 const localAnnualDivision = /annual(?:Items|Total|Amount|Cost)?\w*\s*\/\s*12|monthlyEquivalent|annualMonthlyShare|annualMonthlyReserve/i;
 
