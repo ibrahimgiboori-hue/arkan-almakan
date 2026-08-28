@@ -1,32 +1,47 @@
 'use client';
 
 import styles from './constitution-ui.module.css';
+import {
+  WorkSheet,
+  WorkSheetHeader,
+  WorkSection,
+  WorkLedger,
+  WorkDock,
+} from './WorkSheetKernel';
 
 function cx(...values) {
   return values.filter(Boolean).join(' ');
 }
 
 export function ConstitutionPage({ children, className = '' }) {
-  return <div className={cx(styles.page, className)} data-ui-constitution="native" data-page-surface="true">{children}</div>;
+  return (
+    <WorkSheet
+      className={cx(styles.page, className)}
+      data-ui-constitution="native"
+      data-page-surface="true"
+    >
+      {children}
+    </WorkSheet>
+  );
 }
 
 export function PageHeader({ title, description, actions, eyebrow, children }) {
   const headerActions = actions || children;
   return (
-    <div className={styles.pageHeader} data-page-header="true">
+    <WorkSheetHeader className={styles.pageHeader} data-page-header="true">
       <div className={styles.pageHeaderCopy}>
         {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
       </div>
       {headerActions ? <div className={styles.actions} data-entry-ignore="true">{headerActions}</div> : null}
-    </div>
+    </WorkSheetHeader>
   );
 }
 
 export function Section({ title, description, actions, children, className = '' }) {
   return (
-    <section className={cx(styles.section, className)} data-data-surface="true">
+    <WorkSection className={cx(styles.section, className)} data-data-surface="true">
       {(title || description || actions) ? (
         <header className={styles.sectionHeader}>
           <div>
@@ -37,14 +52,14 @@ export function Section({ title, description, actions, children, className = '' 
         </header>
       ) : null}
       <div className={styles.sectionBody}>{children}</div>
-    </section>
+    </WorkSection>
   );
 }
 
 export function SummaryStrip({ items = [], label = 'الملخص' }) {
   if (!items.length) return null;
   return (
-    <div className={styles.summaryStrip} aria-label={label}>
+    <div className={styles.summaryStrip} aria-label={label} data-work-summary="true">
       {items.map((item, index) => (
         <div className={styles.summaryItem} key={item.key || item.label || index}>
           <strong>{item.value}</strong>
@@ -57,13 +72,17 @@ export function SummaryStrip({ items = [], label = 'الملخص' }) {
 }
 
 export function FilterSurface({ children }) {
-  return <div className={styles.filterSurface} data-entry-ignore="true">{children}</div>;
+  return <div className={styles.filterSurface} data-entry-ignore="true" data-work-filters="true">{children}</div>;
 }
 
-/* مساحة إدخال صريحة للشاشات الجديدة. */
+/* مساحة إدخال صريحة داخل نفس ورقة العمل، وليست تخطيطًا موازيًا. */
 export function EntrySurface({ title, description, actions, children, className = '' }) {
   return (
-    <section className={cx(styles.section, styles.entrySurface, className)} data-entry-surface="true" data-data-surface="true">
+    <WorkSection
+      className={cx(styles.section, styles.entrySurface, className)}
+      data-entry-surface="true"
+      data-data-surface="true"
+    >
       {(title || description || actions) ? (
         <header className={styles.sectionHeader}>
           <div>
@@ -74,7 +93,7 @@ export function EntrySurface({ title, description, actions, children, className 
         </header>
       ) : null}
       <div className={styles.sectionBody}>{children}</div>
-    </section>
+    </WorkSection>
   );
 }
 
@@ -88,11 +107,29 @@ export function Notice({ children, tone = 'neutral', actions }) {
 }
 
 export function Toolbar({ children, className = '' }) {
-  return <div className={cx(styles.toolbar, className)} data-entry-ignore="true">{children}</div>;
+  return <div className={cx(styles.toolbar, className)} data-entry-ignore="true" data-work-toolbar="true">{children}</div>;
 }
 
 export function TableFrame({ children, className = '' }) {
-  return <div className={cx(styles.tableFrame, className)} data-table-surface="true">{children}</div>;
+  return (
+    <WorkLedger className={cx(styles.tableFrame, className)} data-table-surface="true">
+      {children}
+    </WorkLedger>
+  );
+}
+
+/*
+ * الشريط السفلي القياسي للصفحات التشغيلية. لا يُستخدم لكل Toolbar؛ فقط للأوامر
+ * التي تخص الورقة كلها: حفظ/إضافة/إعادة تحميل/حالة السجل، مثل دفتر المصروفات.
+ */
+export function ActionDock({ actions, status, children, className = '' }) {
+  const dockActions = actions || children;
+  return (
+    <WorkDock className={className} data-entry-ignore="true">
+      <div data-work-dock-actions="true">{dockActions}</div>
+      {status ? <div data-work-dock-status="true">{status}</div> : null}
+    </WorkDock>
+  );
 }
 
 export function EmptyState({ title = 'لا توجد بيانات', description }) {
