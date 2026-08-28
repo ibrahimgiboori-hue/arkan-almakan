@@ -82,7 +82,7 @@ export default function PayrollPrintPage(){
     <ConstitutionPagedFrame
       documentKey="payroll_run"
       cfg={cfg}
-      showLetterhead={false}
+      showLetterhead={true}
       direction="rtl"
       contentTopMm={layout.topMm}
       contentBottomMm={layout.bottomMm}

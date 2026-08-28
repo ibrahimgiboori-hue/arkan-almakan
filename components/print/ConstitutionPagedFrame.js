@@ -173,10 +173,13 @@ export default function ConstitutionPagedFrame({
     setGridLayout, setRowHeight,
   }), [draft.grids, draft.rows, editing, setGridLayout, setRowHeight]);
 
-  const full = showLetterhead ? assetUrl(cfg?.letterhead_image_path) : null;
-  const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;
-  const footer = !full && showLetterhead ? assetUrl(cfg?.footer_image_path) : null;
-  const watermark = !full && showLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
+  const landscape = layout.orientation === 'landscape';
+  const hasSplitLetterhead = Boolean(cfg?.header_image_path || cfg?.footer_image_path || cfg?.watermark_image_path);
+  const useSplitLetterhead = showLetterhead && hasSplitLetterhead && (landscape || !cfg?.letterhead_image_path);
+  const full = showLetterhead && cfg?.letterhead_image_path && !useSplitLetterhead ? assetUrl(cfg.letterhead_image_path) : null;
+  const header = useSplitLetterhead ? assetUrl(cfg?.header_image_path) : null;
+  const footer = useSplitLetterhead ? assetUrl(cfg?.footer_image_path) : null;
+  const watermark = useSplitLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
   const classes = printGovernanceClassName(documentKey);
   const formatPageNumber = pageNumberFormatter || ((current,total)=> docDirection === 'ltr' ? `Page ${current} of ${total}` : `صفحة ${current} من ${total}`);
   const contentStyle = {
