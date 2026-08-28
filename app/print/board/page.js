@@ -37,7 +37,7 @@ export default function BoardReport() {
         documentKey="board_report"
         cfg={cfg}
         showLetterhead
-        showStamp={Boolean(cfg.stamp_image_path)}
+        showStamp
       >
         <div className="board-report">
             <div className="r-title">

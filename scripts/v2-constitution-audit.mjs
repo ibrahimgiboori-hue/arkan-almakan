@@ -27,6 +27,19 @@ const requiredProjectOperationContextConsumers = [
   'app/dashboard/projects/[id]/operations/custody/page.js',
 ];
 
+const requiredApprovalGovernanceConsumers = [
+  {
+    path:'app/print/quote/[id]/page.js',
+    required:['buildQuotationApprovalParties'],
+    forbidden:["client_kind||'entity'", "client_kind || 'entity'"],
+  },
+  {
+    path:'components/quotes/QuotePartyGovernancePanel.js',
+    required:['isEntityClient', 'employeeSignatoryPatch'],
+    forbidden:[],
+  },
+];
+
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -87,6 +100,26 @@ for (const rel of requiredProjectOperationContextConsumers) {
   const text = fs.readFileSync(full, 'utf8');
   if (!text.includes('useProjectOperationContext')) {
     violations.push(`${rel}: project operation screen bypasses shared useProjectOperationContext`);
+  }
+}
+
+// الأطراف والاعتمادات لها Resolver واحد. شاشة الإدخال والطباعة لا تعيدان
+// تعريف معنى فرد/منشأة أو طريقة اختيار ممثل أركان داخل كل صفحة.
+for (const rule of requiredApprovalGovernanceConsumers) {
+  const full = path.join(root, rule.path);
+  if (!fs.existsSync(full)) {
+    violations.push(`${rule.path}: governed approval consumer is missing`);
+    continue;
+  }
+  const text = fs.readFileSync(full, 'utf8');
+  if (!text.includes("@/lib/approval-governance")) {
+    violations.push(`${rule.path}: bypasses central approval-governance`);
+  }
+  for (const symbol of rule.required) {
+    if (!text.includes(symbol)) violations.push(`${rule.path}: missing governed approval helper ${symbol}`);
+  }
+  for (const localRule of rule.forbidden) {
+    if (text.includes(localRule)) violations.push(`${rule.path}: recreates client-kind approval rules locally`);
   }
 }
 

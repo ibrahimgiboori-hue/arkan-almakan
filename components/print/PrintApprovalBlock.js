@@ -1,8 +1,6 @@
 export default function PrintApprovalBlock({ declaration, parties = [] }) {
   if (!parties.length) return null;
 
-  const reserveStampSpace = parties.some((party) => party?.stampLabel);
-
   return (
     <section className="print-signoff-block">
       {declaration && <p className="print-signoff-declaration">{declaration}</p>}
@@ -29,10 +27,8 @@ export default function PrintApprovalBlock({ declaration, parties = [] }) {
                 );
               })}
             </div>
-            {reserveStampSpace && (
-              <div className={`print-signoff-stamp ${party?.stampLabel ? '' : 'is-empty'}`}>
-                {party?.stampLabel || '\u00a0'}
-              </div>
+            {party?.stampLabel && (
+              <div className="print-signoff-stamp">{party.stampLabel}</div>
             )}
           </div>
         ))}

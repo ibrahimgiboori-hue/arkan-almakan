@@ -4,10 +4,10 @@ import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import Riyal from '@/components/Riyal';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
+import { PrintMark } from '@/components/print/PrintMarks';
 import { getPrintLayoutPolicy } from '@/lib/print-governance';
 import './emp-report.css';
 
-const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
 const MM = 3.7795275591;
 const REPORT_LAYOUT = getPrintLayoutPolicy('employee_report');
 
@@ -76,7 +76,6 @@ export default function EmployeeReport() {
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
   if (!rows || !cfg) return <div style={{padding:40}}>جارٍ التحميل…</div>;
 
-  const stampUrl = pub(cfg.stamp_image_path);
   const mTop  = Number(REPORT_LAYOUT.topMm ?? cfg.letterhead_top_mm ?? 46);
   const mBot  = Number(REPORT_LAYOUT.bottomMm ?? cfg.letterhead_bottom_mm ?? 38);
   const mSide = Number(REPORT_LAYOUT.sideMm ?? cfg.letterhead_side_mm ?? 19);
@@ -164,7 +163,7 @@ export default function EmployeeReport() {
   const Sign = () => (
     <div className="r-sign">
       <div className="rs-stamp">
-        {stampUrl && <img src={stampUrl} alt="" style={{height:`${stampMm}mm`}} />}
+        <PrintMark cfg={cfg} kind="stamp" sizeMm={stampMm} mode="inline" />
       </div>
       <div className="rs-info">
         <div className="ri-t">{cfg.company_name_ar}</div>

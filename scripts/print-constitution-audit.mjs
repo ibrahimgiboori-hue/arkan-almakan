@@ -8,12 +8,26 @@ const centralFiles = new Set([
   path.normalize('app/print/print-constitution.css'),
 ]);
 
-const forbidden = [
+// /print/[id] is the single generic template renderer. It may still place
+// stamp/signature inside an explicit template stampbox until that renderer is
+// extracted into components/print. No document-specific page gets this right.
+const inlineMarkOwnerFiles = new Set([
+  path.normalize('app/print/[id]/page.js'),
+]);
+
+const geometryRules = [
   { re:/@page\b/i, label:'تعريف @page محلي' },
   { re:/\bsize\s*:\s*A4\b/i, label:'تعريف حجم A4 محلي' },
   { re:/(^|[\s,{])html\s*,\s*body\s*\{/i, label:'تعريف html/body للطباعة محليًا' },
   { re:/\.print-page\s*\{/i, label:'إعادة تعريف هندسة .print-page' },
   { re:/\.constitution-paged-sheet\s*\{/i, label:'إعادة تعريف هندسة الصفحة متعددة الصفحات' },
+];
+
+const markRules = [
+  { re:/\bstamp_image_path\b/i, label:'قراءة ملف الختم خارج طبقة الطباعة المركزية' },
+  { re:/\bsignature_image_path\b/i, label:'قراءة ملف التوقيع خارج طبقة الطباعة المركزية' },
+  { re:/\.print-master-stamp\s*\{/i, label:'تعريف هندسة الختم محليًا خارج دستور الطباعة' },
+  { re:/\.print-master-signature\s*\{/i, label:'تعريف هندسة التوقيع محليًا خارج دستور الطباعة' },
 ];
 
 function walk(dir) {
@@ -32,8 +46,13 @@ for (const file of candidates) {
   const rel = path.normalize(path.relative(root, file));
   if (centralFiles.has(rel)) continue;
   const content = fs.readFileSync(file, 'utf8');
-  for (const rule of forbidden) {
+  for (const rule of geometryRules) {
     if (rule.re.test(content)) violations.push(`${rel}: ${rule.label}`);
+  }
+  if (!inlineMarkOwnerFiles.has(rel)) {
+    for (const rule of markRules) {
+      if (rule.re.test(content)) violations.push(`${rel}: ${rule.label}`);
+    }
   }
 }
 
@@ -50,7 +69,7 @@ if (fs.existsSync(layoutPath)) {
 
 if (violations.length) {
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('صفحات المحتوى لا تملك هندسة الورق. انقل القاعدة إلى دستور الطباعة المركزي.\n');
+  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية. انقل القاعدة إلى دستور الطباعة المركزي.\n');
   for (const item of violations) console.error(`- ${item}`);
   process.exit(1);
 }
