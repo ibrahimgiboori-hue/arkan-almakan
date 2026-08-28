@@ -50,6 +50,14 @@ for (const scope of ['app', 'components', 'lib']) {
   }
 }
 
+for (const file of fs.existsSync(path.join(root, 'supabase/migrations')) ? fs.readdirSync(path.join(root, 'supabase/migrations')) : []) {
+  if (!file.endsWith('.sql')) continue;
+  const text = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8');
+  if (/grant\s+execute\s+on\s+all\s+functions\s+in\s+schema\s+private\s+to\s+authenticated/i.test(text)) {
+    violations.push(`supabase/migrations/${file}: broad authenticated EXECUTE grant on private schema`);
+  }
+}
+
 {
   const fileRel = 'lib/system-constitution.js';
   const full = path.join(root, fileRel);
