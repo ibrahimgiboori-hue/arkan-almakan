@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { money, dateAr, STATUS_AR } from '@/lib/format';
 import {
   ConstitutionPage,
@@ -16,38 +17,51 @@ import {
 } from '@/components/ui/ConstitutionUI';
 
 export default function Employees() {
+  const me = useDashboardSession();
   const [rows, setRows] = useState(null);
-  const [role, setRole] = useState(null);
   const [q, setQ] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
-  const load = useCallback(async () => {
-    setErr('');
-    setRows(null);
-    try {
-      const { data:sessionData, error:sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      const activation = await supabase.rpc('activate_due_temporary_replacements');
-      if (activation.error && activation.error.code !== 'PGRST202') console.warn('[employees] temporary replacement activation failed', activation.error);
-      const userId = sessionData.session?.user?.id;
-      const [employeesResult, userResult] = await Promise.all([
-        supabase.from('employees').select('*').eq('person_kind', 'employee'),
-        userId ? supabase.from('app_users').select('role').eq('id', userId).maybeSingle() : Promise.resolve({ data:null, error:null }),
-      ]);
-      if (employeesResult.error) throw employeesResult.error;
-      if (userResult.error) throw userResult.error;
-      setRows(employeesResult.data || []);
-      setRole(userResult.data?.role || null);
-    } catch (error) {
-      console.error('[employees] load failed', error);
-      setRows([]); setRole(null);
-      setErr(`تعذّر تحميل الموظفين: ${error?.message || 'حدث خطأ غير متوقع'}`);
-    }
+  const readEmployees = useCallback(async () => {
+    const result = await supabase.from('employees').select('*').eq('person_kind', 'employee');
+    if (result.error) throw result.error;
+    return result.data || [];
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const load = useCallback(async () => {
+    setErr('');
+    if (rows === null) setRows(null);
+    try {
+      const list = await readEmployees();
+      setRows(list);
+
+      // صيانة تشغيلية غير حاجبة: لا نؤخر عرض سجل الموظفين بسبب تحديث البدلاء المؤقتين.
+      supabase.rpc('activate_due_temporary_replacements').then(async ({ error }) => {
+        if (error) {
+          if (error.code !== 'PGRST202') console.warn('[employees] temporary replacement activation failed', error);
+          return;
+        }
+        try {
+          const refreshed = await readEmployees();
+          setRows(refreshed);
+        } catch (refreshError) {
+          console.warn('[employees] background refresh failed', refreshError);
+        }
+      });
+    } catch (error) {
+      console.error('[employees] load failed', error);
+      setRows([]);
+      setErr(`تعذّر تحميل الموظفين: ${error?.message || 'حدث خطأ غير متوقع'}`);
+    }
+  }, [readEmployees, rows]);
+
+  useEffect(() => { load(); }, []);
+
+  const canEdit = Boolean(me?.access?.fullAdmin) || me?.capabilityKeys?.has('hr.employees.edit');
+  const canDelete = Boolean(me?.access?.fullAdmin) || me?.capabilityKeys?.has('hr.employees.delete') || me?.capabilityKeys?.has('hr.employees.edit');
+  const canCreate = Boolean(me?.access?.fullAdmin) || me?.capabilityKeys?.has('hr.employees.create');
 
   async function setStatus(row, status) {
     setErr(''); setMsg('');
@@ -82,7 +96,6 @@ export default function Employees() {
 
   if (!rows) return <ConstitutionPage><EmptyState title="جارٍ تحميل سجل الموظفين…" /></ConstitutionPage>;
 
-  const canWrite = ['ceo','hr'].includes(role);
   const activeCount = rows.filter((row)=>row.status==='active').length;
   const leaveCount = rows.filter((row)=>row.status==='on_leave').length;
   const pendingCount = rows.filter((row)=>row.status==='pending_start').length;
@@ -95,7 +108,7 @@ export default function Employees() {
       description="السجل الوظيفي الموحد للموظفين وحالاتهم الحالية."
       actions={<Toolbar>
         <Link className="btn ghost" href="/print/employees" target="_blank">تقرير الموظفين</Link>
-        <Link className="btn" href="/dashboard/employees/new">+ إضافة موظف</Link>
+        {canCreate?<Link className="btn" href="/dashboard/employees/new">+ إضافة موظف</Link>:null}
       </Toolbar>}
     />
 
@@ -133,8 +146,8 @@ export default function Employees() {
               <td className="mono">{employee.mobile||'—'}</td>
               <td className="num">{money(gross)}</td>
               <td className="mono">{dateAr(employee.id_expiry)}</td>
-              <td>{canWrite&&!pending?<select value={employee.status} onChange={(event)=>setStatus(employee,event.target.value)}><option value="active">على رأس العمل</option><option value="on_leave">في إجازة</option><option value="suspended">موقوف</option><option value="terminated">منتهي</option></select>:<span className={`pill ${employee.status==='active'?'ok':pending?'warn':''}`}>{STATUS_AR[employee.status]||employee.status}</span>}</td>
-              <td><Toolbar><Link className="btn ghost" href={`/dashboard/employees/${employee.id}`}>فتح الملف</Link>{canWrite&&<button className="btn ghost" onClick={()=>remove(employee)}>حذف</button>}</Toolbar></td>
+              <td>{canEdit&&!pending?<select value={employee.status} onChange={(event)=>setStatus(employee,event.target.value)}><option value="active">على رأس العمل</option><option value="on_leave">في إجازة</option><option value="suspended">موقوف</option><option value="terminated">منتهي</option></select>:<span className={`pill ${employee.status==='active'?'ok':pending?'warn':''}`}>{STATUS_AR[employee.status]||employee.status}</span>}</td>
+              <td><Toolbar><Link className="btn ghost" href={`/dashboard/employees/${employee.id}`}>فتح الملف</Link>{canDelete&&<button className="btn ghost" onClick={()=>remove(employee)}>حذف</button>}</Toolbar></td>
             </tr>;
           })}</tbody>
         </table>
