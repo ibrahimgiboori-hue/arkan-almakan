@@ -8,33 +8,9 @@ import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
 import './raw-tokens.css';
 import './raw-phase.css';
 
-// دفتر التشغيل له عرض منطقي واحد على سطح المكتب.
-// 1912px هو المرجع البصري المعتمد من لقطة التشغيل المرجعية.
-// لا نحاول تغيير Browser Zoom نفسه؛ نعوضه داخل غلاف البرنامج مرة واحدة عند فتح الجلسة.
-const STANDARD_DASHBOARD_WIDTH = 1912;
-const SCALE_STORAGE_PREFIX = 'arkan-dashboard-opening-scale-v1:';
-
-function resolveOpeningScale(userId) {
-  if (typeof window === 'undefined') return 1;
-  const key = `${SCALE_STORAGE_PREFIX}${userId}`;
-  const stored = Number(window.sessionStorage.getItem(key));
-  if (Number.isFinite(stored) && stored > 0) return stored;
-
-  // لا نفرض دفتر سطح المكتب المصغر على الهواتف؛ الاستجابة المحمولة تبقى مستقلة.
-  if (window.innerWidth < 900) {
-    window.sessionStorage.setItem(key, '1');
-    return 1;
-  }
-
-  const scale = window.innerWidth / STANDARD_DASHBOARD_WIDTH;
-  const safeScale = Math.max(0.5, Math.min(2, scale));
-  window.sessionStorage.setItem(key, String(safeScale));
-  return safeScale;
-}
-
 export default function DashboardLayout({ children }) {
   const router = useRouter();
-  const [state, setState] = useState({ ready:false, allowed:false, message:'', me:null, openingScale:1 });
+  const [state, setState] = useState({ ready:false, allowed:false, message:'', me:null });
 
   useEffect(() => {
     let alive = true;
@@ -61,7 +37,7 @@ export default function DashboardLayout({ children }) {
       if (!alive) return;
 
       if (userQ.error) {
-        setState({ ready:true, allowed:false, message:'تعذر التحقق من الحساب.', me:null, openingScale:1 });
+        setState({ ready:true, allowed:false, message:'تعذر التحقق من الحساب.', me:null });
         return;
       }
 
@@ -72,7 +48,7 @@ export default function DashboardLayout({ children }) {
       }
 
       if (!userRow?.is_active || !userRow?.role) {
-        setState({ ready:true, allowed:false, message:'حسابك غير مهيأ لاستخدام النظام حاليًا.', me:null, openingScale:1 });
+        setState({ ready:true, allowed:false, message:'حسابك غير مهيأ لاستخدام النظام حاليًا.', me:null });
         return;
       }
 
@@ -94,13 +70,11 @@ export default function DashboardLayout({ children }) {
         manageAccess: fullAdmin || capabilityKeys.has('system.access.manage_access'),
         approvals: fullAdmin || capabilityKeys.has('system.approvals.view'),
       };
-      const openingScale = resolveOpeningScale(session.user.id);
 
       setState({
         ready:true,
         allowed:true,
         message:'',
-        openingScale,
         me:{ ...userRow, email:session.user.email, userId:session.user.id, capabilities, capabilityKeys, access },
       });
     })();
@@ -109,9 +83,6 @@ export default function DashboardLayout({ children }) {
   }, [router]);
 
   async function signOut() {
-    if (typeof window !== 'undefined' && state.me?.userId) {
-      window.sessionStorage.removeItem(`${SCALE_STORAGE_PREFIX}${state.me.userId}`);
-    }
     await supabase.auth.signOut();
     router.replace('/login');
   }
@@ -124,19 +95,12 @@ export default function DashboardLayout({ children }) {
     return <div style={{padding:24,fontFamily:'inherit'}}>{state.message}</div>;
   }
 
-  const desktopNotebook = typeof window !== 'undefined' && window.innerWidth >= 900;
-  const shellStyle = desktopNotebook ? {
-    width:`${STANDARD_DASHBOARD_WIDTH}px`,
-    zoom:state.openingScale,
-  } : undefined;
-
   return (
     <DashboardSessionProvider value={state.me}>
       <div
         className="rawDashboardShell"
         data-work-kernel="operational-notebook-v1"
-        data-opening-scale="session-normalized"
-        style={shellStyle}
+        data-viewport-policy="fluid-full-width"
       >
         <RawDashboardNavigation me={state.me} onSignOut={signOut} />
         <main className="rawDashboardContent" data-work-book="true">
