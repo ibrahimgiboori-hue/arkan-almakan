@@ -11,6 +11,47 @@ function markProps(rawProps = {}) {
   return { props, style: style || {} };
 }
 
+export function PrintMark({
+  cfg,
+  kind = 'stamp',
+  show = true,
+  sizeMm,
+  mode = 'overlay',
+  style,
+  imageProps,
+}) {
+  const isSignature = kind === 'signature';
+  const path = isSignature ? cfg?.signature_image_path : cfg?.stamp_image_path;
+  const src = show ? assetUrl(path) : null;
+  const dom = markProps(imageProps);
+  const interactive = Boolean(dom.props.onPointerDown);
+  if (!src) return null;
+
+  const resolvedSize = Number(sizeMm ?? (isSignature ? cfg?.signature_size_mm ?? 21 : cfg?.stamp_size_mm ?? 30));
+  const overlay = mode === 'overlay';
+  const className = overlay
+    ? (isSignature ? 'print-master-signature' : 'print-master-stamp')
+    : (isSignature ? 'print-inline-signature' : 'print-inline-stamp');
+
+  return (
+    <img
+      src={src}
+      className={className}
+      alt=""
+      aria-hidden="true"
+      {...dom.props}
+      style={{
+        ...(overlay
+          ? { width:`${resolvedSize}mm` }
+          : { height:`${resolvedSize}mm`, width:'auto', maxWidth:'100%', objectFit:'contain', display:'block' }),
+        ...(interactive ? { pointerEvents:'auto', cursor:'move', touchAction:'none' } : {}),
+        ...(style || {}),
+        ...dom.style,
+      }}
+    />
+  );
+}
+
 export default function PrintMarks({
   cfg,
   showStamp = false,
@@ -22,47 +63,24 @@ export default function PrintMarks({
   stampProps,
   signatureProps,
 }) {
-  const stamp = showStamp ? assetUrl(cfg?.stamp_image_path) : null;
-  const signature = showSignature ? assetUrl(cfg?.signature_image_path) : null;
-  const stampDom = markProps(stampProps);
-  const signatureDom = markProps(signatureProps);
-  const stampInteractive = Boolean(stampDom.props.onPointerDown);
-  const signatureInteractive = Boolean(signatureDom.props.onPointerDown);
-
-  if (!stamp && !signature) return null;
-
   return (
     <>
-      {stamp && (
-        <img
-          src={stamp}
-          className="print-master-stamp"
-          alt=""
-          aria-hidden="true"
-          {...stampDom.props}
-          style={{
-            width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`,
-            ...(stampInteractive ? { pointerEvents:'auto', cursor:'move', touchAction:'none' } : {}),
-            ...(stampStyle || {}),
-            ...stampDom.style,
-          }}
-        />
-      )}
-      {signature && (
-        <img
-          src={signature}
-          className="print-master-signature"
-          alt=""
-          aria-hidden="true"
-          {...signatureDom.props}
-          style={{
-            width:`${Number(signatureSizeMm ?? cfg?.signature_size_mm ?? 21)}mm`,
-            ...(signatureInteractive ? { pointerEvents:'auto', cursor:'move', touchAction:'none' } : {}),
-            ...(signatureStyle || {}),
-            ...signatureDom.style,
-          }}
-        />
-      )}
+      <PrintMark
+        cfg={cfg}
+        kind="stamp"
+        show={showStamp}
+        sizeMm={stampSizeMm}
+        style={stampStyle}
+        imageProps={stampProps}
+      />
+      <PrintMark
+        cfg={cfg}
+        kind="signature"
+        show={showSignature}
+        sizeMm={signatureSizeMm}
+        style={signatureStyle}
+        imageProps={signatureProps}
+      />
     </>
   );
 }
