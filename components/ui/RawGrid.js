@@ -1,19 +1,11 @@
 'use client';
 
 /**
- * RawGrid — the one shared "Excel-like" editable grid for the raw phase.
+ * RawGrid — the shared editable ledger for the operational notebook.
  *
- * Goal: every data-entry screen in the program (expenses, advances, leaves,
- * timesheets, quotes...) should be built from THIS component instead of
- * hand-rolling its own <table>. That gives the whole program one visual and
- * behavioral skeleton now (symmetry, consistent editing pattern), and lets
- * the whole program be "dressed" later with a single skin change in
- * raw-tokens.css / RawGrid.module.css — no per-screen rework.
- *
- * This does not invent new UX: it generalizes the pattern already used by
- * the direct-expense-panel "مصروفات اليوم" grid (editable rows, per-column
- * types, saved-vs-new styling, add/duplicate/save actions) so every other
- * screen can reuse it verbatim.
+ * It owns row/cell behavior only. Horizontal rails and the sheet-wide action
+ * line are supplied by the Work Sheet Kernel so every tool feels like another
+ * page in the same notebook rather than a separately designed screen.
  */
 
 import styles from './RawGrid.module.css';
@@ -140,7 +132,7 @@ export default function RawGrid({
   if (!rows?.length) return <div className={styles.empty}>{emptyMessage}</div>;
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} data-work-ledger="true">
       <table className={styles.table}>
         <thead>
           <tr>
@@ -177,9 +169,9 @@ export default function RawGrid({
 
 export function RawGridFooter({ actions, summary }) {
   return (
-    <div className={styles.footer}>
-      <div className={styles.footerActions}>{actions}</div>
-      <div className={styles.footerSummary}>{summary}</div>
+    <div className={styles.footer} data-work-dock="true">
+      <div className={styles.footerActions} data-work-dock-actions="true">{actions}</div>
+      <div className={styles.footerSummary} data-work-dock-summary="true">{summary}</div>
     </div>
   );
 }
