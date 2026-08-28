@@ -21,11 +21,11 @@
 .pages{padding:24px 14px 60px;display:flex;flex-direction:column;
   align-items:center;gap:20px;background:#EFEAEA}
 .sheet{
-  width:210mm;height:297mm;background:#fff;position:relative;overflow:hidden;
+  background:#fff;position:relative;overflow:hidden;
   box-shadow:0 1px 6px rgba(0,0,0,.16);display:flex;flex-direction:column;
 }
-.r-head{flex:0 0 auto;display:block;width:210mm;object-fit:fill}
-.r-foot{flex:0 0 auto;display:block;width:210mm;object-fit:fill;margin-top:auto}
+.r-head{flex:0 0 auto;display:block;object-fit:fill}
+.r-foot{flex:0 0 auto;display:block;object-fit:fill;margin-top:auto}
 .content{flex:1 1 auto;min-height:0;box-sizing:border-box;overflow:hidden}
 .pagenum{flex:0 0 auto;text-align:center;font-size:7.5pt;
   color:#6B6B6D;padding-bottom:1.5mm}
@@ -85,12 +85,12 @@
 .rs-info .mono{direction:ltr;unicode-bidi:isolate;display:inline-block}
 
 @media print{
-  @page{size:A4 portrait;margin:0}
-  html,body{margin:0;padding:0;background:#fff}
+  
+  
   .rtoolbar,.no-print,.measure{display:none!important}
   .pages{padding:0;gap:0;background:#fff;display:block}
-  .sheet{width:210mm;height:297mm;box-shadow:none;margin:0;
-    page-break-after:always;break-after:page;overflow:hidden;
+  .sheet{box-shadow:none;margin:0;
+    overflow:hidden;
     display:flex;flex-direction:column}
   .sheet:last-child{page-break-after:auto;break-after:auto}
   .r-head,.r-foot{display:block!important}

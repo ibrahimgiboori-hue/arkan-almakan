@@ -75,9 +75,9 @@
 
 .sheet-wrap{padding:26px 14px 60px;display:flex;justify-content:center;background:#EFEAEA}
 .sheet{
-  width:210mm;min-height:297mm;background:#fff;box-sizing:border-box;
+  min-background:#fff;box-sizing:border-box;
   box-shadow:0 1px 5px rgba(0,0,0,.15);display:flex;flex-direction:column;
-  background-size:210mm 297mm;background-repeat:repeat-y;background-position:top center;
+  background-repeat:repeat-y;background-position:top center;
 }
 .print-doc-generic_document .governed-document-sheet{
   width:100%;min-height:0;padding:0;background:none;box-shadow:none;overflow:visible;
@@ -170,10 +170,10 @@ td.mono{unicode-bidi:isolate}
   font-variant-numeric:tabular-nums}
 
 @media print{
-  @page{size:A4;margin:0}
+  
   .toolbar{display:none}
   .sheet-wrap{padding:0;background:#fff}
-  .sheet{width:auto;min-height:297mm;box-shadow:none}
+  .sheet{width:auto;min-box-shadow:none}
   .print-doc-generic_document .governed-document-sheet{width:100%;min-height:0}
   .card-doc,.plain-card,.sigtable,.declare,.tafqit,.footer-row,.stampbox-row,.pt-wrap{break-inside:avoid;page-break-inside:avoid}
   .amounts tbody tr{break-inside:avoid;page-break-inside:avoid}
