@@ -57,9 +57,25 @@ for (const scope of ['app', 'components', 'lib']) {
   const hardening = '20260829016000_harden_private_budget_execution_grants.sql';
   const hardeningText = files.includes(hardening) ? fs.readFileSync(path.join(migrationsDir, hardening), 'utf8') : '';
   for (const file of broad) {
-    if (file >= hardening || !hardeningText.includes("p.proname like 'fn_budget_%'") || !hardeningText.includes("revoke execute on function %s from authenticated")) {
+    if (file >= hardening || !hardeningText.includes("p.proname like 'fn_budget_%'") || !hardeningText.includes('revoke execute on function %s from authenticated')) {
       violations.push(`supabase/migrations/${file}: broad private EXECUTE grant is not neutralized by the required later hardening migration`);
     }
+  }
+
+  const atomicCatalog = '20260829019000_operating_budget_catalog_atomicity_and_consumable_detail.sql';
+  const atomicText = files.includes(atomicCatalog) ? fs.readFileSync(path.join(migrationsDir, atomicCatalog), 'utf8') : '';
+  for (const token of [
+    'fn_budget_rpc_save_catalog_item',
+    'public.budget_save_catalog_item',
+    'fn_budget_guard_item_definition_history',
+    'revoke execute on function public.budget_upsert_item',
+    'revoke execute on function public.budget_set_item_rate',
+    'revoke execute on function public.budget_set_schedule',
+    'مياه معبأة 330 مل',
+    'نسكافيه 3 في 1',
+    'دبابيس دباسة',
+  ]) {
+    if (!atomicText.includes(token)) violations.push(`supabase/migrations/${atomicCatalog}: missing catalog-governance token ${token}`);
   }
 }
 
@@ -95,8 +111,13 @@ for (const scope of ['app', 'components', 'lib']) {
   } else {
     const text = fs.readFileSync(full, 'utf8');
     if (!text.includes("@/lib/operating-budget")) violations.push(`${fileRel}: page bypasses shared operating-budget contract`);
-    for (const rpc of ['budget_open_period','budget_period_statement','budget_period_summary','budget_forecast','budget_reserve_adjust','budget_pay_from_treasury']) {
+    if (!text.includes('useDashboardSession')) violations.push(`${fileRel}: page does not consume dashboard capability context`);
+    if (!text.includes('OPERATING_BUDGET.capability.edit')) violations.push(`${fileRel}: edit actions are not capability-gated`);
+    for (const rpc of ['budget_open_period','budget_period_statement','budget_period_summary','budget_forecast','budget_reserve_adjust','budget_pay_from_treasury','budget_save_catalog_item']) {
       if (!text.includes(`'${rpc}'`)) violations.push(`${fileRel}: missing governed RPC ${rpc}`);
+    }
+    for (const forbiddenRpc of ['budget_upsert_item','budget_set_item_rate','budget_set_schedule']) {
+      if (text.includes(`'${forbiddenRpc}'`)) violations.push(`${fileRel}: catalog bypasses atomic gateway via ${forbiddenRpc}`);
     }
   }
 }
