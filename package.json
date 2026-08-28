@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/navigation-cleanliness-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/work-sheet-kernel-audit.mjs",
+    "prebuild": "node scripts/navigation-cleanliness-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/work-sheet-kernel-audit.mjs && node scripts/v2-constitution-audit.mjs",
     "build": "next build",
     "start": "next start",
     "nav:audit": "node scripts/navigation-cleanliness-audit.mjs",
