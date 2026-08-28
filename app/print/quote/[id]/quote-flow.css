@@ -1,16 +1,10 @@
 /* Quotation flow overrides: consistent numbered terms, document-language direction, compact bank details */
 .quote-document-page{direction:inherit;text-align:start}
-.quote-document-page .q-block.pay,.quote-document-page .q-pay,.quote-document-page .q-pay th,.quote-document-page .q-pay td,.quote-document-page .q-term-flow,.quote-document-page .q-bank,.quote-document-page .q-paper-approval{direction:inherit;text-align:start}
+.quote-document-page .q-block.pay,.quote-document-page .q-pay,.quote-document-page .q-pay th,.quote-document-page .q-pay td,.quote-document-page .q-term-flow,.quote-document-page .q-bank{direction:inherit;text-align:start}
 .q-block.pay .qb-head{font-weight:700;color:var(--maroon-dark)}
 .q-pay th,.q-pay td{vertical-align:middle}.q-pay .payment-note{line-height:1.28;overflow-wrap:normal;word-break:normal}
 .q-term-flow{margin:0;padding:1.2mm .6mm 1.35mm;border:0;border-bottom:.2mm solid rgba(139,51,50,.38);background:transparent;break-inside:avoid;page-break-inside:avoid}
 .q-term-flow h3{margin:0 0 .55mm;padding:0;color:var(--maroon-dark);font-size:8.5pt;line-height:1.25;font-weight:700;direction:inherit;text-align:start}.q-term-flow .term-no{margin-inline-end:1.2mm;font-variant-numeric:tabular-nums}.q-term-flow p{margin:0;color:var(--ink-print);font-size:8.15pt;line-height:1.38;direction:inherit;text-align:start}
 .q-bank{padding:1.2mm 2mm;line-height:1.35}.q-bank .qb-t{margin-bottom:.65mm;text-align:start}.q-bank .bank-line{display:block;margin:.18mm 0;white-space:nowrap;text-align:start;direction:inherit}.q-bank .bank-label{font-weight:700;color:var(--maroon-dark)}.q-bank .acct{direction:ltr;unicode-bidi:isolate;display:inline-block;text-align:left}
-/* Paper approval: declaration then two equal parallel approval boxes. Keep the whole unit together. */
-.q-paper-approval{width:100%;box-sizing:border-box;margin-top:2mm;padding-top:1.5mm;border-top:.35mm solid var(--maroon-dark);break-inside:avoid;page-break-inside:avoid;min-height:45mm}
-.approval-declaration{margin:0 0 3mm;font-size:8.2pt;line-height:1.4;text-align:start}
-.approval-parties{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;grid-auto-flow:column;align-items:stretch;gap:5mm;width:100%;direction:inherit}
-.approval-party{display:block;box-sizing:border-box;width:100%;height:100%;border:.25mm solid rgba(139,51,50,.65);padding:2.2mm 3mm;min-height:34mm;background:rgba(255,255,255,.42);text-align:start}
-.approval-party h3{margin:0 0 2mm;color:var(--maroon-dark);font-size:8.5pt}.approval-party>div{font-size:8pt;line-height:1.8;white-space:nowrap}.approval-party>div span{display:inline-block;min-width:30mm;border-bottom:.2mm solid #777;height:4mm;vertical-align:bottom}.approval-stamp{margin-top:1.5mm;min-height:8mm;color:#666}
-[dir="ltr"] .q-pay th:not(.num),[dir="ltr"] .q-pay td:not(.num),[dir="ltr"] .q-term-flow,[dir="ltr"] .q-bank,[dir="ltr"] .q-paper-approval{text-align:left}[dir="rtl"] .q-pay th:not(.num),[dir="rtl"] .q-pay td:not(.num),[dir="rtl"] .q-term-flow,[dir="rtl"] .q-bank,[dir="rtl"] .q-paper-approval{text-align:right}
-@media print{.q-term-flow,.q-paper-approval{break-inside:avoid;page-break-inside:avoid}.approval-parties{display:grid !important;grid-template-columns:1fr 1fr !important}}
+[dir="ltr"] .q-pay th:not(.num),[dir="ltr"] .q-pay td:not(.num),[dir="ltr"] .q-term-flow,[dir="ltr"] .q-bank{text-align:left}[dir="rtl"] .q-pay th:not(.num),[dir="rtl"] .q-pay td:not(.num),[dir="rtl"] .q-term-flow,[dir="rtl"] .q-bank{text-align:right}
+@media print{.q-term-flow{break-inside:avoid;page-break-inside:avoid}}
