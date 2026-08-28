@@ -1,0 +1,46 @@
+name: Enable central letterhead
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/enable-central-letterhead.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Route payroll through establishment stationery
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          payroll = Path('app/print/payroll/[id]/page.js')
+          text = payroll.read_text(encoding='utf-8')
+          old = 'showLetterhead={false}'
+          if old not in text:
+              raise SystemExit('payroll letterhead flag not found')
+          payroll.write_text(text.replace(old, 'showLetterhead={true}', 1), encoding='utf-8')
+
+          governance = Path('lib/print-governance.js')
+          text = governance.read_text(encoding='utf-8')
+          text = text.replace("      topMm:10,\n      bottomMm:10,\n      sideMm:9,", "      sideMm:9,", 1)
+          governance.write_text(text, encoding='utf-8')
+
+          frame = Path('components/print/ConstitutionPagedFrame.js')
+          text = frame.read_text(encoding='utf-8')
+          old = """  const full = showLetterhead ? assetUrl(cfg?.letterhead_image_path) : null;\n  const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;\n  const footer = !full && showLetterhead ? assetUrl(cfg?.footer_image_path) : null;\n  const watermark = !full && showLetterhead ? assetUrl(cfg?.watermark_image_path) : null;"""
+          new = """  const landscape = layout.orientation === 'landscape';\n  const hasSplitLetterhead = Boolean(cfg?.header_image_path || cfg?.footer_image_path || cfg?.watermark_image_path);\n  const useSplitLetterhead = showLetterhead && hasSplitLetterhead && (landscape || !cfg?.letterhead_image_path);\n  const full = showLetterhead && cfg?.letterhead_image_path && !useSplitLetterhead ? assetUrl(cfg.letterhead_image_path) : null;\n  const header = useSplitLetterhead ? assetUrl(cfg?.header_image_path) : null;\n  const footer = useSplitLetterhead ? assetUrl(cfg?.footer_image_path) : null;\n  const watermark = useSplitLetterhead ? assetUrl(cfg?.watermark_image_path) : null;"""
+          if old not in text:
+              raise SystemExit('frame stationery block not found')
+          frame.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'arkan-print-constitution'
+          git config user.email 'actions@users.noreply.github.com'
+          git add app/print/payroll/'[id]'/page.js lib/print-governance.js components/print/ConstitutionPagedFrame.js
+          git commit -m 'Print payroll on establishment stationery'
+          git push origin main
