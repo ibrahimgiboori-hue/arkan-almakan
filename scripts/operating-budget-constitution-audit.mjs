@@ -77,6 +77,23 @@ for (const scope of ['app', 'components', 'lib']) {
   ]) {
     if (!atomicText.includes(token)) violations.push(`supabase/migrations/${atomicCatalog}: missing catalog-governance token ${token}`);
   }
+
+  const leafValueMigration = '20260829020000_operating_budget_leaf_value_constitution.sql';
+  const leafValueText = files.includes(leafValueMigration) ? fs.readFileSync(path.join(migrationsDir, leafValueMigration), 'utf8') : '';
+  for (const token of [
+    'fn_budget_guard_value_tree_definition',
+    'fn_budget_require_financial_leaf_reference',
+    'trg_budget_value_tree_definition',
+    'trg_budget_schedule_leaf_only',
+    'trg_budget_rate_leaf_only',
+    'trg_budget_obligation_leaf_only',
+    'trg_budget_period_line_leaf_only',
+    "parent.node_type <> 'group'",
+    "d.node_type='item'",
+    'التصنيفات لا تحمل قيمة مستقلة',
+  ]) {
+    if (!leafValueText.includes(token)) violations.push(`supabase/migrations/${leafValueMigration}: missing leaf-value constitution token ${token}`);
+  }
 }
 
 {
@@ -89,10 +106,39 @@ for (const scope of ['app', 'components', 'lib']) {
     "writePolicy: 'rpc-gateway-only'",
     "actualPaymentSource: 'treasury_movements'",
     "reservePolicy: 'virtual-earmark-not-bank-transfer'",
+    "valueOriginPolicy: 'leaf-calculation-nodes-only'",
+    "aggregationPolicy: 'groups-recursively-sum-descendant-leaf-values'",
+    "reportingPolicy: 'collapsed-and-expanded-views-share-one-calculation-tree'",
+    "groupNodePolicy: 'classification-only-no-independent-financial-value'",
+    "itemNodePolicy: 'financial-leaf-only-no-children'",
+    'forbidGroupStoredAmount: true',
+    'forbidItemChildren: true',
+    'forbidParallelSummaryCalculation: true',
     'forbidPageLocalBudgetFormulas: true',
     'forbidParallelExpenseLedger: true',
   ];
   for (const token of required) if (!text.includes(token)) violations.push(`${fileRel}: missing operating-budget constitution token ${token}`);
+}
+
+{
+  const fileRel = 'lib/operating-budget.js';
+  const full = path.join(root, fileRel);
+  const text = fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : '';
+  for (const token of [
+    "group: Object.freeze({",
+    'carriesOwnValue: false',
+    "valueSource: 'recursive-descendant-leaf-sum'",
+    "item: Object.freeze({",
+    'carriesOwnValue: true',
+    "valueSource: 'calculation-engine'",
+    'mayHaveChildren: false',
+    "calculationSource: 'single-leaf-calculation-tree'",
+    'forbidIndependentGroupAmount: true',
+    'budgetNodeCanCarryValue',
+    'budgetNodeMayHaveChildren',
+  ]) {
+    if (!text.includes(token)) violations.push(`${fileRel}: missing shared leaf-value contract token ${token}`);
+  }
 }
 
 {
