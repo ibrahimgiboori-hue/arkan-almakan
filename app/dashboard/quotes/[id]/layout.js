@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Notice } from '@/components/ui/ConstitutionUI';
 import QuoteEditorAssistant from '@/components/quotes/QuoteEditorAssistant';
+import QuotePartyGovernancePanel from '@/components/quotes/QuotePartyGovernancePanel';
 
 function copyFor(state) {
   if (!state) return { title:'جاري قراءة مسار المعاملة…', detail:'' };
@@ -71,6 +72,7 @@ export default function QuoteApprovalLayout({ children }) {
       {err ? <div className="msg err" style={{marginTop:8}}>{err}</div> : null}
       {msg ? <div className="msg ok" style={{marginTop:8}}>{msg}</div> : null}
     </div>
+    <QuotePartyGovernancePanel quoteId={id} />
     {children}
   </>;
 }
