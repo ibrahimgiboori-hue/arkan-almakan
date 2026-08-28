@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AREAS,
@@ -10,7 +10,11 @@ import {
   projectNavigationHref,
 } from '@/lib/app-constitution';
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
-import { PORTAL_SECTION_ITEMS, PORTAL_EXISTING_DESTINATION_CAPABILITIES } from '@/lib/portal-section-constitution';
+import {
+  PORTAL_SECTION_ITEMS,
+  PORTAL_EXISTING_DESTINATION_CAPABILITIES,
+  PORTAL_MANAGEMENT_SECTIONS,
+} from '@/lib/portal-section-constitution';
 import styles from './RawDashboardNavigation.module.css';
 
 function uniqueByHref(items = []) {
@@ -51,6 +55,51 @@ function TabRow({ label, children }) {
   );
 }
 
+// عارض واحد لكل مجموعات الأدوات في جميع البوابات والمشاريع.
+// الاختلاف يأتي من دستور المجموعات فقط، لا من شكل أو سلوك الملاحة.
+function GroupedToolRow({ label, groups }) {
+  return (
+    <div className={styles.tabRow}>
+      {label && <span className={styles.tabRowLabel}>{label}</span>}
+      <div className={styles.tabScroller}>
+        {groups.map((group) => (
+          <div className={styles.toolGroup} key={group.key}>
+            {group.label && <span className={styles.groupMark}>{group.label}</span>}
+            {group.children}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function groupToolsByConstitution(areaKey, items = []) {
+  const sections = PORTAL_MANAGEMENT_SECTIONS[areaKey] || [];
+  if (!sections.length) {
+    return items.length ? [{ key: `${areaKey || 'area'}-tools`, label: null, items }] : [];
+  }
+
+  const byHref = new Map(items.map((item) => [item.href, item]));
+  const used = new Set();
+  const groups = sections.map((section) => {
+    const sectionItems = (section.hrefs || [])
+      .map((href) => byHref.get(href))
+      .filter(Boolean);
+    sectionItems.forEach((item) => used.add(item.href));
+    return {
+      key: section.key,
+      label: section.shortLabel || section.label,
+      items: sectionItems,
+    };
+  }).filter((group) => group.items.length > 0);
+
+  const remaining = items.filter((item) => !used.has(item.href));
+  if (remaining.length) {
+    groups.push({ key: `${areaKey}-other`, label: 'أخرى', items: remaining });
+  }
+  return groups;
+}
+
 function Tab({ active, tone, onClick, children, title }) {
   const toneClass = tone === 'alt' ? styles.tabOnAlt : styles.tabOn;
   return (
@@ -65,10 +114,35 @@ function Tab({ active, tone, onClick, children, title }) {
   );
 }
 
+// الشريط يبقى بكامل حجمه عند أعلى الصفحة (كل التسميات والفواصل واضحة)،
+// ثم يضيق بمجرد ما المستخدم يبدأ يشتغل/يمرّر — نفس سلوك أشرطة الأدوات في
+// أدوات العمل الخام (Linear/GitHub/VSCode): حضور كامل عند الحاجة، انكماش
+// فوري لصالح مساحة العمل بمجرد ما المستخدم يتحرك.
+function useCompactOnScroll(threshold = 8) {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    let ticking = false;
+    function apply() {
+      setCompact(window.scrollY > threshold);
+      ticking = false;
+    }
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(apply);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return compact;
+}
+
 export default function RawDashboardNavigation({ me, onSignOut }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const compact = useCompactOnScroll();
 
   const visibleAreas = useMemo(
     () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
@@ -109,6 +183,11 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
       .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
       .sort((a, b) => b.href.length - a.href.length)[0] || null;
   }, [globalTools, pathname]);
+
+  const globalToolsByGroup = useMemo(
+    () => groupToolsByConstitution(currentArea?.key, globalTools),
+    [currentArea, globalTools],
+  );
 
   const projectTools = useMemo(() => {
     if (!projectId) return [];
@@ -163,10 +242,16 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
   }
 
   return (
-    <nav className={styles.nav} aria-label="الملاحة الرئيسية الخام">
+    <nav className={`${styles.nav} ${compact ? styles.navCompact : ''}`} aria-label="الملاحة الرئيسية الخام">
       <div className={styles.topBar}>
-        <button type="button" className={styles.action} onClick={() => go(parentHref)} title="العودة للمستوى الأعلى">← المستوى السابق</button>
-        <button type="button" className={styles.action} onClick={() => go('/dashboard')} title="بداية لوحة التحكم">الرئيسية</button>
+        <button type="button" className={styles.action} onClick={() => go(parentHref)} title="العودة للمستوى الأعلى">
+          <span aria-hidden="true">←</span>
+          <span className={styles.actionLabel}>المستوى السابق</span>
+        </button>
+        <button type="button" className={styles.action} onClick={() => go('/dashboard')} title="بداية لوحة التحكم">
+          <span aria-hidden="true">⌂</span>
+          <span className={styles.actionLabel}>الرئيسية</span>
+        </button>
         <button type="button" className={styles.signOut} onClick={onSignOut}>خروج</button>
       </div>
 
@@ -178,25 +263,35 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
         ))}
       </TabRow>
 
-      {currentArea && globalTools.length > 0 && (
-        <TabRow label="الأداة">
-          {globalTools.map((item) => (
-            <Tab key={item.href} tone="alt" active={currentGlobalTool?.href === item.href} onClick={() => go(item.href)}>
-              {item.label}
-            </Tab>
-          ))}
-        </TabRow>
+      {currentArea && globalToolsByGroup.length > 0 && (
+        <GroupedToolRow
+          label="الأداة"
+          groups={globalToolsByGroup.map((group) => ({
+            key: group.key,
+            label: group.label,
+            children: group.items.map((item) => (
+              <Tab key={item.href} tone="alt" active={currentGlobalTool?.href === item.href} onClick={() => go(item.href)}>
+                {item.label}
+              </Tab>
+            )),
+          }))}
+        />
       )}
 
-      {projectId && projectToolsByGroup.map((group) => (
-        <TabRow key={group.key} label={group.label}>
-          {group.items.map((item) => (
-            <Tab key={item.key} active={currentProjectTool?.key === item.key} onClick={() => go(item.href)}>
-              {item.label}
-            </Tab>
-          ))}
-        </TabRow>
-      ))}
+      {projectId && projectToolsByGroup.length > 0 && (
+        <GroupedToolRow
+          label="المشروع"
+          groups={projectToolsByGroup.map((group) => ({
+            key: group.key,
+            label: group.label,
+            children: group.items.map((item) => (
+              <Tab key={item.key} active={currentProjectTool?.key === item.key} onClick={() => go(item.href)}>
+                {item.label}
+              </Tab>
+            )),
+          }))}
+        />
+      )}
     </nav>
   );
 }
