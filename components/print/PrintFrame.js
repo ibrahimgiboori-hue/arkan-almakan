@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import PrintMarks from '@/components/print/PrintMarks';
 
 const assetUrl = (path) => path
   ? supabase.storage.from('brand').getPublicUrl(path).data.publicUrl
@@ -39,8 +40,6 @@ export default function PrintFrame({
   const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;
   const footer = !full && showLetterhead ? assetUrl(cfg?.footer_image_path) : null;
   const watermark = !full && showLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
-  const stamp = showStamp ? assetUrl(cfg?.stamp_image_path) : null;
-  const signature = showSignature ? assetUrl(cfg?.signature_image_path) : null;
 
   const pageRef = useRef(null);
   const mainRef = useRef(null);
@@ -248,8 +247,15 @@ export default function PrintFrame({
               </div>
             </div>
           </main>
-          {stamp && <img src={stamp} className="print-master-stamp" alt="" style={{width:`${Number(stampSizeMm ?? cfg?.stamp_size_mm ?? 30)}mm`, ...(stampStyle || {})}} />}
-          {signature && <img src={signature} className="print-master-signature" alt="" style={{width:`${Number(signatureSizeMm ?? cfg?.signature_size_mm ?? 21)}mm`, ...(signatureStyle || {})}} />}
+          <PrintMarks
+            cfg={cfg}
+            showStamp={showStamp}
+            showSignature={showSignature}
+            stampSizeMm={stampSizeMm}
+            signatureSizeMm={signatureSizeMm}
+            stampStyle={stampStyle}
+            signatureStyle={signatureStyle}
+          />
         </div>
       </div>
 
