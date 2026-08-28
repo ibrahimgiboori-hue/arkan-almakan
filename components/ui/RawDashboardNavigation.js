@@ -28,11 +28,18 @@ function cleanPortalLabel(value = '') {
 
 function cleanToolLabel(item) {
   if (item?.sectionKey === 'disciplinary') return 'الإجراءات التأديبية';
+  if (item?.sectionKey === 'performance') return 'فترة التجربة';
   return item?.label || 'أداة';
 }
 
 function isActionOnlyRoute(href = '') {
   return /\/(?:new|create)\/?$/.test(href);
+}
+
+function isRedundantPortalTool(areaKey, item) {
+  // تخطيط القوى العاملة كان يكرر نفس الشواغر والاحتياج الموجود فعليًا في شاشة التوظيف.
+  // نبقي المسار القديم للتوافق، لكن لا نعرض مدخلين لنفس الوظيفة في الملاحة.
+  return areaKey === 'workforce' && item?.sectionKey === 'planning';
 }
 
 function TabRow({ label, children }) {
@@ -86,6 +93,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
 
     return merged
       .filter((item) => !item.hidden && !item.legacy && !isActionOnlyRoute(item.href))
+      .filter((item) => !isRedundantPortalTool(currentArea.key,item))
       .filter((item) => {
         if (me?.access?.fullAdmin) return true;
         if (currentArea.key === 'projects' && !me?.access?.projectsScreen) return item.href === currentArea.href;
