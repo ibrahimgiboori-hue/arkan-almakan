@@ -31,9 +31,7 @@
   background:var(--raw-paper);
   color:var(--raw-ink);
   cursor:pointer;
-  font-family:inherit;
-  font-size:var(--raw-font-size-sm);
-  font-weight:700;
+  font:700 var(--raw-font-size-sm) inherit;
   white-space:nowrap;
   transition:min-height .12s ease, padding .12s ease;
 }
@@ -92,9 +90,7 @@
   border-radius:var(--raw-radius-sm);
   background:var(--raw-paper);
   color:var(--raw-ink);
-  font-family:inherit;
-  font-size:var(--raw-font-size-sm);
-  font-weight:700;
+  font:700 var(--raw-font-size-sm) inherit;
   white-space:nowrap;
   cursor:pointer;
   transition:min-height .12s ease, padding .12s ease;
@@ -103,8 +99,10 @@
 .tabOn{background:var(--raw-wine);border-color:var(--raw-wine);color:var(--raw-on-accent)}
 .tabOnAlt{background:var(--raw-ink);border-color:var(--raw-ink);color:var(--raw-paper)}
 
-/* الوضع المضغوط: يبدأ بمجرد ما المستخدم يمرّر لأسفل.
-   يظل نفس السلوك على كل البوابات والمشاريع. */
+/* الوضع المضغوط: يبدأ بمجرد ما المستخدم يمرّر لأسفل (بدأ فعليًا يشتغل).
+   الشريط يبقى مكانه (sticky) لسهولة الوصول، لكنه يتنازل عن أكبر قدر ممكن
+   من الارتفاع لصالح مساحة العمل — نفس فكرة "toolbar يذوب وأنت تشتغل"
+   المستخدمة في أدوات مثل Linear/GitHub/VSCode. */
 .navCompact{padding:5px 14px 4px;gap:4px}
 .navCompact .action,.navCompact .signOut{min-height:26px;padding:0 9px}
 .navCompact .actionLabel{display:none}
@@ -116,13 +114,12 @@
   .nav{padding-inline:10px}
   .topBar{flex-wrap:wrap}
   .signOut{margin-inline-start:0}
-  .tabRow{align-items:center;flex-direction:row;gap:6px}
-  .tabScroller{width:auto;flex:1}
-  .toolGroup{flex-wrap:nowrap}
+  .tabRow{align-items:flex-start;flex-direction:column;gap:4px}
+  .tabScroller{width:100%}
+  .toolGroup{padding-inline-start:0;margin-inline-start:0;border-inline-start:0;flex-wrap:wrap}
 }
 @media(max-width:520px){
   .action,.signOut{flex:1}
   .actionLabel{display:none}
-  .tabRowLabel{display:none}
 }
 @media print{.nav{display:none!important}}
