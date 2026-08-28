@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals, VAT_AR, QSTATUS_AR } from '@/lib/quote-calc';
 import { useLiveRefresh } from '@/lib/live';
+import QuotePartyGovernancePanel from '@/components/quotes/QuotePartyGovernancePanel';
 
 const TOGGLES = [
   ['show_unit','عمود الوحدة'],
@@ -339,6 +340,7 @@ export default function QuoteEditor() {
 
       {/* ============ بيانات العرض ============ */}
       {tab === 'setup' && (
+        <>
         <div className="section" style={{marginTop:0,padding:18}}>
           <div className="form-grid">
             <div className="field span2">
@@ -412,6 +414,8 @@ export default function QuoteEditor() {
             </div>
           </div>
         </div>
+        <QuotePartyGovernancePanel quoteId={id} />
+        </>
       )}
 
       {/* ============ المفاتيح ============ */}

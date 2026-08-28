@@ -123,6 +123,85 @@ for (const rule of requiredApprovalGovernanceConsumers) {
   }
 }
 
+// سطح البرنامج واحد ومرن. ممنوع إعادة حل مشكلة اختلاف الشاشات بتثبيت عرض
+// منطقي ثم تصغيره بالـ zoom أو تخزين نسبة افتتاح في sessionStorage.
+{
+  const rel = 'app/dashboard/layout.js';
+  const full = path.join(root, rel);
+  if (!fs.existsSync(full)) {
+    violations.push(`${rel}: unified dashboard shell is missing`);
+  } else {
+    const text = fs.readFileSync(full, 'utf8');
+    if (!text.includes('data-viewport-policy="fluid-full-width"')) {
+      violations.push(`${rel}: dashboard shell must declare fluid-full-width viewport policy`);
+    }
+    const forbidden = [
+      'STANDARD_DASHBOARD_WIDTH',
+      'resolveOpeningScale',
+      'openingScale',
+      'SCALE_STORAGE_PREFIX',
+      'zoom:',
+    ];
+    for (const token of forbidden) {
+      if (text.includes(token)) violations.push(`${rel}: fixed/session viewport scaling returned (${token})`);
+    }
+  }
+}
+
+// حقول أطراف واعتماد عرض السعر بيانات للمستند، وليست شريطاً عاماً فوق محرر البنود.
+// يبقى المكوّن المركزي واحداً، لكن مكان استهلاكه الوحيد في المحرر هو «بيانات العرض».
+{
+  const layoutRel = 'app/dashboard/quotes/[id]/layout.js';
+  const pageRel = 'app/dashboard/quotes/[id]/page.js';
+  const layoutFull = path.join(root, layoutRel);
+  const pageFull = path.join(root, pageRel);
+
+  if (!fs.existsSync(layoutFull)) {
+    violations.push(`${layoutRel}: quotation transaction layout is missing`);
+  } else {
+    const text = fs.readFileSync(layoutFull, 'utf8');
+    if (text.includes('QuotePartyGovernancePanel')) {
+      violations.push(`${layoutRel}: quote party editor must not be mounted globally above editor tabs`);
+    }
+  }
+
+  if (!fs.existsSync(pageFull)) {
+    violations.push(`${pageRel}: quotation editor is missing`);
+  } else {
+    const text = fs.readFileSync(pageFull, 'utf8');
+    const setupStart = text.indexOf("tab === 'setup'");
+    const panelAt = text.indexOf('<QuotePartyGovernancePanel', Math.max(0, setupStart));
+    const switchesAt = text.indexOf('/* ============ المفاتيح', Math.max(0, setupStart));
+    if (!text.includes("@/components/quotes/QuotePartyGovernancePanel")) {
+      violations.push(`${pageRel}: quotation editor must consume shared QuotePartyGovernancePanel`);
+    }
+    if (setupStart < 0 || panelAt < setupStart || (switchesAt >= 0 && panelAt > switchesAt)) {
+      violations.push(`${pageRel}: QuotePartyGovernancePanel must live inside the quote setup/data tab`);
+    }
+    if (text.includes("@/lib/approval-governance")) {
+      violations.push(`${pageRel}: quotation page must not recreate approval rules; keep them in shared panel/governance`);
+    }
+  }
+}
+
+// الدستور الأعلى نفسه يجب أن يعلن السياسات التي يحرسها هذا الفحص.
+{
+  const rel = 'lib/system-constitution.js';
+  const full = path.join(root, rel);
+  const text = fs.existsSync(full) ? fs.readFileSync(full, 'utf8') : '';
+  const required = [
+    "viewportPolicy: 'fluid-full-width'",
+    'useAvailableViewportWidth: true',
+    'forbidFixedViewportScaling: true',
+    'forbidSessionStoredViewportZoom: true',
+    "editorPlacement: 'document-data-section'",
+    'forbidGlobalEditorMount: true',
+  ];
+  for (const token of required) {
+    if (!text.includes(token)) violations.push(`${rel}: missing master constitution policy ${token}`);
+  }
+}
+
 for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
   if (entry.isFile() && duplicatePattern.test(entry.name)) registerDuplicate(entry.name);
 }
