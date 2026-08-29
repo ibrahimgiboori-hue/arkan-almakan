@@ -6,6 +6,7 @@ import { ACTION_CONTEXT_EVENT, ACTION_MODE, normalizeActionContext } from '@/lib
 
 export default function PrimaryActionModeSettings() {
   const [primary, setPrimary] = useState(false);
+  const [primaryEmployeeId, setPrimaryEmployeeId] = useState('');
   const [context, setContext] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -15,40 +16,62 @@ export default function PrimaryActionModeSettings() {
 
   async function load() {
     setError('');
-    const [primaryQ, contextQ] = await Promise.all([
+
+    const { data:{ session } } = await supabase.auth.getSession();
+    if (!session?.user?.id) return;
+
+    const [primaryQ, contextQ, userQ, employeesQ] = await Promise.all([
       supabase.rpc('fn_is_primary_user'),
       supabase.rpc('fn_my_action_context'),
+      supabase
+        .from('app_users')
+        .select('employee_id')
+        .eq('id', session.user.id)
+        .maybeSingle(),
+      supabase
+        .from('employees')
+        .select('id,employee_no,full_name_ar,job_title,status')
+        .order('full_name_ar'),
     ]);
 
     const isPrimary = primaryQ.data === true;
     setPrimary(isPrimary);
     if (!isPrimary) return;
 
+    const myEmployeeId = userQ.data?.employee_id || '';
+    setPrimaryEmployeeId(myEmployeeId);
+
+    if (!employeesQ.error) {
+      setEmployees(employeesQ.data || []);
+    } else {
+      setEmployees([]);
+    }
+
     if (contextQ.error) {
       setContext(null);
-      setError('وضع «تنفيذ نيابة عن» موجود في الكود، لكنه ينتظر تطبيق تحديث قاعدة البيانات على البيئة الحالية.');
+      setError('وضع «تنفيذ نيابة عن» موجود في الكود، لكنه ينتظر تطبيق تحديث قاعدة البيانات على البيئة الحالية. يمكنك التحقق من هوية الحساب واختيار الشخص الآن، لكن التفعيل لن يعمل قبل تحديث قاعدة البيانات.');
       return;
     }
 
-    const normalized = normalizeActionContext(contextQ.data, { isPrimaryUser:true });
+    const normalized = normalizeActionContext(contextQ.data, {
+      isPrimaryUser:true,
+      systemActorUserId:session.user.id,
+      systemActorEmployeeId:myEmployeeId || null,
+    });
     setContext(normalized);
-    if (normalized.actingMode === ACTION_MODE.ON_BEHALF_OF) {
-      setSelectedEmployeeId(normalized.realActorEmployeeId || '');
-    }
-
-    const { data, error:employeesError } = await supabase
-      .from('employees')
-      .select('id,employee_no,full_name_ar,job_title,status')
-      .order('full_name_ar');
-
-    if (employeesError) {
-      setError('تعذر تحميل قائمة الأشخاص المتاحين للتنفيذ نيابة عنهم.');
-      return;
-    }
-    setEmployees(data || []);
+    setSelectedEmployeeId(
+      normalized.actingMode === ACTION_MODE.ON_BEHALF_OF
+        ? (normalized.realActorEmployeeId || '')
+        : '',
+    );
   }
 
   useEffect(() => { load(); }, []);
+
+  const primaryEmployee = useMemo(
+    () => employees.find((employee) => employee.id === primaryEmployeeId) || null,
+    [employees, primaryEmployeeId],
+  );
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId) || null,
@@ -75,12 +98,15 @@ export default function PrimaryActionModeSettings() {
       return;
     }
 
-    const normalized = normalizeActionContext(data, { isPrimaryUser:true });
+    const normalized = normalizeActionContext(data, {
+      isPrimaryUser:true,
+      systemActorEmployeeId:primaryEmployeeId || null,
+    });
     setContext(normalized);
     if (!enabled) setSelectedEmployeeId('');
     setMessage(enabled
-      ? `تم تفعيل الوضع الخاص. أي إجراء جديد سيُسجّل بأنك المُسجّل النظامي وأن ${normalized.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'} هو صاحب الإجراء الفعلي.`
-      : 'تم إيقاف الوضع الخاص. عادت الإجراءات الجديدة إلى «تنفيذ بصفتي».');
+      ? `تم تفعيل الوضع الخاص. من هذه اللحظة كل إجراء تقوم به في البرنامج — إنشاءً أو تعديلًا أو اعتمادًا أو إتمام أي مرحلة — يُسجّل بأن الحساب الرئيسي هو المُسجّل النظامي وأن ${normalized.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'} هو صاحب الإجراء الفعلي.`
+      : `تم إيقاف الوضع الخاص. عادت كل الإجراءات إلى صاحب الحساب الرئيسي ${primaryEmployee?.full_name_ar || 'الحالي'}.`);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(ACTION_CONTEXT_EVENT, { detail:data || null }));
@@ -99,7 +125,23 @@ export default function PrimaryActionModeSettings() {
       </header>
       <div style={{ padding:18 }}>
         <div className="msg" style={{ marginBottom:14 }}>
-          هذا الوضع لا ينتحل حساب أي شخص ولا يغيّر صلاحياته. الصلاحية تبقى للحساب الرئيسي، بينما يحفظ النظام هويتين مستقلتين: من نفّذ داخل البرنامج، ومن صدر عنه الإجراء فعليًا.
+          هذا الوضع لا ينتحل حساب أي شخص ولا يغيّر الصلاحيات. الحساب الرئيسي هو الذي ينفذ داخل البرنامج دائمًا، بينما يحدد هذا الوضع من هو صاحب الإجراء الفعلي في الواقع.
+        </div>
+
+        <div style={{
+          marginBottom:14,
+          padding:'12px 14px',
+          border:'1px solid var(--hair)',
+          borderRadius:10,
+          background:'var(--surface, #fff)',
+        }} data-primary-account-identity="true">
+          <div style={{ fontSize:12.5, color:'var(--ink-soft)', marginBottom:4 }}>مستخدم الحساب الرئيسي</div>
+          <strong>{primaryEmployee?.full_name_ar || 'الحساب الرئيسي الحالي'}</strong>
+          {primaryEmployee?.employee_no ? <span className="hint"> · {primaryEmployee.employee_no}</span> : null}
+          {primaryEmployee?.job_title ? <div className="hint" style={{ marginTop:3 }}>{primaryEmployee.job_title}</div> : null}
+          <div className="hint" style={{ marginTop:7 }}>
+            طالما أن «تنفيذ نيابة عن» غير مفعّل، فإن كل إجراء في النظام يُنسب إلى هذا الشخص بصفته صاحب الإجراء الفعلي أيضًا.
+          </div>
         </div>
 
         {error && <div className="msg err" style={{ marginBottom:14 }}>{error}</div>}
@@ -107,22 +149,25 @@ export default function PrimaryActionModeSettings() {
 
         <div className="form-grid">
           <div className="field span2">
-            <label>صاحب الإجراء الفعلي</label>
+            <label>تنفيذ نيابة عن</label>
             <select
               value={selectedEmployeeId}
               onChange={(event) => setSelectedEmployeeId(event.target.value)}
-              disabled={busy || !context}
+              disabled={busy}
             >
-              <option value="">اختر الشخص</option>
+              <option value="">لا أحد — تنفيذ بصفتي</option>
               {employees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
                   {employee.full_name_ar || employee.employee_no || employee.id}
+                  {employee.id === primaryEmployeeId ? ' — مستخدم الحساب الرئيسي' : ''}
                   {employee.job_title ? ` — ${employee.job_title}` : ''}
                   {employee.status && !['active','on_leave'].includes(employee.status) ? ` — ${employee.status}` : ''}
                 </option>
               ))}
             </select>
-            <span className="hint">يمكن تغيير الشخص ثم الضغط على «تفعيل / تحديث الوضع»؛ يبدأ سياق تدقيقي جديد من لحظة التغيير.</span>
+            <span className="hint">
+              إبراهيم الجبوري يظهر ضمن القائمة مثل أي شخص آخر. اختيار الاسم وحده لا يفعّل النيابة؛ تبدأ النيابة فقط بعد الضغط على «تفعيل تنفيذ نيابة عن».
+            </span>
           </div>
         </div>
 
@@ -148,8 +193,8 @@ export default function PrimaryActionModeSettings() {
         <div style={{ marginTop:14, fontSize:13.5 }} data-action-mode-state={active ? 'on_behalf_of' : 'self'}>
           <strong>الحالة الحالية:</strong>{' '}
           {active
-            ? <>تنفذ الآن نيابة عن <strong>{context.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'}</strong>. سيظهر تنبيه ثابت أعلى البرنامج ما دام الوضع مفعّلًا.</>
-            : 'تنفيذ بصفتي — لا يوجد شخص محدد للنيابة.'}
+            ? <>كل إجراء جديد أو إتمام لأي مرحلة يُنفذ الآن نيابة عن <strong>{context.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'}</strong>. سيظهر تنبيه ثابت أعلى البرنامج ما دام الوضع مفعّلًا.</>
+            : <>كل إجراء يُنفذ بصفة <strong>{primaryEmployee?.full_name_ar || 'مستخدم الحساب الرئيسي'}</strong>، ولا توجد نيابة مفعّلة.</>}
         </div>
       </div>
     </div>
