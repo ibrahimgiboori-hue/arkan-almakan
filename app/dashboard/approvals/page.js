@@ -65,13 +65,14 @@ export default function ApprovalsPage(){
     if(route&&(!routeDestination||!nextUser)){setError('اختر بوابة التعميد والشخص الذي ستُحال إليه المعاملة.');return;}
     if(route&&!nextReason.trim()){setError('اكتب سبب الإحالة للتعميد.');return;}
     const action=route?'route':decision;setBusy(action);setError('');setMessage('');
-    const{error:rpcError}=await supabase.rpc('fn_approval_decide',{
+    const{data:decisionStatus,error:rpcError}=await supabase.rpc('fn_approval_decide',{
       p_workflow_id:selectedId,p_decision:decision,p_comment:clean||null,
       p_next_user_id:route?nextUser:null,p_next_capability:null,p_next_reason:route?nextReason.trim():null,
     });
     if(rpcError)setError(rpcError.message||'تعذر تنفيذ القرار.');
     else{
-      setMessage(route?'تم اعتماد المرحلة الحالية وإحالة المعاملة للتعميد التالي.':decision==='approve'?'تم اعتماد المعاملة نهائيًا.':decision==='return'?'تم إرجاع المعاملة للتعديل.':'تم رفض المعاملة.');
+      const approveMessage=decisionStatus==='pending'?'تم اعتماد هذه المرحلة وانتقلت المعاملة تلقائيًا إلى المرحلة التالية.':'تم اعتماد المعاملة نهائيًا.';
+      setMessage(route?'تم اعتماد المرحلة الحالية وإحالة المعاملة للتعميد التالي.':decision==='approve'?approveMessage:decision==='return'?'تم إرجاع المعاملة للتعديل.':'تم رفض المعاملة.');
       setNote('');setRouteDestination('');setRouteUsers([]);setNextUser('');setNextReason('');await load();
     }
     setBusy('');
@@ -79,9 +80,11 @@ export default function ApprovalsPage(){
 
   if(rows===null)return <ConstitutionPage><EmptyState title="جارٍ تحميل الاعتمادات" description="يتم جمع المعاملات التي تحتاج قرارك الآن."/></ConstitutionPage>;
   const workflow=detail?.workflow||null,steps=detail?.steps||[],events=detail?.events||[];
+  const stageLabel=detail?.current_stage_label||'القرار';
+  const approveLabel=detail?.is_final_stage===false?'اعتماد المرحلة':'اعتماد نهائي';
 
   return <ConstitutionPage>
-    <PageHeader eyebrow="العمل" title="الاعتمادات" description="المكان الوحيد لاتخاذ القرار: اعتماد نهائي، إحالة للتعميد، إرجاع للتعديل، أو رفض."/>
+    <PageHeader eyebrow="العمل" title="الاعتمادات" description="المكان الوحيد لاتخاذ القرار الرسمي؛ المعاملة تنتقل تلقائيًا بين مراحلها الإلزامية وتظهر لمن عليه الدور."/>
     {error?<Notice tone="warning">{error}</Notice>:null}{message?<Notice tone="success">{message}</Notice>:null}
     <div className={styles.shell}>
       <Section title="بانتظار قراري" description={`${rows.length} معاملة تحتاج إجراء`}>
@@ -90,17 +93,17 @@ export default function ApprovalsPage(){
 
       <div id="approval-detail" ref={detailRef} className={styles.detail} style={{scrollMarginTop:112}}>
         {!selected?<EmptyState title="اختر معاملة" description="اختر معاملة من القائمة لعرض مسارها واتخاذ القرار."/>:!workflow?<EmptyState title="جارٍ قراءة المعاملة" description="يتم تحميل تفاصيل النسخة الحالية وسجل القرارات."/>:<Section title={workflow.source_label||selected.label_ar||'معاملة اعتماد'} description={`${workflow.workflow_no||'—'} · النسخة ${workflow.version_no||1}`}>
-          <div className={styles.summary}><div><span>الحالة</span><strong>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</strong></div><div><span>المصدر</span><strong>{workflow.origin_group_label||'—'}</strong></div><div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div></div>
+          <div className={styles.summary}><div><span>الحالة</span><strong>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</strong></div><div><span>المرحلة الحالية</span><strong>{stageLabel}</strong></div><div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div></div>
 
           <div className={styles.block}><h3>مسار الاعتماد</h3>{steps.length===0?<div className={styles.muted}>لا توجد خطوات مسجلة.</div>:<div className={styles.timeline}>{steps.map(step=><div className={styles.event} key={step.id}><div className={styles.eventHead}><strong>الخطوة {step.step_order} · {step.target_group_label||(step.target_type==='user'?'شخص محدد':'الجهة المختصة')}</strong><span>{STEP_STATUS[step.status]||step.status}</span></div>{step.request_reason?<div>{step.request_reason}</div>:null}{step.decision_comment?<div>{step.decision_comment}</div>:null}{step.acted_at?<small>{dateTimeAr(step.acted_at)}</small>:null}</div>)}</div>}</div>
 
           {events.length?<div className={styles.block}><h3>سجل الحركة</h3><div className={styles.timeline}>{events.map((event,index)=><div className={styles.event} key={`${event.created_at}-${index}`}><div className={styles.eventHead}><strong>{event.event_type}</strong><span>{dateTimeAr(event.created_at)}</span></div>{event.note?<div>{event.note}</div>:null}</div>)}</div></div>:null}
 
           {detail?.can_act&&workflow.status==='pending'?<div className={styles.block}>
-            <h3>القرار</h3>
+            <h3>{stageLabel}</h3>
             <label className={styles.field}>الملاحظة / التبرير<textarea value={note} onChange={event=>setNote(event.target.value)} rows={4} maxLength={2000} placeholder="التبرير إلزامي عند الإرجاع أو الرفض"/></label>
             <div className={styles.actions}>
-              <button className="btn" type="button" disabled={Boolean(busy)} onClick={()=>decide('approve')}>{busy==='approve'?'جارٍ الاعتماد…':'اعتماد نهائي'}</button>
+              <button className="btn" type="button" disabled={Boolean(busy)} onClick={()=>decide('approve')}>{busy==='approve'?'جارٍ الاعتماد…':approveLabel}</button>
               <button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('return')}>{busy==='return'?'جارٍ الإرجاع…':'إرجاع للتعديل'}</button>
               <button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('reject')}>{busy==='reject'?'جارٍ الرفض…':'رفض'}</button>
             </div>
