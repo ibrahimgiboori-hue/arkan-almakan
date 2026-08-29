@@ -1,0 +1,37 @@
+name: PR8 Finalize Temporary
+
+on:
+  push:
+    branches:
+      - feat/contextual-work-budget-inputs
+    paths:
+      - .github/workflows/pr8-finalize-temporary.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/contextual-work-budget-inputs
+          fetch-depth: 0
+
+      - name: Validate transform syntax
+        run: node --check scripts/pr8-finalize-temporary.mjs
+
+      - name: Apply guarded transform
+        run: node scripts/pr8-finalize-temporary.mjs
+
+      - name: Remove temporary tooling and commit result
+        run: |
+          rm -f .github/workflows/pr8-finalize-temporary.yml scripts/pr8-finalize-temporary.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/dashboard/operating-budget/page.js app/print/operating-budget/page.js scripts/v2-constitution-audit.mjs .github/workflows/pr8-finalize-temporary.yml scripts/pr8-finalize-temporary.mjs
+          git diff --cached --check
+          git commit -m "Finalize budget revision UX and report link"
+          git push origin HEAD:feat/contextual-work-budget-inputs
