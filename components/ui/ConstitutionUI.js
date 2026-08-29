@@ -203,6 +203,30 @@ export function RecordRow({ children, onOpen, href, className = '', actions, sel
   );
 }
 
+/* تشريح موحّد للسجل: هوية، وصف موجز، حقائق، ومؤشرات. الصفحات تمرر المعنى لا الهندسة. */
+export function RecordSummary({ kicker, title, badge, meta = [], metrics = [], progress = null, note }) {
+  const safeProgress = progress == null ? null : Math.max(0, Math.min(100, Number(progress) || 0));
+  return (
+    <div className={styles.recordSummary} data-record-summary="true">
+      <div className={styles.recordIdentity}>
+        <div className={styles.recordTitleLine}>
+          <span className={styles.recordTitle}>{title}</span>
+          {badge ? <span className={styles.recordBadge}>{badge}</span> : null}
+        </div>
+        {kicker ? <span className={styles.recordKicker}>{kicker}</span> : null}
+        {meta.length ? <div className={styles.recordMeta}>{meta.filter(Boolean).map((value,index)=><span key={`${value}-${index}`}>{value}</span>)}</div> : null}
+        {note ? <small className={styles.recordNote}>{note}</small> : null}
+      </div>
+      {(metrics.length || safeProgress != null) ? (
+        <div className={styles.recordMeasures}>
+          {metrics.filter((item)=>item && item.value !== undefined).map((item,index)=><span key={item.key || item.label || index}><small>{item.label}</small><strong>{item.value}</strong></span>)}
+          {safeProgress != null ? <span className={styles.recordProgress}><small>الإنجاز</small><strong>{safeProgress.toFixed(0)}%</strong><i aria-hidden="true"><b style={{width:`${safeProgress}%`}} /></i></span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function TableFrame({ children, className = '' }) {
   return (
     <WorkLedger className={cx(styles.tableFrame, className)} data-table-surface="true" data-ledger-behavior="semantic-grid">
