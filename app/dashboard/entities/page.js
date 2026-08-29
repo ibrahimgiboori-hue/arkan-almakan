@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
   ConstitutionPage,
@@ -32,9 +33,10 @@ const EMPTY = {
 const digits=(s)=>(s||'').replace(/\D/g,'');
 
 export default function Entities(){
+  const searchParams=useSearchParams();
   const [rows,setRows]=useState([]);
   const [usage,setUsage]=useState({});
-  const [search,setSearch]=useState('');
+  const [search,setSearch]=useState(()=>searchParams.get('search')||'');
   const [kindFilter,setKindFilter]=useState('');
   const [form,setForm]=useState(null);
   const [isCompany,setIsCompany]=useState(true);
@@ -61,6 +63,7 @@ export default function Entities(){
     setLoading(false);
   },[]);
   useEffect(()=>{load();},[load]);
+  useEffect(()=>{const q=searchParams.get('search');if(q!==null)setSearch(q);},[searchParams]);
 
   const nextCode=useMemo(()=>{
     const nums=rows.map((r)=>Number((r.entity_code||'').match(/(\d+)\s*$/)?.[1]||0)).filter((n)=>n>0);
@@ -71,7 +74,8 @@ export default function Entities(){
     if(kindFilter&&r.entity_kind!==kindFilter)return false;
     if(!search.trim())return true;
     const s=search.trim();
-    return (r.name_ar||'').includes(s)||(r.name_en||'').toLowerCase().includes(s.toLowerCase())
+    return (r.entity_code||'').toLowerCase().includes(s.toLowerCase())
+      ||(r.name_ar||'').includes(s)||(r.name_en||'').toLowerCase().includes(s.toLowerCase())
       ||(r.cr_number||'').includes(s)||(r.vat_number||'').includes(s)
       ||(r.contact_name||'').includes(s)||(r.mobile||'').includes(s);
   }),[rows,search,kindFilter]);
@@ -146,7 +150,7 @@ export default function Entities(){
       <FilterSurface>
         <div className="field">
           <label>البحث</label>
-          <input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="الاسم، السجل التجاري، الرقم الضريبي أو الجوال" />
+          <input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="الاسم، رقم الجهة، السجل التجاري، الرقم الضريبي أو الجوال" />
         </div>
         <div className="field">
           <label>نوع الجهة</label>
