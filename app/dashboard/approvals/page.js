@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { dateTimeAr, moneyOrDash } from '@/lib/format';
 import { ConstitutionPage, PageHeader, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
@@ -10,6 +10,7 @@ const WORKFLOW_STATUS={pending:'قيد الاعتماد',returned:'مُعاد ل
 const STEP_STATUS={pending:'قيد الانتظار',approved:'معتمدة',returned:'أُعيدت للتعديل',rejected:'مرفوضة',cancelled:'ملغاة'};
 
 export default function ApprovalsPage(){
+  const detailRef=useRef(null);
   const [rows,setRows]=useState(null),[selectedId,setSelectedId]=useState(''),[detail,setDetail]=useState(null),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [routeDestinations,setRouteDestinations]=useState([]),[routeDestination,setRouteDestination]=useState(''),[routeUsers,setRouteUsers]=useState([]),[nextUser,setNextUser]=useState(''),[nextReason,setNextReason]=useState('');
 
@@ -28,6 +29,14 @@ export default function ApprovalsPage(){
       if(rpcError){setError(rpcError.message||'تعذر قراءة تفاصيل المعاملة.');setDetail(null);}else setDetail(data||null);
     });
     return()=>{alive=false;};
+  },[selectedId]);
+
+  useEffect(()=>{
+    if(!selectedId||typeof window==='undefined'||!window.matchMedia('(max-width: 900px)').matches)return undefined;
+    const frame=window.requestAnimationFrame(()=>{
+      detailRef.current?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+    });
+    return()=>window.cancelAnimationFrame(frame);
   },[selectedId]);
 
   useEffect(()=>{
@@ -76,10 +85,10 @@ export default function ApprovalsPage(){
     {error?<Notice tone="warning">{error}</Notice>:null}{message?<Notice tone="success">{message}</Notice>:null}
     <div className={styles.shell}>
       <Section title="بانتظار قراري" description={`${rows.length} معاملة تحتاج إجراء`}>
-        {rows.length===0?<EmptyState title="لا توجد اعتمادات بانتظارك" description="ستظهر هنا أي معاملة فور وصول مرحلة اعتماد إليك أو إلى صلاحية تملكها."/>:<div className={styles.list}>{rows.map(row=><button type="button" key={row.workflow_id} className={`${styles.item} ${row.workflow_id===selectedId?styles.active:''}`} onClick={()=>setSelectedId(row.workflow_id)}><div className={styles.itemHead}><strong>{row.label_ar||row.transaction_type}</strong><span>{row.workflow_no||'—'}</span></div><div className={styles.title}>{row.source_label||'معاملة'}</div><div className={styles.meta}><span>{row.origin_group_label||'—'}</span><span>{row.target_group_label||'—'}</span><span>{moneyOrDash(row.amount)}</span></div><small>{dateTimeAr(row.submitted_at)}</small></button>)}</div>}
+        {rows.length===0?<EmptyState title="لا توجد اعتمادات بانتظارك" description="ستظهر هنا أي معاملة فور وصول مرحلة اعتماد إليك أو إلى صلاحية تملكها."/>:<div className={styles.list}>{rows.map(row=><button type="button" key={row.workflow_id} className={`${styles.item} ${row.workflow_id===selectedId?styles.active:''}`} aria-controls="approval-detail" aria-expanded={row.workflow_id===selectedId} onClick={()=>setSelectedId(row.workflow_id)}><div className={styles.itemHead}><strong>{row.label_ar||row.transaction_type}</strong><span>{row.workflow_no||'—'}</span></div><div className={styles.title}>{row.source_label||'معاملة'}</div><div className={styles.meta}><span>{row.origin_group_label||'—'}</span><span>{row.target_group_label||'—'}</span><span>{moneyOrDash(row.amount)}</span></div><small>{dateTimeAr(row.submitted_at)}</small></button>)}</div>}
       </Section>
 
-      <div className={styles.detail}>
+      <div id="approval-detail" ref={detailRef} className={styles.detail} style={{scrollMarginTop:112}}>
         {!selected?<EmptyState title="اختر معاملة" description="اختر معاملة من القائمة لعرض مسارها واتخاذ القرار."/>:!workflow?<EmptyState title="جارٍ قراءة المعاملة" description="يتم تحميل تفاصيل النسخة الحالية وسجل القرارات."/>:<Section title={workflow.source_label||selected.label_ar||'معاملة اعتماد'} description={`${workflow.workflow_no||'—'} · النسخة ${workflow.version_no||1}`}>
           <div className={styles.summary}><div><span>الحالة</span><strong>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</strong></div><div><span>المصدر</span><strong>{workflow.origin_group_label||'—'}</strong></div><div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div></div>
 
