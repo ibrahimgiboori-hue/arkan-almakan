@@ -73,6 +73,11 @@ export default function PrimaryActionModeSettings() {
     [employees, primaryEmployeeId],
   );
 
+  const representableEmployees = useMemo(
+    () => employees.filter((employee) => employee.id !== primaryEmployeeId),
+    [employees, primaryEmployeeId],
+  );
+
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId) || null,
     [employees, selectedEmployeeId],
@@ -84,12 +89,14 @@ export default function PrimaryActionModeSettings() {
       return;
     }
 
+    const effectiveEnabled = Boolean(enabled && selectedEmployeeId && selectedEmployeeId !== primaryEmployeeId);
+
     setBusy(true);
     setError('');
     setMessage('');
     const { data, error:rpcError } = await supabase.rpc('fn_set_my_action_context', {
-      p_enabled: Boolean(enabled),
-      p_real_actor_employee_id: enabled ? selectedEmployeeId : null,
+      p_enabled: effectiveEnabled,
+      p_real_actor_employee_id: effectiveEnabled ? selectedEmployeeId : null,
     });
     setBusy(false);
 
@@ -103,8 +110,8 @@ export default function PrimaryActionModeSettings() {
       systemActorEmployeeId:primaryEmployeeId || null,
     });
     setContext(normalized);
-    if (!enabled) setSelectedEmployeeId('');
-    setMessage(enabled
+    if (!effectiveEnabled) setSelectedEmployeeId('');
+    setMessage(effectiveEnabled
       ? `تم تفعيل الوضع الخاص. من هذه اللحظة كل إجراء تقوم به في البرنامج — إنشاءً أو تعديلًا أو اعتمادًا أو إتمام أي مرحلة — يُسجّل بأن الحساب الرئيسي هو المُسجّل النظامي وأن ${normalized.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'} هو صاحب الإجراء الفعلي.`
       : `تم إيقاف الوضع الخاص. عادت كل الإجراءات إلى صاحب الحساب الرئيسي ${primaryEmployee?.full_name_ar || 'الحالي'}.`);
 
@@ -140,7 +147,7 @@ export default function PrimaryActionModeSettings() {
           {primaryEmployee?.employee_no ? <span className="hint"> · {primaryEmployee.employee_no}</span> : null}
           {primaryEmployee?.job_title ? <div className="hint" style={{ marginTop:3 }}>{primaryEmployee.job_title}</div> : null}
           <div className="hint" style={{ marginTop:7 }}>
-            طالما أن «تنفيذ نيابة عن» غير مفعّل، فإن كل إجراء في النظام يُنسب إلى هذا الشخص بصفته صاحب الإجراء الفعلي أيضًا.
+            هذا الشخص لا يظهر كخيار «نيابة عن»؛ لأن تنفيذ الحساب الرئيسي باسمه هو الوضع العادي «بصفتي» وليس نيابة.
           </div>
         </div>
 
@@ -156,17 +163,16 @@ export default function PrimaryActionModeSettings() {
               disabled={busy}
             >
               <option value="">لا أحد — تنفيذ بصفتي</option>
-              {employees.map((employee) => (
+              {representableEmployees.map((employee) => (
                 <option key={employee.id} value={employee.id}>
                   {employee.full_name_ar || employee.employee_no || employee.id}
-                  {employee.id === primaryEmployeeId ? ' — مستخدم الحساب الرئيسي' : ''}
                   {employee.job_title ? ` — ${employee.job_title}` : ''}
                   {employee.status && !['active','on_leave'].includes(employee.status) ? ` — ${employee.status}` : ''}
                 </option>
               ))}
             </select>
             <span className="hint">
-              إبراهيم الجبوري يظهر ضمن القائمة مثل أي شخص آخر. اختيار الاسم وحده لا يفعّل النيابة؛ تبدأ النيابة فقط بعد الضغط على «تفعيل تنفيذ نيابة عن».
+              اختيار شخص هنا يغيّر صاحب الإجراء الفعلي فقط. الصلاحيات والهوية النظامية تبقى للحساب الرئيسي، والعودة إلى «لا أحد — تنفيذ بصفتي» تلغي سياق النيابة.
             </span>
           </div>
         </div>
