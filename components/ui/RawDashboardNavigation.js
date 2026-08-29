@@ -10,7 +10,11 @@ import {
   projectNavigationHref,
 } from '@/lib/app-constitution';
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
-import { PORTAL_SECTION_ITEMS, PORTAL_EXISTING_DESTINATION_CAPABILITIES } from '@/lib/portal-section-constitution';
+import {
+  PORTAL_SECTION_ITEMS,
+  PORTAL_MANAGEMENT_SECTIONS,
+  PORTAL_EXISTING_DESTINATION_CAPABILITIES,
+} from '@/lib/portal-section-constitution';
 import GlobalSearch from './GlobalSearch';
 
 function uniqueByHref(items = []) {
@@ -113,6 +117,28 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
       .sort((a, b) => b.href.length - a.href.length)[0] || null
   ), [globalTools, pathname]);
 
+  // أفضل ما كان في منصة الأعمال القديمة هو التجميع التشغيلي للأدوات.
+  // أصبح هذا التجميع جزءًا من الشريط نفسه، فلا تُنشأ له صفحة أو منصة ثانية.
+  const globalToolsByGroup = useMemo(() => {
+    if (!currentArea || projectId || !globalTools.length) return [];
+    const configured = PORTAL_MANAGEMENT_SECTIONS[currentArea.key] || [];
+    if (!configured.length) return [{ key:'general', label:null, items:globalTools }];
+
+    const itemByHref = new Map(globalTools.map((item) => [item.href, item]));
+    const groups = configured
+      .map((group) => ({
+        key:group.key,
+        label:group.label,
+        items:(group.hrefs || []).map((href) => itemByHref.get(href)).filter(Boolean),
+      }))
+      .filter((group) => group.items.length > 0);
+
+    const assigned = new Set(configured.flatMap((group) => group.hrefs || []));
+    const extras = globalTools.filter((item) => !assigned.has(item.href));
+    if (extras.length) groups.push({ key:'general', label:'عام', items:extras });
+    return groups;
+  }, [currentArea, globalTools, projectId]);
+
   const projectTools = useMemo(() => {
     if (!projectId) return [];
     const globallyVisibleHrefs = new Set(globalTools.map((item) => item.href));
@@ -194,8 +220,8 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
       <div className="rawNavContext">
         <span className="rawNavRailLabel">المسار</span>
         <div className="rawNavScroller rawNavContextScroller">
-          {globalTools.length > 0 && (
-            <ToolGroup label={projectId ? 'عام' : null}>
+          {projectId && globalTools.length > 0 && (
+            <ToolGroup label="عام">
               {globalTools.map((item) => (
                 <NavTab
                   key={item.href}
@@ -208,6 +234,21 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
               ))}
             </ToolGroup>
           )}
+
+          {!projectId && globalToolsByGroup.map((group) => (
+            <ToolGroup key={group.key} label={group.label}>
+              {group.items.map((item) => (
+                <NavTab
+                  key={item.href}
+                  tone="tool"
+                  active={currentGlobalTool?.href === item.href}
+                  onClick={() => go(item.href)}
+                >
+                  {item.label}
+                </NavTab>
+              ))}
+            </ToolGroup>
+          ))}
 
           {projectToolsByGroup.map((group) => (
             <ToolGroup key={group.key} label={group.label}>
