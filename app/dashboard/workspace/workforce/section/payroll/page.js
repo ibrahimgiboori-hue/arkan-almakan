@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { money } from '@/lib/format';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import RawGrid, { RawGridFooter } from '@/components/ui/RawGrid';
 import { ConstitutionPage, Section, Notice } from '@/components/ui/ConstitutionUI';
 
 const n=(v)=>Number(v||0);
-const money=(v)=>`${n(v).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`;
 const isoMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const STATUS={draft:'مسودة',submitted:'مرسلة',hr_reviewed:'مراجعة الموارد البشرية',accountant_approved:'مراجعة مالية',ceo_approved:'معتمدة',rejected:'مرفوضة',cancelled:'ملغاة'};
 const EXECUTION_STATUS={pending:'بانتظار القرار',returned:'مُعادة للتعديل',approved:'اكتمل الاعتماد',rejected:'مرفوضة',cancelled:'ملغاة'};
