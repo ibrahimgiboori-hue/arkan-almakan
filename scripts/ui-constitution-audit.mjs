@@ -47,6 +47,44 @@ for (const route of ['/dashboard/projects','/dashboard/quotes']) {
   }
 }
 
+const interfaceConstitution = path.join(root, 'lib', 'interface-constitution.js');
+const workSurfaceRuntime = path.join(root, 'components', 'ui', 'WorkSurfaceRuntime.js');
+const programAction = path.join(root, 'components', 'ui', 'ProgramAction.js');
+const workKernel = path.join(root, 'components', 'ui', 'WorkSheetKernel.js');
+for (const file of [interfaceConstitution, workSurfaceRuntime, programAction, workKernel]) {
+  if (!fs.existsSync(file)) failures.push(`missing interface core: ${path.relative(root,file)}`);
+}
+
+if (fs.existsSync(interfaceConstitution)) {
+  const source = fs.readFileSync(interfaceConstitution,'utf8');
+  for (const token of [
+    "metaphor: 'operational-notebook'",
+    "page: 'continuous-work-sheet'",
+    "permissions: 'session-and-core-resolved'",
+    "audit: 'system-actor-plus-real-actor'",
+    "print: 'same-content-through-print-constitution'",
+    'defineInterfaceAction',
+    'actionAllowed',
+  ]) {
+    if (!source.includes(token)) failures.push(`interface constitution lost invariant: ${token}`);
+  }
+}
+
+if (fs.existsSync(workSurfaceRuntime)) {
+  const source = fs.readFileSync(workSurfaceRuntime,'utf8');
+  if (!source.includes('interfaceDataAttributes')) failures.push('work surface runtime must mount the central interface constitution on the shell');
+  if (!source.includes("event.key === '/'")) failures.push('work surface runtime must own the global page-command keyboard behavior');
+  if (!source.includes("event.key === 'Escape'")) failures.push('work surface runtime must own contextual close behavior');
+}
+
+if (fs.existsSync(programAction)) {
+  const source = fs.readFileSync(programAction,'utf8');
+  if (!source.includes('useDashboardSession')) failures.push('ProgramAction must consume the central dashboard session projection');
+  if (!source.includes('actionAllowed')) failures.push('ProgramAction must resolve visibility from the central action constitution');
+  if (!source.includes('data-action-risk')) failures.push('ProgramAction must expose consequence/risk semantics');
+  if (/supabase|v_my_capabilities|fn_is_primary_user/.test(source)) failures.push('ProgramAction must not create its own authorization data source');
+}
+
 if (warnings.length) {
   console.warn('\nGoverned UI audit warnings:\n');
   for (const item of warnings) console.warn(`- ${item}`);
@@ -58,4 +96,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`UI constitution audit passed for ${nativeRoutes.length} core route(s).`);
+console.log(`UI constitution audit passed for ${nativeRoutes.length} core route(s) and the program-driven notebook kernel.`);
