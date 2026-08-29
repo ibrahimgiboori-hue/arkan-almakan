@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
+import { appendSelectionToUrl } from '@/lib/record-selection';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
+import { WORK_ACTION_CONSEQUENCE, WORK_ACTION_KIND, WORK_ACTION_SCOPE } from '@/lib/work-surface-constitution';
 import RawGrid, { RawGridFooter } from '@/components/ui/RawGrid';
+import ProgramAction from '@/components/ui/ProgramAction';
+import { WorkSelectionDock } from '@/components/ui/WorkSheetKernel';
 import { ConstitutionPage, Section, Notice } from '@/components/ui/ConstitutionUI';
 
 const n=(v)=>Number(v||0);
@@ -102,16 +106,6 @@ export default function PayrollOperationalPage(){
     setLines(prev=>prev.map(row=>row.id===id?calculated({...row,...patch}):row));
   }
 
-  function toggleLine(row){
-    if(!isLineAvailable(row)||busy)return;
-    setSelectedIds(prev=>{const next=new Set(prev);if(next.has(row.id))next.delete(row.id);else next.add(row.id);return next;});
-  }
-
-  function selectAllAvailable(){
-    const available=lines.filter(isLineAvailable).map(row=>row.id);
-    setSelectedIds(prev=>prev.size===available.length&&available.every(id=>prev.has(id))?new Set():new Set(available));
-  }
-
   async function ensureEmployeeLines(runId){
     const existingQ=await supabase.from('payroll_lines').select('employee_id').eq('run_id',runId);if(existingQ.error)throw existingQ.error;
     const existingIds=new Set((existingQ.data||[]).map(r=>r.employee_id));
@@ -173,9 +167,10 @@ export default function PayrollOperationalPage(){
   }
 
   function printPayroll(){if(run)window.open(`/print/payroll/${run.id}`,'_blank','noopener,noreferrer');}
+  function printSelected(){if(run&&selectedIds.size)window.open(appendSelectionToUrl(`/print/payroll/${run.id}`,selectedIds),'_blank','noopener,noreferrer');}
 
   const availableLines=lines.filter(isLineAvailable);
-  const selectedLines=lines.filter(row=>selectedIds.has(row.id)).map(calculated);
+  const selectedLines=lines.filter(row=>selectedIds.has(String(row.id))).map(calculated);
   const selectedTotals=selectedLines.reduce((a,r)=>({gross:a.gross+n(r.gross_pay),ded:a.ded+n(r.total_deductions),net:a.net+n(r.net_pay)}),{gross:0,ded:0,net:0});
   const totals=lines.map(calculated).reduce((a,r)=>({gross:a.gross+n(r.gross_pay),ded:a.ded+n(r.total_deductions),net:a.net+n(r.net_pay)}),{gross:0,ded:0,net:0});
   const batches=batchOverview?.batches||[];
@@ -185,8 +180,8 @@ export default function PayrollOperationalPage(){
   const editableRun=auth.canEdit&&!['ceo_approved','cancelled'].includes(run?.status);
 
   const columns=[
-    {key:'selection',label:'تحديد',type:'custom',render:(r)=>{const state=lineState(r);if(state)return <span title={state.return_note||''}>{state.batch_no} · {BATCH_STATUS[state.batch_status]||state.batch_status}</span>;return <input aria-label="تحديد الموظف للمعاملة" type="checkbox" checked={selectedIds.has(r.id)} disabled={!auth.canSubmit||busy||!isLineAvailable(r)} onChange={()=>toggleLine(r)}/>;}},
     {key:'employee',label:'الموظف',type:'custom',minWidth:190,render:r=>{const e=empMap.get(r.employee_id);return e?`${e.employee_no||''} ${e.full_name_ar}`:'—';}},
+    {key:'batch',label:'المعاملة',type:'custom',minWidth:150,render:r=>{const state=lineState(r);return state?<span title={state.return_note||''}>{state.batch_no} · {BATCH_STATUS[state.batch_status]||state.batch_status}</span>:'—';}},
     {key:'basic_salary',label:'الأساسي',type:'number'},{key:'housing_allowance',label:'السكن',type:'number'},{key:'transport_allowance',label:'النقل',type:'number'},{key:'other_allowance',label:'بدلات أخرى',type:'number'},
     {key:'overtime_amount',label:'إضافي',type:'number'},{key:'commission_amount',label:'عمولة',type:'number'},
     {key:'absence_deduction',label:'خصم غياب',type:'number'},{key:'advance_deduction',label:'سلف',type:'number'},{key:'penalty_deduction',label:'جزاءات',type:'number'},{key:'gosi_deduction',label:'تأمينات',type:'number'},{key:'other_deduction',label:'خصم آخر',type:'number'},
@@ -196,10 +191,10 @@ export default function PayrollOperationalPage(){
   if(!auth.allowed)return <ConstitutionPage><Notice tone="warning">{auth.error}</Notice></ConstitutionPage>;
 
   return <ConstitutionPage>
-    <Section title="دفتر الرواتب" description="المسير الشهري هو دفتر العمل. الاعتماد يُرفع كمعاملة مستقلة للموظفين الذين تحددهم فقط، ويمكن رفع بقية الموظفين لاحقًا.">
+    <Section title="دفتر الرواتب" description="المسير الشهري هو دفتر العمل. التحديد هو نطاق مستقل: يمكن طباعة المحدد فقط، ويمكن رفع المحدد كمعاملة مستقلة دون جر بقية الموظفين معه.">
       <div style={{display:'grid',gap:14}}>
         {error?<div className="msg err">{error}</div>:null}{message?<div className="msg ok">{message}</div>:null}
-        {!batchFeatureReady?<Notice tone="warning">واجهة تحديد الموظفين جاهزة، لكن قاعدة البيانات لم تُفعّل بعد بعقد دفعات الرواتب؛ لذلك زر رفع المحدد سيبقى متوقفًا حتى تطبيق التحديث البنيوي.</Notice>:null}
+        {!batchFeatureReady?<Notice tone="warning">التحديد والطباعة للمحدد يعملان من الواجهة، لكن إنشاء دفعة اعتماد مستقلة يحتاج تفعيل عقد دفعات الرواتب في قاعدة البيانات.</Notice>:null}
 
         <div className="rowsplit">
           <input type="month" value={month} onChange={e=>setMonth(e.target.value)} disabled={!auth.canEdit||busy}/>
@@ -208,14 +203,7 @@ export default function PayrollOperationalPage(){
           {runs.length?<select value={run?.id||''} onChange={e=>selectRun(e.target.value)}>{runs.map(r=><option key={r.id} value={r.id}>{String(r.run_month).slice(0,7)} — {STATUS[r.status]||r.status}</option>)}</select>:null}
         </div>
 
-        {run?<div className="hint">الشهر <strong>{String(run.run_month).slice(0,7)}</strong> · الموظفون <strong>{lines.length}</strong> · معتمد <strong>{approvedCount}</strong> · تحت الاعتماد <strong>{pendingCount}</strong> · معاد للتعديل <strong>{returnedCount}</strong> · متاح للرفع <strong>{availableLines.length}</strong></div>:null}
-
-        {run&&auth.canSubmit&&availableLines.length?<div className="rowsplit">
-          <button className="btn ghost" type="button" disabled={busy} onClick={selectAllAvailable}>{selectedIds.size===availableLines.length?'إلغاء تحديد الكل':'تحديد كل المتاح'}</button>
-          <span>المحدد: <strong>{selectedIds.size}</strong> موظف</span>
-          <span className="spacer"/>
-          <strong>صافي المحدد: {money(selectedTotals.net)}</strong>
-        </div>:null}
+        {run?<div className="hint">الشهر <strong>{String(run.run_month).slice(0,7)}</strong> · الموظفون <strong>{lines.length}</strong> · معتمد <strong>{approvedCount}</strong> · تحت الاعتماد <strong>{pendingCount}</strong> · معاد للتعديل <strong>{returnedCount}</strong> · متاح لمعاملة جديدة <strong>{availableLines.length}</strong></div>:null}
 
         <RawGrid
           columns={columns}
@@ -224,15 +212,41 @@ export default function PayrollOperationalPage(){
           savedFlag={()=>true}
           onPatchRow={patchRow}
           rowDisabled={r=>!editableRun||isLineLocked(r)}
+          selection={{
+            selectedKeys:selectedIds,
+            onChange:setSelectedIds,
+            isSelectable:r=>auth.canSubmit&&isLineAvailable(r),
+            ariaLabel:r=>`تحديد ${empMap.get(r.employee_id)?.full_name_ar||'الموظف'}`,
+            renderUnavailable:r=>{const state=lineState(r);return state?<span title={state.return_note||''}>مربوط</span>:'—';},
+          }}
           busy={busy}
           loading={loading}
           emptyMessage="لا توجد صفوف رواتب بعد. اختر الشهر واضغط إنشاء / فتح دفتر الشهر."
         />
 
+        <WorkSelectionDock
+          count={selectedIds.size}
+          summary={`الصافي ${money(selectedTotals.net)} · الخصومات ${money(selectedTotals.ded)}`}
+          onClear={()=>setSelectedIds(new Set())}
+        >
+          <ProgramAction
+            className="btn ghost"
+            selectionCount={selectedIds.size}
+            action={{key:'payroll.print-selected',label:'طباعة المحدد',kind:WORK_ACTION_KIND.PRINT,actionScope:WORK_ACTION_SCOPE.SELECTION,consequence:WORK_ACTION_CONSEQUENCE.SAFE}}
+            onClick={printSelected}
+          >طباعة المحدد</ProgramAction>
+          {auth.canSubmit?<ProgramAction
+            className="btn"
+            disabled={busy||!batchFeatureReady}
+            selectionCount={selectedIds.size}
+            action={{key:'payroll.submit-selected',label:'رفع المحدد للمالية',kind:WORK_ACTION_KIND.ROUTE,actionScope:WORK_ACTION_SCOPE.SELECTION,capability:'hr.payroll.submit',consequence:WORK_ACTION_CONSEQUENCE.CONSEQUENTIAL}}
+            onClick={submitSelected}
+          >رفع المحدد للمالية ({selectedIds.size})</ProgramAction>:null}
+        </WorkSelectionDock>
+
         {run?<RawGridFooter actions={<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button className="btn" type="button" disabled={busy||!editableRun} onClick={saveLines}>حفظ الدفتر</button>
-          {auth.canSubmit?<button className="btn" type="button" disabled={busy||!batchFeatureReady||!selectedIds.size} onClick={submitSelected}>رفع المحدد للمالية ({selectedIds.size})</button>:null}
-          <button className="btn ghost" type="button" disabled={busy} onClick={printPayroll}>طباعة / PDF</button>
+          <button className="btn ghost" type="button" disabled={busy} onClick={printPayroll}>طباعة المسير كاملًا</button>
         </div>} summary={<strong>إجمالي الشهر {money(totals.gross)} · الخصومات {money(totals.ded)} · الصافي {money(totals.net)}</strong>}/>:null}
 
         {run&&batches.length?<div style={{display:'grid',gap:8}}>
