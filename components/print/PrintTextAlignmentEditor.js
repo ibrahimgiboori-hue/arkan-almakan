@@ -42,6 +42,10 @@ function shortClassName(element) {
     || 'text';
 }
 
+function safeToken(value) {
+  return String(value || 'text').replace(/[^a-zA-Z0-9_-]+/g, '-');
+}
+
 function isVisibleTextCandidate(element, root) {
   if (!element || !root?.contains(element)) return false;
   if (element.closest('.no-print,.print-text-alignment-bar,[data-print-text-ignore="true"]')) return false;
@@ -67,20 +71,53 @@ function governedCandidates(root) {
   });
 }
 
+function indexAmong(root, selector, element) {
+  return [...root.querySelectorAll(selector)].filter((item) => isVisibleTextCandidate(item, root)).indexOf(element);
+}
+
+function semanticKey(root, element, candidates) {
+  const blockId = element.closest('[data-block]')?.dataset?.block || '';
+  const tag = element.tagName.toLowerCase();
+  const semantic = safeToken(shortClassName(element));
+  if (blockId) return `block:${safeToken(blockId)}:${tag}:${semantic}`;
+
+  if (element.matches('.q-intro')) return 'quotation:intro';
+  if (element.matches('.q-closing')) return 'quotation:closing';
+  if (element.matches('.q-title h1')) return 'quotation:title';
+  if (element.matches('.title-block h1')) return 'document:title';
+  if (element.matches('.print-approval-declaration')) return 'approval:declaration';
+  if (element.matches('.ltr-subject')) return 'letter:subject';
+  if (element.matches('.ltr-to')) return 'letter:addressee';
+  if (element.matches('.ltr-salut')) return 'letter:salutation';
+
+  const term = element.closest('.q-term-flow');
+  if (term) {
+    const termIndex = [...root.querySelectorAll('.q-term-flow')].indexOf(term);
+    const role = element.matches('h3') ? 'heading' : 'body';
+    return `quotation:term:${Math.max(0, termIndex)}:${role}`;
+  }
+
+  if (element.matches('.letter-body')) {
+    return `letter:body:${Math.max(0, indexAmong(root, '.letter-body', element))}`;
+  }
+  if (element.matches('.dc-body')) {
+    return `document:body:${Math.max(0, indexAmong(root, '.dc-body', element))}`;
+  }
+
+  const sameKind = candidates.filter((candidate) => (
+    candidate.tagName === element.tagName
+    && safeToken(shortClassName(candidate)) === semantic
+  ));
+  const localIndex = sameKind.indexOf(element);
+  return `auto:${tag}:${semantic}:${Math.max(0, localIndex)}`;
+}
+
 function assignStableKeys(root) {
   const candidates = governedCandidates(root);
-  let autoIndex = 0;
   candidates.forEach((element) => {
     if (element.dataset.printTextKey) return;
-    const blockId = element.closest('[data-block]')?.dataset?.block || '';
-    const semantic = shortClassName(element).replace(/[^a-zA-Z0-9_-]+/g, '-');
-    const tag = element.tagName.toLowerCase();
-    const key = blockId
-      ? `block:${blockId}:${tag}:${semantic}`
-      : `auto:${autoIndex}:${tag}:${semantic}`;
-    element.dataset.printTextKey = key;
+    element.dataset.printTextKey = semanticKey(root, element, candidates);
     element.dataset.printTextAutoKey = 'true';
-    autoIndex += 1;
   });
   return candidates;
 }
