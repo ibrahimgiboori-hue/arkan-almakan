@@ -90,11 +90,50 @@ if (!fs.existsSync(officeModelPath)) {
   }
 }
 
+// تنسيق النص اليدوي يملكه القبطان نفسه. لا نعود مستقبلاً إلى تخمين المحاذاة
+// داخل كل صفحة ولا إلى محررات منفصلة لكل نوع مستند.
+const textGovernancePath = path.join(root, 'lib', 'print-text-governance.js');
+const textEditorPath = path.join(root, 'components', 'print', 'PrintTextAlignmentEditor.js');
+const boundaryPath = path.join(root, 'components', 'print', 'PrintGovernanceBoundary.js');
+if (!fs.existsSync(textGovernancePath)) {
+  violations.push('lib/print-text-governance.js: دستور المحاذاة اليدوية مفقود');
+} else {
+  const textGovernance = fs.readFileSync(textGovernancePath, 'utf8');
+  for (const token of [
+    "owner:'user'",
+    "manualOverridePriority:'absolute'",
+    "automaticAlignment:'fallback-only'",
+    "RIGHT: 'right'",
+    "CENTER: 'center'",
+    "LEFT: 'left'",
+    "JUSTIFY: 'justify'",
+  ]) {
+    if (!textGovernance.includes(token)) violations.push(`print-text-governance.js: missing manual text contract ${token}`);
+  }
+}
+if (!fs.existsSync(textEditorPath)) {
+  violations.push('components/print/PrintTextAlignmentEditor.js: أداة المحاذاة المركزية مفقودة');
+} else {
+  const textEditor = fs.readFileSync(textEditorPath, 'utf8');
+  for (const token of [
+    'PRINT_TEXT_ALIGNMENT_OPTIONS',
+    'textAlignments',
+    'data-print-text-align',
+    'text-align:justify!important',
+    'text-align-last:justify!important',
+  ]) {
+    if (!textEditor.includes(token)) violations.push(`PrintTextAlignmentEditor.js: missing governed manual-alignment behavior ${token}`);
+  }
+}
+if (!fs.existsSync(boundaryPath) || !fs.readFileSync(boundaryPath, 'utf8').includes('PrintTextAlignmentEditor')) {
+  violations.push('PrintGovernanceBoundary.js: أداة تنسيق النص ليست مركبة في القبطان العام لكل المطبوعات');
+}
+
 if (violations.length) {
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية، ونموذج Word + Excel يجب أن يبقى مركزيًا ومطبقًا على جميع المطبوعات.\n');
+  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية، ونموذج Word + Excel والتحكم اليدوي في النص يجب أن تبقى مركزية ومطبقة على جميع المطبوعات.\n');
   for (const item of violations) console.error(`- ${item}`);
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model active).`);
+console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model and manual text alignment active).`);
