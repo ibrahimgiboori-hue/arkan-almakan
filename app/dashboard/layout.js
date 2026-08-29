@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/lib/action-context';
 import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
+import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import './raw-tokens.css';
 import './raw-phase.css';
 
@@ -150,6 +151,7 @@ export default function DashboardLayout({ children }) {
         data-action-mode={actingOnBehalf ? 'on_behalf_of' : 'self'}
         data-real-actor-employee-id={state.me?.actionContext?.realActorEmployeeId || undefined}
       >
+        <WorkSurfaceRuntime />
         <RawDashboardNavigation me={state.me} onSignOut={signOut} />
         {actingOnBehalf ? (
           <div
