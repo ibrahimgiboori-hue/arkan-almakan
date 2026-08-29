@@ -8,6 +8,10 @@ function read(relative) {
   return fs.readFileSync(path.join(root, relative), 'utf8');
 }
 
+function exists(relative) {
+  return fs.existsSync(path.join(root, relative));
+}
+
 function walk(relative, files = []) {
   const absolute = path.join(root, relative);
   if (!fs.existsSync(absolute)) return files;
@@ -42,14 +46,35 @@ if (!areasMatch) {
   }
 }
 
-// 3) منصة الأعمال هي شريط الملاحة العلوي، وليست صفحة ثانية داخل مساحة العمل الخام.
+// 3) لا توجد «منصة أعمال» موازية. الشريط الحالي هو القشرة الوحيدة، والتجميع داخله فقط.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 if (!dashboardLayout.includes('RawDashboardNavigation')) {
-  failures.push('app/dashboard/layout.js: منصة الأعمال العليا غير مركبة في RawDashboardNavigation.');
+  failures.push('app/dashboard/layout.js: الملاحة العليا غير مركبة في RawDashboardNavigation.');
 }
 if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) {
-  failures.push('app/dashboard/page.js: الرئيسية تكرر منصة الأعمال داخل مساحة العمل؛ البوابات ملك الشريط العلوي فقط.');
+  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك الشريط العلوي فقط.');
+}
+
+const deadPlatformFiles = [
+  'app/dashboard/workspace/page.js',
+  'app/dashboard/workspace/[portal]/page.js',
+  'app/dashboard/workspace/[portal]/scope/[id]/page.js',
+  'app/dashboard/workspace/PortalActionMetrics.js',
+  'app/dashboard/workspace/unified-workspace.module.css',
+  'app/dashboard/workspace/workspace.module.css',
+  'lib/work-platform-constitution.js',
+  'lib/program-links.js',
+];
+for (const file of deadPlatformFiles) {
+  if (exists(file)) failures.push(`${file}: بقايا منصة الأعمال القديمة يجب حذفها، لا تعطيلها.`);
+}
+
+for (const file of [...walk('app/dashboard'), ...walk('components'), ...walk('lib')]) {
+  const text = read(file);
+  if (/\bWorkPlatformPage\b|\bWORK_PLATFORM_[A-Z0-9_]+\b/.test(text)) {
+    failures.push(`${file}: يعيد منطق منصة الأعمال القديمة خارج الملاحة الموحدة.`);
+  }
 }
 
 // 4) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
