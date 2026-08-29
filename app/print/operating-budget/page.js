@@ -6,6 +6,7 @@ import { money, dateAr } from '@/lib/format';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import { monthKey, monthLabelAr } from '@/lib/operating-budget';
 import { operationalDate } from '@/lib/system-constitution';
+import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
 
 function clampMargin(value) {
   const n = Number(value);
@@ -29,6 +30,7 @@ export default function OperatingBudgetPrintPage() {
   const [margin, setMargin] = useState(10);
   const [period, setPeriod] = useState(null);
   const [rows, setRows] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [cfg, setCfg] = useState(null);
   const [err, setErr] = useState('');
 
@@ -36,8 +38,10 @@ export default function OperatingBudgetPrintPage() {
     const params = new URLSearchParams(window.location.search);
     const requestedMonth = params.get('month') || monthKey(operationalDate());
     const requestedMargin = clampMargin(params.get('margin') ?? 10);
+    const requestedSelection = normalizeRecordSelection(params.get('selected'));
     setMonth(requestedMonth);
     setMargin(requestedMargin);
+    setSelectedIds(requestedSelection);
 
     (async () => {
       const periodStart = `${requestedMonth}-01`;
@@ -56,8 +60,11 @@ export default function OperatingBudgetPrintPage() {
     })();
   }, []);
 
+  const printRows = useMemo(() => rows == null ? null : filterBySelection(rows, selectedIds, 'line_id'), [rows, selectedIds]);
+  const selectionMode = selectedIds.length > 0;
+
   const totals = useMemo(() => {
-    const data = rows || [];
+    const data = printRows || [];
     const estimated = data.reduce((sum, line) => sum + monthlyEstimate(line), 0);
     const actual = data.reduce((sum, line) => sum + (actualValue(line) ?? 0), 0);
     const paid = data.reduce((sum, line) => sum + Number(line.paid_amount || 0), 0);
@@ -66,10 +73,11 @@ export default function OperatingBudgetPrintPage() {
     const variance = actual - comparedEstimate;
     const target = estimated * (1 + clampMargin(margin) / 100);
     return { estimated, actual, paid, actualCount, variance, target };
-  }, [rows, margin]);
+  }, [printRows, margin]);
 
   if (err) return <div style={{ padding: 40 }} className="msg err">{err}</div>;
-  if (!rows || !period || cfg == null) return <div style={{ padding: 40 }}>جارٍ تحميل تقرير ميزانية التشغيل…</div>;
+  if (!printRows || !period || cfg == null) return <div style={{ padding: 40 }}>جارٍ تحميل تقرير ميزانية التشغيل…</div>;
+  if (selectionMode && !printRows.length) return <div style={{ padding: 40 }} className="msg err">لا توجد بنود من هذا الكشف تطابق التحديد المطلوب.</div>;
 
   return <>
     <div className="ob-toolbar no-print">
@@ -81,13 +89,13 @@ export default function OperatingBudgetPrintPage() {
     <ConstitutionPrintFrame documentKey="operating_budget_report" cfg={cfg} showLetterhead showStamp>
       <div className="ob-report">
         <header className="ob-title">
-          <h1>تقرير ميزانية التشغيل</h1>
+          <h1>{selectionMode ? 'تقرير ميزانية التشغيل — البنود المحددة' : 'تقرير ميزانية التشغيل'}</h1>
           <div>{monthLabelAr(month)} · {cfg.company_name_ar || 'أركان المكان'}</div>
-          <small>التقدير للتخطيط، والقيمة الفعلية تُسجل عند ورود الفاتورة، والمدفوع يأتي من الخزينة.</small>
+          <small>{selectionMode ? `نطاق التقرير: ${printRows.length} بند محدد فقط. ` : ''}التقدير للتخطيط، والقيمة الفعلية تُسجل عند ورود الفاتورة، والمدفوع يأتي من الخزينة.</small>
         </header>
 
         <div className="ob-kpis">
-          <div><span>التكلفة التقديرية للشهر</span><strong>{money(totals.estimated)} ريال</strong></div>
+          <div><span>التكلفة التقديرية {selectionMode ? 'للمحدد' : 'للشهر'}</span><strong>{money(totals.estimated)} ريال</strong></div>
           <div><span>هامش الأمان</span><strong>{money(totals.estimated * clampMargin(margin) / 100)} ريال</strong><small>{clampMargin(margin)}%</small></div>
           <div className="ob-target"><span>الميزانية المستهدف توفيرها</span><strong>{money(totals.target)} ريال</strong></div>
         </div>
@@ -95,7 +103,7 @@ export default function OperatingBudgetPrintPage() {
         <table className="ob-table">
           <thead><tr><th>البند</th><th>التقديري</th><th>الفعلي</th><th>المدفوع</th><th>الفرق</th></tr></thead>
           <tbody>
-            {rows.map((line) => {
+            {printRows.map((line) => {
               const estimated = monthlyEstimate(line);
               const actual = actualValue(line);
               const variance = actual == null ? null : actual - Number(line.expected_amount || 0);
@@ -121,7 +129,7 @@ export default function OperatingBudgetPrintPage() {
         </table>
 
         <div className="ob-note">
-          <strong>قراءة التقرير:</strong> الميزانية المستهدف توفيرها = التكلفة التقديرية لهذا الشهر + هامش الأمان. المبالغ الفعلية والمدفوعة لا تُستبدل عند تصحيح التقديرات.
+          <strong>قراءة التقرير:</strong> الميزانية المستهدف توفيرها = التكلفة التقديرية {selectionMode ? 'للبنود المحددة' : 'لهذا الشهر'} + هامش الأمان. المبالغ الفعلية والمدفوعة لا تُستبدل عند تصحيح التقديرات.
         </div>
       </div>
     </ConstitutionPrintFrame>
