@@ -47,6 +47,9 @@ requireText('app/dashboard/layout.js', [
 ]);
 
 requireText('components/ui/ConstitutionUI.js', [
+  "import { useWorkSurface } from './WorkSurfaceRuntime'",
+  'const resolvedMode = surface?.mode || mode ||',
+  'data-page-portal',
   'data-work-section-style',
   'boundary = false',
   'export function ContextActions',
@@ -64,6 +67,12 @@ requireText('components/ui/RawGrid.js', [
   'data-keyboard-policy="enter-tab-native"',
   "case 'money'",
   "case 'multiline'",
+]);
+
+requireText('components/ui/GlobalSearch.js', [
+  "import { WORK_SURFACE_EVENT } from './WorkSurfaceRuntime'",
+  'WORK_SURFACE_EVENT.PAGE_COMMAND',
+  'Ctrl K · /',
 ]);
 
 requireText('lib/access-ui.js', [
