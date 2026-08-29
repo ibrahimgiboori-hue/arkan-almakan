@@ -11,6 +11,7 @@ import {
 } from '@/lib/app-constitution';
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
 import { PORTAL_SECTION_ITEMS, PORTAL_EXISTING_DESTINATION_CAPABILITIES } from '@/lib/portal-section-constitution';
+import GlobalSearch from './GlobalSearch';
 
 function uniqueByHref(items = []) {
   const seen = new Set();
@@ -186,6 +187,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
           ))}
         </div>
 
+        <GlobalSearch />
         <button type="button" className="rawNavSignOut" onClick={onSignOut}>خروج</button>
       </div>
 
