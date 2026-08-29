@@ -1,13 +1,19 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { resolveWorkSurface, surfaceDataAttributes } from '@/lib/work-surface-constitution';
+
+const WorkSurfaceContext = createContext(null);
 
 export const WORK_SURFACE_EVENT = Object.freeze({
   PAGE_COMMAND: 'arkan:page-command-requested',
   CLOSE_CONTEXT: 'arkan:close-context-requested',
 });
+
+export function useWorkSurface() {
+  return useContext(WorkSurfaceContext);
+}
 
 function isTypingTarget(target) {
   if (!(target instanceof HTMLElement)) return false;
@@ -15,7 +21,7 @@ function isTypingTarget(target) {
   return target.isContentEditable || tag === 'input' || tag === 'textarea' || tag === 'select';
 }
 
-export default function WorkSurfaceRuntime() {
+export default function WorkSurfaceRuntime({ children }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const surface = useMemo(() => resolveWorkSurface(pathname, searchParams), [pathname, searchParams]);
@@ -52,5 +58,5 @@ export default function WorkSurfaceRuntime() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [pathname, surface]);
 
-  return null;
+  return <WorkSurfaceContext.Provider value={surface}>{children}</WorkSurfaceContext.Provider>;
 }
