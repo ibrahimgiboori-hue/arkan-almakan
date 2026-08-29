@@ -12,6 +12,9 @@ const requireText = (file, values) => {
   return text;
 };
 
+if (exists('lib/interface-constitution.js')) failures.push('ممنوع وجود دستور واجهة موازٍ لـ work-surface-constitution.js.');
+if (exists('app/dashboard/projects/projects-redesign.module.css')) failures.push('جلد بطاقات المشاريع القديم يجب ألا يعود بعد انتقال السجل إلى لغة الدفتر.');
+
 const constitution = requireText('lib/work-surface-constitution.js', [
   'program-driven-notebook-v2',
   'continuous-sheet-not-card-dashboard',
@@ -19,6 +22,9 @@ const constitution = requireText('lib/work-surface-constitution.js', [
   'compact-row-expands-in-context',
   'core-resolved-never-page-invented',
   'secondary-overflow',
+  'WORK_INTERFACE_ROLE',
+  'WORK_ACTION_KIND',
+  'same-work-surface-not-mobile-clone',
   "from './app-constitution'",
   'AREAS.flatMap',
   'PROJECT_NAV_GROUPS.flatMap',
@@ -110,4 +116,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: pages declare meaning; the notebook kernel controls interface behavior.');
+console.log('Program-driven work surface audit passed: one notebook constitution controls surfaces, actions and interaction grammar.');
