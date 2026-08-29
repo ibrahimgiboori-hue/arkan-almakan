@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import styles from './constitution-ui.module.css';
+import { useWorkSurface } from './WorkSurfaceRuntime';
 import {
   WorkSheet,
   WorkSheetHeader,
@@ -14,13 +15,17 @@ function cx(...values) {
   return values.filter(Boolean).join(' ');
 }
 
-export function ConstitutionPage({ children, className = '', mode = 'notebook' }) {
+export function ConstitutionPage({ children, className = '', mode }) {
+  const surface = useWorkSurface();
+  const resolvedMode = surface?.mode || mode || 'notebook';
   return (
     <WorkSheet
       className={cx(styles.page, className)}
       data-ui-constitution="native"
       data-page-surface="true"
-      data-page-mode={mode}
+      data-page-mode={resolvedMode}
+      data-page-portal={surface?.portalKey || undefined}
+      data-page-tool={surface?.toolKey || undefined}
     >
       {children}
     </WorkSheet>
