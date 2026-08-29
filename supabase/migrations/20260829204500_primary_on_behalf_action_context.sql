@@ -344,7 +344,10 @@ where ev.actor_user_id=au.id
   and (ev.real_actor_employee_id is null or ev.acting_mode is null);
 
 update public.approvals a
-set actor_name_snapshot=coalesce(a.actor_name_snapshot,e.full_name_ar),
+set actor_name_snapshot=coalesce(
+      a.actor_name_snapshot,
+      (select e.full_name_ar from public.employees e where e.id=a.actor_employee_id)
+    ),
     acting_mode=coalesce(a.acting_mode,
       case
         when a.actor_employee_id is null then 'legacy_unknown'
@@ -352,7 +355,6 @@ set actor_name_snapshot=coalesce(a.actor_name_snapshot,e.full_name_ar),
         else 'explicit_actor'
       end)
 from public.app_users au
-left join public.employees e on e.id=a.actor_employee_id
 where au.id=coalesce(a.recorded_by_user_id,a.decided_by)
   and (a.actor_name_snapshot is null or a.acting_mode is null);
 
