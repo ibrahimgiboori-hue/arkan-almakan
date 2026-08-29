@@ -54,3 +54,23 @@ export function WorkDock({ children, className = '', ...props }) {
     </footer>
   );
 }
+
+export function WorkSelectionDock({ count = 0, summary = null, actions = null, onClear, className = '', children = null }) {
+  if (!count) return null;
+  return (
+    <WorkDock
+      className={cx(className)}
+      data-selection-dock="true"
+      data-selection-count={count}
+      style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',padding:'10px 12px',border:'1px solid var(--line,#d1d5db)',borderRadius:8}}
+    >
+      <strong>{count} محدد</strong>
+      {summary ? <span data-selection-summary="true">{summary}</span> : null}
+      <span style={{flex:1}} />
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}} data-selection-actions="true">
+        {children || actions}
+        {onClear ? <button type="button" className="btn ghost" onClick={onClear}>إلغاء التحديد</button> : null}
+      </div>
+    </WorkDock>
+  );
+}
