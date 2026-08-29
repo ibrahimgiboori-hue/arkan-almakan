@@ -3,8 +3,11 @@
 /**
  * RawGrid — الدفتر الجدولي المشترك.
  * الصفحة تصف الأعمدة ومعانيها فقط؛ المحرك يقرر سلوك الخلية والتنقل والحالة.
+ * الاختيار المتعدد جزء من المحرك: هو نطاق إجراء، ولا يغيّر البيانات بمجرد التحديد.
  */
 
+import { useRef } from 'react';
+import { recordSelectionSet, selectionState } from '@/lib/record-selection';
 import styles from './RawGrid.module.css';
 
 function resolveOptions(options, row) {
@@ -31,7 +34,7 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled }) {
     const change = column.onChange
       ? column.onChange(row, nextValue)
       : { [column.key]: nextValue };
-    onPatchRow(change);
+    onPatchRow?.(change);
   }
 
   function commit(event) {
@@ -130,6 +133,22 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled }) {
   }
 }
 
+function SelectionHeader({ checked, indeterminate, disabled, label, onChange }) {
+  const ref = useRef(null);
+  if (ref.current) ref.current.indeterminate = Boolean(indeterminate);
+  return <th data-column-type="selection" style={{width:44,minWidth:44,textAlign:'center'}}>
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={checked ? `إلغاء ${label}` : label}
+      title={checked ? 'إلغاء تحديد الظاهر' : 'تحديد كل الظاهر المتاح'}
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+    />
+  </th>;
+}
+
 function moveVertical(table, target, delta) {
   const row = Number(target.getAttribute('data-grid-row'));
   const column = target.getAttribute('data-grid-column');
@@ -148,12 +167,36 @@ export default function RawGrid({
   savedFlag,
   onPatchRow,
   rowDisabled,
+  selection = null,
   busy = false,
   loading = false,
   emptyMessage = 'لا توجد بيانات بعد.',
 }) {
   if (loading) return <div className={styles.loading}>جارٍ التحميل…</div>;
   if (!rows?.length) return <div className={styles.empty}>{emptyMessage}</div>;
+
+  const hasSelection = Boolean(selection && typeof selection.onChange === 'function');
+  const selected = hasSelection ? recordSelectionSet(selection.selectedKeys) : new Set();
+  const selectable = (row) => !busy && (selection?.isSelectable ? Boolean(selection.isSelectable(row)) : true);
+  const selectionInfo = hasSelection
+    ? selectionState(rows, selected, { key: rowKey, selectable })
+    : null;
+
+  function toggleSelection(row) {
+    if (!hasSelection || !selectable(row)) return;
+    const key = String(rowKey(row));
+    const next = new Set(selected);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    selection.onChange(next);
+  }
+
+  function toggleVisibleSelection() {
+    if (!hasSelection || !selectionInfo?.visibleKeys.length) return;
+    const next = new Set(selected);
+    if (selectionInfo.allVisibleSelected) selectionInfo.visibleKeys.forEach((key) => next.delete(key));
+    else selectionInfo.visibleKeys.forEach((key) => next.add(key));
+    selection.onChange(next);
+  }
 
   function keyDown(event) {
     const target = event.target;
@@ -164,22 +207,57 @@ export default function RawGrid({
   }
 
   return (
-    <div className={styles.wrap} data-work-ledger="true" data-ledger-behavior="semantic-grid" data-keyboard-policy="enter-tab-native">
+    <div
+      className={styles.wrap}
+      data-work-ledger="true"
+      data-ledger-behavior="semantic-grid"
+      data-keyboard-policy="enter-tab-native"
+      data-selection-surface={hasSelection ? 'true' : undefined}
+      data-selection-count={hasSelection ? selected.size : undefined}
+    >
       <table className={styles.table} onKeyDown={keyDown}>
         <thead>
           <tr>
+            {hasSelection && <SelectionHeader
+              checked={selectionInfo.allVisibleSelected}
+              indeterminate={selectionInfo.someVisibleSelected}
+              disabled={!selectionInfo.visibleKeys.length}
+              label={selection.selectAllLabel || 'تحديد كل الظاهر المتاح'}
+              onChange={toggleVisibleSelection}
+            />}
             {columns.map((column) => <th key={column.key} data-column-type={column.type || 'custom'} style={column.minWidth ? { minWidth: column.minWidth } : undefined}>{column.label}</th>)}
           </tr>
         </thead>
         <tbody>
           {rows.map((row, rowIndex) => {
             const key = rowKey(row);
+            const selectionKey = String(key);
             const saved = savedFlag ? savedFlag(row) : false;
             const disabled = busy || Boolean(rowDisabled?.(row));
+            const rowSelectable = hasSelection && selectable(row);
+            const rowSelected = hasSelection && selected.has(selectionKey);
             return (
-              <tr key={key} className={saved ? styles.rowSaved : styles.rowNew} data-record-row="true" data-row-disabled={disabled ? 'true' : 'false'}>
+              <tr
+                key={key}
+                className={saved ? styles.rowSaved : styles.rowNew}
+                data-record-row="true"
+                data-row-disabled={disabled ? 'true' : 'false'}
+                data-record-selected={rowSelected ? 'true' : 'false'}
+              >
+                {hasSelection && <td data-cell-type="selection" style={{width:44,minWidth:44,textAlign:'center'}}>
+                  {rowSelectable
+                    ? <input
+                        type="checkbox"
+                        checked={rowSelected}
+                        aria-label={selection.ariaLabel ? selection.ariaLabel(row) : 'تحديد السجل'}
+                        onChange={() => toggleSelection(row)}
+                      />
+                    : selection.renderUnavailable
+                      ? selection.renderUnavailable(row)
+                      : <span aria-hidden="true">—</span>}
+                </td>}
                 {columns.map((column) => (
-                  <Cell key={column.key} column={{ ...column, savedStyle: saved }} row={row} rowIndex={rowIndex} disabled={disabled} onPatchRow={(patch) => onPatchRow(key, patch)} />
+                  <Cell key={column.key} column={{ ...column, savedStyle: saved }} row={row} rowIndex={rowIndex} disabled={disabled} onPatchRow={(patch) => onPatchRow?.(key, patch)} />
                 ))}
               </tr>
             );
