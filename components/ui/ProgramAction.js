@@ -42,7 +42,8 @@ export default function ProgramAction({
   const consequential = spec.consequence === WORK_ACTION_CONSEQUENCE.CONSEQUENTIAL || spec.consequence === WORK_ACTION_CONSEQUENCE.DESTRUCTIVE;
   const selectionRequired = spec.actionScope === WORK_ACTION_SCOPE.SELECTION;
   const selectionReady = !selectionRequired || Number(selectionCount || 0) >= spec.minSelection;
-  const actionEnabled = allowed && !disabled && selectionReady && spec.bulkDecisionAllowed !== false;
+  const selectionActionAllowed = !selectionRequired || spec.selectionActionAllowed !== false;
+  const actionEnabled = allowed && !disabled && selectionReady && selectionActionAllowed;
   const label = children || spec.label;
 
   function handleClick(event) {
@@ -71,6 +72,8 @@ export default function ProgramAction({
       data-action-consequential={consequential ? 'true' : 'false'}
       data-selection-required={selectionRequired ? 'true' : undefined}
       data-selection-count={selectionRequired ? Number(selectionCount || 0) : undefined}
+      data-selection-profile={selectionRequired ? spec.selectionProfile : undefined}
+      data-selection-kind-allowed={selectionRequired ? String(spec.selectionKindAllowed !== false) : undefined}
       data-bulk-decision-allowed={selectionRequired ? String(spec.bulkDecisionAllowed !== false) : undefined}
       data-page-command-trigger={spec.commandTrigger ? 'true' : undefined}
     >
