@@ -631,18 +631,14 @@ export default function OperatingBudgetPage() {
       if (!nodeForm.node_id) revisionMode = 'new';
       if (nodeForm.node_id && nodeForm.node_type === 'item' && financialConfigChanged) {
         const isCorrection = window.confirm(
-          'هل هذا تصحيح لبيانات سابقة؟
-
-اختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
+          'هل هذا تصحيح لبيانات سابقة؟\n\nاختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
         );
         if (isCorrection) {
           revisionMode = 'correction';
           revisionValidFrom = currentEffectiveFrom;
         } else {
           const applyFromCurrentCycle = window.confirm(
-            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها؟
-
-اختيار «إلغاء» هنا يعني عدم الحفظ.'
+            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها؟\n\nاختيار «إلغاء» هنا يعني عدم الحفظ.'
           );
           if (!applyFromCurrentCycle) {
             setWorkErr('لم يتم الحفظ. عند تعديل قاعدة مالية قائمة اختر إما «تصحيح سابق» أو «تغيير من الدورة الحالية».');
