@@ -70,12 +70,12 @@ on conflict (transaction_key) do update set
 insert into public.procedure_source_registry(
   source_key,schema_name,relation_name,relation_kind,id_column,amount_column,status_column,
   capability_key,module_key,source_destination_key,financial_effect,aggregate_operation,confidence,
-  discovery_reason,instrumentation_status,is_enabled,instrumented_at,financial_total_role,
+  discovery_reason,instrumentation_status,is_enabled,instrumented_at,
   temporal_effect,legal_effect,printable_output,central_candidate,transaction_role,capture_mode,transaction_key
 ) values (
   'public.payroll_approval_batches','public','payroll_approval_batches','table','id','total_net','status',
   'hr.payroll.submit','hr','workforce',true,true,100,
-  'selected payroll approval batch','instrumented',true,now(),'total',
+  'selected payroll approval batch','instrumented',true,now(),
   true,true,true,true,'primary','source_write','payroll_batch'
 )
 on conflict (source_key) do update set
@@ -83,7 +83,7 @@ on conflict (source_key) do update set
   capability_key=excluded.capability_key,module_key=excluded.module_key,source_destination_key=excluded.source_destination_key,
   financial_effect=excluded.financial_effect,aggregate_operation=excluded.aggregate_operation,confidence=excluded.confidence,
   instrumentation_status='instrumented',is_enabled=true,instrumented_at=coalesce(public.procedure_source_registry.instrumented_at,now()),
-  financial_total_role=excluded.financial_total_role,temporal_effect=excluded.temporal_effect,legal_effect=excluded.legal_effect,
+  temporal_effect=excluded.temporal_effect,legal_effect=excluded.legal_effect,
   printable_output=excluded.printable_output,central_candidate=excluded.central_candidate,transaction_role=excluded.transaction_role,
   capture_mode=excluded.capture_mode,transaction_key=excluded.transaction_key,last_seen_at=now();
 
