@@ -30,3 +30,20 @@ test('special mode is visible across the whole dashboard and controlled from set
   assert.match(control, /تفعيل تنفيذ نيابة عن/);
   assert.match(model, /ON_BEHALF_OF: 'on_behalf_of'/);
 });
+
+test('primary account identity is explicit and the primary employee remains selectable as a real actor', () => {
+  assert.match(control, /data-primary-account-identity/);
+  assert.match(control, /مستخدم الحساب الرئيسي/);
+  assert.match(control, /employee\.id === primaryEmployeeId/);
+  assert.match(control, /disabled=\{busy\}/);
+  assert.doesNotMatch(control, /employees\.filter\([^\n]*primaryEmployeeId/);
+});
+
+test('on-behalf mode is explicit and applies to creation, updates and approval stages', () => {
+  assert.match(control, /كل إجراء تقوم به في البرنامج — إنشاءً أو تعديلًا أو اعتمادًا أو إتمام أي مرحلة/);
+  assert.match(migration, /create or replace function public\.fn_audit\(\)/);
+  assert.match(migration, /before insert or update on public\.approval_workflow_steps/);
+  assert.match(migration, /before insert on public\.approval_workflow_events/);
+  assert.match(migration, /before insert on public\.approvals/);
+  assert.match(model, /context\?\.actingMode === ACTION_MODE\.ON_BEHALF_OF/);
+});
