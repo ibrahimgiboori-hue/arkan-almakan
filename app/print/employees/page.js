@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState, useRef, useLayoutEffect } from 'react';
+import { useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
+import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
 import Riyal from '@/components/Riyal';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import { PrintMark } from '@/components/print/PrintMarks';
@@ -13,6 +14,7 @@ const REPORT_LAYOUT = getPrintLayoutPolicy('employee_report');
 
 export default function EmployeeReport() {
   const [rows, setRows] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [cfg, setCfg] = useState(null);
   const [pages, setPages] = useState(null);
   const [showAll, setShowAll] = useState(false);
@@ -21,6 +23,8 @@ export default function EmployeeReport() {
   const measure = useRef(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSelectedIds(normalizeRecordSelection(params.get('selected')));
     (async () => {
       const [e, s] = await Promise.all([
         supabase.from('v_employee_report').select('*'),
@@ -31,7 +35,9 @@ export default function EmployeeReport() {
     })();
   }, []);
 
-  const list = (rows || []).filter((r) => showAll || r.status !== 'terminated');
+  const selectionMode = selectedIds.length > 0;
+  const selectedRows = useMemo(()=>rows ? filterBySelection(rows,selectedIds,'id') : [],[rows,selectedIds]);
+  const list = (selectionMode ? selectedRows : (rows || [])).filter((r) => selectionMode || showAll || r.status !== 'terminated');
 
   // ---------- تقسيم الصفحات بالقياس الفعلي ----------
   useLayoutEffect(() => {
@@ -71,10 +77,11 @@ export default function EmployeeReport() {
 
     if (cur.length) out.push({ rows: cur, withHead: out.length === 0 });
     setPages(out.length ? out : [{ rows: [], withHead: true }]);
-  }, [rows, cfg, showAll, showDuties]);
+  }, [rows, cfg, showAll, showDuties, selectedIds]);
 
   if (err) return <div style={{padding:40}} className="msg err">{err}</div>;
   if (!rows || !cfg) return <div style={{padding:40}}>جارٍ التحميل…</div>;
+  if (selectionMode && !list.length) return <div style={{padding:40}} className="msg err">لا توجد سجلات موظفين تطابق التحديد المطلوب.</div>;
 
   const mTop  = Number(REPORT_LAYOUT.topMm ?? cfg.letterhead_top_mm ?? 46);
   const mBot  = Number(REPORT_LAYOUT.bottomMm ?? cfg.letterhead_bottom_mm ?? 38);
@@ -133,7 +140,7 @@ export default function EmployeeReport() {
 
   const Title = () => (
     <div className="r-title">
-      <h1>تقرير الموظفين</h1>
+      <h1>{selectionMode?'تقرير الموظفين — المحدد':'تقرير الموظفين'}</h1>
       <div className="r-meta">
         <span>{cfg.company_name_ar}</span>
         <span className="mono">{dateAr(new Date())}</span>
@@ -180,11 +187,11 @@ export default function EmployeeReport() {
       <div className="rtoolbar no-print">
         <div className="tb-group">
           <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
-          <label>
+          {!selectionMode&&<label>
             <input type="checkbox" checked={showAll}
                    onChange={(e)=>setShowAll(e.target.checked)} />
             المنتهية خدمتهم
-          </label>
+          </label>}
           <label>
             <input type="checkbox" checked={showDuties}
                    onChange={(e)=>setShowDuties(e.target.checked)} />
@@ -192,12 +199,11 @@ export default function EmployeeReport() {
           </label>
         </div>
         <span className="rt-note">
-          {pages ? `${pages.length} صفحة · ` : ''}{list.length} موظفاً ·
+          {selectionMode?'نطاق الطباعة: المحدد فقط · ':''}{pages ? `${pages.length} صفحة · ` : ''}{list.length} موظفاً ·
           {' '}مجموع الرواتب {money(totalGross)}
         </span>
       </div>
 
-      {/* القياس المخفي */}
       <div className="measure" ref={measure}
            style={{ width: `${210 - mSide*2}mm` }} aria-hidden="true">
         <div data-m="__head"><Title /></div>
