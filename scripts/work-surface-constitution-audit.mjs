@@ -24,6 +24,13 @@ const constitution = requireText('lib/work-surface-constitution.js', [
   'secondary-overflow',
   'WORK_INTERFACE_ROLE',
   'WORK_ACTION_KIND',
+  'WORK_ACTION_SCOPE',
+  'WORK_SELECTION_POLICY',
+  'explicit-record-set-action-scope-v1',
+  'selection-alone-never-mutates-data',
+  'server-snapshot-validated-batch-source-only',
+  'print-export-only-unless-explicit-governed-batch-source',
+  'deny-unless-action-explicitly-declares',
   'same-work-surface-not-mobile-clone',
   "from './app-constitution'",
   'AREAS.flatMap',
@@ -67,12 +74,38 @@ requireText('components/ui/ConstitutionUI.js', [
   'export function InlineStatus',
 ]);
 
+requireText('lib/record-selection.js', [
+  'normalizeRecordSelection',
+  'selectionQueryValue',
+  'appendSelectionToUrl',
+  'filterBySelection',
+  'selectionState',
+]);
+
 requireText('components/ui/RawGrid.js', [
   'data-cell-type',
   'data-grid-field',
   'data-keyboard-policy="enter-tab-native"',
+  'data-selection-surface',
+  'data-record-selected',
+  'selection = null',
+  'visibleKeys',
   "case 'money'",
   "case 'multiline'",
+]);
+
+requireText('components/ui/ProgramAction.js', [
+  'WORK_ACTION_SCOPE',
+  'selectionCount',
+  'data-action-scope',
+  'data-selection-required',
+  'data-bulk-decision-allowed',
+]);
+
+requireText('components/ui/WorkSheetKernel.js', [
+  'export function WorkSelectionDock',
+  'data-selection-dock',
+  'data-selection-count',
 ]);
 
 requireText('components/ui/GlobalSearch.js', [
@@ -110,10 +143,26 @@ const quotes = requireText('app/dashboard/quotes/page.js', [
 if (/className=["']page-head["']|style=\{\{width:420|minWidth:420/.test(quotes)) failures.push('/dashboard/quotes: عاد تخطيط سجل محلي كثيف بدل دفتر البرنامج.');
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(quotes)) failures.push('/dashboard/quotes: الصفحة أعادت اختراع صلاحيات العرض بدل النواة.');
 
+const payroll = requireText('app/dashboard/workspace/workforce/section/payroll/page.js', [
+  'selection={{',
+  'WorkSelectionDock',
+  'طباعة المحدد',
+  'رفع المحدد للمالية',
+]);
+if (/p_source_table:'payroll_runs'.*fn_submit_transaction_source/s.test(payroll)) failures.push('الرواتب: ممنوع إعادة إرسال المسير كاملًا كبديل عن معاملة الموظفين المحددين.');
+
+const budget = requireText('app/dashboard/operating-budget/page.js', [
+  'selectedStatementIds',
+  'WorkSelectionDock',
+  'printSelectedStatement',
+  'طباعة المحدد',
+]);
+if (/submitSelectedStatement|approveSelectedStatement/i.test(budget)) failures.push('ميزانية التشغيل: التقرير المشتق لا ينشئ معاملة جماعية بلا مصدر تشغيلي صريح.');
+
 if (failures.length) {
   console.error('\nProgram-driven work surface audit failed:\n');
   failures.forEach((item) => console.error(`- ${item}`));
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook constitution controls surfaces, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook constitution controls surfaces, selection scopes, actions and interaction grammar.');
