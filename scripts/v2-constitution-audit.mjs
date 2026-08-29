@@ -129,7 +129,7 @@ for (const rule of requiredApprovalGovernanceConsumers) {
   }
 }
 
-// ميزانية التشغيل: شجرة حساب واحدة، بوابة كتالوج واحدة، وحقول الإدخال من المحرك المركزي.
+// ميزانية التشغيل: شجرة حساب واحدة، بوابة كتالوج واحدة، ومدخلات ومكونات صريحة من المحرك المركزي.
 {
   const pageRel = 'app/dashboard/operating-budget/page.js';
   const libRel = 'lib/operating-budget.js';
@@ -140,7 +140,7 @@ for (const rule of requiredApprovalGovernanceConsumers) {
 
   if (fs.existsSync(pageFull)) {
     const text = fs.readFileSync(pageFull, 'utf8');
-    for (const token of ['budgetInputFields','budgetRateFields','budget_save_catalog_node']) {
+    for (const token of ['budgetInputFields','budgetRateFields','budgetDefaultComponent','budgetValidateComponentInputs','budget_save_catalog_node']) {
       if (!text.includes(token)) violations.push(`${pageRel}: missing central operating-budget contract ${token}`);
     }
     for (const forbidden of [
@@ -149,10 +149,13 @@ for (const rule of requiredApprovalGovernanceConsumers) {
       "budget_set_item_rate",
       "budget_set_schedule",
       "company_fixed_expenses",
+      "function componentForType",
+      "+ عنصر مستقل",
     ]) {
       if (text.includes(forbidden)) violations.push(`${pageRel}: legacy/parallel operating-budget path returned (${forbidden})`);
     }
     if (/annual\w*\s*\/\s*12|\/\s*12\s*\/\//.test(text)) violations.push(`${pageRel}: local annual/12 reserve calculation is forbidden`);
+    if (!text.includes('أساس الاحتساب')) violations.push(`${pageRel}: calculation base must be explicit in the user interface`);
   }
 
   if (fs.existsSync(libFull)) {
@@ -160,7 +163,9 @@ for (const rule of requiredApprovalGovernanceConsumers) {
     for (const type of ['quantity_x_unit_price','tiered','employee_based_contribution','subscription_plus_usage','composite_formula']) {
       if (!text.includes(type)) violations.push(`${libRel}: missing calculation family ${type}`);
     }
-    if (!text.includes('requiresGroupParent: true')) violations.push(`${libRel}: financial leaves must require a group parent`);
+    for (const token of ['requiresGroupParent: true','budgetValidateComponentInputs','budgetComponentInputOptions','أساس الاحتساب']) {
+      if (!text.includes(token)) violations.push(`${libRel}: missing governed calculation-input contract ${token}`);
+    }
   }
 
   const migrationDir = path.join(root, 'supabase/migrations');
@@ -189,8 +194,14 @@ for (const rule of requiredApprovalGovernanceConsumers) {
     "editorPlacement: 'document-data-section'",
     'forbidGlobalEditorMount: true',
     "catalogGateway: 'budget_save_catalog_node'",
-    "inputPolicy: 'calculation-type-describes-runtime-inputs'",
+    "inputPolicy: 'runtime-inputs-are-explicit-named-schema-entries'",
+    "componentBasePolicy: 'input-dependent-components-reference-explicit-approved-input-key'",
     "calculationPolicy: 'safe-declarative-components-no-eval'",
+    "principle: 'the-user-must-never-search-for-work-they-just-opened'",
+    "smallWorkPlacement: 'inline-near-origin'",
+    "originPolicy: 'stable-origin-id-primary-scroll-position-secondary'",
+    'forbidImplicitComponentInput: true',
+    'forbidInputGuessFromLabels: true',
     'forbidOrphanFinancialLeaf: true',
     'forbidDeclaredButUnimplementedCalculationType: true',
   ];
