@@ -67,9 +67,14 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const visibleAreas = useMemo(
-    () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
+  const accessibleAreas = useMemo(
+    () => filterAreasForAccess(AREAS, me?.access || {}),
     [me],
+  );
+
+  const visibleAreas = useMemo(
+    () => accessibleAreas.filter((area) => area.key !== 'home'),
+    [accessibleAreas],
   );
 
   const projectMatch = pathname.match(/^\/dashboard\/projects\/([^/]+)(?:\/|$)/);
@@ -78,7 +83,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
   const sectionMatch = pathname.match(/^\/dashboard\/workspace\/(projects|workforce|finance|documents|admin)\/section\/[^/]+/);
   const constitutionItem = activeConstitutionItem(pathname);
   const currentAreaKey = projectId ? 'projects' : sectionMatch?.[1] || constitutionItem?.area?.key || null;
-  const currentArea = visibleAreas.find((area) => area.key === currentAreaKey) || null;
+  const currentArea = accessibleAreas.find((area) => area.key === currentAreaKey) || null;
 
   const globalTools = useMemo(() => {
     if (!currentArea) return [];
