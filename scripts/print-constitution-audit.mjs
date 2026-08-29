@@ -6,6 +6,7 @@ const printRoot = path.join(root, 'app', 'print');
 const centralFiles = new Set([
   path.normalize('app/print/print-system.css'),
   path.normalize('app/print/print-constitution.css'),
+  path.normalize('app/print/print-office-model.css'),
 ]);
 
 // /print/[id] is the single generic template renderer. It may still place
@@ -62,16 +63,38 @@ if (fs.existsSync(layoutPath)) {
   if (!layout.includes("import './print-constitution.css'")) {
     violations.push('app/print/layout.js: نقطة الدخول ليست print-constitution.css');
   }
+  if (!layout.includes("import './print-office-model.css'")) {
+    violations.push('app/print/layout.js: نموذج Word + Excel غير مطبق على كل المطبوعات');
+  }
   for (const legacy of ['procedure-system.css','print-constitution-hardening.css']) {
     if (layout.includes(legacy)) violations.push(`app/print/layout.js: استيراد طبقة طباعة قديمة ${legacy}`);
   }
 }
 
+const officeModelPath = path.join(printRoot, 'print-office-model.css');
+if (!fs.existsSync(officeModelPath)) {
+  violations.push('app/print/print-office-model.css: نموذج Word + Excel المركزي مفقود');
+} else {
+  const officeModel = fs.readFileSync(officeModelPath, 'utf8');
+  for (const token of [
+    '--office-prose-leading',
+    '--office-prose-gap',
+    '--office-table-leading',
+    '.print-prose',
+    '.print-data-table',
+    'table thead{display:table-header-group}',
+    'page-break-inside:avoid!important',
+    '[data-print-type="money"]',
+  ]) {
+    if (!officeModel.includes(token)) violations.push(`print-office-model.css: missing governed Office Model contract ${token}`);
+  }
+}
+
 if (violations.length) {
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية. انقل القاعدة إلى دستور الطباعة المركزي.\n');
+  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية، ونموذج Word + Excel يجب أن يبقى مركزيًا ومطبقًا على جميع المطبوعات.\n');
   for (const item of violations) console.error(`- ${item}`);
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked).`);
+console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model active).`);
