@@ -71,6 +71,7 @@ for (const scope of scanRoots) {
     if (/monthly_salary\s*\/\s*30|monthlySalary\s*\/\s*30/.test(text)) violations.push(`${rel}: local salary daily-rate calculation; use constitution helper`);
     if (/\bATTEND_CYCLE\s*=/.test(text) && rel !== 'lib/timesheet.js') violations.push(`${rel}: local attendance cycle; use lib/timesheet.js`);
     if (hasDirectItemExecutionWrite(text)) violations.push(`${rel}: direct item_execution write; use constitutional execution RPC gateway`);
+    if (text.includes('fn_open_contractor_financial_case')) violations.push(`${rel}: cumulative contractor account must remain a monitoring read model, not a financial case source`);
   }
 }
 
@@ -194,6 +195,47 @@ for (const rule of requiredApprovalGovernanceConsumers) {
   }
 }
 
+// الساعة المالية: لا Ledger موازٍ؛ التسوية المحددة الفترة هي مستند الاستحقاق، financial_cases دورة الحياة، والخزينة حقيقة الدفع.
+{
+  const migrationDir = path.join(root, 'supabase/migrations');
+  const clockFiles = [
+    '20260829037000_unify_contractor_financial_clock.sql',
+    '20260829037100_fix_contractor_settlement_generated_net.sql',
+  ];
+  for (const name of clockFiles) {
+    if (!fs.existsSync(path.join(migrationDir, name))) violations.push(`financial-clock migrations: missing ${name}`);
+  }
+
+  const clock = clockFiles
+    .filter((name) => fs.existsSync(path.join(migrationDir, name)))
+    .map((name) => fs.readFileSync(path.join(migrationDir, name), 'utf8'))
+    .join('\n');
+
+  for (const token of [
+    'public.financial_cases',
+    'public.financial_case_versions',
+    'public.financial_case_events',
+    'public.contractor_settlements',
+    'case_id uuid',
+    "'contractor_settlement'",
+    'treasury_movement_id uuid',
+    'public.v_contractor_settlement_clock',
+    'public.v_financial_case_clock',
+    'public.fn_reverse_contractor_settlement',
+    'الحساب التراكمي مخصص للمراقبة فقط',
+    'app.financial_clock_governed_correction',
+    "'payment_recorded'",
+    "'payment_reversed'",
+    'returning id,net_payable',
+  ]) {
+    if (!clock.includes(token)) violations.push(`financial-clock migrations: missing governed contract ${token}`);
+  }
+
+  if (/insert into public\.contractor_settlements\([^)]*net_payable/im.test(clock)) {
+    violations.push('financial-clock migrations: generated contractor_settlements.net_payable must never be written directly');
+  }
+}
+
 {
   const rel = 'lib/system-constitution.js';
   const full = path.join(root, rel);
@@ -216,8 +258,20 @@ for (const rule of requiredApprovalGovernanceConsumers) {
     'forbidInputGuessFromLabels: true',
     'forbidOrphanFinancialLeaf: true',
     'forbidDeclaredButUnimplementedCalculationType: true',
+    "contractorGrainPolicy: 'contractor-financial-case-is-project-contractor-bounded-settlement-period'",
+    "cumulativeAccountPolicy: 'contractor-cumulative-account-is-read-model-only-never-financial-subject'",
+    "paymentAuthority: 'posted-treasury-movement-linked-to-financial-case'",
+    "partialPaymentPolicy: 'payments-may-be-partial-settlement-amount-remains-fixed'",
+    "actualAuthorityPolicy: 'actual-authority-is-source-specific-approved-financial-fact'",
+    "gitDatabaseParityPolicy: 'every-live-financial-function-trigger-view-must-have-versioned-migration-source'",
+    'forbidCumulativeAccountFinancialCase: true',
+    'forbidSettlementPaymentConflation: true',
+    'forbidParallelOutstandingCalculation: true',
+    'forbidSourceReentryAfterSettlement: true',
+    'forbidLiveFinancialDbLogicWithoutMigration: true',
   ];
   for (const token of required) if (!text.includes(token)) violations.push(`${rel}: missing master constitution policy ${token}`);
+  if (text.includes('partialSettlementPolicy:')) violations.push(`${rel}: partial settlement semantics returned; partiality belongs to payment`);
 }
 
 for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
