@@ -1,12 +1,12 @@
 'use client';
 
 import { useDashboardSession } from '@/lib/dashboard-session-context';
+import { canUseCapability } from '@/lib/access-ui';
 import {
-  ACTION_PLACEMENT,
-  ACTION_RISK,
-  actionAllowed,
-  defineInterfaceAction,
-} from '@/lib/interface-constitution';
+  WORK_ACTION_PLACEMENT,
+  WORK_ACTION_CONSEQUENCE,
+  defineWorkAction,
+} from '@/lib/work-surface-constitution';
 
 function cx(...values) {
   return values.filter(Boolean).join(' ');
@@ -23,12 +23,21 @@ export default function ProgramAction({
   ...rest
 }) {
   const session = useDashboardSession();
-  const spec = defineInterfaceAction(action || {});
-  const allowed = actionAllowed(spec, session);
+  const input = action || {};
+  const spec = defineWorkAction({
+    ...input,
+    consequence:input.consequence || input.risk,
+  });
+  const allowed = !spec.capability || canUseCapability(
+    session,
+    spec.capability,
+    spec.scopeType || 'all',
+    spec.scopeKey || null,
+  );
 
   if (!allowed && spec.hiddenWhenUnauthorized !== false) return null;
 
-  const consequential = spec.risk === ACTION_RISK.CONSEQUENTIAL || spec.risk === ACTION_RISK.DESTRUCTIVE;
+  const consequential = spec.consequence === WORK_ACTION_CONSEQUENCE.CONSEQUENTIAL || spec.consequence === WORK_ACTION_CONSEQUENCE.DESTRUCTIVE;
   const label = children || spec.label;
 
   function handleClick(event) {
@@ -50,8 +59,8 @@ export default function ProgramAction({
       data-program-action="true"
       data-action-key={spec.key}
       data-action-kind={spec.kind}
-      data-action-risk={spec.risk}
-      data-action-placement={spec.placement || ACTION_PLACEMENT.ORIGIN}
+      data-action-risk={spec.consequence}
+      data-action-placement={spec.placement || WORK_ACTION_PLACEMENT.ORIGIN}
       data-action-capability={spec.capability || undefined}
       data-action-consequential={consequential ? 'true' : 'false'}
       data-page-command-trigger={spec.commandTrigger ? 'true' : undefined}
