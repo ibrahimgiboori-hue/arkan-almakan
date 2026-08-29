@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { WORK_SURFACE_EVENT } from './WorkSurfaceRuntime';
 
 const GROUP_ORDER = ['employee','project','contractor','entity','quotation','document'];
 const GROUP_LABEL = {
@@ -28,15 +29,23 @@ export default function GlobalSearch() {
   const [error,setError]=useState('');
 
   useEffect(()=>{
+    function openSearch(){setOpen(true);setTimeout(()=>inputRef.current?.focus(),0);}
     function keydown(event){
       if((event.ctrlKey||event.metaKey)&&String(event.key).toLowerCase()==='k'){
-        event.preventDefault();setOpen(true);setTimeout(()=>inputRef.current?.focus(),0);
+        event.preventDefault();openSearch();
       }
       if(event.key==='Escape'){setOpen(false);inputRef.current?.blur();}
     }
     function pointer(event){if(rootRef.current&&!rootRef.current.contains(event.target))setOpen(false);}
-    window.addEventListener('keydown',keydown);document.addEventListener('pointerdown',pointer);
-    return()=>{window.removeEventListener('keydown',keydown);document.removeEventListener('pointerdown',pointer);};
+    function pageCommand(){openSearch();}
+    window.addEventListener('keydown',keydown);
+    window.addEventListener(WORK_SURFACE_EVENT.PAGE_COMMAND,pageCommand);
+    document.addEventListener('pointerdown',pointer);
+    return()=>{
+      window.removeEventListener('keydown',keydown);
+      window.removeEventListener(WORK_SURFACE_EVENT.PAGE_COMMAND,pageCommand);
+      document.removeEventListener('pointerdown',pointer);
+    };
   },[]);
 
   useEffect(()=>{
@@ -75,14 +84,14 @@ export default function GlobalSearch() {
 
   function choose(result){setOpen(false);setQuery('');router.push(result.href);}
 
-  return <div ref={rootRef} style={{position:'relative',minWidth:250,maxWidth:390,flex:'0 1 390px'}}>
+  return <div ref={rootRef} style={{position:'relative',minWidth:250,maxWidth:390,flex:'0 1 390px'}} data-program-search="true">
     <div style={{display:'flex',alignItems:'center',gap:6,border:'1px solid var(--raw-line,#d7d7d7)',borderRadius:8,background:'var(--raw-surface,#fff)',padding:'0 8px'}}>
       <span aria-hidden="true" style={{opacity:.65}}>⌕</span>
-      <input ref={inputRef} value={query} onChange={e=>{setQuery(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)} placeholder="ابحث في البرنامج…" aria-label="البحث الشامل في البرنامج" style={{border:0,outline:'none',background:'transparent',width:'100%',minWidth:0,padding:'7px 2px'}}/>
-      <kbd style={{fontSize:10,opacity:.55,whiteSpace:'nowrap'}}>Ctrl K</kbd>
+      <input ref={inputRef} value={query} onChange={e=>{setQuery(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)} placeholder="ابحث أو ابدأ أمرًا…" aria-label="البحث الشامل في البرنامج" style={{border:0,outline:'none',background:'transparent',width:'100%',minWidth:0,padding:'7px 2px'}}/>
+      <kbd style={{fontSize:10,opacity:.55,whiteSpace:'nowrap'}}>Ctrl K · /</kbd>
     </div>
     {open&&<div role="dialog" aria-label="نتائج البحث" style={{position:'absolute',zIndex:1000,top:'calc(100% + 6px)',right:0,width:'min(560px,82vw)',maxHeight:'70vh',overflow:'auto',background:'var(--raw-surface,#fff)',border:'1px solid var(--raw-line,#ddd)',borderRadius:10,boxShadow:'0 14px 36px rgba(0,0,0,.16)',padding:8}}>
-      {cleanTerm(query).length<2?<div style={{padding:12,fontSize:13,opacity:.7}}>اكتب حرفين على الأقل. يمكنك البحث بالاسم أو الرقم أو المرجع.</div>:loading?<div style={{padding:12}}>جارٍ البحث…</div>:error?<div style={{padding:12}}>{error}</div>:!results.length?<div style={{padding:12}}>لا توجد نتائج مطابقة.</div>:grouped.map(group=><section key={group.kind} style={{padding:'4px 0 8px'}}><div style={{fontSize:11,fontWeight:800,opacity:.6,padding:'5px 8px'}}>{GROUP_LABEL[group.kind]}</div>{group.items.map(result=><button key={`${result.kind}-${result.id}`} type="button" onClick={()=>choose(result)} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10,width:'100%',textAlign:'right',border:0,borderTop:'1px solid var(--raw-line-soft,#eee)',background:'transparent',padding:'9px 8px',cursor:'pointer'}}><span style={{display:'grid',gap:2}}><strong>{result.title}</strong><small style={{opacity:.68}}>{result.meta}</small></span><span aria-hidden="true">←</span></button>)}</section>)}
+      {cleanTerm(query).length<2?<div style={{padding:12,fontSize:13,opacity:.7}}>ابدأ بالكتابة للبحث في البرنامج. الاختصار / يفتح نفس سطح العمل من أي ورقة.</div>:loading?<div style={{padding:12}}>جارٍ البحث…</div>:error?<div style={{padding:12}}>{error}</div>:!results.length?<div style={{padding:12}}>لا توجد نتائج مطابقة.</div>:grouped.map(group=><section key={group.kind} style={{padding:'4px 0 8px'}}><div style={{fontSize:11,fontWeight:800,opacity:.6,padding:'5px 8px'}}>{GROUP_LABEL[group.kind]}</div>{group.items.map(result=><button key={`${result.kind}-${result.id}`} type="button" onClick={()=>choose(result)} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10,width:'100%',textAlign:'right',border:0,borderTop:'1px solid var(--raw-line-soft,#eee)',background:'transparent',padding:'9px 8px',cursor:'pointer'}}><span style={{display:'grid',gap:2}}><strong>{result.title}</strong><small style={{opacity:.68}}>{result.meta}</small></span><span aria-hidden="true">←</span></button>)}</section>)}
     </div>}
   </div>;
 }
