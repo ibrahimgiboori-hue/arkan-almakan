@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Notice } from '@/components/ui/ConstitutionUI';
 import QuoteEditorAssistant from '@/components/quotes/QuoteEditorAssistant';
+import QuoteCellLineBreakShortcut from '@/components/quotes/QuoteCellLineBreakShortcut';
 
 function copyFor(state) {
   if (!state) return { title:'جاري قراءة مسار المعاملة…', detail:'' };
@@ -56,6 +57,7 @@ export default function QuoteApprovalLayout({ children }) {
   const canMarkSent = state?.workflow_status === 'approved' && state?.external_status === 'draft';
 
   return <>
+    <QuoteCellLineBreakShortcut />
     <QuoteEditorAssistant quoteId={id} />
     <div style={{marginBottom:16}} data-transaction-context="source">
       <Notice actions={<div className="rowsplit">
