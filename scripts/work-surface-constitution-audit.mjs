@@ -32,6 +32,8 @@ if (/export\s+const\s+AREAS\s*=/.test(constitution)) failures.push('work-surface
 const runtime = requireText('components/ui/WorkSurfaceRuntime.js', [
   'resolveWorkSurface',
   'data-work-surface-policy',
+  'WorkSurfaceContext.Provider',
+  'export function useWorkSurface',
   'arkan:page-command-requested',
   'arkan:close-context-requested',
 ]);
@@ -39,7 +41,8 @@ if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRunti
 
 requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
-  '<WorkSurfaceRuntime />',
+  '<WorkSurfaceRuntime>',
+  '</WorkSurfaceRuntime>',
   'data-work-kernel="operational-notebook-v1"',
 ]);
 
