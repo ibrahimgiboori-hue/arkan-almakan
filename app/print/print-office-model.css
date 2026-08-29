@@ -1,0 +1,221 @@
+/* ============================================================
+   ARKAN PRINT OFFICE MODEL v1
+   مطبوعات أركان المكان = أفضل ما في Word + أفضل ما في Excel.
+
+   Word owns:
+   - prose, paragraphs, headings, clauses, letters and closing text
+   - natural line spacing, paragraph spacing, keep-with-next behavior
+
+   Excel owns:
+   - tables, quantities, money, percentages, dates and totals
+   - stable columns, tabular numerals, repeated headers, non-splitting rows
+
+   The paper is a document first. Tables are structured data regions inside it.
+   ============================================================ */
+
+.print-constitution{
+  --office-prose-size:9pt;
+  --office-prose-leading:1.48;
+  --office-prose-gap:1.45mm;
+  --office-heading-leading:1.25;
+  --office-heading-gap-before:2.4mm;
+  --office-heading-gap-after:.9mm;
+  --office-table-size:8pt;
+  --office-table-leading:1.28;
+  --office-cell-y:.9mm;
+  --office-cell-x:1.15mm;
+}
+
+/* ---------- Word layer: editorial document behavior ---------- */
+.print-constitution .print-prose,
+.print-constitution .letter-body,
+.print-constitution .dc-body,
+.print-constitution .q-intro,
+.print-constitution .q-closing,
+.print-constitution .print-signoff-declaration,
+.print-constitution .recipient,
+.print-constitution .salutation{
+  font-size:var(--office-prose-size)!important;
+  line-height:var(--office-prose-leading)!important;
+  orphans:3;
+  widows:3;
+}
+
+.print-constitution .print-prose,
+.print-constitution .letter-body,
+.print-constitution .dc-body{
+  white-space:pre-wrap;
+}
+
+.print-constitution .letter-body{
+  text-align:justify;
+  margin-block:0 var(--office-prose-gap)!important;
+}
+
+.print-constitution .print-prose,
+.print-constitution .dc-body,
+.print-constitution .q-intro,
+.print-constitution .q-closing,
+.print-constitution .print-signoff-declaration{
+  margin-block-end:var(--office-prose-gap);
+}
+
+.print-constitution .print-prose p,
+.print-constitution p.print-prose,
+.print-constitution .dc-body p{
+  margin:0 0 var(--office-prose-gap);
+}
+.print-constitution .print-prose p:last-child,
+.print-constitution .dc-body p:last-child{margin-bottom:0}
+
+/* Word keep-with-next: a heading should travel with the paragraph/table it introduces. */
+.print-constitution h1,
+.print-constitution h2,
+.print-constitution h3,
+.print-constitution h4,
+.print-constitution .print-document-title,
+.print-constitution .section-title,
+.print-constitution .dc-head,
+.print-constitution .qb-head,
+.print-constitution .card-head,
+.print-constitution .pc-head{
+  line-height:var(--office-heading-leading);
+  break-after:avoid;
+  page-break-after:avoid;
+}
+
+.print-constitution .print-prose h2,
+.print-constitution .print-prose h3,
+.print-constitution .dc-body h2,
+.print-constitution .dc-body h3{
+  margin:var(--office-heading-gap-before) 0 var(--office-heading-gap-after);
+}
+
+/* Ordinary unclassed paragraphs should behave like document paragraphs, not UI labels. */
+.print-constitution p:not([class]){
+  line-height:var(--office-prose-leading);
+  orphans:3;
+  widows:3;
+}
+
+/* Clauses/terms are editorial paragraphs: title inline, then punctuation, then body. */
+.print-constitution .print-clause{
+  margin:0 0 var(--office-prose-gap);
+  font-size:var(--office-prose-size);
+  line-height:var(--office-prose-leading);
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.print-constitution .print-clause-title{
+  display:inline;
+  color:var(--arkan-print-accent);
+  font-weight:700;
+}
+.print-constitution .print-clause-title::after{content:'.\00a0'}
+.print-constitution .print-clause-body{display:inline}
+
+/* ---------- Excel layer: structured table behavior ---------- */
+.print-constitution table,
+.print-constitution .print-data-table,
+.print-constitution .amounts,
+.print-constitution .q-table,
+.print-constitution .q-pay,
+.print-constitution .data-table,
+.print-constitution .summary-table,
+.print-constitution .payment-table,
+.print-constitution .r-table,
+.print-constitution .sigtable{
+  font-variant-numeric:tabular-nums;
+}
+
+.print-constitution .print-data-table,
+.print-constitution .amounts,
+.print-constitution .q-table,
+.print-constitution .q-pay,
+.print-constitution .data-table,
+.print-constitution .summary-table,
+.print-constitution .payment-table,
+.print-constitution .r-table{
+  font-size:var(--office-table-size);
+  line-height:var(--office-table-leading);
+}
+
+.print-constitution .print-data-table th,
+.print-constitution .print-data-table td{
+  padding:var(--office-cell-y) var(--office-cell-x);
+}
+
+/* Excel alignment: numbers stay visually scannable and never wrap like prose. */
+.print-constitution .num,
+.print-constitution .mono,
+.print-constitution [data-print-type="number"],
+.print-constitution [data-print-type="money"],
+.print-constitution [data-print-type="quantity"],
+.print-constitution [data-print-type="percent"],
+.print-constitution [data-print-column-role="quantity"],
+.print-constitution [data-print-column-role="unit-price"],
+.print-constitution [data-print-column-role="amount"],
+.print-constitution [data-print-column-role="measurement-number"]{
+  font-variant-numeric:tabular-nums;
+}
+
+.print-constitution td.num,
+.print-constitution th.num,
+.print-constitution td.mono,
+.print-constitution th.mono,
+.print-constitution [data-print-type="number"],
+.print-constitution [data-print-type="money"],
+.print-constitution [data-print-type="quantity"],
+.print-constitution [data-print-type="percent"],
+.print-constitution [data-print-column-role="quantity"],
+.print-constitution [data-print-column-role="unit-price"],
+.print-constitution [data-print-column-role="amount"]{
+  direction:ltr;
+  unicode-bidi:isolate;
+  text-align:left;
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:keep-all;
+}
+
+/* Dates behave like spreadsheet values when used in a table. */
+.print-constitution table [data-print-type="date"],
+.print-constitution table .date,
+.print-constitution table [data-print-column-role="date-range"]{
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:keep-all;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Excel page behavior: header repeats; a record is one indivisible visual row. */
+.print-constitution table thead{display:table-header-group}
+.print-constitution table tfoot{display:table-footer-group}
+.print-constitution table tr{
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+
+/* Totals look like spreadsheet totals without turning the whole document into a spreadsheet. */
+.print-constitution .print-total-row,
+.print-constitution table tfoot tr,
+.print-constitution .summary-table tr.total{
+  font-weight:700;
+}
+
+/* Avoid UI-card rhythm in narrative areas. Cards stay allowed only for actual metadata/data regions. */
+.print-constitution .print-prose,
+.print-constitution .letter-body,
+.print-constitution .q-term-flow{
+  border-radius:0;
+  box-shadow:none;
+}
+
+@media print{
+  .print-constitution .print-prose,
+  .print-constitution .letter-body,
+  .print-constitution .dc-body,
+  .print-constitution .q-term-flow{
+    box-shadow:none!important;
+  }
+}
