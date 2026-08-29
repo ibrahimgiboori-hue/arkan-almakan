@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -37,6 +37,7 @@ export default function QuoteTextEditor() {
   const [start, setStart] = useState('1');
   const [saved, setSaved] = useState('');
   const [err, setErr] = useState('');
+  const pendingWritesRef = useRef(new Set());
 
   useEffect(() => {
     (async () => {
@@ -53,19 +54,46 @@ export default function QuoteTextEditor() {
 
   const flash = (text) => { setSaved(text); setTimeout(() => setSaved(''), 1400); };
 
+  function trackWrite(promise) {
+    const tracked = Promise.resolve(promise).finally(() => pendingWritesRef.current.delete(tracked));
+    pendingWritesRef.current.add(tracked);
+    return tracked;
+  }
+
+  async function waitForPendingWrites() {
+    while (pendingWritesRef.current.size) {
+      await Promise.allSettled([...pendingWritesRef.current]);
+    }
+  }
+
   async function patchQuote(fields) {
     setQ((old) => ({ ...old, ...fields }));
-    const { error } = await supabase.from('quotations').update(fields).eq('id', id);
+    const { error } = await trackWrite(supabase.from('quotations').update(fields).eq('id', id));
     if (error) setErr(error.message); else flash('حُفظ');
   }
 
   async function saveTerms(nextItems = items, nextStart = start) {
-    const { error } = await supabase.from('quotations').update({
+    const { error } = await trackWrite(supabase.from('quotations').update({
       terms_structured: nextItems,
       terms_start: String(nextStart || '1').trim() || '1',
       show_terms: true,
-    }).eq('id', id);
+    }).eq('id', id));
     if (error) setErr(error.message); else flash('حُفظت الشروط');
+  }
+
+  async function openPrintPreview() {
+    const preview = window.open('about:blank', '_blank');
+    if (preview) preview.opener = null;
+
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+
+    setSaved('جارٍ تثبيت آخر التعديلات…');
+    await waitForPendingWrites();
+
+    const url = `/print/quote/${id}?fresh=${Date.now()}`;
+    if (preview && !preview.closed) preview.location.replace(url);
+    else window.location.assign(url);
   }
 
   function patchItem(index, fields) {
@@ -102,7 +130,7 @@ export default function QuoteTextEditor() {
         <p>النص الافتتاحي + شروط منظمة + النص الختامي</p>
       </div>
       <div className="rowsplit">
-        <Link className="btn" href={`/print/quote/${id}`} target="_blank">معاينة وطباعة</Link>
+        <button className="btn" type="button" onClick={openPrintPreview}>معاينة وطباعة</button>
         <Link className="btn ghost" href={`/dashboard/quotes/${id}`}>العودة للعرض</Link>
       </div>
     </div>
