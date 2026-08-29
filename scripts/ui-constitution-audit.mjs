@@ -47,32 +47,41 @@ for (const route of ['/dashboard/projects','/dashboard/quotes']) {
   }
 }
 
-const interfaceConstitution = path.join(root, 'lib', 'interface-constitution.js');
+// يوجد دستور واجهة واحد فقط: work-surface-constitution.js.
+// ممنوع إعادة إنشاء interface-constitution.js كحقيقة موازية.
+const workSurfaceConstitution = path.join(root, 'lib', 'work-surface-constitution.js');
+const parallelInterfaceConstitution = path.join(root, 'lib', 'interface-constitution.js');
 const workSurfaceRuntime = path.join(root, 'components', 'ui', 'WorkSurfaceRuntime.js');
 const programAction = path.join(root, 'components', 'ui', 'ProgramAction.js');
 const workKernel = path.join(root, 'components', 'ui', 'WorkSheetKernel.js');
-for (const file of [interfaceConstitution, workSurfaceRuntime, programAction, workKernel]) {
+
+for (const file of [workSurfaceConstitution, workSurfaceRuntime, programAction, workKernel]) {
   if (!fs.existsSync(file)) failures.push(`missing interface core: ${path.relative(root,file)}`);
 }
+if (fs.existsSync(parallelInterfaceConstitution)) {
+  failures.push('parallel interface constitution is forbidden: lib/interface-constitution.js');
+}
 
-if (fs.existsSync(interfaceConstitution)) {
-  const source = fs.readFileSync(interfaceConstitution,'utf8');
+if (fs.existsSync(workSurfaceConstitution)) {
+  const source = fs.readFileSync(workSurfaceConstitution,'utf8');
   for (const token of [
     "metaphor: 'operational-notebook'",
-    "page: 'continuous-work-sheet'",
-    "permissions: 'session-and-core-resolved'",
-    "audit: 'system-actor-plus-real-actor'",
-    "print: 'same-content-through-print-constitution'",
-    'defineInterfaceAction',
-    'actionAllowed',
+    "composition: 'continuous-sheet-not-card-dashboard'",
+    "permissionPolicy: 'core-resolved-never-page-invented'",
+    "actionContextPolicy: 'core-resolved-system-actor-and-real-actor'",
+    "printPolicy: 'same-content-through-print-constitution'",
+    'WORK_INTERFACE_ROLE',
+    'WORK_ACTION_KIND',
+    'defineWorkAction',
+    'surfaceDataAttributes',
   ]) {
-    if (!source.includes(token)) failures.push(`interface constitution lost invariant: ${token}`);
+    if (!source.includes(token)) failures.push(`work surface constitution lost invariant: ${token}`);
   }
 }
 
 if (fs.existsSync(workSurfaceRuntime)) {
   const source = fs.readFileSync(workSurfaceRuntime,'utf8');
-  if (!source.includes('interfaceDataAttributes')) failures.push('work surface runtime must mount the central interface constitution on the shell');
+  if (!source.includes('surfaceDataAttributes')) failures.push('work surface runtime must mount the central work-surface constitution on the shell');
   if (!source.includes("event.key === '/'")) failures.push('work surface runtime must own the global page-command keyboard behavior');
   if (!source.includes("event.key === 'Escape'")) failures.push('work surface runtime must own contextual close behavior');
 }
@@ -80,7 +89,8 @@ if (fs.existsSync(workSurfaceRuntime)) {
 if (fs.existsSync(programAction)) {
   const source = fs.readFileSync(programAction,'utf8');
   if (!source.includes('useDashboardSession')) failures.push('ProgramAction must consume the central dashboard session projection');
-  if (!source.includes('actionAllowed')) failures.push('ProgramAction must resolve visibility from the central action constitution');
+  if (!source.includes('defineWorkAction')) failures.push('ProgramAction must derive behavior from the central work action constitution');
+  if (!source.includes('canUseCapability')) failures.push('ProgramAction must resolve UI visibility from the central access projection');
   if (!source.includes('data-action-risk')) failures.push('ProgramAction must expose consequence/risk semantics');
   if (/supabase|v_my_capabilities|fn_is_primary_user/.test(source)) failures.push('ProgramAction must not create its own authorization data source');
 }
@@ -96,4 +106,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`UI constitution audit passed for ${nativeRoutes.length} core route(s) and the program-driven notebook kernel.`);
+console.log(`UI constitution audit passed for ${nativeRoutes.length} core route(s) and the single program-driven notebook kernel.`);
