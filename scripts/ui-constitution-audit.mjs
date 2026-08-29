@@ -8,6 +8,7 @@ const nativeRoutes = [
   '/dashboard/leaves',
   '/dashboard/advances',
   '/dashboard/projects',
+  '/dashboard/quotes',
   '/dashboard/entities',
   '/dashboard/approvals',
   '/dashboard/operating-budget',
@@ -36,6 +37,13 @@ for (const route of nativeRoutes) {
   }
   if (/className=["']page-head["']|className=["']section["']/.test(text)) {
     warnings.push(`${route}: legacy structural classes remain inside a governed route`);
+  }
+}
+
+for (const route of ['/dashboard/projects','/dashboard/quotes']) {
+  const text = fs.readFileSync(routePage(route), 'utf8');
+  if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(text)) {
+    failures.push(`${route}: governed page must consume the dashboard session projection instead of rebuilding UI authorization state`);
   }
 }
 
