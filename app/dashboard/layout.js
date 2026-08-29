@@ -111,9 +111,19 @@ export default function DashboardLayout({ children }) {
       });
     }
 
+    function refreshWhenVisible() {
+      if (document.visibilityState === 'visible') refreshActionContext();
+    }
+
     if (typeof window === 'undefined') return undefined;
     window.addEventListener(ACTION_CONTEXT_EVENT, refreshActionContext);
-    return () => window.removeEventListener(ACTION_CONTEXT_EVENT, refreshActionContext);
+    window.addEventListener('focus', refreshActionContext);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener(ACTION_CONTEXT_EVENT, refreshActionContext);
+      window.removeEventListener('focus', refreshActionContext);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, []);
 
   async function signOut() {
