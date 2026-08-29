@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import styles from './constitution-ui.module.css';
 import {
   WorkSheet,
@@ -76,12 +77,35 @@ export function FilterSurface({ children }) {
 }
 
 /* مساحة إدخال صريحة داخل نفس ورقة العمل، وليست تخطيطًا موازيًا. */
-export function EntrySurface({ title, description, actions, children, className = '' }) {
+export function EntrySurface({ title, description, actions, children, className = '', focusOnOpen = true }) {
+  const surfaceRef = useRef(null);
+
+  useEffect(() => {
+    if (!focusOnOpen || !surfaceRef.current || typeof window === 'undefined') return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const node = surfaceRef.current;
+      if (!node) return;
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      node.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start', inline: 'nearest' });
+      const firstField = node.querySelector(
+        '[autofocus], input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+      );
+      if (firstField && typeof firstField.focus === 'function') {
+        try { firstField.focus({ preventScroll: true }); } catch { firstField.focus(); }
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusOnOpen]);
+
   return (
     <WorkSection
+      ref={surfaceRef}
       className={cx(styles.section, styles.entrySurface, className)}
       data-entry-surface="true"
+      data-entry-auto-focus={focusOnOpen ? 'true' : 'false'}
       data-data-surface="true"
+      aria-label={title || 'منطقة الإدخال'}
+      style={{ scrollMarginTop: '112px' }}
     >
       {(title || description || actions) ? (
         <header className={styles.sectionHeader}>
