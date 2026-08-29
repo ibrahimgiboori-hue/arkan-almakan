@@ -7,6 +7,7 @@ import {
   printGovernanceClassName,
   resolvePrintDocument,
 } from '@/lib/print-governance';
+import PrintTextAlignmentEditor from '@/components/print/PrintTextAlignmentEditor';
 
 export default function PrintGovernanceBoundary({ children }) {
   const pathname = usePathname();
@@ -40,6 +41,7 @@ export default function PrintGovernanceBoundary({ children }) {
       data-print-status={definition.status}
       data-print-governance-version={PRINT_GOVERNANCE_VERSION}
     >
+      <PrintTextAlignmentEditor documentKey={definition.key} />
       {children}
     </div>
   );
