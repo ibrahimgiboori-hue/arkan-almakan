@@ -151,32 +151,33 @@ export default function DashboardLayout({ children }) {
         data-action-mode={actingOnBehalf ? 'on_behalf_of' : 'self'}
         data-real-actor-employee-id={state.me?.actionContext?.realActorEmployeeId || undefined}
       >
-        <WorkSurfaceRuntime />
-        <RawDashboardNavigation me={state.me} onSignOut={signOut} />
-        {actingOnBehalf ? (
-          <div
-            role="status"
-            aria-live="polite"
-            data-action-context-banner="true"
-            style={{
-              position:'sticky',top:0,zIndex:35,
-              padding:'9px 18px',
-              borderBottom:'1px solid var(--raw-line, #d8c8a8)',
-              background:'var(--raw-paper-strong, #fff8dd)',
-              color:'var(--raw-ink, #2f2924)',
-              display:'flex',gap:10,alignItems:'center',justifyContent:'center',flexWrap:'wrap',
-              fontSize:13.5,
-            }}
-          >
-            <strong>الوضع الخاص مفعّل:</strong>
-            <span>تنفذ الآن نيابة عن <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
-            <span>· المُسجّل النظامي هو حسابك الحالي</span>
-            <a href="/dashboard/settings" style={{fontWeight:700,textDecoration:'underline'}}>إدارة الوضع من الإعدادات</a>
-          </div>
-        ) : null}
-        <main className="rawDashboardContent" data-work-book="true">
-          <div className="workSheetMount" data-work-sheet-mount="true">{children}</div>
-        </main>
+        <WorkSurfaceRuntime>
+          <RawDashboardNavigation me={state.me} onSignOut={signOut} />
+          {actingOnBehalf ? (
+            <div
+              role="status"
+              aria-live="polite"
+              data-action-context-banner="true"
+              style={{
+                position:'sticky',top:0,zIndex:35,
+                padding:'9px 18px',
+                borderBottom:'1px solid var(--raw-line, #d8c8a8)',
+                background:'var(--raw-paper-strong, #fff8dd)',
+                color:'var(--raw-ink, #2f2924)',
+                display:'flex',gap:10,alignItems:'center',justifyContent:'center',flexWrap:'wrap',
+                fontSize:13.5,
+              }}
+            >
+              <strong>الوضع الخاص مفعّل:</strong>
+              <span>تنفذ الآن نيابة عن <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+              <span>· المُسجّل النظامي هو حسابك الحالي</span>
+              <a href="/dashboard/settings" style={{fontWeight:700,textDecoration:'underline'}}>إدارة الوضع من الإعدادات</a>
+            </div>
+          ) : null}
+          <main className="rawDashboardContent" data-work-book="true">
+            <div className="workSheetMount" data-work-sheet-mount="true">{children}</div>
+          </main>
+        </WorkSurfaceRuntime>
       </div>
     </DashboardSessionProvider>
   );
