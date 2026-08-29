@@ -42,13 +42,23 @@ if (!areasMatch) {
   }
 }
 
-// 3) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
+// 3) منصة الأعمال هي شريط الملاحة العلوي، وليست صفحة ثانية داخل مساحة العمل الخام.
+const dashboardLayout = read('app/dashboard/layout.js');
+const dashboardHome = read('app/dashboard/page.js');
+if (!dashboardLayout.includes('RawDashboardNavigation')) {
+  failures.push('app/dashboard/layout.js: منصة الأعمال العليا غير مركبة في RawDashboardNavigation.');
+}
+if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) {
+  failures.push('app/dashboard/page.js: الرئيسية تكرر منصة الأعمال داخل مساحة العمل؛ البوابات ملك الشريط العلوي فقط.');
+}
+
+// 4) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
 const guidance = read('components/approval/ApprovalGuidanceRow.js');
 for (const forbidden of ['طلب إجراء', 'استفسار عن المعاملة', 'فتح أعمالي']) {
   if (guidance.includes(forbidden)) failures.push(`ApprovalGuidanceRow: أعاد إجراء «${forbidden}» إلى شاشة المصدر.`);
 }
 
-// 4) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
+// 5) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
 const legacyApprovals = read('app/dashboard/my-work/approvals/page.js');
 if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) {
   failures.push('المسار القديم my-work/approvals لا يتحول إلى /dashboard/approvals.');
