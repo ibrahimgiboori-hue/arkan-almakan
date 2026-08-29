@@ -3,8 +3,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
+import { appendSelectionToUrl } from '@/lib/record-selection';
 import { operationalDate } from '@/lib/system-constitution';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
+import { WORK_ACTION_CONSEQUENCE, WORK_ACTION_KIND, WORK_ACTION_SCOPE } from '@/lib/work-surface-constitution';
 import {
   focusContextualWorkSurface,
   focusFirstInvalidField,
@@ -26,6 +28,8 @@ import {
   monthLabelAr,
   monthStart,
 } from '@/lib/operating-budget';
+import ProgramAction from '@/components/ui/ProgramAction';
+import { WorkSelectionDock } from '@/components/ui/WorkSheetKernel';
 import {
   ConstitutionPage,
   PageHeader,
@@ -181,6 +185,7 @@ export default function OperatingBudgetPage() {
   const [month, setMonth] = useState(monthKey(operationalDate()));
   const [period, setPeriod] = useState(null);
   const [statement, setStatement] = useState([]);
+  const [selectedStatementIds, setSelectedStatementIds] = useState(() => new Set());
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [forecastMonths, setForecastMonths] = useState(12);
   const [forecast, setForecast] = useState([]);
@@ -219,6 +224,8 @@ export default function OperatingBudgetPage() {
   const effectiveNodeRate = nodeForm.node_id ? effectiveRate(nodeForm.node_id) : null;
   const selectedLineRate = selectedLine ? effectiveRate(selectedLine.item_id) : null;
   const selectedLineFields = selectedLine ? budgetInputFields(selectedLine.calculation_type, selectedLineRate?.params || {}) : [];
+  const selectedStatement = useMemo(() => statement.filter((line) => selectedStatementIds.has(String(line.line_id))), [statement, selectedStatementIds]);
+  const selectedStatementTotal = useMemo(() => selectedStatement.reduce((sum, line) => sum + lineValue(line), 0), [selectedStatement]);
 
   useEffect(() => {
     if (selectedLine) focusContextualWorkSurface(lineWorkRef.current);
@@ -227,6 +234,10 @@ export default function OperatingBudgetPage() {
   useEffect(() => {
     if (showNodeEditor) focusContextualWorkSurface(nodeWorkRef.current);
   }, [showNodeEditor, nodeForm.node_id, nodeForm.parent_item_id]);
+
+  useEffect(() => {
+    setSelectedStatementIds(new Set());
+  }, [month, period?.id]);
 
   async function loadBase() {
     const [p, c, s, r, b, a] = await Promise.all([
@@ -360,6 +371,30 @@ export default function OperatingBudgetPage() {
     setSelectedLine(null);
     setWorkErr('');
     restoreInteractionOrigin(origin);
+  }
+
+  function toggleStatementLine(line) {
+    const id = String(line.line_id);
+    setSelectedStatementIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleStatementGroup(lines) {
+    const ids = lines.map((line) => String(line.line_id));
+    setSelectedStatementIds((current) => {
+      const next = new Set(current);
+      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+      ids.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+      return next;
+    });
+  }
+
+  function printSelectedStatement() {
+    if (!selectedStatementIds.size) return;
+    window.open(appendSelectionToUrl(`/print/operating-budget?month=${month}`, selectedStatementIds), '_blank', 'noopener,noreferrer');
   }
 
   async function saveLineEstimate(scope) {
@@ -760,6 +795,10 @@ export default function OperatingBudgetPage() {
     const childGroups = children.filter((n) => n.node_type === 'group');
     const childItems = new Set(children.filter((n) => n.node_type === 'item').map((n) => n.id));
     const lines = statement.filter((line) => childItems.has(line.item_id));
+    const lineIds = lines.map((line) => String(line.line_id));
+    const selectedInGroup = lineIds.filter((id) => selectedStatementIds.has(id)).length;
+    const allGroupSelected = lineIds.length > 0 && selectedInGroup === lineIds.length;
+    const someGroupSelected = selectedInGroup > 0 && !allGroupSelected;
     const isCollapsed = collapsed[group.id] !== false;
     const total = descendantLineTotal(group.id);
     if (!lines.length && !childGroups.some((g) => descendantLineTotal(g.id) > 0)) return null;
@@ -769,9 +808,13 @@ export default function OperatingBudgetPage() {
         <strong>{isCollapsed ? '▸' : '▾'} {group.name}</strong><span>{amountLabel(total)}</span>
       </button>
       {!isCollapsed && <div style={{ marginTop: 8 }}>
-        {lines.length > 0 && <TableFrame><table><thead><tr><th>التفصيل</th><th>المتوقع</th><th>الفعلي</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th></tr></thead><tbody>
+        {lines.length > 0 && <TableFrame><table data-selection-surface="true"><thead><tr>
+          <th style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد بنود ${group.name}`} checked={allGroupSelected} ref={(node)=>{if(node)node.indeterminate=someGroupSelected;}} onChange={()=>toggleStatementGroup(lines)} /></th>
+          <th>التفصيل</th><th>المتوقع</th><th>الفعلي</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th>
+        </tr></thead><tbody>
           {lines.map((line) => <Fragment key={line.line_id}>
-            <tr>
+            <tr data-record-row="true" data-record-selected={selectedStatementIds.has(String(line.line_id))?'true':'false'}>
+              <td style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد ${line.item_name}`} checked={selectedStatementIds.has(String(line.line_id))} onChange={()=>toggleStatementLine(line)} /></td>
               <td><strong>{line.item_name}</strong><div className="muted">{line.unit_label || ''}</div></td>
               <td>{amountLabel(line.expected_amount)}</td>
               <td>{line.confirmed_amount == null ? '—' : amountLabel(line.confirmed_amount)}</td>
@@ -783,7 +826,7 @@ export default function OperatingBudgetPage() {
                 {canMutatePeriod && num(line.reserve_gap) > 0 && <button className="btn ghost" onClick={() => reserveGap(line)}>تم حجز المطلوب</button>}
               </Toolbar></td>
             </tr>
-            {selectedLine?.line_id === line.line_id && <tr><td colSpan={7} style={{ padding: 0, border: 0 }}>{renderLineEditor()}</td></tr>}
+            {selectedLine?.line_id === line.line_id && <tr><td colSpan={8} style={{ padding: 0, border: 0 }}>{renderLineEditor()}</td></tr>}
           </Fragment>)}
         </tbody></table></TableFrame>}
         {childGroups.map((child) => renderReportGroup(child, depth + 1))}
@@ -916,7 +959,7 @@ export default function OperatingBudgetPage() {
       eyebrow="المالية"
       title="ميزانية وتشغيل الشركة"
       description="التفاصيل هي التي تصنع القيمة؛ التصنيفات تجمعها فقط. نفس المحرك يخدم المستهلكات والتأمينات والشرائح والاشتراكات والمعادلات المركبة."
-      actions={<><input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} /><a className="btn ghost" href={`/print/operating-budget?month=${month}`} target="_blank" rel="noreferrer">طباعة التقرير</a><button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button></>}
+      actions={<><input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} /><a className="btn ghost" href={`/print/operating-budget?month=${month}`} target="_blank" rel="noreferrer">طباعة التقرير كاملًا</a><button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button></>}
     />
 
     {err && <Notice tone="error">{err}</Notice>}
@@ -940,7 +983,15 @@ export default function OperatingBudgetPage() {
         <form onSubmit={saveOpeningBalance} style={{ padding: 22 }}><div className="form-grid"><div className="field"><label>الرصيد (ريال)</label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!canMutatePeriod} onChange={(e) => setOpeningBalance(e.target.value)} /></div><div className="field"><label>أدنى رصيد حر متوقع</label><strong>{summary.min_expected_free_balance == null ? '—' : amountLabel(summary.min_expected_free_balance)}</strong></div></div>{canMutatePeriod && <Toolbar><button className="btn" type="submit">حفظ الرصيد</button></Toolbar>}</form>
       </EntrySurface>
 
-      <Section title="كشف الشهر" description="اضغط التصنيف لعرض الإجمالي فقط أو فتح التفاصيل. عند تعديل تفصيل تتمركز مساحة العمل داخل مجال رؤيتك وتعود لنفس الصف عند الإغلاق.">
+      <Section title="كشف الشهر" description="يمكن تحديد عدة بنود ثم طباعة المحدد فقط. التحديد هنا نطاق تقرير ولا ينشئ معاملة مالية من تلقاء نفسه.">
+        <WorkSelectionDock count={selectedStatementIds.size} summary={`قيمة المحدد ${amountLabel(selectedStatementTotal)}`} onClear={()=>setSelectedStatementIds(new Set())}>
+          <ProgramAction
+            className="btn ghost"
+            selectionCount={selectedStatementIds.size}
+            action={{key:'operating-budget.print-selected',label:'طباعة المحدد',kind:WORK_ACTION_KIND.PRINT,actionScope:WORK_ACTION_SCOPE.SELECTION,consequence:WORK_ACTION_CONSEQUENCE.SAFE}}
+            onClick={printSelectedStatement}
+          >طباعة المحدد</ProgramAction>
+        </WorkSelectionDock>
         {rootGroups.map((group) => renderReportGroup(group))}
         {!statement.length && <EmptyState title="لا توجد أوراق حسابية لهذا الشهر" description="أضف أو جدْول التفاصيل من كتالوج التشغيل." />}
       </Section>
