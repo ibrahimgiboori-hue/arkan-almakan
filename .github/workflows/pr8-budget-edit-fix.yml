@@ -1,0 +1,31 @@
+name: PR8 Budget Edit Fix
+
+on:
+  push:
+    branches:
+      - feat/contextual-work-budget-inputs
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feat/contextual-work-budget-inputs
+          fetch-depth: 0
+      - name: Patch budget page
+        run: python scripts/temp-pr8-budget-edit-fix.py
+      - name: Commit patch and remove temporary files
+        run: |
+          rm scripts/temp-pr8-budget-edit-fix.py
+          rm .github/workflows/pr8-budget-edit-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix budget descriptive and monthly estimate editing"
+          git push origin HEAD:feat/contextual-work-budget-inputs
