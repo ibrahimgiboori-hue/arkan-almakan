@@ -58,6 +58,7 @@ const RECURRENCES = Object.keys(OPERATING_BUDGET.recurrenceLabels);
 const COMPONENT_MODES = Object.keys(OPERATING_BUDGET.componentModeLabels);
 const BUCKETS = Object.keys(OPERATING_BUDGET.metricBucketLabels);
 const COMPONENT_CALC_TYPES = ['employee_based_contribution', 'subscription_plus_usage', 'composite_formula'];
+const ONGOING_INPUT_CALC_TYPES = new Set(['fixed_amount', 'variable_monthly', 'quantity_x_unit_price']);
 const ACTIVE_WORK_STYLE = {
   scrollMarginTop: 96,
   outline: '2px solid var(--line, #777)',
@@ -74,6 +75,18 @@ function amountLabel(value) {
   return `${money(value)} ريال`;
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) return value.map(stableJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableJson(value[key])]));
+  }
+  return value ?? null;
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(stableJson(left)) === JSON.stringify(stableJson(right));
+}
+
 function hasCapability(me, capability) {
   return Boolean(me?.access?.fullAdmin || me?.capabilityKeys?.has?.(capability));
 }
@@ -82,6 +95,7 @@ function emptyNode(validFrom = monthStart(operationalDate()), parent = null, nod
   return {
     node_id: '',
     node_type: nodeType,
+    branch_scope_id: parent?.branch_scope_id || '',
     parent_item_id: parent?.id || '',
     group_key: parent?.group_key || 'other',
     name: '',
@@ -93,6 +107,7 @@ function emptyNode(validFrom = monthStart(operationalDate()), parent = null, nod
     components: [],
     bands: [],
     valid_from: validFrom,
+    schedule_valid_to: '',
     recurrence_unit: 'month',
     recurrence_interval_count: 1,
     anchor_date: '',
@@ -355,8 +370,8 @@ export default function OperatingBudgetPage() {
       p_line_id: selectedLine.line_id,
       p_inputs: payload,
       p_scope: scope,
-      p_reason: scope === 'this_month' ? 'تصحيح تقدير هذا الشهر' : 'تغيير مدخلات التقدير من الدورة الحالية وما بعدها',
-    }), scope === 'this_month' ? 'تم تصحيح تقدير هذا الشهر.' : 'تم تسجيل التغيير من الدورة الحالية.', setWorkErr);
+      p_reason: scope === 'this_month' ? 'تحديث تقدير هذا الشهر' : 'تغيير القيمة الافتراضية للتقدير من الدورة الحالية وما بعدها',
+    }), scope === 'this_month' ? 'تم حفظ تقدير هذا الشهر.' : 'تم تغيير القيمة الافتراضية من الدورة الحالية وما بعدها.', setWorkErr);
     if (result) closeLineEditor();
     else focusFirstInvalidField(lineWorkRef.current);
   }
@@ -434,6 +449,7 @@ export default function OperatingBudgetPage() {
     setNodeForm({
       node_id: node.id,
       node_type: node.node_type,
+      branch_scope_id: node.branch_scope_id || '',
       parent_item_id: node.parent_item_id || '',
       group_key: node.group_key,
       name: node.name,
@@ -451,6 +467,7 @@ export default function OperatingBudgetPage() {
         band_amount: b.band_amount,
       })) : [],
       valid_from: rate?.valid_from || schedule?.valid_from || selectedMonthStart,
+      schedule_valid_to: schedule?.valid_to || '',
       recurrence_unit: schedule?.recurrence_unit || 'month',
       recurrence_interval_count: schedule?.recurrence_interval_count || 1,
       anchor_date: schedule?.anchor_date || '',
@@ -568,6 +585,7 @@ export default function OperatingBudgetPage() {
       const parent = groups.find((g) => g.id === nodeForm.parent_item_id);
       const rateParams = buildRateParams();
       const schedulePayload = nodeForm.node_type === 'item' && nodeForm.anchor_date ? {
+        valid_to: nodeForm.schedule_valid_to || null,
         recurrence_unit: nodeForm.recurrence_unit,
         recurrence_interval_count: Number(nodeForm.recurrence_interval_count || 1),
         anchor_date: nodeForm.anchor_date,
@@ -575,19 +593,56 @@ export default function OperatingBudgetPage() {
         accrual_lead_months: nodeForm.accrual_start_rule === 'fixed_months_before_due' ? Number(nodeForm.accrual_lead_months || 1) : null,
       } : null;
 
-      let revisionMode = 'new';
+      const normalizedBands = nodeForm.bands.map((b, i) => ({
+        band_order: i + 1,
+        min_count: num(b.min_count),
+        max_count: String(b.max_count ?? '').trim() === '' ? null : num(b.max_count),
+        band_mode: b.band_mode || 'flat_fee_on_entry',
+        band_amount: num(b.band_amount),
+      }));
+
+      const currentRate = nodeForm.node_id && nodeForm.node_type === 'item' ? effectiveRate(nodeForm.node_id) : null;
+      const currentSchedule = nodeForm.node_id && nodeForm.node_type === 'item' ? effectiveSchedule(nodeForm.node_id) : null;
+      const currentBands = currentRate ? bandsForRate(currentRate.id).map((b, i) => ({
+        band_order: i + 1,
+        min_count: num(b.min_count),
+        max_count: b.max_count == null ? null : num(b.max_count),
+        band_mode: b.band_mode || 'flat_fee_on_entry',
+        band_amount: num(b.band_amount),
+      })) : [];
+      const currentEffectiveFrom = currentRate?.valid_from || currentSchedule?.valid_from || nodeForm.valid_from;
+      const effectiveFromChanged = Boolean(nodeForm.node_id) && nodeForm.valid_from !== currentEffectiveFrom;
+      const rateChanged = Boolean(rateParams) && (
+        !currentRate || effectiveFromChanged || !sameJson(rateParams, currentRate.params || {}) || !sameJson(normalizedBands, currentBands)
+      );
+      const scheduleChanged = Boolean(schedulePayload) && (
+        !currentSchedule || effectiveFromChanged ||
+        (currentSchedule.valid_to || null) !== (schedulePayload.valid_to || null) ||
+        currentSchedule.recurrence_unit !== schedulePayload.recurrence_unit ||
+        Number(currentSchedule.recurrence_interval_count || 1) !== Number(schedulePayload.recurrence_interval_count || 1) ||
+        currentSchedule.anchor_date !== schedulePayload.anchor_date ||
+        currentSchedule.accrual_start_rule !== schedulePayload.accrual_start_rule ||
+        Number(currentSchedule.accrual_lead_months || 0) !== Number(schedulePayload.accrual_lead_months || 0)
+      );
+      const financialConfigChanged = rateChanged || scheduleChanged;
+
+      let revisionMode = 'descriptive';
       let revisionValidFrom = nodeForm.valid_from;
-      if (nodeForm.node_id && nodeForm.node_type === 'item' && (rateParams || schedulePayload)) {
-        const currentEffectiveFrom = effectiveNodeRate?.valid_from || effectiveSchedule(nodeForm.node_id)?.valid_from || nodeForm.valid_from;
+      if (!nodeForm.node_id) revisionMode = 'new';
+      if (nodeForm.node_id && nodeForm.node_type === 'item' && financialConfigChanged) {
         const isCorrection = window.confirm(
-          'هل هذا تصحيح لبيانات سابقة؟\n\nاختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
+          'هل هذا تصحيح لبيانات سابقة؟
+
+اختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
         );
         if (isCorrection) {
           revisionMode = 'correction';
           revisionValidFrom = currentEffectiveFrom;
         } else {
           const applyFromCurrentCycle = window.confirm(
-            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها؟\n\nاختيار «إلغاء» هنا يعني عدم الحفظ.'
+            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها؟
+
+اختيار «إلغاء» هنا يعني عدم الحفظ.'
           );
           if (!applyFromCurrentCycle) {
             setWorkErr('لم يتم الحفظ. عند تعديل قاعدة مالية قائمة اختر إما «تصحيح سابق» أو «تغيير من الدورة الحالية».');
@@ -602,19 +657,11 @@ export default function OperatingBudgetPage() {
         throw new Error('عرّف قاعدة الحساب أولًا قبل جدولة الاستحقاق.');
       }
 
-      const normalizedBands = nodeForm.bands.map((b, i) => ({
-        band_order: i + 1,
-        min_count: num(b.min_count),
-        max_count: String(b.max_count ?? '').trim() === '' ? null : num(b.max_count),
-        band_mode: b.band_mode || 'flat_fee_on_entry',
-        band_amount: num(b.band_amount),
-      }));
-
       const { error } = await supabase.rpc('budget_save_catalog_node', {
         p_node_id: nodeForm.node_id || null,
         p_node_type: nodeForm.node_type,
         p_parent_item_id: nodeForm.parent_item_id || null,
-        p_branch_scope_id: null,
+        p_branch_scope_id: nodeForm.branch_scope_id || null,
         p_group_key: parent?.group_key || nodeForm.group_key,
         p_name: nodeForm.name,
         p_unit_label: nodeForm.node_type === 'item' ? nodeForm.unit_label || null : null,
@@ -638,7 +685,9 @@ export default function OperatingBudgetPage() {
           ? 'تم حفظ التصحيح وإعادة تقدير القيم المتوقعة فقط؛ القيمة الفعلية والمدفوع لم يتغيرا.'
           : revisionMode === 'current_cycle'
             ? 'تم حفظ التغيير من الدورة الحالية وما بعدها مع إبقاء التاريخ السابق كما هو.'
-            : 'تم حفظ العنصر وقاعدة حسابه ضمن المحرك الموحد.';
+            : revisionMode === 'descriptive'
+              ? 'تم حفظ التعديل الوصفي دون تغيير الحساب أو التاريخ المالي.'
+              : 'تم حفظ العنصر وقاعدة حسابه ضمن المحرك الموحد.';
       setMsg(successMessage);
       setShowNodeEditor(false);
       await loadAll();
@@ -692,8 +741,8 @@ export default function OperatingBudgetPage() {
             </div>
           </div>
           {canMutatePeriod && <Toolbar>
-            {selectedLineFields.length > 0 && <button className="btn" onClick={() => saveLineEstimate('this_month')}>تصحيح هذا الشهر</button>}
-            {selectedLineFields.length > 0 && <button className="btn ghost" onClick={() => saveLineEstimate('ongoing')}>تغيير من الدورة الحالية</button>}
+            {selectedLineFields.length > 0 && <button className="btn" onClick={() => saveLineEstimate('this_month')}>حفظ تقدير هذا الشهر</button>}
+            {selectedLineFields.length > 0 && ONGOING_INPUT_CALC_TYPES.has(selectedLine.calculation_type) && <button className="btn ghost" onClick={() => saveLineEstimate('ongoing')}>اجعلها القيمة الافتراضية من هذا الشهر</button>}
             <button className="btn ghost" onClick={confirmActual}>تثبيت القيمة الفعلية</button>
             <button className="btn ghost" onClick={closeLineEditor}>إغلاق</button>
           </Toolbar>}
@@ -820,6 +869,7 @@ export default function OperatingBudgetPage() {
               <div className="field"><label>الدورية</label><select value={nodeForm.recurrence_unit} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_unit: e.target.value }))}>{RECURRENCES.map((r) => <option key={r} value={r}>{OPERATING_BUDGET.recurrenceLabels[r]}</option>)}</select></div>
               <div className="field"><label>كل كم دورة</label><input type="number" min="1" value={nodeForm.recurrence_interval_count} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_interval_count: e.target.value }))} /></div>
               <div className="field"><label>تاريخ الاستحقاق المرجعي</label><input type="date" dir="ltr" value={nodeForm.anchor_date} onChange={(e) => setNodeForm((old) => ({ ...old, anchor_date: e.target.value }))} /></div>
+              <div className="field"><label>نهاية السريان (اختياري)</label><input type="date" dir="ltr" value={nodeForm.schedule_valid_to || ''} onChange={(e) => setNodeForm((old) => ({ ...old, schedule_valid_to: e.target.value }))} /><small className="muted">اتركها فارغة إذا كان الالتزام مستمرًا بلا نهاية محددة.</small></div>
               <div className="field"><label>بداية الحجز</label><select value={nodeForm.accrual_start_rule} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_start_rule: e.target.value }))}><option value="from_period_start">من بداية دورة الاستحقاق</option><option value="immediately_after_previous_due">بعد الاستحقاق السابق مباشرة</option><option value="fixed_months_before_due">قبل الاستحقاق بعدد أشهر</option></select></div>
               {nodeForm.accrual_start_rule === 'fixed_months_before_due' && <div className="field"><label>عدد الأشهر</label><input type="number" min="1" value={nodeForm.accrual_lead_months} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_lead_months: e.target.value }))} /></div>}
             </div></Section>
