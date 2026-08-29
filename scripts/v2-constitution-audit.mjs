@@ -156,7 +156,7 @@ for (const rule of requiredApprovalGovernanceConsumers) {
       if (text.includes(forbidden)) violations.push(`${pageRel}: legacy/parallel operating-budget path returned (${forbidden})`);
     }
     if (/annual\w*\s*\/\s*12|\/\s*12\s*\/\//.test(text)) violations.push(`${pageRel}: local annual/12 reserve calculation is forbidden`);
-    for (const token of ['أساس الاحتساب','تصحيح هذا الشهر','تغيير من الدورة الحالية','القيمة الفعلية','/print/operating-budget?month=']) {
+    for (const token of ['أساس الاحتساب','حفظ تقدير هذا الشهر','تغيير من الدورة الحالية','القيمة الفعلية','/print/operating-budget?month=']) {
       if (!text.includes(token)) violations.push(`${pageRel}: missing governed operating-budget UI contract ${token}`);
     }
   }
