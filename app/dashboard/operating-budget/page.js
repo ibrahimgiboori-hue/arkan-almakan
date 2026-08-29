@@ -355,8 +355,8 @@ export default function OperatingBudgetPage() {
       p_line_id: selectedLine.line_id,
       p_inputs: payload,
       p_scope: scope,
-      p_reason: scope === 'this_month' ? 'تعديل هذا الشهر فقط' : 'تحديث أساس الاحتساب من هذا الشهر وما بعده',
-    }), scope === 'this_month' ? 'تم تعديل هذا الشهر فقط.' : 'تم تحديث أساس الاحتساب الجاري.', setWorkErr);
+      p_reason: scope === 'this_month' ? 'تصحيح تقدير هذا الشهر' : 'تغيير مدخلات التقدير من الدورة الحالية وما بعدها',
+    }), scope === 'this_month' ? 'تم تصحيح تقدير هذا الشهر.' : 'تم تسجيل التغيير من الدورة الحالية.', setWorkErr);
     if (result) closeLineEditor();
     else focusFirstInvalidField(lineWorkRef.current);
   }
@@ -580,18 +580,14 @@ export default function OperatingBudgetPage() {
       if (nodeForm.node_id && nodeForm.node_type === 'item' && (rateParams || schedulePayload)) {
         const currentEffectiveFrom = effectiveNodeRate?.valid_from || effectiveSchedule(nodeForm.node_id)?.valid_from || nodeForm.valid_from;
         const isCorrection = window.confirm(
-          'هل هذا تصحيح لبيانات سابقة?
-
-اختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
+          'هل هذا تصحيح لبيانات سابقة؟\n\nاختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
         );
         if (isCorrection) {
           revisionMode = 'correction';
           revisionValidFrom = currentEffectiveFrom;
         } else {
           const applyFromCurrentCycle = window.confirm(
-            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها?
-
-اختيار «إلغاء» هنا يعني عدم الحفظ.'
+            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها؟\n\nاختيار «إلغاء» هنا يعني عدم الحفظ.'
           );
           if (!applyFromCurrentCycle) {
             setWorkErr('لم يتم الحفظ. عند تعديل قاعدة مالية قائمة اختر إما «تصحيح سابق» أو «تغيير من الدورة الحالية».');
