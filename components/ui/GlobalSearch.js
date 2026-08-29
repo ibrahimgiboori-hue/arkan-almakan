@@ -60,7 +60,7 @@ export default function GlobalSearch() {
       const merged=[
         ...data[0].map(r=>item('employee',r.id,r.full_name_ar||r.full_name_en,`${r.employee_no||'—'} · ${r.job_title||'بدون مسمى'}`,`/dashboard/employees/${r.id}`)),
         ...data[1].map(r=>item('project',r.id,r.name_ar||r.name_en,`${r.project_no||'—'} · ${r.city||'الموقع غير محدد'}`,`/dashboard/projects/${r.id}`)),
-        ...data[2].map(r=>item('contractor',r.id,r.name_ar||r.name_en,`${r.contractor_no||'—'} · ${r.contact_name||'مقاول'}`,`/dashboard/contractors?search=${encodeURIComponent(r.contractor_no||r.name_ar||r.name_en||'')}`)),
+        ...data[2].map(r=>item('contractor',r.id,r.name_ar||r.name_en,`${r.contractor_no||'—'} · ${r.contact_name||'مقاول'}`,`/dashboard/contractors/${r.id}`)),
         ...data[3].map(r=>item('entity',r.id,r.name_ar||r.name_en,`${r.entity_code||'—'} · ${r.contact_name||'جهة'}`,`/dashboard/entities?search=${encodeURIComponent(r.entity_code||r.name_ar||r.name_en||'')}`)),
         ...data[4].map(r=>item('quotation',r.id,r.client_name||r.quote_no,`${r.quote_no||'—'} · ${r.project_ref||'بدون مشروع'}`,`/dashboard/quotes/${r.id}`)),
         ...data[5].map(r=>item('document',r.id,r.subject||r.doc_number,`${r.doc_number||'—'} · ${r.template_code||'مستند'}`,`/dashboard/documents/edit/${r.id}`)),
