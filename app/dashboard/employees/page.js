@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { money, dateAr, STATUS_AR } from '@/lib/format';
+import { appendSelectionToUrl } from '@/lib/record-selection';
+import { WORK_ACTION_CONSEQUENCE, WORK_ACTION_KIND, WORK_ACTION_SCOPE } from '@/lib/work-surface-constitution';
+import ProgramAction from '@/components/ui/ProgramAction';
+import { WorkSelectionDock } from '@/components/ui/WorkSheetKernel';
 import {
   ConstitutionPage,
   PageHeader,
@@ -21,6 +25,7 @@ export default function Employees() {
   const [rows, setRows] = useState(null);
   const [q, setQ] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(()=>new Set());
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -58,6 +63,7 @@ export default function Employees() {
   }, [readEmployees, rows]);
 
   useEffect(() => { load(); }, []);
+  useEffect(()=>{setSelectedIds(new Set());},[q,showInactive]);
 
   const canEdit = Boolean(me?.access?.fullAdmin) || me?.capabilityKeys?.has('hr.employees.edit');
   const canDelete = Boolean(me?.access?.fullAdmin) || me?.capabilityKeys?.has('hr.employees.delete') || me?.capabilityKeys?.has('hr.employees.edit');
@@ -94,12 +100,28 @@ export default function Employees() {
       .sort((a,b)=>{ const A=orderKey(a.employee_no),B=orderKey(b.employee_no); return A[0]-B[0] || A[1]-B[1]; });
   }, [rows, q, showInactive]);
 
+  function toggleEmployee(id){
+    setSelectedIds(current=>{const next=new Set(current);const key=String(id);if(next.has(key))next.delete(key);else next.add(key);return next;});
+  }
+  function toggleVisible(){
+    const ids=filtered.map(row=>String(row.id));
+    const all=ids.length>0&&ids.every(id=>selectedIds.has(id));
+    setSelectedIds(current=>{const next=new Set(current);ids.forEach(id=>all?next.delete(id):next.add(id));return next;});
+  }
+  function printSelected(){
+    if(!selectedIds.size)return;
+    window.open(appendSelectionToUrl('/print/employees',selectedIds),'_blank','noopener,noreferrer');
+  }
+
   if (!rows) return <ConstitutionPage><EmptyState title="جارٍ تحميل سجل الموظفين…" /></ConstitutionPage>;
 
   const activeCount = rows.filter((row)=>row.status==='active').length;
   const leaveCount = rows.filter((row)=>row.status==='on_leave').length;
   const pendingCount = rows.filter((row)=>row.status==='pending_start').length;
   const terminatedCount = rows.filter((row)=>row.status==='terminated').length;
+  const allVisibleSelected=filtered.length>0&&filtered.every(row=>selectedIds.has(String(row.id)));
+  const someVisibleSelected=!allVisibleSelected&&filtered.some(row=>selectedIds.has(String(row.id)));
+  const selectedGross=filtered.filter(row=>selectedIds.has(String(row.id))).reduce((sum,row)=>sum+Number(row.basic_salary||0)+Number(row.housing_allowance||0)+Number(row.transport_allowance||0)+Number(row.other_allowance||0),0);
 
   return <ConstitutionPage>
     <PageHeader
@@ -107,7 +129,7 @@ export default function Employees() {
       title="الموظفون"
       description="السجل الوظيفي الموحد للموظفين وحالاتهم الحالية."
       actions={<Toolbar>
-        <Link className="btn ghost" href="/print/employees" target="_blank">تقرير الموظفين</Link>
+        <Link className="btn ghost" href="/print/employees" target="_blank">تقرير الموظفين كاملًا</Link>
         {canCreate?<Link className="btn" href="/dashboard/employees/new">+ إضافة موظف</Link>:null}
       </Toolbar>}
     />
@@ -133,13 +155,18 @@ export default function Employees() {
     {msg && <Notice tone="success">{msg}</Notice>}
 
     <Section title="سجل الموظفين" description={`${filtered.length} موظف مطابق للعرض الحالي`}>
+      <WorkSelectionDock count={selectedIds.size} summary={`إجمالي رواتب المحدد ${money(selectedGross)}`} onClear={()=>setSelectedIds(new Set())}>
+        <ProgramAction className="btn ghost" selectionCount={selectedIds.size} action={{key:'employees.print-selected',label:'طباعة المحدد',kind:WORK_ACTION_KIND.PRINT,actionScope:WORK_ACTION_SCOPE.SELECTION,consequence:WORK_ACTION_CONSEQUENCE.SAFE}} onClick={printSelected}>طباعة المحدد</ProgramAction>
+      </WorkSelectionDock>
       {filtered.length === 0 ? <EmptyState title="لا توجد نتائج مطابقة" /> : <TableFrame>
-        <table>
-          <thead><tr><th>الرقم</th><th>الاسم</th><th>المسمى</th><th>الجوال</th><th className="num">الراتب الإجمالي</th><th>انتهاء الهوية</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+        <table data-selection-surface="true">
+          <thead><tr><th style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label="تحديد كل الموظفين الظاهرين" checked={allVisibleSelected} ref={node=>{if(node)node.indeterminate=someVisibleSelected;}} onChange={toggleVisible}/></th><th>الرقم</th><th>الاسم</th><th>المسمى</th><th>الجوال</th><th className="num">الراتب الإجمالي</th><th>انتهاء الهوية</th><th>الحالة</th><th>الإجراء</th></tr></thead>
           <tbody>{filtered.map((employee)=>{
             const gross=Number(employee.basic_salary||0)+Number(employee.housing_allowance||0)+Number(employee.transport_allowance||0)+Number(employee.other_allowance||0);
             const pending=employee.status==='pending_start';
-            return <tr key={employee.id} style={employee.status==='terminated'?{opacity:.55}:undefined}>
+            const selected=selectedIds.has(String(employee.id));
+            return <tr key={employee.id} data-record-row="true" data-record-selected={selected?'true':'false'} style={employee.status==='terminated'?{opacity:.55}:undefined}>
+              <td style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد ${employee.full_name_ar}`} checked={selected} onChange={()=>toggleEmployee(employee.id)}/></td>
               <td className="mono">{employee.employee_no}</td>
               <td><strong>{employee.full_name_ar}</strong>{employee.employment_kind==='temporary_replacement'&&<div className="hint">بديل مؤقت</div>}</td>
               <td>{employee.job_title||'—'}</td>
