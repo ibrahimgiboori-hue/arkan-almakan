@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { resolveWorkSurface, surfaceDataAttributes } from '@/lib/work-surface-constitution';
+import { interfaceDataAttributes } from '@/lib/interface-constitution';
 
 const WorkSurfaceContext = createContext(null);
 
@@ -21,6 +22,27 @@ function isTypingTarget(target) {
   return target.isContentEditable || tag === 'input' || tag === 'textarea' || tag === 'select';
 }
 
+function focusPageCommandTrigger() {
+  const trigger = document.querySelector('[data-page-command-trigger="true"]');
+  if (!(trigger instanceof HTMLElement)) return false;
+  trigger.focus();
+  if (trigger instanceof HTMLButtonElement) trigger.click();
+  return true;
+}
+
+function closeNearestOpenContext() {
+  const openDetails = Array.from(document.querySelectorAll('details[open]')).reverse();
+  const contextual = openDetails.find((node) =>
+    node.matches('[data-view-options], [data-action-placement="secondary-overflow"], [data-context-panel]')
+  );
+  if (contextual instanceof HTMLDetailsElement) {
+    contextual.open = false;
+    contextual.querySelector('summary')?.focus?.();
+    return true;
+  }
+  return false;
+}
+
 export default function WorkSurfaceRuntime({ children }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -29,7 +51,7 @@ export default function WorkSurfaceRuntime({ children }) {
   useEffect(() => {
     const shell = document.querySelector('.rawDashboardShell');
     if (!shell) return undefined;
-    const attrs = surfaceDataAttributes(surface);
+    const attrs = { ...surfaceDataAttributes(surface), ...interfaceDataAttributes() };
     for (const [name, value] of Object.entries(attrs)) shell.setAttribute(name, String(value));
     shell.setAttribute('data-work-surface-policy', 'program-driven-notebook-v2');
     return () => {
@@ -45,12 +67,14 @@ export default function WorkSurfaceRuntime({ children }) {
 
       if (!typing && event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent(WORK_SURFACE_EVENT.PAGE_COMMAND, { detail:{ pathname, surface } }));
+        const handled = focusPageCommandTrigger();
+        window.dispatchEvent(new CustomEvent(WORK_SURFACE_EVENT.PAGE_COMMAND, { detail:{ pathname, surface, handled } }));
         return;
       }
 
       if (!typing && event.key === 'Escape') {
-        window.dispatchEvent(new CustomEvent(WORK_SURFACE_EVENT.CLOSE_CONTEXT, { detail:{ pathname, surface } }));
+        const handled = closeNearestOpenContext();
+        window.dispatchEvent(new CustomEvent(WORK_SURFACE_EVENT.CLOSE_CONTEXT, { detail:{ pathname, surface, handled } }));
       }
     }
 
