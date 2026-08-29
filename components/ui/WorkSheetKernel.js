@@ -1,5 +1,7 @@
 'use client';
 
+import { forwardRef } from 'react';
+
 function cx(...values) {
   return values.filter(Boolean).join(' ');
 }
@@ -29,13 +31,13 @@ export function WorkSheetHeader({ children, className = '', ...props }) {
   );
 }
 
-export function WorkSection({ children, className = '', ...props }) {
+export const WorkSection = forwardRef(function WorkSection({ children, className = '', ...props }, ref) {
   return (
-    <section className={cx(className)} data-work-section="true" {...props}>
+    <section ref={ref} className={cx(className)} data-work-section="true" {...props}>
       {children}
     </section>
   );
-}
+});
 
 export function WorkLedger({ children, className = '', ...props }) {
   return (
