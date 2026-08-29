@@ -231,8 +231,22 @@ for (const rule of requiredApprovalGovernanceConsumers) {
     if (!clock.includes(token)) violations.push(`financial-clock migrations: missing governed contract ${token}`);
   }
 
-  if (/insert into public\.contractor_settlements\([^)]*net_payable/im.test(clock)) {
-    violations.push('financial-clock migrations: generated contractor_settlements.net_payable must never be written directly');
+  // تاريخ migrations غير قابل للمحو. نفحص آخر تعريف فعّال للكاتب بدل مطابقة نص تعريف قديم تم تصحيحه لاحقًا.
+  const settlementWriters = fs.existsSync(migrationDir)
+    ? fs.readdirSync(migrationDir)
+      .filter((name) => name.endsWith('.sql'))
+      .sort()
+      .map((name) => ({ name, text: fs.readFileSync(path.join(migrationDir, name), 'utf8') }))
+      .filter(({ text }) => text.includes('create or replace function public.fn_build_period_settlement'))
+    : [];
+  const effectiveSettlementWriter = settlementWriters.length
+    ? settlementWriters[settlementWriters.length - 1]
+    : null;
+
+  if (!effectiveSettlementWriter) {
+    violations.push('financial-clock migrations: no effective fn_build_period_settlement definition found');
+  } else if (/insert into public\.contractor_settlements\([^)]*net_payable/im.test(effectiveSettlementWriter.text)) {
+    violations.push(`financial-clock migrations: effective ${effectiveSettlementWriter.name} writes generated contractor_settlements.net_payable directly`);
   }
 }
 
