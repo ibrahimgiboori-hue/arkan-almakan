@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { resolveWorkSurface, surfaceDataAttributes } from '@/lib/work-surface-constitution';
-import { interfaceDataAttributes } from '@/lib/interface-constitution';
 
 const WorkSurfaceContext = createContext(null);
 
@@ -51,7 +50,7 @@ export default function WorkSurfaceRuntime({ children }) {
   useEffect(() => {
     const shell = document.querySelector('.rawDashboardShell');
     if (!shell) return undefined;
-    const attrs = { ...surfaceDataAttributes(surface), ...interfaceDataAttributes() };
+    const attrs = surfaceDataAttributes(surface);
     for (const [name, value] of Object.entries(attrs)) shell.setAttribute(name, String(value));
     shell.setAttribute('data-work-surface-policy', 'program-driven-notebook-v2');
     return () => {
