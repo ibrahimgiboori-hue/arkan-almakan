@@ -574,6 +574,34 @@ export default function OperatingBudgetPage() {
         accrual_start_rule: nodeForm.accrual_start_rule,
         accrual_lead_months: nodeForm.accrual_start_rule === 'fixed_months_before_due' ? Number(nodeForm.accrual_lead_months || 1) : null,
       } : null;
+
+      let revisionMode = 'new';
+      let revisionValidFrom = nodeForm.valid_from;
+      if (nodeForm.node_id && nodeForm.node_type === 'item' && (rateParams || schedulePayload)) {
+        const currentEffectiveFrom = effectiveNodeRate?.valid_from || effectiveSchedule(nodeForm.node_id)?.valid_from || nodeForm.valid_from;
+        const isCorrection = window.confirm(
+          'هل هذا تصحيح لبيانات سابقة?
+
+اختيار «موافق» يعيد حساب التقديرات فقط وفق المعلومة المصححة، ولا يغيّر القيمة الفعلية أو المدفوع.'
+        );
+        if (isCorrection) {
+          revisionMode = 'correction';
+          revisionValidFrom = currentEffectiveFrom;
+        } else {
+          const applyFromCurrentCycle = window.confirm(
+            'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها?
+
+اختيار «إلغاء» هنا يعني عدم الحفظ.'
+          );
+          if (!applyFromCurrentCycle) {
+            setWorkErr('لم يتم الحفظ. عند تعديل قاعدة مالية قائمة اختر إما «تصحيح سابق» أو «تغيير من الدورة الحالية».');
+            return;
+          }
+          revisionMode = 'current_cycle';
+          revisionValidFrom = selectedMonthStart;
+        }
+      }
+
       if (schedulePayload && nodeForm.calculation_type !== 'external_forecast_actual' && !rateParams && !effectiveNodeRate) {
         throw new Error('عرّف قاعدة الحساب أولًا قبل جدولة الاستحقاق.');
       }
@@ -600,15 +628,22 @@ export default function OperatingBudgetPage() {
         p_is_active: nodeForm.is_active,
         p_notes: nodeForm.notes || null,
         p_sort_order: Number(nodeForm.sort_order || 0),
-        p_rate_valid_from: nodeForm.node_type === 'item' ? nodeForm.valid_from : null,
+        p_rate_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
         p_rate_params: rateParams,
         p_rate_source: rateParams ? 'manual_entry' : null,
         p_rate_bands: normalizedBands,
-        p_schedule_valid_from: nodeForm.node_type === 'item' ? nodeForm.valid_from : null,
+        p_schedule_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
         p_schedule: schedulePayload,
       });
       if (error) throw error;
-      setMsg(nodeForm.node_type === 'group' ? 'تم حفظ التصنيف. قيمته ستأتي من أبنائه فقط.' : 'تم حفظ العنصر وقاعدة حسابه ضمن المحرك الموحد.');
+      const successMessage = nodeForm.node_type === 'group'
+        ? 'تم حفظ التصنيف. قيمته ستأتي من أبنائه فقط.'
+        : revisionMode === 'correction'
+          ? 'تم حفظ التصحيح وإعادة تقدير القيم المتوقعة فقط؛ القيمة الفعلية والمدفوع لم يتغيرا.'
+          : revisionMode === 'current_cycle'
+            ? 'تم حفظ التغيير من الدورة الحالية وما بعدها مع إبقاء التاريخ السابق كما هو.'
+            : 'تم حفظ العنصر وقاعدة حسابه ضمن المحرك الموحد.';
+      setMsg(successMessage);
       setShowNodeEditor(false);
       await loadAll();
       restoreInteractionOrigin(nodeOriginId.current);
@@ -656,14 +691,14 @@ export default function OperatingBudgetPage() {
               {field.help && <small>{field.help}</small>}
             </div>)}
             <div className="field">
-              <label>القيمة المؤكدة/الفاتورة</label>
+              <label>القيمة الفعلية</label>
               <input type="number" step="0.01" dir="ltr" disabled={!canMutatePeriod} value={confirmedAmount} onChange={(e) => setConfirmedAmount(e.target.value)} />
             </div>
           </div>
           {canMutatePeriod && <Toolbar>
-            {selectedLineFields.length > 0 && <button className="btn" onClick={() => saveLineEstimate('this_month')}>هذا الشهر فقط</button>}
-            {selectedLineFields.length > 0 && <button className="btn ghost" onClick={() => saveLineEstimate('from_now')}>من هذا الشهر وما بعده</button>}
-            <button className="btn ghost" onClick={confirmActual}>تأكيد الفاتورة</button>
+            {selectedLineFields.length > 0 && <button className="btn" onClick={() => saveLineEstimate('this_month')}>تصحيح هذا الشهر</button>}
+            {selectedLineFields.length > 0 && <button className="btn ghost" onClick={() => saveLineEstimate('ongoing')}>تغيير من الدورة الحالية</button>}
+            <button className="btn ghost" onClick={confirmActual}>تثبيت القيمة الفعلية</button>
             <button className="btn ghost" onClick={closeLineEditor}>إغلاق</button>
           </Toolbar>}
           {canMutatePeriod && selectedLine.cash_effect_type === 'due_now' && <form onSubmit={paySelected} style={{ marginTop: 18 }}>
@@ -693,7 +728,7 @@ export default function OperatingBudgetPage() {
         <strong>{isCollapsed ? '▸' : '▾'} {group.name}</strong><span>{amountLabel(total)}</span>
       </button>
       {!isCollapsed && <div style={{ marginTop: 8 }}>
-        {lines.length > 0 && <TableFrame><table><thead><tr><th>التفصيل</th><th>المتوقع</th><th>المؤكد</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th></tr></thead><tbody>
+        {lines.length > 0 && <TableFrame><table><thead><tr><th>التفصيل</th><th>المتوقع</th><th>الفعلي</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th></tr></thead><tbody>
           {lines.map((line) => <Fragment key={line.line_id}>
             <tr>
               <td><strong>{line.item_name}</strong><div className="muted">{line.unit_label || ''}</div></td>
@@ -839,7 +874,7 @@ export default function OperatingBudgetPage() {
       eyebrow="المالية"
       title="ميزانية وتشغيل الشركة"
       description="التفاصيل هي التي تصنع القيمة؛ التصنيفات تجمعها فقط. نفس المحرك يخدم المستهلكات والتأمينات والشرائح والاشتراكات والمعادلات المركبة."
-      actions={<><input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} /><button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button></>}
+      actions={<><input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} /><a className="btn ghost" href={`/print/operating-budget?month=${month}`} target="_blank" rel="noreferrer">طباعة التقرير</a><button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button></>}
     />
 
     {err && <Notice tone="error">{err}</Notice>}

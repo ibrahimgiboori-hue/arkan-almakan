@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
-import { monthLabelAr } from '@/lib/operating-budget';
+import { monthKey, monthLabelAr } from '@/lib/operating-budget';
+import { operationalDate } from '@/lib/system-constitution';
 
 function clampMargin(value) {
   const n = Number(value);
@@ -33,7 +34,7 @@ export default function OperatingBudgetPrintPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const requestedMonth = params.get('month') || new Date().toISOString().slice(0, 7);
+    const requestedMonth = params.get('month') || monthKey(operationalDate());
     const requestedMargin = clampMargin(params.get('margin') ?? 10);
     setMonth(requestedMonth);
     setMargin(requestedMargin);

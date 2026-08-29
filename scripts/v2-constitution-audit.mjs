@@ -151,11 +151,23 @@ for (const rule of requiredApprovalGovernanceConsumers) {
       "company_fixed_expenses",
       "function componentForType",
       "+ عنصر مستقل",
+      "saveLineEstimate('from_now')",
     ]) {
       if (text.includes(forbidden)) violations.push(`${pageRel}: legacy/parallel operating-budget path returned (${forbidden})`);
     }
     if (/annual\w*\s*\/\s*12|\/\s*12\s*\/\//.test(text)) violations.push(`${pageRel}: local annual/12 reserve calculation is forbidden`);
-    if (!text.includes('أساس الاحتساب')) violations.push(`${pageRel}: calculation base must be explicit in the user interface`);
+    for (const token of ['أساس الاحتساب','تصحيح هذا الشهر','تغيير من الدورة الحالية','القيمة الفعلية','/print/operating-budget?month=']) {
+      if (!text.includes(token)) violations.push(`${pageRel}: missing governed operating-budget UI contract ${token}`);
+    }
+  }
+
+  const printGovernanceRel = 'lib/print-governance.js';
+  const printPageRel = 'app/print/operating-budget/page.js';
+  const printGovernanceFull = path.join(root, printGovernanceRel);
+  const printPageFull = path.join(root, printPageRel);
+  if (!fs.existsSync(printPageFull)) violations.push(printPageRel + ': operating-budget print report is missing');
+  if (!fs.existsSync(printGovernanceFull) || !fs.readFileSync(printGovernanceFull, 'utf8').includes('operating_budget_report')) {
+    violations.push(printGovernanceRel + ': operating-budget report is not registered in print governance');
   }
 
   if (fs.existsSync(libFull)) {
