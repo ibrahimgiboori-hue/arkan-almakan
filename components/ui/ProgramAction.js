@@ -5,6 +5,7 @@ import { canUseCapability } from '@/lib/access-ui';
 import {
   WORK_ACTION_PLACEMENT,
   WORK_ACTION_CONSEQUENCE,
+  WORK_ACTION_SCOPE,
   defineWorkAction,
 } from '@/lib/work-surface-constitution';
 
@@ -17,6 +18,7 @@ export default function ProgramAction({
   children,
   className = '',
   disabled = false,
+  selectionCount = 0,
   onClick,
   type = 'button',
   title,
@@ -38,10 +40,13 @@ export default function ProgramAction({
   if (!allowed && spec.hiddenWhenUnauthorized !== false) return null;
 
   const consequential = spec.consequence === WORK_ACTION_CONSEQUENCE.CONSEQUENTIAL || spec.consequence === WORK_ACTION_CONSEQUENCE.DESTRUCTIVE;
+  const selectionRequired = spec.actionScope === WORK_ACTION_SCOPE.SELECTION;
+  const selectionReady = !selectionRequired || Number(selectionCount || 0) >= spec.minSelection;
+  const actionEnabled = allowed && !disabled && selectionReady && spec.bulkDecisionAllowed !== false;
   const label = children || spec.label;
 
   function handleClick(event) {
-    if (!allowed || disabled) {
+    if (!actionEnabled) {
       event.preventDefault();
       return;
     }
@@ -53,16 +58,20 @@ export default function ProgramAction({
       {...rest}
       type={type}
       className={cx(className)}
-      disabled={disabled || !allowed}
+      disabled={!actionEnabled}
       onClick={handleClick}
       title={title || spec.label}
       data-program-action="true"
       data-action-key={spec.key}
       data-action-kind={spec.kind}
       data-action-risk={spec.consequence}
+      data-action-scope={spec.actionScope}
       data-action-placement={spec.placement || WORK_ACTION_PLACEMENT.ORIGIN}
       data-action-capability={spec.capability || undefined}
       data-action-consequential={consequential ? 'true' : 'false'}
+      data-selection-required={selectionRequired ? 'true' : undefined}
+      data-selection-count={selectionRequired ? Number(selectionCount || 0) : undefined}
+      data-bulk-decision-allowed={selectionRequired ? String(spec.bulkDecisionAllowed !== false) : undefined}
       data-page-command-trigger={spec.commandTrigger ? 'true' : undefined}
     >
       {label}
