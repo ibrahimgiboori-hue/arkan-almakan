@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
+import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
 
 const n=(v)=>Number(v||0);
 const money=(v)=>`${n(v).toLocaleString('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س`;
@@ -21,7 +22,10 @@ function stateOf(run,guard){
 
 export default function PayrollPrintPage(){
   const params=useParams();
+  const searchParams=useSearchParams();
   const id=String(params?.id||'');
+  const selectedIds=useMemo(()=>normalizeRecordSelection(searchParams?.get('selected')),[searchParams]);
+  const selectionMode=selectedIds.length>0;
   const [run,setRun]=useState(null);
   const [lines,setLines]=useState([]);
   const [employees,setEmployees]=useState([]);
@@ -64,10 +68,13 @@ export default function PayrollPrintPage(){
   if(error)return <main style={{padding:30,direction:'rtl'}}>تعذر تجهيز الطباعة: {error}</main>;
   if(!run)return <main style={{padding:30,direction:'rtl'}}>مسير الرواتب غير موجود.</main>;
 
-  const totals=lines.reduce((a,r)=>({gross:a.gross+n(r.gross_pay),ded:a.ded+n(r.total_deductions),net:a.net+n(r.net_pay)}),{gross:0,ded:0,net:0});
-  const pages=paginateRows(lines,layout.pagination);
-  const printState=stateOf(run,guard);
-  const steps=approval?.steps||[];
+  const printLines=filterBySelection(lines,selectedIds,'id');
+  if(selectionMode&&!printLines.length)return <main style={{padding:30,direction:'rtl'}}>لا توجد صفوف من هذا المسير تطابق التحديد المطلوب.</main>;
+
+  const totals=printLines.reduce((a,r)=>({gross:a.gross+n(r.gross_pay),ded:a.ded+n(r.total_deductions),net:a.net+n(r.net_pay)}),{gross:0,ded:0,net:0});
+  const pages=paginateRows(printLines,layout.pagination);
+  const printState=selectionMode?{key:'draft',label:'نطاق محدد للطباعة'}:stateOf(run,guard);
+  const steps=selectionMode?[]:(approval?.steps||[]);
   let rowOffset=0;
 
   return <>
@@ -76,7 +83,7 @@ export default function PayrollPrintPage(){
         <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
         <button onClick={()=>window.close()}>إغلاق</button>
       </div>
-      <span className="note">مسير الرواتب · {String(run.run_month).slice(0,7)} · {printState.label}</span>
+      <span className="note">مسير الرواتب · {String(run.run_month).slice(0,7)} · {selectionMode?`${printLines.length} موظف محدد`:printState.label}</span>
     </div>
 
     <ConstitutionPagedFrame
@@ -97,16 +104,16 @@ export default function PayrollPrintPage(){
           {isFirst&&<>
             <header className="print-document-head">
               <div>
-                <h1 className="print-document-title">مسير الرواتب</h1>
+                <h1 className="print-document-title">{selectionMode?'مسير الرواتب — المحدد':'مسير الرواتب'}</h1>
                 <div className="print-document-subtitle">أركان المكان · نسخة صادرة من محرك الطباعة المركزي</div>
               </div>
               <div className={`print-document-state print-state-${printState.key}`}>{printState.label}</div>
             </header>
             <section className="print-meta-grid">
               <div className="print-meta-item"><span>الشهر</span><strong>{String(run.run_month).slice(0,7)}</strong></div>
-              <div className="print-meta-item"><span>رقم المعاملة</span><strong>{guard?.transaction_no||'—'}</strong></div>
-              <div className="print-meta-item"><span>الحالة التشغيلية</span><strong>{STATUS[run.status]||run.status}</strong></div>
-              <div className="print-meta-item"><span>عدد الموظفين</span><strong>{lines.length}</strong></div>
+              <div className="print-meta-item"><span>نطاق الطباعة</span><strong>{selectionMode?'الموظفون المحددون فقط':'المسير كاملًا'}</strong></div>
+              <div className="print-meta-item"><span>الحالة التشغيلية</span><strong>{selectionMode?'اختيار من دفتر الرواتب':STATUS[run.status]||run.status}</strong></div>
+              <div className="print-meta-item"><span>عدد الموظفين</span><strong>{printLines.length}</strong></div>
             </section>
           </>}
 
@@ -121,11 +128,13 @@ export default function PayrollPrintPage(){
           </table>
 
           {isFinal&&<>
-            <section className="print-approval-block">
-              <h2 className="print-approval-title">مسار الاعتماد</h2>
-              {steps.length?<div className="print-approval-list">{steps.map((s)=><div className="print-approval-step" key={s.id}><strong>الخطوة {s.step_order}: {s.target_group_label||'الجهة المختصة'}</strong><span>{STEP_STATUS[s.status]||s.status}</span>{s.decision_comment?<small>{s.decision_comment}</small>:null}</div>)}</div>:<div className="print-document-subtitle">لم تبدأ دورة الاعتماد بعد.</div>}
-            </section>
-            <footer className="print-document-footer">حالة الاعتماد ورقم المعاملة مأخوذان مباشرة من سجل المعاملة المركزي.</footer>
+            {selectionMode
+              ? <section className="print-approval-block"><h2 className="print-approval-title">ملاحظة النطاق</h2><div className="print-document-subtitle">هذه الطباعة تمثل السجلات المحددة فقط. التحديد وحده لا يعني إنشاء أو اعتماد معاملة مالية.</div></section>
+              : <section className="print-approval-block">
+                  <h2 className="print-approval-title">مسار الاعتماد</h2>
+                  {steps.length?<div className="print-approval-list">{steps.map((s)=><div className="print-approval-step" key={s.id}><strong>الخطوة {s.step_order}: {s.target_group_label||'الجهة المختصة'}</strong><span>{STEP_STATUS[s.status]||s.status}</span>{s.decision_comment?<small>{s.decision_comment}</small>:null}</div>)}</div>:<div className="print-document-subtitle">لم تبدأ دورة الاعتماد بعد.</div>}
+                </section>}
+            <footer className="print-document-footer">{selectionMode?'النطاق المطبوع مأخوذ من التحديد الصريح في دفتر الرواتب.':'حالة الاعتماد ورقم المعاملة مأخوذان مباشرة من سجل المعاملة المركزي.'}</footer>
           </>}
         </div>;
       })}
