@@ -1,11 +1,8 @@
 'use client';
 
 /**
- * RawGrid — the shared editable ledger for the operational notebook.
- *
- * It owns row/cell behavior only. Horizontal rails and the sheet-wide action
- * line are supplied by the Work Sheet Kernel so every tool feels like another
- * page in the same notebook rather than a separately designed screen.
+ * RawGrid — الدفتر الجدولي المشترك.
+ * الصفحة تصف الأعمدة ومعانيها فقط؛ المحرك يقرر سلوك الخلية والتنقل والحالة.
  */
 
 import styles from './RawGrid.module.css';
@@ -15,10 +12,20 @@ function resolveOptions(options, row) {
   return options || [];
 }
 
-function Cell({ column, row, onPatchRow, disabled }) {
+function fieldMeta(column, rowIndex) {
+  return {
+    'data-grid-field':'true',
+    'data-grid-row':String(rowIndex),
+    'data-grid-column':String(column.key),
+    'data-cell-type':column.type || 'custom',
+  };
+}
+
+function Cell({ column, row, rowIndex, onPatchRow, disabled }) {
   const value = row[column.key];
   const isVisible = column.visible ? column.visible(row) : true;
   const fieldClass = `${styles.field} ${column.savedStyle ? styles.fieldSaved : ''}`.trim();
+  const meta = fieldMeta(column, rowIndex);
 
   function patch(nextValue) {
     const change = column.onChange
@@ -27,15 +34,19 @@ function Cell({ column, row, onPatchRow, disabled }) {
     onPatchRow(change);
   }
 
+  function commit(event) {
+    if (typeof column.onCommit === 'function') column.onCommit(row, event.target.value);
+  }
+
   switch (column.type) {
     case 'index':
-      return <td className={styles.cellIndex}>{column.render(row)}</td>;
+      return <td className={styles.cellIndex} data-cell-type="index">{column.render(row)}</td>;
 
     case 'badge': {
       const tone = column.tone ? column.tone(row) : 'muted';
       const toneClass = tone === 'saved' ? styles.badgeSaved : tone === 'new' ? styles.badgeNew : styles.badgeMuted;
       return (
-        <td className={styles.cellBadge}>
+        <td className={styles.cellBadge} data-cell-type="badge">
           <span className={`${styles.badge} ${toneClass}`}>{column.text(row)}</span>
         </td>
       );
@@ -43,79 +54,91 @@ function Cell({ column, row, onPatchRow, disabled }) {
 
     case 'date':
       return (
-        <td>
-          <input
-            type="date"
-            className={fieldClass}
-            value={value || ''}
-            disabled={disabled}
-            onChange={(e) => patch(e.target.value)}
-          />
+        <td data-cell-type="date">
+          <input {...meta} type="date" className={fieldClass} value={value || ''} disabled={disabled} onChange={(e) => patch(e.target.value)} onBlur={commit} />
         </td>
       );
 
+    case 'money':
     case 'number':
       return (
-        <td>
+        <td data-cell-type={column.type}>
           <input
+            {...meta}
             type="number"
+            inputMode="decimal"
             className={fieldClass}
             min={column.min ?? 0}
             step={column.step ?? '0.01'}
             value={value ?? ''}
             disabled={disabled}
             onChange={(e) => patch(e.target.value)}
+            onBlur={commit}
+          />
+        </td>
+      );
+
+    case 'multiline':
+      return (
+        <td data-cell-type="multiline" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
+          <textarea
+            {...meta}
+            data-grid-enter-moves="false"
+            className={fieldClass}
+            rows={column.rows || 2}
+            placeholder={column.placeholder}
+            value={value ?? ''}
+            disabled={disabled}
+            onChange={(e) => patch(e.target.value)}
+            onBlur={commit}
           />
         </td>
       );
 
     case 'text':
       return (
-        <td style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
-          <input
-            type="text"
-            className={fieldClass}
-            placeholder={column.placeholder}
-            value={value ?? ''}
-            disabled={disabled}
-            onChange={(e) => patch(e.target.value)}
-          />
+        <td data-cell-type="text" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
+          <input {...meta} type="text" className={fieldClass} placeholder={column.placeholder} value={value ?? ''} disabled={disabled} onChange={(e) => patch(e.target.value)} onBlur={commit} />
         </td>
       );
 
     case 'select': {
       if (!isVisible) {
         return (
-          <td style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
+          <td data-cell-type="select" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
             <span className={styles.fieldMuted}>{column.placeholderWhenHidden ?? '—'}</span>
           </td>
         );
       }
       const opts = resolveOptions(column.options, row);
       return (
-        <td style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
-          <select
-            className={fieldClass}
-            value={value ?? ''}
-            disabled={disabled}
-            onChange={(e) => patch(e.target.value)}
-          >
+        <td data-cell-type="select" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
+          <select {...meta} className={fieldClass} value={value ?? ''} disabled={disabled} onChange={(e) => patch(e.target.value)} onBlur={commit}>
             {column.emptyOption !== undefined && <option value="">{column.emptyOption}</option>}
-            {opts.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
+            {opts.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
         </td>
       );
     }
 
     case 'action':
-      return <td className={styles.actionCell}>{column.render(row, { disabled })}</td>;
+      return <td className={styles.actionCell} data-cell-type="action">{column.render(row, { disabled })}</td>;
 
     case 'custom':
     default:
-      return <td>{column.render ? column.render(row, { disabled }) : null}</td>;
+      return <td data-cell-type={column.type || 'custom'}>{column.render ? column.render(row, { disabled }) : null}</td>;
   }
+}
+
+function moveVertical(table, target, delta) {
+  const row = Number(target.getAttribute('data-grid-row'));
+  const column = target.getAttribute('data-grid-column');
+  if (!Number.isInteger(row) || !column) return false;
+  const next = table.querySelector(`[data-grid-field="true"][data-grid-row="${row + delta}"][data-grid-column="${CSS.escape(column)}"]`);
+  if (!next || next.disabled) return false;
+  next.focus();
+  if (typeof next.select === 'function' && next.tagName.toLowerCase() === 'input' && next.type === 'text') next.select();
+  return true;
 }
 
 export default function RawGrid({
@@ -131,32 +154,30 @@ export default function RawGrid({
   if (loading) return <div className={styles.loading}>جارٍ التحميل…</div>;
   if (!rows?.length) return <div className={styles.empty}>{emptyMessage}</div>;
 
+  function keyDown(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.getAttribute('data-grid-field') !== 'true') return;
+    if (event.key !== 'Enter' || target.getAttribute('data-grid-enter-moves') === 'false') return;
+    if (target.tagName.toLowerCase() === 'select' && !event.shiftKey) return;
+    if (moveVertical(event.currentTarget, target, event.shiftKey ? -1 : 1)) event.preventDefault();
+  }
+
   return (
-    <div className={styles.wrap} data-work-ledger="true">
-      <table className={styles.table}>
+    <div className={styles.wrap} data-work-ledger="true" data-ledger-behavior="semantic-grid" data-keyboard-policy="enter-tab-native">
+      <table className={styles.table} onKeyDown={keyDown}>
         <thead>
           <tr>
-            {columns.map((column) => (
-              <th key={column.key} style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
-                {column.label}
-              </th>
-            ))}
+            {columns.map((column) => <th key={column.key} data-column-type={column.type || 'custom'} style={column.minWidth ? { minWidth: column.minWidth } : undefined}>{column.label}</th>)}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {rows.map((row, rowIndex) => {
             const key = rowKey(row);
             const saved = savedFlag ? savedFlag(row) : false;
             return (
-              <tr key={key} className={saved ? styles.rowSaved : styles.rowNew}>
+              <tr key={key} className={saved ? styles.rowSaved : styles.rowNew} data-record-row="true">
                 {columns.map((column) => (
-                  <Cell
-                    key={column.key}
-                    column={{ ...column, savedStyle: saved }}
-                    row={row}
-                    disabled={busy}
-                    onPatchRow={(patch) => onPatchRow(key, patch)}
-                  />
+                  <Cell key={column.key} column={{ ...column, savedStyle: saved }} row={row} rowIndex={rowIndex} disabled={busy} onPatchRow={(patch) => onPatchRow(key, patch)} />
                 ))}
               </tr>
             );
