@@ -147,6 +147,7 @@ export default function RawGrid({
   rowKey,
   savedFlag,
   onPatchRow,
+  rowDisabled,
   busy = false,
   loading = false,
   emptyMessage = 'لا توجد بيانات بعد.',
@@ -174,10 +175,11 @@ export default function RawGrid({
           {rows.map((row, rowIndex) => {
             const key = rowKey(row);
             const saved = savedFlag ? savedFlag(row) : false;
+            const disabled = busy || Boolean(rowDisabled?.(row));
             return (
-              <tr key={key} className={saved ? styles.rowSaved : styles.rowNew} data-record-row="true">
+              <tr key={key} className={saved ? styles.rowSaved : styles.rowNew} data-record-row="true" data-row-disabled={disabled ? 'true' : 'false'}>
                 {columns.map((column) => (
-                  <Cell key={column.key} column={{ ...column, savedStyle: saved }} row={row} rowIndex={rowIndex} disabled={busy} onPatchRow={(patch) => onPatchRow(key, patch)} />
+                  <Cell key={column.key} column={{ ...column, savedStyle: saved }} row={row} rowIndex={rowIndex} disabled={disabled} onPatchRow={(patch) => onPatchRow(key, patch)} />
                 ))}
               </tr>
             );
