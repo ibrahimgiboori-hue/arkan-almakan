@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { byCode } from '@/lib/doc-templates';
@@ -10,9 +10,33 @@ import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import PartiesPrint from '@/components/PartiesPrint';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import OfficeTemplateSections from '@/components/print/OfficeTemplateSections';
+import { usePrintCommandSection } from '@/components/print/PrintCommandDock';
 import './print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
+
+function DocumentPrintCommands({ bg, setBg, stamp, setStamp, bank, setBank, hasBrandPaper }) {
+  const controls = useMemo(() => (
+    <>
+      <button type="button" className={bg ? 'active' : ''} onClick={() => setBg((value) => !value)}>
+        {bg ? 'الترويسة ظاهرة' : 'ورق ترويسة جاهز'}
+      </button>
+      <button type="button" className={stamp ? 'active' : ''} onClick={() => setStamp((value) => !value)}>
+        {stamp ? 'الختم ظاهر' : 'الختم مخفي'}
+      </button>
+      <button type="button" className={bank ? 'active' : ''} onClick={() => setBank((value) => !value)}>
+        {bank ? 'الحساب البنكي ظاهر' : 'الحساب البنكي مخفي'}
+      </button>
+      <span className="print-command-note">
+        {hasBrandPaper ? 'حدود الليترهيد الآمنة محكومة بالقبطان' : 'لم تُرفع صورة الترويسة بعد'}
+      </span>
+      <button type="button" className="primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button>
+    </>
+  ), [bank, bg, hasBrandPaper, setBank, setBg, setStamp, stamp]);
+
+  usePrintCommandSection('document-actions', controls, 10);
+  return null;
+}
 
 export default function PrintDoc() {
   const { id } = useParams();
@@ -105,27 +129,15 @@ export default function PrintDoc() {
 
   return (
     <>
-      <div className="toolbar no-print">
-        <div className="tb-group">
-          <button className={bg ? 'on' : ''} onClick={()=>setBg(!bg)}>
-            {bg ? 'الترويسة ظاهرة' : 'للطباعة على ورق الترويسة'}
-          </button>
-          <button className={stamp ? 'on' : ''} onClick={()=>setStamp(!stamp)}>
-            {stamp ? 'الختم ظاهر' : 'الختم مخفي'}
-          </button>
-          <button className={bank ? 'on' : ''} onClick={()=>setBank(!bank)}>
-            {bank ? 'الحساب البنكي ظاهر' : 'الحساب البنكي مخفي'}
-          </button>
-        </div>
-        <div className="tb-group">
-          <span className="tb-warn">
-            {!hasBrandPaper
-              ? 'لم تُرفع صورة الترويسة بعد'
-              : 'القبطان يفرض حدود الليترهيد الآمنة على كل صفحة'}
-          </span>
-          <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
-        </div>
-      </div>
+      <DocumentPrintCommands
+        bg={bg}
+        setBg={setBg}
+        stamp={stamp}
+        setStamp={setStamp}
+        bank={bank}
+        setBank={setBank}
+        hasBrandPaper={hasBrandPaper}
+      />
 
       <ConstitutionPrintFrame
         documentKey="generic_document"
