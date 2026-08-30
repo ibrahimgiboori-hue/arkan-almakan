@@ -23,6 +23,11 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value)));
 }
 
+function positive(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
 function mergeSettings(familySettings = {}, documentSettings = {}) {
   return {
     ...familySettings,
@@ -49,9 +54,26 @@ export default function ConstitutionPrintFrame({
   const layout = getPrintLayoutPolicy(documentKey);
   const classes = printGovernanceClassName(documentKey, className);
   const rootRef = useRef(null);
+
+  const letterheadActive = frameProps.showLetterhead !== false;
+  const safeTop = letterheadActive ? positive(frameProps.cfg?.letterhead_top_mm) : 0;
+  const safeBottom = letterheadActive ? positive(frameProps.cfg?.letterhead_bottom_mm) : 0;
+  const safeSide = letterheadActive ? positive(frameProps.cfg?.letterhead_side_mm, MIN_SIDE_MM) : MIN_SIDE_MM;
+
+  // القالب أو المستند يستطيع طلب مساحة أكبر، لكنه لا يستطيع اختراق
+  // المنطقة الآمنة التي يملكها القبطان للترويسة والتذييل والهوامش.
+  const requestedTop = positive(frameProps.contentTopMm ?? layout.topMm ?? safeTop, safeTop);
+  const requestedBottom = positive(frameProps.contentBottomMm ?? layout.bottomMm ?? safeBottom, safeBottom);
+  const governedTop = Math.max(requestedTop, safeTop);
+  const governedBottom = Math.max(requestedBottom, safeBottom);
+  const governedSideFloor = clamp(Math.max(MIN_SIDE_MM, safeSide), MIN_SIDE_MM, MAX_SIDE_MM);
+
   const defaultSide = clamp(
-    frameProps.contentSideMm ?? layout.sideMm ?? frameProps.cfg?.letterhead_side_mm ?? 19,
-    MIN_SIDE_MM,
+    Math.max(
+      positive(frameProps.contentSideMm ?? layout.sideMm ?? safeSide, governedSideFloor),
+      governedSideFloor,
+    ),
+    governedSideFloor,
     MAX_SIDE_MM,
   );
 
@@ -77,20 +99,24 @@ export default function ConstitutionPrintFrame({
     const merged = mergeSettings(familySettings, documentSettings);
     setDraft({
       ...merged,
-      sideMm:clamp(merged.sideMm ?? defaultSide, MIN_SIDE_MM, MAX_SIDE_MM),
+      sideMm:clamp(
+        Math.max(positive(merged.sideMm ?? defaultSide, defaultSide), governedSideFloor),
+        governedSideFloor,
+        MAX_SIDE_MM,
+      ),
       grids:merged.grids || {},
       rows:merged.rows || {},
     });
-  }, [defaultSide, documentKey, family]);
+  }, [defaultSide, documentKey, family, governedSideFloor]);
 
   useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
   const setSideMm = useCallback((value) => {
     setDraft(previous => ({
       ...previous,
-      sideMm:clamp(value, MIN_SIDE_MM, MAX_SIDE_MM),
+      sideMm:clamp(value, governedSideFloor, MAX_SIDE_MM),
     }));
-  }, []);
+  }, [governedSideFloor]);
 
   const setGridLayout = useCallback((key, value) => {
     setDraft(previous => {
@@ -195,7 +221,10 @@ export default function ConstitutionPrintFrame({
           <span className="print-layout-value">
             {PRINT_GRID_MAJOR_COLUMNS} عمودًا / {PRINT_GRID_COLUMNS} وحدة · صف {PRINT_GRID_ROW_MM} مم
           </span>
-          <span className="print-layout-value">الهامش: <strong>{Number(draft.sideMm).toFixed(1)} مم</strong></span>
+          <span className="print-layout-value">
+            الهامش: <strong>{Number(draft.sideMm).toFixed(1)} مم</strong>
+            {letterheadActive ? ` · الحد الآمن ${governedSideFloor.toFixed(1)} مم` : ''}
+          </span>
           <button type="button" onClick={() => saveLayout('document')}>حفظ لهذا المطبوع</button>
           <button type="button" onClick={() => saveLayout('family')}>حفظ للعائلة</button>
           <button type="button" onClick={followFamily}>استخدام شبكة العائلة</button>
@@ -208,8 +237,8 @@ export default function ConstitutionPrintFrame({
         {...frameProps}
         balancePolicy={flowPagination ? null : layout.balance}
         flowPagination={flowPagination}
-        contentTopMm={frameProps.contentTopMm ?? layout.topMm}
-        contentBottomMm={frameProps.contentBottomMm ?? layout.bottomMm}
+        contentTopMm={governedTop}
+        contentBottomMm={governedBottom}
         contentSideMm={draft.sideMm}
         layoutEditing={editing}
         onContentSideChange={setSideMm}
@@ -221,6 +250,10 @@ export default function ConstitutionPrintFrame({
           data-print-family={family}
           data-print-status={definition.status}
           data-print-pagination={layout.paginationMode}
+          data-print-letterhead={letterheadActive ? 'active' : 'off'}
+          data-print-safe-top-mm={governedTop}
+          data-print-safe-bottom-mm={governedBottom}
+          data-print-safe-side-mm={draft.sideMm}
           data-print-governance-version={PRINT_GOVERNANCE_VERSION}
         >
           {children}
