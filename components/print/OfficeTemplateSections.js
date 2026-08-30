@@ -1,7 +1,6 @@
 'use client';
 
 import PartiesPrint from '@/components/PartiesPrint';
-import Riyal from '@/components/Riyal';
 import {
   OFFICE_BLOCK_KIND,
   OFFICE_FIELD_GRID_COLUMNS,
@@ -17,6 +16,36 @@ function blockStyle(span) {
   return { gridColumn:`span ${span}` };
 }
 
+function MetadataBlock({ metadata }) {
+  const fields = (metadata?.fields || []).filter((field) => nonEmpty(field.value));
+  if (!fields.length) return null;
+  return (
+    <section
+      className="office-block office-block-info"
+      style={blockStyle(metadata.span || 6)}
+      data-office-block="info"
+      data-office-block-id="document_metadata"
+      data-office-split="keep"
+      data-office-share-row="true"
+    >
+      <h3 className="office-block-title">{metadata.title || 'بيانات المستند'}</h3>
+      <div className="office-field-grid" style={{'--office-field-columns':OFFICE_FIELD_GRID_COLUMNS}}>
+        {fields.map((field) => (
+          <div
+            className={`office-field office-field-${field.type || 'text'}`}
+            key={field.key}
+            style={{gridColumn:`span ${field.span || 24}`}}
+            data-print-type={field.type || 'text'}
+          >
+            <span className="office-field-label">{field.label}</span>
+            <strong className="office-field-value">{field.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function OfficeTemplateSections({
   sections,
   payload,
@@ -27,6 +56,7 @@ export default function OfficeTemplateSections({
   signUrl,
   stampMm = 30,
   signMm = 20,
+  documentMetadata,
 }) {
   const p = payload || {};
   const lineRows = Array.isArray(rows) ? rows : [];
@@ -34,6 +64,8 @@ export default function OfficeTemplateSections({
 
   return (
     <div className="office-composition" data-office-model="2.0">
+      <MetadataBlock metadata={documentMetadata} />
+
       {blocks.map(({ section:s, id, kind, span, split, canShareRow }) => {
         const common = {
           key:id,
