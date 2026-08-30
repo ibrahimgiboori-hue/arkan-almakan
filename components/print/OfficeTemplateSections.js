@@ -22,7 +22,7 @@ function MetadataBlock({ metadata }) {
   return (
     <section
       className="office-block office-block-info"
-      style={blockStyle(metadata.span || 6)}
+      style={blockStyle(metadata.span || 4)}
       data-office-block="info"
       data-office-block-id="document_metadata"
       data-office-split="keep"
@@ -67,6 +67,7 @@ export default function OfficeTemplateSections({
 
       {blocks.map(({ section:s, id, kind, span, split, canShareRow }) => {
         const common = {
+          key:id,
           className:`office-block office-block-${kind}`,
           style:blockStyle(span),
           'data-office-block':kind,
@@ -79,7 +80,7 @@ export default function OfficeTemplateSections({
           const fields = (s.fields || []).filter((field) => nonEmpty(p[field.key]));
           if (!fields.length) return null;
           return (
-            <section {...common} key={id}>
+            <section {...common}>
               {s.title && <h3 className="office-block-title">{s.title}</h3>}
               <div className="office-field-grid" style={{'--office-field-columns':OFFICE_FIELD_GRID_COLUMNS}}>
                 {fields.map((field) => (
@@ -104,7 +105,7 @@ export default function OfficeTemplateSections({
           const columns = s.columns || [];
           const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
           return (
-            <section {...common} key={id}>
+            <section {...common}>
               {s.title && <h3 className="office-block-title">{s.title}</h3>}
               <table className="office-data-table amounts" data-print-editable-columns data-print-grid-name={`office-${id}`}>
                 <colgroup>
@@ -151,7 +152,7 @@ export default function OfficeTemplateSections({
         if (kind === OFFICE_BLOCK_KIND.PROSE) {
           if (!nonEmpty(p[s.key])) return null;
           return (
-            <section {...common} key={id}>
+            <section {...common}>
               {s.title && <h3 className="office-block-title">{s.title}</h3>}
               <div className="office-prose print-prose">{p[s.key]}</div>
             </section>
@@ -161,7 +162,7 @@ export default function OfficeTemplateSections({
         if (kind === OFFICE_BLOCK_KIND.LETTERHEAD) {
           const hasRef = p.our_ref || p.your_ref;
           return (
-            <section {...common} className={`${common.className} office-letterhead`} key={id}>
+            <section {...common} className={`${common.className} office-letterhead`}>
               {hasRef && (
                 <div className="ltr-refs">
                   {p.our_ref && <span>إشارتنا: <span className="mono">{p.our_ref}</span></span>}
@@ -181,13 +182,13 @@ export default function OfficeTemplateSections({
         }
 
         if (kind === OFFICE_BLOCK_KIND.PARTIES) {
-          return <section {...common} key={id}><PartiesPrint parties={parties} /></section>;
+          return <section {...common}><PartiesPrint parties={parties} /></section>;
         }
 
         if (kind === OFFICE_BLOCK_KIND.STAMP) {
           if (!stampUrl && !signUrl) return null;
           return (
-            <section {...common} key={id}>
+            <section {...common}>
               <div className="stampbox-row">
                 <div className="stampbox">
                   {signUrl && <img className="sb-sign" src={signUrl} alt="" style={{height:`${signMm}mm`}} />}
@@ -202,7 +203,7 @@ export default function OfficeTemplateSections({
           const roles = s.roles || [];
           if (!roles.length) return null;
           return (
-            <section {...common} key={id}>
+            <section {...common}>
               {s.title && <h3 className="office-block-title">{s.title}</h3>}
               <table className="sigtable">
                 <thead><tr>{roles.map((role) => <th key={role}>{role}</th>)}</tr></thead>
