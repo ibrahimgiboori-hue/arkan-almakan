@@ -1,5 +1,5 @@
 /* ============================================================
-   ARKAN PRINT OFFICE MODEL v2
+   ARKAN PRINT OFFICE MODEL v2.1
    مطبوعات أركان المكان = أفضل ما في Word + أفضل ما في Excel.
 
    Word owns:
@@ -38,21 +38,16 @@
   --office-cell-x:1.15mm;
   --office-composition-gap:2.2mm;
   --office-field-gap:.8mm;
+  --office-metadata-row-min:6.5mm;
 }
 
-/* Generic document title also follows the same print-wide typography property. */
-.print-doc-generic_document .title-block h1{
-  font-size:var(--office-title-size)!important;
-}
+.print-doc-generic_document .title-block h1{font-size:var(--office-title-size)!important}
 .print-doc-generic_document .title-en,
 .print-doc-generic_document .ltr-meta,
 .print-doc-generic_document .ltr-refs,
 .print-doc-generic_document .ltr-to,
-.print-doc-generic_document .ltr-salut{
-  font-size:var(--office-subtitle-size)!important;
-}
+.print-doc-generic_document .ltr-salut{font-size:var(--office-subtitle-size)!important}
 
-/* ---------- Word layer: editorial document behavior ---------- */
 .print-constitution .print-prose,
 .print-constitution .letter-body,
 .print-constitution .dc-body,
@@ -63,38 +58,23 @@
 .print-constitution .salutation{
   font-size:var(--office-prose-size)!important;
   line-height:var(--office-prose-leading)!important;
-  orphans:3;
-  widows:3;
+  orphans:3;widows:3;
 }
-
 .print-constitution .print-prose,
 .print-constitution .letter-body,
-.print-constitution .dc-body{
-  white-space:pre-wrap;
-}
-
-.print-constitution .letter-body{
-  text-align:justify;
-  margin-block:0 var(--office-prose-gap)!important;
-}
-
+.print-constitution .dc-body{white-space:pre-wrap}
+.print-constitution .letter-body{text-align:justify;margin-block:0 var(--office-prose-gap)!important}
 .print-constitution .print-prose,
 .print-constitution .dc-body,
 .print-constitution .q-intro,
 .print-constitution .q-closing,
-.print-constitution .print-signoff-declaration{
-  margin-block-end:var(--office-prose-gap);
-}
-
+.print-constitution .print-signoff-declaration{margin-block-end:var(--office-prose-gap)}
 .print-constitution .print-prose p,
 .print-constitution p.print-prose,
-.print-constitution .dc-body p{
-  margin:0 0 var(--office-prose-gap);
-}
+.print-constitution .dc-body p{margin:0 0 var(--office-prose-gap)}
 .print-constitution .print-prose p:last-child,
 .print-constitution .dc-body p:last-child{margin-bottom:0}
 
-/* Word keep-with-next: a heading should travel with the paragraph/table it introduces. */
 .print-constitution h1,
 .print-constitution h2,
 .print-constitution h3,
@@ -106,42 +86,21 @@
 .print-constitution .card-head,
 .print-constitution .pc-head,
 .print-constitution .office-block-title{
-  line-height:var(--office-heading-leading);
-  break-after:avoid;
-  page-break-after:avoid;
+  line-height:var(--office-heading-leading);break-after:avoid;page-break-after:avoid;
 }
-
 .print-constitution .print-prose h2,
 .print-constitution .print-prose h3,
 .print-constitution .dc-body h2,
-.print-constitution .dc-body h3{
-  margin:var(--office-heading-gap-before) 0 var(--office-heading-gap-after);
-}
-
-/* Ordinary unclassed paragraphs should behave like document paragraphs, not UI labels. */
-.print-constitution p:not([class]){
-  line-height:var(--office-prose-leading);
-  orphans:3;
-  widows:3;
-}
-
-/* Clauses/terms are editorial paragraphs: title inline, then punctuation, then body. */
+.print-constitution .dc-body h3{margin:var(--office-heading-gap-before) 0 var(--office-heading-gap-after)}
+.print-constitution p:not([class]){line-height:var(--office-prose-leading);orphans:3;widows:3}
 .print-constitution .print-clause{
-  margin:0 0 var(--office-prose-gap);
-  font-size:var(--office-prose-size);
-  line-height:var(--office-prose-leading);
-  break-inside:avoid;
-  page-break-inside:avoid;
+  margin:0 0 var(--office-prose-gap);font-size:var(--office-prose-size);line-height:var(--office-prose-leading);
+  break-inside:avoid;page-break-inside:avoid;
 }
-.print-constitution .print-clause-title{
-  display:inline;
-  color:var(--arkan-print-accent);
-  font-weight:700;
-}
+.print-constitution .print-clause-title{display:inline;color:var(--arkan-print-accent);font-weight:700}
 .print-constitution .print-clause-title::after{content:'.\00a0'}
 .print-constitution .print-clause-body{display:inline}
 
-/* ---------- Excel layer: structured table behavior ---------- */
 .print-constitution table,
 .print-constitution .print-data-table,
 .print-constitution .amounts,
@@ -151,10 +110,7 @@
 .print-constitution .summary-table,
 .print-constitution .payment-table,
 .print-constitution .r-table,
-.print-constitution .sigtable{
-  font-variant-numeric:tabular-nums;
-}
-
+.print-constitution .sigtable{font-variant-numeric:tabular-nums}
 .print-constitution .print-data-table,
 .print-constitution .amounts,
 .print-constitution .q-table,
@@ -163,19 +119,12 @@
 .print-constitution .summary-table,
 .print-constitution .payment-table,
 .print-constitution .r-table,
-.print-constitution .office-data-table{
-  font-size:var(--office-table-size)!important;
-  line-height:var(--office-table-leading);
-}
-
+.print-constitution .office-data-table{font-size:var(--office-table-size)!important;line-height:var(--office-table-leading)}
 .print-constitution .print-data-table th,
 .print-constitution .print-data-table td,
 .print-constitution .office-data-table th,
-.print-constitution .office-data-table td{
-  padding:var(--office-cell-y) var(--office-cell-x);
-}
+.print-constitution .office-data-table td{padding:var(--office-cell-y) var(--office-cell-x)}
 
-/* Excel alignment: numbers stay visually scannable and never wrap like prose. */
 .print-constitution .num,
 .print-constitution .mono,
 .print-constitution [data-print-type="number"],
@@ -185,10 +134,7 @@
 .print-constitution [data-print-column-role="quantity"],
 .print-constitution [data-print-column-role="unit-price"],
 .print-constitution [data-print-column-role="amount"],
-.print-constitution [data-print-column-role="measurement-number"]{
-  font-variant-numeric:tabular-nums;
-}
-
+.print-constitution [data-print-column-role="measurement-number"]{font-variant-numeric:tabular-nums}
 .print-constitution td.num,
 .print-constitution th.num,
 .print-constitution td.mono,
@@ -200,177 +146,118 @@
 .print-constitution [data-print-column-role="quantity"],
 .print-constitution [data-print-column-role="unit-price"],
 .print-constitution [data-print-column-role="amount"]{
-  direction:ltr;
-  unicode-bidi:isolate;
-  text-align:left;
-  white-space:nowrap;
-  overflow-wrap:normal;
-  word-break:keep-all;
+  direction:ltr;unicode-bidi:isolate;text-align:left;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;
 }
-
-/* Dates behave like spreadsheet values when used in a table. */
 .print-constitution table [data-print-type="date"],
 .print-constitution table .date,
 .print-constitution table [data-print-column-role="date-range"]{
-  white-space:nowrap;
-  overflow-wrap:normal;
-  word-break:keep-all;
-  font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow-wrap:normal;word-break:keep-all;font-variant-numeric:tabular-nums;
 }
-
-/* Excel page behavior: header repeats; a record is one indivisible visual row. */
 .print-constitution table thead{display:table-header-group}
 .print-constitution table tfoot{display:table-footer-group}
-.print-constitution table tr{
-  break-inside:avoid!important;
-  page-break-inside:avoid!important;
-}
-
-/* Totals look like spreadsheet totals without turning the whole document into a spreadsheet. */
+.print-constitution table tr{break-inside:avoid!important;page-break-inside:avoid!important}
 .print-constitution .print-total-row,
 .print-constitution table tfoot tr,
-.print-constitution .summary-table tr.total{
-  font-weight:700;
-}
+.print-constitution .summary-table tr.total{font-weight:700}
 
-/* ---------- Composition layer: template freedom inside Captain boundaries ---------- */
 .print-constitution .office-composition{
-  display:grid;
-  grid-template-columns:repeat(12,minmax(0,1fr));
-  gap:var(--office-composition-gap);
-  align-items:start;
-  width:100%;
-  min-width:0;
+  display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--office-composition-gap);
+  align-items:start;width:100%;min-width:0;
 }
-
-.print-constitution .office-block{
-  min-width:0;
-  align-self:start;
-}
-
-.print-constitution .office-block[data-office-share-row="false"]{
-  grid-column:1 / -1!important;
-}
-
+.print-constitution .office-block{min-width:0;align-self:start}
+.print-constitution .office-block[data-office-share-row="false"]{grid-column:1 / -1!important}
 .print-constitution .office-block-title{
-  margin:0;
-  padding:1.05mm 1.35mm;
-  border:.22mm solid var(--arkan-print-border);
-  border-bottom:0;
-  background:var(--arkan-print-label);
-  color:var(--arkan-print-accent);
-  font-size:var(--office-block-title-size)!important;
-  font-weight:700;
+  margin:0;padding:1.05mm 1.35mm;border:.22mm solid var(--arkan-print-border);border-bottom:0;
+  background:var(--arkan-print-label);color:var(--arkan-print-accent);
+  font-size:var(--office-block-title-size)!important;font-weight:700;
 }
-
 .print-constitution .office-field-grid{
-  display:grid;
-  grid-template-columns:repeat(var(--office-field-columns,48),minmax(0,1fr));
-  gap:0;
-  border-top:.22mm solid var(--arkan-print-border);
+  display:grid;grid-template-columns:repeat(var(--office-field-columns,48),minmax(0,1fr));
+  grid-auto-flow:row;align-items:stretch;gap:0;border-top:.22mm solid var(--arkan-print-border);
   border-right:.22mm solid var(--arkan-print-border);
 }
-
 .print-constitution .office-block-title + .office-field-grid{border-top:0}
-
 .print-constitution .office-field{
-  min-width:0;
-  min-height:8mm;
-  padding:.9mm 1.15mm;
-  border-left:.22mm solid var(--arkan-print-border);
-  border-bottom:.22mm solid var(--arkan-print-border);
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap:.45mm;
-  background:#fff;
+  min-width:0;min-height:8mm;padding:.9mm 1.15mm;border-left:.22mm solid var(--arkan-print-border);
+  border-bottom:.22mm solid var(--arkan-print-border);display:flex;flex-direction:column;
+  justify-content:center;gap:.45mm;background:#fff;
 }
 
+/* Metadata is one true rectangular grid. Label + value occupy one line whenever the value fits. */
+.print-constitution .office-metadata-grid{grid-auto-rows:minmax(var(--office-metadata-row-min),auto)}
+.print-constitution .office-field-inline{
+  min-height:var(--office-metadata-row-min);padding:.7mm 1.1mm;flex-direction:row;align-items:center;
+  justify-content:flex-start;gap:.65mm;overflow:hidden;
+}
+.print-constitution .office-field-inline .office-field-label{flex:0 0 auto;white-space:nowrap;font-weight:600}
+.print-constitution .office-field-inline .office-field-label::after{content:':';margin-inline-start:.25mm}
+.print-constitution .office-field-inline .office-field-value{
+  flex:1 1 auto;min-width:0;margin:0;overflow-wrap:break-word;
+}
 .print-constitution .office-field-label{
-  display:block;
-  color:var(--arkan-print-muted);
-  font-size:var(--office-field-label-size)!important;
-  line-height:1.25;
+  display:block;color:var(--arkan-print-muted);font-size:var(--office-field-label-size)!important;line-height:1.25;
 }
-
 .print-constitution .office-field-value{
-  display:block;
-  min-width:0;
-  color:var(--arkan-print-text);
-  font-size:var(--office-field-value-size)!important;
-  line-height:1.32;
-  font-weight:700;
-  overflow-wrap:break-word;
+  display:block;min-width:0;color:var(--arkan-print-text);font-size:var(--office-field-value-size)!important;
+  line-height:1.32;font-weight:700;overflow-wrap:break-word;
+}
+.print-constitution .office-block-summary .office-field{min-height:10mm}
+.print-constitution .office-block-summary .office-field-value{font-size:var(--office-summary-value-size)!important}
+.print-constitution .office-block-prose{grid-column:1 / -1!important}
+.print-constitution .office-block-prose .office-prose{padding:1.2mm 0 0;white-space:pre-wrap;text-align:justify}
+.print-constitution .office-block-table{grid-column:1 / -1!important;min-width:0}
+
+/* Semantic table geometry: roles own width. No cell may paint across its neighbour. */
+.print-constitution .office-data-table{width:100%;margin:0;table-layout:fixed;border-collapse:collapse}
+.print-constitution .office-semantic-table th,
+.print-constitution .office-semantic-table td{
+  min-width:0;max-width:0;box-sizing:border-box;vertical-align:middle;overflow:hidden;
+  border:.22mm solid var(--arkan-print-border);
+}
+.print-constitution .office-semantic-table thead th{
+  text-align:center;white-space:normal;word-break:normal;overflow-wrap:normal;line-height:1.25;
+}
+.print-constitution .office-semantic-table td .office-cell-content{
+  display:block;width:100%;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal;
+}
+.print-constitution .office-semantic-table td.office-numeric-column{padding-inline:.7mm}
+.print-constitution .office-semantic-table td.office-numeric-column .office-cell-content{
+  display:inline-flex;width:auto;max-width:100%;align-items:center;justify-content:flex-start;gap:.35mm;
+  direction:ltr;unicode-bidi:isolate;white-space:nowrap;overflow:visible;
+  font-size:calc(var(--office-table-size) - .25pt);
+}
+.print-constitution .office-semantic-table [data-office-column-role="reference"]{
+  text-align:center;direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;word-break:break-word;
+}
+.print-constitution .office-semantic-table [data-office-column-role="status"]{
+  direction:rtl;text-align:right;white-space:normal;line-height:1.45;overflow-wrap:anywhere;
+}
+.print-constitution .office-semantic-table [data-office-column-role="unit"],
+.print-constitution .office-semantic-table [data-office-column-role="quantity"],
+.print-constitution .office-semantic-table .serial-col{text-align:center}
+.print-constitution .office-semantic-table tr[data-office-row-mode="package"]{font-weight:700}
+.print-constitution .office-semantic-table tr[data-office-row-mode="package"] [data-office-column-role="unit"]{
+  white-space:normal;line-height:1.2;
 }
 
-.print-constitution .office-block-summary .office-field{
-  min-height:10mm;
-}
-.print-constitution .office-block-summary .office-field-value{
-  font-size:var(--office-summary-value-size)!important;
-}
-
-.print-constitution .office-block-prose{
-  grid-column:1 / -1!important;
-}
-.print-constitution .office-block-prose .office-prose{
-  padding:1.2mm 0 0;
-  white-space:pre-wrap;
-  text-align:justify;
-}
-
-.print-constitution .office-block-table{
-  grid-column:1 / -1!important;
-  min-width:0;
-}
-.print-constitution .office-data-table{
-  width:100%;
-  margin:0;
-  table-layout:fixed;
-}
-
-/* Split policy is data. Captain/browser pagination enforces it. */
-.print-constitution [data-office-split="keep"]{
-  break-inside:avoid;
-  page-break-inside:avoid;
-}
-.print-constitution [data-office-split="flow"]{
-  break-inside:auto;
-  page-break-inside:auto;
-}
-.print-constitution [data-office-split="rows"]{
-  break-inside:auto;
-  page-break-inside:auto;
-}
-.print-constitution [data-office-split="rows"] table{
-  break-inside:auto!important;
-  page-break-inside:auto!important;
-}
+.print-constitution [data-office-split="keep"]{break-inside:avoid;page-break-inside:avoid}
+.print-constitution [data-office-split="flow"]{break-inside:auto;page-break-inside:auto}
+.print-constitution [data-office-split="rows"]{break-inside:auto;page-break-inside:auto}
+.print-constitution [data-office-split="rows"] table{break-inside:auto!important;page-break-inside:auto!important}
 .print-constitution [data-office-split="rows"] thead{display:table-header-group}
-.print-constitution [data-office-split="rows"] tbody tr{
-  break-inside:avoid!important;
-  page-break-inside:avoid!important;
-}
+.print-constitution [data-office-split="rows"] tbody tr{break-inside:avoid!important;page-break-inside:avoid!important}
 
-/* Avoid UI-card rhythm in narrative areas. Cards stay allowed only for actual metadata/data regions. */
 .print-constitution .print-prose,
 .print-constitution .letter-body,
 .print-constitution .q-term-flow,
-.print-constitution .office-block-prose{
-  border-radius:0;
-  box-shadow:none;
-}
+.print-constitution .office-block-prose{border-radius:0;box-shadow:none}
 
 @media print{
   .print-constitution .print-prose,
   .print-constitution .letter-body,
   .print-constitution .dc-body,
   .print-constitution .q-term-flow,
-  .print-constitution .office-block-prose{
-    box-shadow:none!important;
-  }
-
-  .print-constitution .office-composition{
-    gap:2mm;
-  }
+  .print-constitution .office-block-prose{box-shadow:none!important}
+  .print-constitution .office-composition{gap:2mm}
 }
