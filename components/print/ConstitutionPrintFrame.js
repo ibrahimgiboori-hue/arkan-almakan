@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import PrintFrame from '@/components/print/PrintFrame';
 import { PrintLayoutProvider } from '@/components/print/PrintLayoutContext';
+import TableBoundaryEditor from '@/components/print/TableBoundaryEditor';
 import {
   PRINT_GRID_COLUMNS,
   PRINT_GRID_MAJOR_COLUMNS,
@@ -169,13 +170,27 @@ export default function ConstitutionPrintFrame({
     setRowHeight,
   }), [draft.grids, draft.rows, editing, setGridLayout, setRowHeight]);
 
+  const rootSelector = `.print-page .print-doc-${documentKey}`;
+
   return (
     <PrintLayoutProvider value={contextValue}>
+      <TableBoundaryEditor
+        editing={editing}
+        gridLayouts={draft.grids || {}}
+        setGridLayout={setGridLayout}
+        documentKey={documentKey}
+        rootSelector={rootSelector}
+        refreshKey={children}
+      />
+
       <div className="print-layoutbar no-print" role="region" aria-label="ضبط شبكة المطبوع">
         <button type="button" className={editing ? 'active' : ''} onClick={() => setEditing(value => !value)}>
-          {editing ? 'إنهاء ضبط الشبكة' : 'ضبط شبكة الخلايا'}
+          {editing ? 'إنهاء ضبط الحدود' : 'ضبط حدود الخلايا'}
         </button>
         {editing && <>
+          <span className="print-layout-value">
+            اسحب أي حد بين عمودين لتغيير عرضهما مع بقاء عرض الجدول ثابتًا · نقرتان على الحد تعيدان الجدول للوضع الافتراضي
+          </span>
           <span className="print-layout-value">
             {PRINT_GRID_MAJOR_COLUMNS} عمودًا / {PRINT_GRID_COLUMNS} وحدة · صف {PRINT_GRID_ROW_MM} مم
           </span>
