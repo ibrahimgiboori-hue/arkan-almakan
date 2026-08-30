@@ -1,5 +1,5 @@
 /* ============================================================
-   ARKAN PRINT OFFICE MODEL v1
+   ARKAN PRINT OFFICE MODEL v2
    مطبوعات أركان المكان = أفضل ما في Word + أفضل ما في Excel.
 
    Word owns:
@@ -10,7 +10,12 @@
    - tables, quantities, money, percentages, dates and totals
    - stable columns, tabular numerals, repeated headers, non-splitting rows
 
-   The paper is a document first. Tables are structured data regions inside it.
+   Composition owns:
+   - placing independent blocks side by side inside the governed content area
+   - 12-column outer layout + 48-unit inner field layout
+   - each template describes spans/split policy as data, never page geometry
+
+   Captain owns the physical paper. The Office Model owns content composition.
    ============================================================ */
 
 .print-constitution{
@@ -24,6 +29,8 @@
   --office-table-leading:1.28;
   --office-cell-y:.9mm;
   --office-cell-x:1.15mm;
+  --office-composition-gap:2.2mm;
+  --office-field-gap:.8mm;
 }
 
 /* ---------- Word layer: editorial document behavior ---------- */
@@ -78,7 +85,8 @@
 .print-constitution .dc-head,
 .print-constitution .qb-head,
 .print-constitution .card-head,
-.print-constitution .pc-head{
+.print-constitution .pc-head,
+.print-constitution .office-block-title{
   line-height:var(--office-heading-leading);
   break-after:avoid;
   page-break-after:avoid;
@@ -135,13 +143,16 @@
 .print-constitution .data-table,
 .print-constitution .summary-table,
 .print-constitution .payment-table,
-.print-constitution .r-table{
+.print-constitution .r-table,
+.print-constitution .office-data-table{
   font-size:var(--office-table-size);
   line-height:var(--office-table-leading);
 }
 
 .print-constitution .print-data-table th,
-.print-constitution .print-data-table td{
+.print-constitution .print-data-table td,
+.print-constitution .office-data-table th,
+.print-constitution .office-data-table td{
   padding:var(--office-cell-y) var(--office-cell-x);
 }
 
@@ -203,10 +214,130 @@
   font-weight:700;
 }
 
+/* ---------- Composition layer: template freedom inside Captain boundaries ---------- */
+.print-constitution .office-composition{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:var(--office-composition-gap);
+  align-items:start;
+  width:100%;
+  min-width:0;
+}
+
+.print-constitution .office-block{
+  min-width:0;
+  align-self:start;
+}
+
+.print-constitution .office-block[data-office-share-row="false"]{
+  grid-column:1 / -1!important;
+}
+
+.print-constitution .office-block-title{
+  margin:0;
+  padding:1.05mm 1.35mm;
+  border:.22mm solid var(--arkan-print-border);
+  border-bottom:0;
+  background:var(--arkan-print-label);
+  color:var(--arkan-print-accent);
+  font-size:8.2pt;
+  font-weight:700;
+}
+
+.print-constitution .office-field-grid{
+  display:grid;
+  grid-template-columns:repeat(var(--office-field-columns,48),minmax(0,1fr));
+  gap:0;
+  border-top:.22mm solid var(--arkan-print-border);
+  border-right:.22mm solid var(--arkan-print-border);
+}
+
+.print-constitution .office-block-title + .office-field-grid{border-top:0}
+
+.print-constitution .office-field{
+  min-width:0;
+  min-height:8mm;
+  padding:.9mm 1.15mm;
+  border-left:.22mm solid var(--arkan-print-border);
+  border-bottom:.22mm solid var(--arkan-print-border);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:.45mm;
+  background:#fff;
+}
+
+.print-constitution .office-field-label{
+  display:block;
+  color:var(--arkan-print-muted);
+  font-size:6.7pt;
+  line-height:1.25;
+}
+
+.print-constitution .office-field-value{
+  display:block;
+  min-width:0;
+  color:var(--arkan-print-text);
+  font-size:8pt;
+  line-height:1.32;
+  font-weight:700;
+  overflow-wrap:break-word;
+}
+
+.print-constitution .office-block-summary .office-field{
+  min-height:10mm;
+}
+.print-constitution .office-block-summary .office-field-value{
+  font-size:9pt;
+}
+
+.print-constitution .office-block-prose{
+  grid-column:1 / -1!important;
+}
+.print-constitution .office-block-prose .office-prose{
+  padding:1.2mm 0 0;
+  white-space:pre-wrap;
+  text-align:justify;
+}
+
+.print-constitution .office-block-table{
+  grid-column:1 / -1!important;
+  min-width:0;
+}
+.print-constitution .office-data-table{
+  width:100%;
+  margin:0;
+  table-layout:fixed;
+}
+
+/* Split policy is data. Captain/browser pagination enforces it. */
+.print-constitution [data-office-split="keep"]{
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.print-constitution [data-office-split="flow"]{
+  break-inside:auto;
+  page-break-inside:auto;
+}
+.print-constitution [data-office-split="rows"]{
+  break-inside:auto;
+  page-break-inside:auto;
+}
+.print-constitution [data-office-split="rows"] table{
+  break-inside:auto!important;
+  page-break-inside:auto!important;
+}
+.print-constitution [data-office-split="rows"] thead{display:table-header-group}
+.print-constitution [data-office-split="rows"] tbody tr{
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+}
+
 /* Avoid UI-card rhythm in narrative areas. Cards stay allowed only for actual metadata/data regions. */
 .print-constitution .print-prose,
 .print-constitution .letter-body,
-.print-constitution .q-term-flow{
+.print-constitution .q-term-flow,
+.print-constitution .office-block-prose{
   border-radius:0;
   box-shadow:none;
 }
@@ -215,7 +346,12 @@
   .print-constitution .print-prose,
   .print-constitution .letter-body,
   .print-constitution .dc-body,
-  .print-constitution .q-term-flow{
+  .print-constitution .q-term-flow,
+  .print-constitution .office-block-prose{
     box-shadow:none!important;
+  }
+
+  .print-constitution .office-composition{
+    gap:2mm;
   }
 }
