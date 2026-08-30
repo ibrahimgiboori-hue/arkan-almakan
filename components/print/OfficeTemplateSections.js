@@ -3,10 +3,15 @@
 import PartiesPrint from '@/components/PartiesPrint';
 import {
   OFFICE_BLOCK_KIND,
+  OFFICE_COLUMN_ROLE,
   OFFICE_FIELD_GRID_COLUMNS,
   OFFICE_GRID_COLUMNS,
   officeComposition,
   resolveOfficeFieldSpan,
+  resolveOfficeMetadataFieldSpan,
+  resolveOfficeRowMode,
+  resolveOfficeRowValue,
+  resolveOfficeTableColumns,
 } from '@/lib/print-office-model';
 
 function nonEmpty(value) {
@@ -17,16 +22,40 @@ function blockStyle(span) {
   return { gridColumn:`span ${span}` };
 }
 
+function renderColumnValue(renderValue, column, role, value) {
+  if (role === OFFICE_COLUMN_ROLE.QUANTITY) {
+    return renderValue({ ...column, type:'number' }, value);
+  }
+  if (role === OFFICE_COLUMN_ROLE.UNIT_PRICE && column.type === 'text') {
+    return renderValue({ ...column, type:'number' }, value);
+  }
+  return renderValue(column, value);
+}
+
+function isNumericColumn(role, type) {
+  return ['money','number'].includes(type)
+    || [
+      OFFICE_COLUMN_ROLE.QUANTITY,
+      OFFICE_COLUMN_ROLE.UNIT_PRICE,
+      OFFICE_COLUMN_ROLE.AMOUNT,
+      OFFICE_COLUMN_ROLE.PAID,
+      OFFICE_COLUMN_ROLE.PENDING,
+    ].includes(role);
+}
+
 function UnifiedMetadataBlock({ metadata, infoBlock, payload, renderValue }) {
   const p = payload || {};
   const metadataFields = (metadata?.fields || [])
     .filter((field) => nonEmpty(field.value))
     .map((field) => ({
       key:`meta_${field.key}`,
+      rawKey:field.key,
       label:field.label,
       value:field.value,
+      rawValue:field.value,
       type:field.type || 'text',
       span:field.span || 12,
+      metadataSpan:field.metadataSpan,
     }));
 
   const section = infoBlock?.section || null;
@@ -34,13 +63,17 @@ function UnifiedMetadataBlock({ metadata, infoBlock, payload, renderValue }) {
     .filter((field) => nonEmpty(p[field.key]))
     .map((field) => ({
       key:`section_${field.key}`,
+      rawKey:field.key,
       label:field.label,
       value:renderValue(field, p[field.key]),
+      rawValue:p[field.key],
       type:field.type || 'text',
       span:resolveOfficeFieldSpan(field, section),
+      metadataSpan:field.metadataSpan,
     }));
 
-  const fields = [...metadataFields, ...sectionFields];
+  const fields = [...metadataFields, ...sectionFields]
+    .map((field) => ({ ...field, span:resolveOfficeMetadataFieldSpan(field) }));
   if (!fields.length) return null;
 
   return (
@@ -54,12 +87,13 @@ function UnifiedMetadataBlock({ metadata, infoBlock, payload, renderValue }) {
       data-office-unified-metadata="true"
     >
       <h3 className="office-block-title">{metadata?.title || section?.title || 'بيانات المستند'}</h3>
-      <div className="office-field-grid" style={{'--office-field-columns':OFFICE_FIELD_GRID_COLUMNS}}>
+      <div className="office-field-grid office-metadata-grid" style={{'--office-field-columns':OFFICE_FIELD_GRID_COLUMNS}}>
         {fields.map((field) => (
           <div
-            className={`office-field office-field-${field.type}`}
+            className={`office-field office-field-inline office-field-${field.type}`}
             key={field.key}
             style={{gridColumn:`span ${field.span}`}}
+            data-office-field-layout="inline"
           >
             <span className="office-field-label">{field.label}</span>
             <strong className="office-field-value" data-print-type={field.type}>{field.value}</strong>
@@ -91,7 +125,7 @@ export default function OfficeTemplateSections({
   const metadataInfoBlock = metadataInfoIndex >= 0 ? blocks[metadataInfoIndex] : null;
 
   return (
-    <div className="office-composition" data-office-model="2.0">
+    <div className="office-composition" data-office-model="2.1">
       <UnifiedMetadataBlock
         metadata={documentMetadata}
         infoBlock={metadataInfoBlock}
@@ -138,47 +172,65 @@ export default function OfficeTemplateSections({
 
         if (kind === OFFICE_BLOCK_KIND.TABLE) {
           if (!lineRows.length) return null;
-          const columns = s.columns || [];
-          const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
+          const columnLayout = resolveOfficeTableColumns(s.columns || []);
           return (
             <section {...common}>
               {s.title && <h3 className="office-block-title">{s.title}</h3>}
-              <table className="office-data-table amounts" data-print-editable-columns data-print-grid-name={`office-${id}`}>
+              <table
+                className="office-data-table amounts office-semantic-table"
+                data-print-editable-columns
+                data-print-grid-name={`office-${id}`}
+                data-office-table-layout="semantic"
+              >
                 <colgroup>
-                  <col style={{width:'7mm'}} />
-                  {columns.map((column) => (
-                    <col key={column.key} style={{width:`${(Number(column.span || 1) / spanTotal) * 92}%`}} />
+                  <col style={{width:'4%'}} />
+                  {columnLayout.map(({ column, widthPct }) => (
+                    <col key={column.key} style={{width:`${widthPct}%`}} />
                   ))}
                 </colgroup>
                 <thead>
                   <tr>
-                    <th className="serial-col">م</th>
-                    {columns.map((column) => (
-                      <th
-                        key={column.key}
-                        className={['money','number'].includes(column.type) ? 'num nowrap' : column.type === 'date' ? 'nowrap' : ''}
-                        data-print-type={column.type || 'text'}
-                      >
-                        {column.label}
-                      </th>
-                    ))}
+                    <th className="serial-col" data-office-column-role="index">م</th>
+                    {columnLayout.map(({ column, role }) => {
+                      const numeric = isNumericColumn(role, column.type);
+                      return (
+                        <th
+                          key={column.key}
+                          className={numeric ? 'num office-numeric-column' : column.type === 'date' ? 'nowrap' : ''}
+                          data-print-type={column.type || 'text'}
+                          data-office-column-role={role}
+                        >
+                          {column.label}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
-                  {lineRows.map((row, index) => (
-                    <tr key={row._id || index}>
-                      <td className="mono">{index + 1}</td>
-                      {columns.map((column) => (
-                        <td
-                          key={column.key}
-                          className={['money','number'].includes(column.type) ? 'num nowrap' : column.type === 'date' ? 'nowrap' : ''}
-                          data-print-type={column.type || 'text'}
-                        >
-                          {renderValue(column, row[column.key])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {lineRows.map((row, index) => {
+                    const rowMode = resolveOfficeRowMode(row, s);
+                    return (
+                      <tr key={row._id || index} data-office-row-mode={rowMode}>
+                        <td className="mono serial-col" data-office-column-role="index">{index + 1}</td>
+                        {columnLayout.map(({ column, role }) => {
+                          const numeric = isNumericColumn(role, column.type);
+                          const rawValue = resolveOfficeRowValue(row, column, rowMode);
+                          return (
+                            <td
+                              key={column.key}
+                              className={numeric ? 'num office-numeric-column' : column.type === 'date' ? 'nowrap' : ''}
+                              data-print-type={column.type || 'text'}
+                              data-office-column-role={role}
+                            >
+                              <span className="office-cell-content">
+                                {renderColumnValue(renderValue, column, role, rawValue)}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </section>
