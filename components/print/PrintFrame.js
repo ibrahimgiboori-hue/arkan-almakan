@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import PrintMarks from '@/components/print/PrintMarks';
 
@@ -14,6 +14,7 @@ const MIN_SIDE_MM = 10;
 const MAX_SIDE_MM = 24;
 
 const clamp = (v,min,max) => Math.min(max,Math.max(min,Number(v)));
+const pageToken = (value) => String(Math.round(Number(value || 0) * 10)).replace(/[^0-9]/g,'');
 
 export default function PrintFrame({
   cfg,
@@ -31,6 +32,7 @@ export default function PrintFrame({
   layoutEditing = false,
   onContentSideChange,
   balancePolicy = null,
+  flowPagination = false,
 }) {
   const top = Number(contentTopMm ?? cfg?.letterhead_top_mm ?? 47);
   const bottom = Number(contentBottomMm ?? cfg?.letterhead_bottom_mm ?? 39);
@@ -49,14 +51,25 @@ export default function PrintFrame({
   const [fitsOnePage, setFitsOnePage] = useState(true);
   const [balanceOffsetPx, setBalanceOffsetPx] = useState(0);
 
-  const balanceEnabled = Boolean(balancePolicy);
+  const balanceEnabled = Boolean(balancePolicy) && !flowPagination;
   const minDensity = clamp(balancePolicy?.minDensity ?? MIN_DENSITY, 70, 100);
   const maxDensity = clamp(balancePolicy?.maxDensity ?? MAX_DENSITY, 100, 125);
   const targetFillRatio = clamp(balancePolicy?.targetFillRatio ?? 0.68, 0.55, 0.9);
   const maxOffsetPx = clamp(balancePolicy?.maxOffsetMm ?? 18, 0, 30) * CSS_PX_PER_MM;
   const offsetShare = clamp(balancePolicy?.offsetShare ?? 0.28, 0, 0.5);
+  const flowPageName = useMemo(
+    () => `arkan_flow_${pageToken(top)}_${pageToken(side)}_${pageToken(bottom)}`,
+    [bottom, side, top],
+  );
 
   const evaluateFit = useCallback(() => {
+    if (flowPagination) {
+      setFitsOnePage(true);
+      setDensity(100);
+      setBalanceOffsetPx(0);
+      return;
+    }
+
     const main = mainRef.current;
     const inner = innerRef.current;
     if (!main || !inner) return;
@@ -71,7 +84,6 @@ export default function PrintFrame({
     setFitsOnePage(previous => previous === fits ? previous : fits);
 
     // أثناء ضبط حدود الخلايا/الهوامش يجب أن تبقى الورقة ثابتة 100%.
-    // إعادة حساب الكثافة أثناء السحب تغيّر موضع المؤشر نسبةً للجدول وتسبب الاهتزاز.
     if (layoutEditing) {
       setBalanceOffsetPx(previous => previous === 0 ? previous : 0);
       return;
@@ -112,6 +124,7 @@ export default function PrintFrame({
     balanceEnabled,
     balanceOffsetPx,
     density,
+    flowPagination,
     layoutEditing,
     maxDensity,
     maxOffsetPx,
@@ -126,16 +139,15 @@ export default function PrintFrame({
   }, [evaluateFit, top, bottom, side]);
 
   useEffect(() => {
-    // وضع التحرير له مرجع بصري واحد ثابت: 100% بلا auto-fit.
-    // بعد إنهاء التحرير نعيد الملاءمة التلقائية لتقيّم النتيجة النهائية مرة واحدة.
     setDensity(100);
     setBalanceOffsetPx(0);
-    setAutoFit(!layoutEditing);
-  }, [layoutEditing]);
+    setAutoFit(flowPagination ? false : !layoutEditing);
+  }, [flowPagination, layoutEditing]);
 
   useEffect(() => {
+    if (flowPagination) return undefined;
     const inner = innerRef.current;
-    if (!inner) return;
+    if (!inner) return undefined;
 
     const resize = new ResizeObserver(() => window.requestAnimationFrame(evaluateFit));
     resize.observe(inner);
@@ -153,15 +165,17 @@ export default function PrintFrame({
       resize.disconnect();
       mutation.disconnect();
     };
-  }, [autoFit, evaluateFit, layoutEditing]);
+  }, [autoFit, evaluateFit, flowPagination, layoutEditing]);
 
   function enableAutoFit() {
+    if (flowPagination) return;
     setAutoFit(true);
     setDensity(100);
     setBalanceOffsetPx(0);
   }
 
   function manualDensity(value) {
+    if (flowPagination) return;
     setAutoFit(false);
     setBalanceOffsetPx(0);
     setDensity(clamp(value, minDensity, maxDensity));
@@ -191,44 +205,52 @@ export default function PrintFrame({
     window.addEventListener('pointerup', up);
   }
 
-  const scale = density / 100;
+  const scale = flowPagination ? 1 : density / 100;
   const compensatedWidth = `${100 / scale}%`;
 
   return (
     <>
       <div className="print-fitbar no-print" role="region" aria-label="ضبط ملاءمة صفحة الطباعة">
-        <div className="print-fitbar-main">
-          <button type="button" className={autoFit ? 'active' : ''} onClick={enableAutoFit} disabled={layoutEditing}>
-            {balanceEnabled ? 'موازنة تلقائية لصفحة واحدة' : 'ملاءمة تلقائية لصفحة واحدة'}
-          </button>
-          <label htmlFor="print-density">حجم وتباعد المحتوى: <strong>{density}%</strong></label>
-          <input
-            id="print-density"
-            type="range"
-            min={minDensity}
-            max={maxDensity}
-            step="1"
-            value={density}
-            disabled={layoutEditing}
-            onChange={(e)=>manualDensity(e.target.value)}
-          />
-          <button type="button" disabled={layoutEditing} onClick={()=>manualDensity(100)}>100%</button>
-        </div>
-        <div className={`print-fit-status ${fitsOnePage ? 'ok' : 'warn'}`}>
-          {layoutEditing
-            ? 'المعاينة مثبتة على 100% أثناء ضبط الحدود'
-            : fitsOnePage
-              ? balanceEnabled && autoFit
-                ? 'المحتوى موزون ويتسع في صفحة واحدة'
-                : 'المحتوى يتسع في صفحة واحدة'
-              : density <= minDensity
-                ? 'المحتوى ما زال أطول من صفحة واحدة عند الحد الآمن للتصغير'
-                : 'جارٍ لملمة المحتوى داخل صفحة واحدة'}
-        </div>
+        {flowPagination ? (
+          <div className="print-fit-status ok">
+            تدفق Word متعدد الصفحات: القبطان يحجز الحد العلوي والسفلي والجانبي لكل صفحة تلقائيًا
+          </div>
+        ) : (
+          <>
+            <div className="print-fitbar-main">
+              <button type="button" className={autoFit ? 'active' : ''} onClick={enableAutoFit} disabled={layoutEditing}>
+                {balanceEnabled ? 'موازنة تلقائية لصفحة واحدة' : 'ملاءمة تلقائية لصفحة واحدة'}
+              </button>
+              <label htmlFor="print-density">حجم وتباعد المحتوى: <strong>{density}%</strong></label>
+              <input
+                id="print-density"
+                type="range"
+                min={minDensity}
+                max={maxDensity}
+                step="1"
+                value={density}
+                disabled={layoutEditing}
+                onChange={(e)=>manualDensity(e.target.value)}
+              />
+              <button type="button" disabled={layoutEditing} onClick={()=>manualDensity(100)}>100%</button>
+            </div>
+            <div className={`print-fit-status ${fitsOnePage ? 'ok' : 'warn'}`}>
+              {layoutEditing
+                ? 'المعاينة مثبتة على 100% أثناء ضبط الحدود'
+                : fitsOnePage
+                  ? balanceEnabled && autoFit
+                    ? 'المحتوى موزون ويتسع في صفحة واحدة'
+                    : 'المحتوى يتسع في صفحة واحدة'
+                  : density <= minDensity
+                    ? 'المحتوى ما زال أطول من صفحة واحدة عند الحد الآمن للتصغير'
+                    : 'جارٍ لملمة المحتوى داخل صفحة واحدة'}
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="print-page-wrap">
-        <div ref={pageRef} className="print-page">
+      <div className={`print-page-wrap ${flowPagination ? 'print-flow-wrap' : ''}`.trim()}>
+        <div ref={pageRef} className={`print-page ${flowPagination ? 'print-flow-page' : ''}`.trim()}>
           <div className="print-assets" aria-hidden="true">
             {full && <img src={full} className="print-master-full" alt="" />}
             {header && <img src={header} className="print-master-header" alt="" style={{height:`${Number(cfg?.header_height_mm || 40)}mm`}} />}
@@ -296,7 +318,53 @@ export default function PrintFrame({
         .print-margin-guide::after{content:'';position:absolute;top:0;bottom:0;left:4px;border-left:1px dashed rgba(139,51,50,.34)}
         .print-margin-guide::before{content:'';position:absolute;top:50%;left:1px;width:7px;height:20mm;transform:translateY(-50%);border-left:2px solid rgba(139,51,50,.34);border-right:2px solid rgba(139,51,50,.34)}
         .print-margin-guide:hover::after,.print-margin-guide:hover::before{border-color:rgba(139,51,50,.72)}
-        @media print{.print-fitbar,.print-margin-guide{display:none!important}}
+        @page ${flowPageName}{size:A4 portrait;margin:${top}mm ${side}mm ${bottom}mm ${side}mm}
+        @media print{
+          .print-fitbar,.print-margin-guide{display:none!important}
+          .print-flow-wrap{padding:0!important;display:block!important;background:#fff!important}
+          .print-flow-page{
+            page:${flowPageName};
+            width:auto!important;
+            min-width:0!important;
+            max-width:none!important;
+            height:auto!important;
+            min-height:0!important;
+            max-height:none!important;
+            margin:0!important;
+            overflow:visible!important;
+            background:transparent!important;
+            box-shadow:none!important;
+          }
+          .print-flow-page>.print-content{
+            width:auto!important;
+            height:auto!important;
+            min-height:0!important;
+            padding:0!important;
+            overflow:visible!important;
+          }
+          .print-flow-page .print-fit-stage,
+          .print-flow-page .print-fit-content{
+            width:100%!important;
+            transform:none!important;
+          }
+          .print-flow-page>.print-assets{
+            position:fixed!important;
+            top:-${top}mm!important;
+            right:-${side}mm!important;
+            left:auto!important;
+            width:210mm!important;
+            height:297mm!important;
+            z-index:0!important;
+          }
+          .print-flow-page>.print-assets .print-master-full{
+            width:210mm!important;
+            height:297mm!important;
+          }
+          .print-flow-page .print-constitution{
+            position:relative;
+            z-index:1;
+          }
+        }
       `}</style>
     </>
   );
