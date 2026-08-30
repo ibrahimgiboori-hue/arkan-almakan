@@ -38,10 +38,15 @@ export default function PrintFrame({
   const bottom = Number(contentBottomMm ?? cfg?.letterhead_bottom_mm ?? 39);
   const side = clamp(contentSideMm ?? cfg?.letterhead_side_mm ?? 19, MIN_SIDE_MM, MAX_SIDE_MM);
 
-  const full = showLetterhead ? assetUrl(cfg?.letterhead_image_path) : null;
-  const header = !full && showLetterhead ? assetUrl(cfg?.header_image_path) : null;
-  const footer = !full && showLetterhead ? assetUrl(cfg?.footer_image_path) : null;
-  const watermark = !full && showLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
+  // القبطان يفضل أصول الهيدر/الفوتر المنفصلة متى كان الاثنان متوفرين،
+  // لأنها قابلة للتثبيت على حدود الورقة بصورة مستقلة. صورة الليترهيد الكاملة Fallback فقط.
+  const splitHeader = showLetterhead ? assetUrl(cfg?.header_image_path) : null;
+  const splitFooter = showLetterhead ? assetUrl(cfg?.footer_image_path) : null;
+  const hasSplitMaster = Boolean(splitHeader && splitFooter);
+  const full = showLetterhead && !hasSplitMaster ? assetUrl(cfg?.letterhead_image_path) : null;
+  const header = hasSplitMaster ? splitHeader : null;
+  const footer = hasSplitMaster ? splitFooter : null;
+  const watermark = showLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
 
   const pageRef = useRef(null);
   const mainRef = useRef(null);
@@ -251,7 +256,7 @@ export default function PrintFrame({
 
       <div className={`print-page-wrap ${flowPagination ? 'print-flow-wrap' : ''}`.trim()}>
         <div ref={pageRef} className={`print-page ${flowPagination ? 'print-flow-page' : ''}`.trim()}>
-          <div className="print-assets" aria-hidden="true">
+          <div className="print-assets" aria-hidden="true" data-print-master={hasSplitMaster ? 'split' : full ? 'full' : 'none'}>
             {full && <img src={full} className="print-master-full" alt="" />}
             {header && <img src={header} className="print-master-header" alt="" style={{height:`${Number(cfg?.header_height_mm || 40)}mm`}} />}
             {footer && <img src={footer} className="print-master-footer" alt="" style={{height:`${Number(cfg?.footer_height_mm || 32)}mm`}} />}
@@ -354,11 +359,25 @@ export default function PrintFrame({
             left:auto!important;
             width:210mm!important;
             height:297mm!important;
+            overflow:hidden!important;
+            pointer-events:none!important;
             z-index:0!important;
           }
           .print-flow-page>.print-assets .print-master-full{
+            top:0!important;
+            right:0!important;
             width:210mm!important;
             height:297mm!important;
+          }
+          .print-flow-page>.print-assets .print-master-header{
+            top:0!important;
+            right:0!important;
+            width:210mm!important;
+          }
+          .print-flow-page>.print-assets .print-master-footer{
+            right:0!important;
+            bottom:0!important;
+            width:210mm!important;
           }
           .print-flow-page .print-constitution{
             position:relative;
