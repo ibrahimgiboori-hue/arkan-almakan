@@ -1,0 +1,144 @@
+/*
+  Generic document print governance
+  ---------------------------------
+  The generic document engine is Word + Excel by contract:
+  - prose is allowed to flow across pages at readable size;
+  - explicit table spans own column widths;
+  - numeric cells never steal width from narrative columns;
+  - every printed page reserves the official letterhead area.
+
+  The physical values below mirror the current approved company letterhead
+  (top 47mm / sides 16.5mm / bottom 39mm). Screen preview continues to use
+  the live PrintFrame values; printed multi-page output uses this named page
+  so continuation pages cannot run underneath the letterhead/footer.
+*/
+
+.print-doc-generic_document .amounts:has(> colgroup) {
+  table-layout: fixed;
+}
+
+/* `.amounts .num` is intentionally wide for two-column totals. It must NOT
+   apply that 36% width to every numeric column in a real data table. */
+.print-doc-generic_document .amounts:has(> colgroup) .num {
+  width: auto !important;
+}
+
+.print-doc-generic_document .amounts:has(> colgroup) th,
+.print-doc-generic_document .amounts:has(> colgroup) td {
+  padding: 1mm 1.15mm !important;
+  line-height: 1.45;
+  vertical-align: top;
+}
+
+/* Narrative columns wrap by words, not letter-by-letter. */
+.print-doc-generic_document .amounts:has(> colgroup) th:not(.num):not(.nowrap),
+.print-doc-generic_document .amounts:has(> colgroup) td:not(.num):not(.nowrap) {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: none;
+}
+
+.print-doc-generic_document .amounts:has(> colgroup) th.num,
+.print-doc-generic_document .amounts:has(> colgroup) td.num {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-doc-generic_document .amounts:has(> colgroup) th.serial-col,
+.print-doc-generic_document .amounts:has(> colgroup) td:first-child {
+  width: 7mm !important;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Long reports are documents, not one-page forms. Never shrink a multi-page
+   generic document merely to satisfy the one-page preview fitter. */
+@media print {
+  @page generic-document {
+    size: A4;
+    margin: 47mm 16.5mm 39mm;
+  }
+
+  .print-doc-generic_document {
+    page: generic-document;
+  }
+
+  .print-page:has(.print-doc-generic_document) {
+    width: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .print-page:has(.print-doc-generic_document) .print-content {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print-page:has(.print-doc-generic_document) .print-fit-stage {
+    width: 100% !important;
+    padding-top: 0 !important;
+  }
+
+  .print-page:has(.print-doc-generic_document) .print-fit-content {
+    width: 100% !important;
+    transform: none !important;
+  }
+
+  /* Print assets repeat on every physical page. Offsets move the full A4
+     letterhead from the content box back to the paper edge. */
+  .print-page:has(.print-doc-generic_document) .print-assets {
+    position: fixed !important;
+    top: -47mm !important;
+    right: -16.5mm !important;
+    left: auto !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    z-index: 0 !important;
+  }
+
+  .print-page:has(.print-doc-generic_document) .print-master-full {
+    width: 210mm !important;
+    height: 297mm !important;
+  }
+
+  .print-page:has(.print-doc-generic_document) .governed-document-sheet {
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Let the data table flow; keep each individual record intact and repeat
+     the column header on continuation pages. */
+  .print-doc-generic_document .amounts:has(> colgroup) {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .print-doc-generic_document .amounts:has(> colgroup) thead {
+    display: table-header-group;
+  }
+
+  .print-doc-generic_document .amounts:has(> colgroup) tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-doc-generic_document .declare,
+  .print-doc-generic_document .plain-card,
+  .print-doc-generic_document .sigtable {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
