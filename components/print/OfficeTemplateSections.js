@@ -4,6 +4,7 @@ import PartiesPrint from '@/components/PartiesPrint';
 import {
   OFFICE_BLOCK_KIND,
   OFFICE_FIELD_GRID_COLUMNS,
+  OFFICE_GRID_COLUMNS,
   officeComposition,
   resolveOfficeFieldSpan,
 } from '@/lib/print-office-model';
@@ -16,28 +17,52 @@ function blockStyle(span) {
   return { gridColumn:`span ${span}` };
 }
 
-function MetadataBlock({ metadata }) {
-  const fields = (metadata?.fields || []).filter((field) => nonEmpty(field.value));
+function UnifiedMetadataBlock({ metadata, infoBlock, payload, renderValue }) {
+  const p = payload || {};
+  const metadataFields = (metadata?.fields || [])
+    .filter((field) => nonEmpty(field.value))
+    .map((field) => ({
+      key:`meta_${field.key}`,
+      label:field.label,
+      value:field.value,
+      type:field.type || 'text',
+      span:field.span || 12,
+    }));
+
+  const section = infoBlock?.section || null;
+  const sectionFields = (section?.fields || [])
+    .filter((field) => nonEmpty(p[field.key]))
+    .map((field) => ({
+      key:`section_${field.key}`,
+      label:field.label,
+      value:renderValue(field, p[field.key]),
+      type:field.type || 'text',
+      span:resolveOfficeFieldSpan(field, section),
+    }));
+
+  const fields = [...metadataFields, ...sectionFields];
   if (!fields.length) return null;
+
   return (
     <section
-      className="office-block office-block-info"
-      style={blockStyle(metadata.span || 4)}
+      className="office-block office-block-info office-block-metadata"
+      style={blockStyle(OFFICE_GRID_COLUMNS)}
       data-office-block="info"
-      data-office-block-id="document_metadata"
+      data-office-block-id="unified_document_metadata"
       data-office-split="keep"
-      data-office-share-row="true"
+      data-office-share-row="false"
+      data-office-unified-metadata="true"
     >
-      <h3 className="office-block-title">{metadata.title || 'بيانات المستند'}</h3>
+      <h3 className="office-block-title">{metadata?.title || section?.title || 'بيانات المستند'}</h3>
       <div className="office-field-grid" style={{'--office-field-columns':OFFICE_FIELD_GRID_COLUMNS}}>
         {fields.map((field) => (
           <div
-            className={`office-field office-field-${field.type || 'text'}`}
+            className={`office-field office-field-${field.type}`}
             key={field.key}
-            style={{gridColumn:`span ${field.span || 24}`}}
+            style={{gridColumn:`span ${field.span}`}}
           >
             <span className="office-field-label">{field.label}</span>
-            <strong className="office-field-value" data-print-type={field.type || 'text'}>{field.value}</strong>
+            <strong className="office-field-value" data-print-type={field.type}>{field.value}</strong>
           </div>
         ))}
       </div>
@@ -60,12 +85,23 @@ export default function OfficeTemplateSections({
   const p = payload || {};
   const lineRows = Array.isArray(rows) ? rows : [];
   const blocks = officeComposition(sections);
+  const metadataInfoIndex = blocks.findIndex(({ kind, section }) => (
+    kind === OFFICE_BLOCK_KIND.INFO && section?.mergeWithDocumentMetadata !== false
+  ));
+  const metadataInfoBlock = metadataInfoIndex >= 0 ? blocks[metadataInfoIndex] : null;
 
   return (
     <div className="office-composition" data-office-model="2.0">
-      <MetadataBlock metadata={documentMetadata} />
+      <UnifiedMetadataBlock
+        metadata={documentMetadata}
+        infoBlock={metadataInfoBlock}
+        payload={p}
+        renderValue={renderValue}
+      />
 
-      {blocks.map(({ section:s, id, kind, span, split, canShareRow }) => {
+      {blocks.map(({ section:s, id, kind, span, split, canShareRow }, blockIndex) => {
+        if (blockIndex === metadataInfoIndex) return null;
+
         const common = {
           key:id,
           className:`office-block office-block-${kind}`,
