@@ -19,18 +19,37 @@
    ============================================================ */
 
 .print-constitution{
-  --office-prose-size:9pt;
+  --print-font-delta:0pt;
+  --office-prose-size:calc(9pt + var(--print-font-delta));
+  --office-table-size:calc(8pt + var(--print-font-delta));
+  --office-title-size:calc(14pt + var(--print-font-delta));
+  --office-subtitle-size:calc(8.8pt + var(--print-font-delta));
+  --office-block-title-size:calc(8.2pt + var(--print-font-delta));
+  --office-field-label-size:calc(6.7pt + var(--print-font-delta));
+  --office-field-value-size:calc(8pt + var(--print-font-delta));
+  --office-summary-value-size:calc(9pt + var(--print-font-delta));
   --office-prose-leading:1.48;
   --office-prose-gap:1.45mm;
   --office-heading-leading:1.25;
   --office-heading-gap-before:2.4mm;
   --office-heading-gap-after:.9mm;
-  --office-table-size:8pt;
   --office-table-leading:1.28;
   --office-cell-y:.9mm;
   --office-cell-x:1.15mm;
   --office-composition-gap:2.2mm;
   --office-field-gap:.8mm;
+}
+
+/* Generic document title also follows the same print-wide typography property. */
+.print-doc-generic_document .title-block h1{
+  font-size:var(--office-title-size)!important;
+}
+.print-doc-generic_document .title-en,
+.print-doc-generic_document .ltr-meta,
+.print-doc-generic_document .ltr-refs,
+.print-doc-generic_document .ltr-to,
+.print-doc-generic_document .ltr-salut{
+  font-size:var(--office-subtitle-size)!important;
 }
 
 /* ---------- Word layer: editorial document behavior ---------- */
@@ -145,7 +164,7 @@
 .print-constitution .payment-table,
 .print-constitution .r-table,
 .print-constitution .office-data-table{
-  font-size:var(--office-table-size);
+  font-size:var(--office-table-size)!important;
   line-height:var(--office-table-leading);
 }
 
@@ -240,7 +259,7 @@
   border-bottom:0;
   background:var(--arkan-print-label);
   color:var(--arkan-print-accent);
-  font-size:8.2pt;
+  font-size:var(--office-block-title-size)!important;
   font-weight:700;
 }
 
@@ -270,7 +289,7 @@
 .print-constitution .office-field-label{
   display:block;
   color:var(--arkan-print-muted);
-  font-size:6.7pt;
+  font-size:var(--office-field-label-size)!important;
   line-height:1.25;
 }
 
@@ -278,7 +297,7 @@
   display:block;
   min-width:0;
   color:var(--arkan-print-text);
-  font-size:8pt;
+  font-size:var(--office-field-value-size)!important;
   line-height:1.32;
   font-weight:700;
   overflow-wrap:break-word;
@@ -288,7 +307,7 @@
   min-height:10mm;
 }
 .print-constitution .office-block-summary .office-field-value{
-  font-size:9pt;
+  font-size:var(--office-summary-value-size)!important;
 }
 
 .print-constitution .office-block-prose{
