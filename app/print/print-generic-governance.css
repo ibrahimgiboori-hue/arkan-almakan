@@ -1,16 +1,15 @@
 /*
-  Generic document print governance
-  ---------------------------------
-  The generic document engine is Word + Excel by contract:
-  - prose is allowed to flow across pages at readable size;
+  Generic document content profile
+  --------------------------------
+  This file owns content behavior only. Physical A4 geometry, page margins,
+  letterhead placement and pagination law remain exclusively in the central
+  print constitution.
+
+  The generic document engine follows the Word + Excel contract:
+  - narrative text keeps readable wrapping;
   - explicit table spans own column widths;
   - numeric cells never steal width from narrative columns;
-  - every printed page reserves the official letterhead area.
-
-  The physical values below mirror the current approved company letterhead
-  (top 47mm / sides 16.5mm / bottom 39mm). Screen preview continues to use
-  the live PrintFrame values; printed multi-page output uses this named page
-  so continuation pages cannot run underneath the letterhead/footer.
+  - table headers repeat when the central pagination engine creates a new page.
 */
 
 .print-doc-generic_document .amounts:has(> colgroup) {
@@ -57,71 +56,8 @@
   white-space: nowrap;
 }
 
-/* Long reports are documents, not one-page forms. Never shrink a multi-page
-   generic document merely to satisfy the one-page preview fitter. */
 @media print {
-  @page generic-document {
-    size: A4;
-    margin: 47mm 16.5mm 39mm;
-  }
-
-  .print-page:has(.print-doc-generic_document),
-  .print-doc-generic_document {
-    page: generic-document;
-  }
-
-  .print-page:has(.print-doc-generic_document) {
-    width: auto !important;
-    min-height: 0 !important;
-    height: auto !important;
-    overflow: visible !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .print-page:has(.print-doc-generic_document) .print-content {
-    width: auto !important;
-    height: auto !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-
-  .print-page:has(.print-doc-generic_document) .print-fit-stage {
-    width: 100% !important;
-    padding-top: 0 !important;
-  }
-
-  .print-page:has(.print-doc-generic_document) .print-fit-content {
-    width: 100% !important;
-    transform: none !important;
-  }
-
-  /* Print assets repeat on every physical page. Offsets move the full A4
-     letterhead from the content box back to the paper edge. */
-  .print-page:has(.print-doc-generic_document) .print-assets {
-    position: fixed !important;
-    top: -47mm !important;
-    right: -16.5mm !important;
-    left: auto !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    z-index: 0 !important;
-  }
-
-  .print-page:has(.print-doc-generic_document) .print-master-full {
-    width: 210mm !important;
-    height: 297mm !important;
-  }
-
-  .print-page:has(.print-doc-generic_document) .governed-document-sheet {
-    width: 100% !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-  }
-
-  /* Let the data table flow; keep each individual record intact and repeat
-     the column header on continuation pages. */
+  /* Content-level fragmentation only; paper geometry belongs to the captain. */
   .print-doc-generic_document .amounts:has(> colgroup) {
     break-inside: auto !important;
     page-break-inside: auto !important;
