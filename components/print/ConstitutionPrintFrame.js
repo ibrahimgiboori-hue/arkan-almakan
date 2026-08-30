@@ -118,7 +118,7 @@ export default function ConstitutionPrintFrame({
       scope,
       scope_key:scopeKey,
       settings:{
-        gridSchemaVersion:2,
+        gridSchemaVersion:3,
         gridColumns:PRINT_GRID_COLUMNS,
         gridMajorColumns:PRINT_GRID_MAJOR_COLUMNS,
         gridRowMm:PRINT_GRID_ROW_MM,
@@ -171,6 +171,7 @@ export default function ConstitutionPrintFrame({
   }), [draft.grids, draft.rows, editing, setGridLayout, setRowHeight]);
 
   const rootSelector = `.print-page .print-doc-${documentKey}`;
+  const flowPagination = layout.paginationMode === 'flow';
 
   return (
     <PrintLayoutProvider value={contextValue}>
@@ -205,7 +206,8 @@ export default function ConstitutionPrintFrame({
 
       <PrintFrame
         {...frameProps}
-        balancePolicy={layout.balance}
+        balancePolicy={flowPagination ? null : layout.balance}
+        flowPagination={flowPagination}
         contentTopMm={frameProps.contentTopMm ?? layout.topMm}
         contentBottomMm={frameProps.contentBottomMm ?? layout.bottomMm}
         contentSideMm={draft.sideMm}
@@ -218,6 +220,7 @@ export default function ConstitutionPrintFrame({
           data-print-document={documentKey}
           data-print-family={family}
           data-print-status={definition.status}
+          data-print-pagination={layout.paginationMode}
           data-print-governance-version={PRINT_GOVERNANCE_VERSION}
         >
           {children}
