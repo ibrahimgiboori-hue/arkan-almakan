@@ -75,10 +75,15 @@ function addBoundary({
   const onPointerDown = (event) => {
     event.preventDefault();
     event.stopPropagation();
+
     const startX = event.clientX;
     const startTracks = [...tracks];
+    let latestTracks = [...startTracks];
+    let moved = false;
     const trackWidth = Math.max(1, width) / PRINT_GRID_COLUMNS;
     const guides = majorGuideTracks();
+
+    document.documentElement.classList.add('print-column-resizing');
 
     const onMove = (moveEvent) => {
       const delta = Math.round((moveEvent.clientX - startX) / trackWidth);
@@ -90,17 +95,25 @@ function addBoundary({
         count,
         guides,
       });
+      latestTracks = next;
+      moved = moved || next.some((value, index) => value !== startTracks[index]);
+
+      // أثناء السحب نغيّر DOM فقط. لا نحدّث React/قاعدة الحفظ مع كل بكسل،
+      // لأن ذلك يعيد تركيب المقابض ويؤدي إلى اهتزاز الجدول تحت المؤشر.
       apply(next);
-      setGridLayout(keyName, serializeTracks(next, count));
     };
 
-    const onUp = () => {
+    const finish = () => {
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      document.documentElement.classList.remove('print-column-resizing');
+      if (moved) setGridLayout(keyName, serializeTracks(latestTracks, count));
     };
 
     window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   };
 
   const onDoubleClick = (event) => {
@@ -202,6 +215,8 @@ export default function TableBoundaryEditor({
       border-left:2px solid rgba(139,51,50,.98);
     }
     .print-layout-editing table thead th{position:relative}
+    html.print-column-resizing,
+    html.print-column-resizing *{cursor:col-resize!important;user-select:none!important}
     @media print{.table-cell-boundary{display:none!important}}
   `}</style>;
 }
