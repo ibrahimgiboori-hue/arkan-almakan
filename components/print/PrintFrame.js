@@ -70,6 +70,13 @@ export default function PrintFrame({
     const fits = used + activeOffset <= available + 2;
     setFitsOnePage(previous => previous === fits ? previous : fits);
 
+    // أثناء ضبط حدود الخلايا/الهوامش يجب أن تبقى الورقة ثابتة 100%.
+    // إعادة حساب الكثافة أثناء السحب تغيّر موضع المؤشر نسبةً للجدول وتسبب الاهتزاز.
+    if (layoutEditing) {
+      setBalanceOffsetPx(previous => previous === 0 ? previous : 0);
+      return;
+    }
+
     if (!autoFit) {
       setBalanceOffsetPx(previous => previous === 0 ? previous : 0);
       return;
@@ -105,6 +112,7 @@ export default function PrintFrame({
     balanceEnabled,
     balanceOffsetPx,
     density,
+    layoutEditing,
     maxDensity,
     maxOffsetPx,
     minDensity,
@@ -118,6 +126,14 @@ export default function PrintFrame({
   }, [evaluateFit, top, bottom, side]);
 
   useEffect(() => {
+    // وضع التحرير له مرجع بصري واحد ثابت: 100% بلا auto-fit.
+    // بعد إنهاء التحرير نعيد الملاءمة التلقائية لتقيّم النتيجة النهائية مرة واحدة.
+    setDensity(100);
+    setBalanceOffsetPx(0);
+    setAutoFit(!layoutEditing);
+  }, [layoutEditing]);
+
+  useEffect(() => {
     const inner = innerRef.current;
     if (!inner) return;
 
@@ -125,7 +141,7 @@ export default function PrintFrame({
     resize.observe(inner);
 
     const mutation = new MutationObserver(() => {
-      if (autoFit) {
+      if (autoFit && !layoutEditing) {
         setDensity(100);
         setBalanceOffsetPx(0);
       }
@@ -137,7 +153,7 @@ export default function PrintFrame({
       resize.disconnect();
       mutation.disconnect();
     };
-  }, [autoFit, evaluateFit]);
+  }, [autoFit, evaluateFit, layoutEditing]);
 
   function enableAutoFit() {
     setAutoFit(true);
@@ -182,7 +198,7 @@ export default function PrintFrame({
     <>
       <div className="print-fitbar no-print" role="region" aria-label="ضبط ملاءمة صفحة الطباعة">
         <div className="print-fitbar-main">
-          <button type="button" className={autoFit ? 'active' : ''} onClick={enableAutoFit}>
+          <button type="button" className={autoFit ? 'active' : ''} onClick={enableAutoFit} disabled={layoutEditing}>
             {balanceEnabled ? 'موازنة تلقائية لصفحة واحدة' : 'ملاءمة تلقائية لصفحة واحدة'}
           </button>
           <label htmlFor="print-density">حجم وتباعد المحتوى: <strong>{density}%</strong></label>
@@ -193,18 +209,21 @@ export default function PrintFrame({
             max={maxDensity}
             step="1"
             value={density}
+            disabled={layoutEditing}
             onChange={(e)=>manualDensity(e.target.value)}
           />
-          <button type="button" onClick={()=>manualDensity(100)}>100%</button>
+          <button type="button" disabled={layoutEditing} onClick={()=>manualDensity(100)}>100%</button>
         </div>
         <div className={`print-fit-status ${fitsOnePage ? 'ok' : 'warn'}`}>
-          {fitsOnePage
-            ? balanceEnabled && autoFit
-              ? 'المحتوى موزون ويتسع في صفحة واحدة'
-              : 'المحتوى يتسع في صفحة واحدة'
-            : density <= minDensity
-              ? 'المحتوى ما زال أطول من صفحة واحدة عند الحد الآمن للتصغير'
-              : 'جارٍ لملمة المحتوى داخل صفحة واحدة'}
+          {layoutEditing
+            ? 'المعاينة مثبتة على 100% أثناء ضبط الحدود'
+            : fitsOnePage
+              ? balanceEnabled && autoFit
+                ? 'المحتوى موزون ويتسع في صفحة واحدة'
+                : 'المحتوى يتسع في صفحة واحدة'
+              : density <= minDensity
+                ? 'المحتوى ما زال أطول من صفحة واحدة عند الحد الآمن للتصغير'
+                : 'جارٍ لملمة المحتوى داخل صفحة واحدة'}
         </div>
       </div>
 
@@ -235,7 +254,7 @@ export default function PrintFrame({
           <main ref={mainRef} className="print-content" style={{padding:`${top}mm ${side}mm ${bottom}mm`}}>
             <div
               className={`print-fit-stage ${balanceEnabled ? 'print-balance-enabled' : ''}`.trim()}
-              style={{paddingTop:balanceEnabled && autoFit ? `${balanceOffsetPx}px` : 0}}
+              style={{paddingTop:balanceEnabled && autoFit && !layoutEditing ? `${balanceOffsetPx}px` : 0}}
               data-print-balance-offset-mm={balanceEnabled ? (balanceOffsetPx / CSS_PX_PER_MM).toFixed(1) : undefined}
             >
               <div
@@ -264,6 +283,7 @@ export default function PrintFrame({
         .print-fitbar-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
         .print-fitbar button{font:inherit;font-size:12.5px;border:1px solid #9f9f9f;background:#fff;color:#222;padding:6px 10px;cursor:pointer}
         .print-fitbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}
+        .print-fitbar button:disabled,.print-fitbar input:disabled{opacity:.45;cursor:not-allowed}
         .print-fitbar label{font-size:12.5px;color:#222}
         .print-fitbar input[type=range]{width:180px;accent-color:#8B3332}
         .print-fit-status{margin-top:6px;font-size:12px;font-weight:700}
