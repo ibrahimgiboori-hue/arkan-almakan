@@ -9,6 +9,7 @@ import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import PartiesPrint from '@/components/PartiesPrint';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import OfficeTemplateSections from '@/components/print/OfficeTemplateSections';
 import './print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
@@ -47,7 +48,6 @@ export default function PrintDoc() {
   const legacy = byCode(doc.template_code);
   const p = doc.payload || {};
   const rows = p._rows || [];
-
   const stampUrl = stamp ? pub(cfg.stamp_image_path) : null;
 
   const mTop  = doc.margin_top_mm    ?? tpl?.margin_top_mm    ?? cfg.letterhead_top_mm;
@@ -72,7 +72,6 @@ export default function PrintDoc() {
     return String(val);
   };
 
-  // ---------- النماذج المدمجة ----------
   const legacyRows = !custom && legacy
     ? legacy.fields
         .filter((f) => p[f.k] !== undefined && p[f.k] !== '' && p[f.k] !== null)
@@ -89,6 +88,15 @@ export default function PrintDoc() {
   const half = Math.ceil(infoRows.length / 2);
   const mainKey = ['net_amount','amount','requested_salary','gross','basic_salary','net_due']
     .find((k) => p[k] !== undefined && p[k] !== '' && Number(p[k]) > 0);
+
+  const documentMetadata = !hasLetterHead ? {
+    title:'بيانات المستند',
+    span:6,
+    fields:[
+      { key:'reference', label:'الرقم المرجعي', value:doc.doc_number, span:24, type:'text' },
+      { key:'issued_at', label:'تاريخ الإصدار', value:dateAr(doc.created_at), span:24, type:'date' },
+    ],
+  } : null;
 
   return (
     <>
@@ -130,18 +138,18 @@ export default function PrintDoc() {
             </div>
           )}
 
-          <div className="cards" style={hasLetterHead ? {display:'none'} : undefined}>
-            <section className="card-doc">
-              <div className="card-head">بيانات المستند</div>
-              <table><tbody>
-                <tr><td className="k">الرقم المرجعي</td><td className="v mono">{doc.doc_number}</td></tr>
-                <tr><td className="k">تاريخ الإصدار</td><td className="v mono">{dateAr(doc.created_at)}</td></tr>
-                {!custom && infoRows.slice(half).map(([k,val]) => (
-                  <tr key={k}><td className="k">{k}</td><td className="v">{val}</td></tr>
-                ))}
-              </tbody></table>
-            </section>
-            {!custom && (
+          {!custom && (
+            <div className="cards">
+              <section className="card-doc">
+                <div className="card-head">بيانات المستند</div>
+                <table><tbody>
+                  <tr><td className="k">الرقم المرجعي</td><td className="v mono">{doc.doc_number}</td></tr>
+                  <tr><td className="k">تاريخ الإصدار</td><td className="v mono">{dateAr(doc.created_at)}</td></tr>
+                  {infoRows.slice(half).map(([k,val]) => (
+                    <tr key={k}><td className="k">{k}</td><td className="v">{val}</td></tr>
+                  ))}
+                </tbody></table>
+              </section>
               <section className="card-doc">
                 <div className="card-head">البيانات الأساسية</div>
                 <table><tbody>
@@ -150,10 +158,9 @@ export default function PrintDoc() {
                   ))}
                 </tbody></table>
               </section>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* ---------- نموذج مخصص ---------- */}
           {hasLetterHead && (
             <div className="ltr-meta">
               <span className="mono">{doc.doc_number}</span>
@@ -161,169 +168,23 @@ export default function PrintDoc() {
             </div>
           )}
 
-          {custom && tpl.intro_text && <div className="dc-body" style={{marginBottom:'6mm'}}>{tpl.intro_text}</div>}
+          {custom && tpl.intro_text && <div className="print-prose" style={{marginBottom:'3mm'}}>{tpl.intro_text}</div>}
 
-          {custom && tpl.layout.sections.map((s) => {
-            if (s.kind === 'cards' || s.kind === 'totals') {
-              const fields = (s.fields || []).filter((f) =>
-                p[f.key] !== undefined && p[f.key] !== '' && p[f.key] !== null);
-              if (!fields.length) return null;
+          {custom && (
+            <OfficeTemplateSections
+              sections={tpl.layout.sections || []}
+              payload={p}
+              rows={rows}
+              renderValue={fmt}
+              parties={doc.parties}
+              stampUrl={stampUrl}
+              signUrl={signUrl}
+              stampMm={stampMm}
+              signMm={signMm}
+              documentMetadata={documentMetadata}
+            />
+          )}
 
-              // الجدول المالي: صندوق حسابات، أو نمط مالي صريح
-              const isMoneyBlock = s.kind === 'totals' || s.money === true;
-
-              if (isMoneyBlock) {
-                return (
-                  <table className="amounts" key={s.id}>
-                    <thead><tr><th>{s.title || 'الحساب'}</th>
-                      <th className="num">القيمة <Riyal /></th></tr></thead>
-                    <tbody>
-                      {fields.map((f) => (
-                        <tr key={f.key}><td>{f.label}</td>
-                          <td className="num">{fmt(f, p[f.key])}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                );
-              }
-
-              // بطاقة نصية: سطر عنوان كامل ثم عمودا التسمية والقيمة
-              if (s.style === 'strict') {
-                const heading = p[s.title_key] || s.title;
-                return (
-                  <div className={`plain-card ${s.align === 'left' ? 'to-left' : ''}`} key={s.id}>
-                    {heading && <div className="pc-head">{heading}</div>}
-                    <table className="pc-table"><tbody>
-                      {fields.map((f) => (
-                        <tr key={f.key}>
-                          <td className="pc-k">{f.label}</td>
-                          <td className="pc-v">{fmt(f, p[f.key])}</td>
-                        </tr>
-                      ))}
-                    </tbody></table>
-                  </div>
-                );
-              }
-              return (
-                <div className="cards" key={s.id} style={{marginBottom:'6mm'}}>
-                  <section className={`card-doc ${s.align === 'left' ? 'to-left' : ''}`}
-                           style={{gridColumn: s.align === 'left' ? 'span 6' : 'span 12'}}>
-                    <div className="card-head">{s.title}</div>
-                    <table><tbody>
-                      {fields.map((f) => (
-                        <tr key={f.key}><td className="k">{f.label}</td>
-                          <td className="v">{fmt(f, p[f.key])}</td></tr>
-                      ))}
-                    </tbody></table>
-                  </section>
-                </div>
-              );
-            }
-
-            if (s.kind === 'table') {
-              if (!rows.length) return null;
-              const columns = s.columns || [];
-              const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
-              return (
-                <table className="amounts" key={s.id}>
-                  <colgroup>
-                    <col style={{width:'7mm'}} />
-                    {columns.map((column) => (
-                      <col key={column.key} style={{width:`${(Number(column.span || 1) / spanTotal) * 92}%`}} />
-                    ))}
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="serial-col">م</th>
-                      {columns.map((c) => (
-                        <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
-                          {c.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={r._id || i}>
-                        <td className="mono">{i+1}</td>
-                        {columns.map((c) => (
-                          <td key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
-                            {fmt(c, r[c.key])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              );
-            }
-
-            if (s.kind === 'text') {
-              if (!p[s.key]) return null;
-              if (s.style === 'plain') {
-                return <div className="letter-body" key={s.id}>{p[s.key]}</div>;
-              }
-              return (
-                <div className={s.style === 'strict' ? 'declare' : 'card-doc'} key={s.id}
-                     style={{marginBottom:'6mm'}}>
-                  <div className={s.style === 'strict' ? 'dc-head' : 'card-head'}>{s.title}</div>
-                  <div className="dc-body">{p[s.key]}</div>
-                </div>
-              );
-            }
-
-            if (s.kind === 'letterhead') {
-              const hasRef = p.our_ref || p.your_ref;
-              return (
-                <div className="ltr-head" key={s.id}>
-                  {hasRef && (
-                    <div className="ltr-refs">
-                      {p.our_ref && <span>إشارتنا: <span className="mono">{p.our_ref}</span></span>}
-                      {p.your_ref && <span>إشارتكم: <span className="mono">{p.your_ref}</span></span>}
-                    </div>
-                  )}
-                  {p.letter_title && <h2 className="ltr-subject">{p.letter_title}</h2>}
-                  {(p.addressee || p.addressee_title) && (
-                    <div className="ltr-to">
-                      <span className="to-name">{p.addressee}</span>
-                      <span className="to-title">{p.addressee_title}</span>
-                    </div>
-                  )}
-                  {p.salutation && <div className="ltr-salut">{p.salutation}</div>}
-                </div>
-              );
-            }
-
-            if (s.kind === 'parties') {
-              return <PartiesPrint parties={doc.parties} key={s.id} />;
-            }
-
-            if (s.kind === 'stampbox') {
-              if (!stampUrl && !signUrl) return null;
-              return (
-                <div className="stampbox-row" key={s.id}>
-                  <div className="stampbox">
-                    {signUrl && <img className="sb-sign" src={signUrl} alt=""
-                                     style={{height:`${signMm}mm`}} />}
-                    {stampUrl && <img className="sb-stamp" src={stampUrl} alt=""
-                                      style={{height:`${stampMm}mm`}} />}
-                  </div>
-                </div>
-              );
-            }
-
-            if (s.kind === 'signatures') {
-              return (
-                <table className="sigtable" key={s.id}>
-                  <thead><tr>{(s.roles||[]).map((x)=><th key={x}>{x}</th>)}</tr></thead>
-                  <tbody><tr>{(s.roles||[]).map((x)=><td key={x} />)}</tr></tbody>
-                </table>
-              );
-            }
-            return null;
-          })}
-
-          {/* ---------- نموذج مدمج ---------- */}
           {!custom && moneyRows.length > 0 && (
             <table className="amounts">
               <thead><tr><th>البيان</th><th className="num">المبلغ <Riyal /></th></tr></thead>
@@ -356,7 +217,7 @@ export default function PrintDoc() {
           )}
 
           {custom && tpl.closing_text && (
-            <div className="dc-body" style={{marginBottom:'6mm'}}>{tpl.closing_text}</div>
+            <div className="print-prose" style={{marginTop:'3mm'}}>{tpl.closing_text}</div>
           )}
 
           <div className="fill" />
@@ -387,7 +248,6 @@ export default function PrintDoc() {
                 )}
               </div>
             ) : (() => {
-              // لا يُطبع الصندوق إلا إذا كان فيه بيانات فعلية
               const lines = [];
               if (cfg.cr_number) lines.push(`سجل تجاري ${cfg.cr_number}`);
               if (cfg.vat_number) lines.push(`رقم ضريبي ${cfg.vat_number}`);
