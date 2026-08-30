@@ -65,6 +65,7 @@
     margin: 47mm 16.5mm 39mm;
   }
 
+  .print-page:has(.print-doc-generic_document),
   .print-doc-generic_document {
     page: generic-document;
   }
