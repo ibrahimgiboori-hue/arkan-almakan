@@ -9,6 +9,7 @@ import {
   normalizePrintTextAlignment,
   printTextInstanceStorageKey,
 } from '@/lib/print-text-governance';
+import { usePrintCommandSection } from '@/components/print/PrintCommandDock';
 
 const AUTO_SELECTOR = [
   '[data-print-text-key]',
@@ -48,7 +49,7 @@ function safeToken(value) {
 
 function isVisibleTextCandidate(element, root) {
   if (!element || !root?.contains(element)) return false;
-  if (element.closest('.no-print,.print-text-alignment-bar,[data-print-text-ignore="true"]')) return false;
+  if (element.closest('.no-print,.print-command-dock,[data-print-text-ignore="true"]')) return false;
   if (element.closest('[aria-hidden="true"]')) return false;
   if (!String(element.textContent || '').trim()) return false;
   const style = window.getComputedStyle(element);
@@ -138,7 +139,7 @@ function applyAlignmentState(root, alignments, editing, selectedKey) {
 
 export default function PrintTextAlignmentEditor({ documentKey }) {
   const pathname = usePathname();
-  const barRef = useRef(null);
+  const anchorRef = useRef(null);
   const [editing, setEditing] = useState(false);
   const [selectedKey, setSelectedKey] = useState('');
   const [selectedLabel, setSelectedLabel] = useState('');
@@ -151,7 +152,7 @@ export default function PrintTextAlignmentEditor({ documentKey }) {
     [documentKey, pathname],
   );
 
-  const root = useCallback(() => barRef.current?.parentElement || null, []);
+  const root = useCallback(() => anchorRef.current?.parentElement || null, []);
 
   const refreshDom = useCallback(() => {
     applyAlignmentState(root(), alignments, editing, selectedKey);
@@ -207,7 +208,7 @@ export default function PrintTextAlignmentEditor({ documentKey }) {
     const host = root();
     if (!host || !editing) return undefined;
     const onClick = (event) => {
-      if (event.target.closest('.print-text-alignment-bar')) return;
+      if (event.target.closest('.print-command-dock,.no-print')) return;
       assignStableKeys(host);
       const target = event.target.closest('[data-print-text-key]');
       if (!target || !host.contains(target) || target.closest('.no-print')) return;
@@ -227,7 +228,7 @@ export default function PrintTextAlignmentEditor({ documentKey }) {
 
   const selectedAlignment = normalizePrintTextAlignment(alignments?.[selectedKey]);
 
-  async function persist(nextAlignments, successMessage) {
+  const persist = useCallback(async (nextAlignments, successMessage) => {
     const previousAlignments = alignments;
     const previousSettings = recordSettings;
     const nextSettings = {
@@ -255,24 +256,24 @@ export default function PrintTextAlignmentEditor({ documentKey }) {
     }
     setMessage(successMessage);
     window.setTimeout(() => setMessage(''), 1500);
-  }
+  }, [alignments, recordSettings, storageKey]);
 
-  function setAlignment(mode) {
+  const setAlignment = useCallback((mode) => {
     if (!selectedKey) return;
     const normalized = normalizePrintTextAlignment(mode);
     if (!normalized) return;
     persist({ ...alignments, [selectedKey]:normalized }, 'حُفظ تنسيق النص');
-  }
+  }, [alignments, persist, selectedKey]);
 
-  function clearAlignment() {
+  const clearAlignment = useCallback(() => {
     if (!selectedKey) return;
     const next = { ...alignments };
     delete next[selectedKey];
     persist(next, 'عاد النص لتنسيق القالب');
-  }
+  }, [alignments, persist, selectedKey]);
 
-  return <>
-    <div ref={barRef} className="print-text-alignment-bar no-print" data-print-text-editor="central">
+  const controls = useMemo(() => (
+    <>
       <button type="button" className={editing ? 'active' : ''} onClick={() => {
         setEditing((value) => !value);
         setSelectedKey('');
@@ -294,14 +295,14 @@ export default function PrintTextAlignmentEditor({ documentKey }) {
         <button type="button" disabled={!selectedKey || !selectedAlignment} onClick={clearAlignment}>استخدام تنسيق القالب</button>
       </>}
       {message && <span className="print-text-message">{message}</span>}
-    </div>
+    </>
+  ), [clearAlignment, editing, message, selectedAlignment, selectedKey, selectedLabel, setAlignment]);
 
+  usePrintCommandSection('text-format', controls, 20);
+
+  return <>
+    <span ref={anchorRef} className="no-print" data-print-text-editor-anchor="true" style={{display:'none'}} />
     <style jsx global>{`
-      .print-text-alignment-bar{max-width:210mm;margin:8px auto;padding:8px 10px;background:#fff;border:1px solid #c7c7c7;display:flex;gap:7px;align-items:center;flex-wrap:wrap;direction:rtl;box-shadow:0 1px 6px rgba(0,0,0,.06);position:relative;z-index:40}
-      .print-text-alignment-bar button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}
-      .print-text-alignment-bar button.active{background:#8B3332;border-color:#8B3332;color:#fff}
-      .print-text-alignment-bar button:disabled{opacity:.38;cursor:not-allowed}
-      .print-text-selected-label,.print-text-message{font-size:11.5px;color:#444;max-width:390px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       [data-print-text-align="right"]{text-align:right!important;text-align-last:auto!important}
       [data-print-text-align="center"]{text-align:center!important;text-align-last:auto!important}
       [data-print-text-align="left"]{text-align:left!important;text-align-last:auto!important}
@@ -309,7 +310,7 @@ export default function PrintTextAlignmentEditor({ documentKey }) {
       [data-print-text-editing="true"] [data-print-text-key]{cursor:text;outline:1px dashed rgba(139,51,50,.28);outline-offset:2px}
       [data-print-text-editing="true"] [data-print-text-key]:hover{outline:2px solid rgba(139,51,50,.58);background:rgba(139,51,50,.035)}
       [data-print-text-selected="true"]{outline:2px solid #8B3332!important;background:rgba(139,51,50,.07)!important}
-      @media print{.print-text-alignment-bar{display:none!important}[data-print-text-editing="true"] [data-print-text-key],[data-print-text-selected="true"]{outline:none!important;background:transparent!important}}
+      @media print{[data-print-text-editing="true"] [data-print-text-key],[data-print-text-selected="true"]{outline:none!important;background:transparent!important}}
     `}</style>
   </>;
 }
