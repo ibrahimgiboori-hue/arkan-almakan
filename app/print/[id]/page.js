@@ -50,6 +50,8 @@ export default function PrintDoc() {
   const rows = p._rows || [];
   const stampUrl = stamp ? pub(cfg.stamp_image_path) : null;
 
+  // هذه قيم مفضلة للقالب/المستند فقط. القبطان يطبق الحد الآمن النهائي
+  // للهوامش عند وجود الليترهيد ولا يسمح للقالب باختراقه.
   const mTop  = doc.margin_top_mm    ?? tpl?.margin_top_mm    ?? cfg.letterhead_top_mm;
   const mBot  = doc.margin_bottom_mm ?? tpl?.margin_bottom_mm ?? cfg.letterhead_bottom_mm;
   const mSide = doc.margin_side_mm   ?? tpl?.margin_side_mm   ?? cfg.letterhead_side_mm;
@@ -63,6 +65,9 @@ export default function PrintDoc() {
   const hasLetterHead = !!custom &&
     (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
+  const hasBrandPaper = Boolean(
+    cfg.letterhead_image_path || cfg.header_image_path || cfg.footer_image_path,
+  );
 
   const fmt = (f, val) => {
     if (val === undefined || val === null || val === '') return '—';
@@ -91,10 +96,10 @@ export default function PrintDoc() {
 
   const documentMetadata = !hasLetterHead ? {
     title:'بيانات المستند',
-    span:6,
+    span:4,
     fields:[
-      { key:'reference', label:'الرقم المرجعي', value:doc.doc_number, span:24, type:'text' },
-      { key:'issued_at', label:'تاريخ الإصدار', value:dateAr(doc.created_at), span:24, type:'date' },
+      { key:'reference', label:'الرقم المرجعي', value:doc.doc_number, span:48, type:'text' },
+      { key:'issued_at', label:'تاريخ الإصدار', value:dateAr(doc.created_at), span:48, type:'date' },
     ],
   } : null;
 
@@ -114,7 +119,9 @@ export default function PrintDoc() {
         </div>
         <div className="tb-group">
           <span className="tb-warn">
-            {!cfg.letterhead_image_path ? 'لم تُرفع صورة الترويسة بعد' : `الهوامش ${mTop}/${mBot}/${mSide} مم`}
+            {!hasBrandPaper
+              ? 'لم تُرفع صورة الترويسة بعد'
+              : 'القبطان يفرض حدود الليترهيد الآمنة على كل صفحة'}
           </span>
           <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
         </div>
@@ -247,7 +254,7 @@ export default function PrintDoc() {
                   <div className="bank-line mono iban">IBAN: {cfg.bank_iban}</div>
                 )}
               </div>
-            ) : (() => {
+            ) : !hasBrandPaper ? (() => {
               const lines = [];
               if (cfg.cr_number) lines.push(`سجل تجاري ${cfg.cr_number}`);
               if (cfg.vat_number) lines.push(`رقم ضريبي ${cfg.vat_number}`);
@@ -260,7 +267,7 @@ export default function PrintDoc() {
                   {contact && <div className="bank-line mono">{contact}</div>}
                 </div>
               );
-            })()}
+            })() : null}
           </div>
 
         </div>
