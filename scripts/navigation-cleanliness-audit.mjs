@@ -46,7 +46,30 @@ if (!areasMatch) {
   }
 }
 
-// 3) لا توجد «منصة أعمال» موازية. الشريط الحالي هو القشرة الوحيدة، والتجميع داخله فقط.
+// 3) بوابة المشاريع مرتبة حسب العمل: اليوم، ثم التسجيل والإدارة، ثم المتابعة.
+const dailyIndex = constitution.indexOf("key: 'daily'");
+const entryIndex = constitution.indexOf("key: 'entry'");
+const readIndex = constitution.indexOf("key: 'read'");
+if (!(dailyIndex >= 0 && entryIndex > dailyIndex && readIndex > entryIndex)) {
+  failures.push('PROJECT_NAV_GROUPS: الترتيب الدستوري يجب أن يبقى العمل اليومي ← التسجيل والإدارة ← المتابعة.');
+}
+if (constitution.includes("key: 'quote-register'")) {
+  failures.push('PROJECT_NAV_GROUPS: سجل عروض الأسعار العام مكرر داخل المشروع؛ يجب أن يبقى له مدخل عام واحد فقط.');
+}
+
+// 4) العامل يُنشأ في سجل المقاول فقط؛ شاشة المشروع تسند عاملًا موجودًا ولا تنشئ ملف عامل جديدًا.
+const projectLabor = read('app/dashboard/projects/[id]/operations/labor/page.js');
+if (projectLabor.includes('fn_quick_add_workers') || projectLabor.includes('QUICK ADD')) {
+  failures.push('عمالة المشروع: عاد مسار إنشاء العمالة السريع داخل المشروع.');
+}
+if (!projectLabor.includes('fn_assign_existing_laborer')) {
+  failures.push('عمالة المشروع: يجب أن تستخدم الإسناد الصريح للعامل الموجود.');
+}
+if (/from\(['"]laborers['"]\)\.insert|from\(['"]laborers['"]\)[\s\S]{0,160}\.insert/.test(projectLabor)) {
+  failures.push('عمالة المشروع: لا يجوز إنشاء سجل laborers من داخل المشروع.');
+}
+
+// 5) لا توجد «منصة أعمال» موازية. الشريط الحالي هو القشرة الوحيدة، والتجميع داخله فقط.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 if (!dashboardLayout.includes('RawDashboardNavigation')) {
@@ -77,13 +100,13 @@ for (const file of [...walk('app/dashboard'), ...walk('components'), ...walk('li
   }
 }
 
-// 4) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
+// 6) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
 const guidance = read('components/approval/ApprovalGuidanceRow.js');
 for (const forbidden of ['طلب إجراء', 'استفسار عن المعاملة', 'فتح أعمالي']) {
   if (guidance.includes(forbidden)) failures.push(`ApprovalGuidanceRow: أعاد إجراء «${forbidden}» إلى شاشة المصدر.`);
 }
 
-// 5) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
+// 7) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
 const legacyApprovals = read('app/dashboard/my-work/approvals/page.js');
 if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) {
   failures.push('المسار القديم my-work/approvals لا يتحول إلى /dashboard/approvals.');
