@@ -62,6 +62,7 @@ export default function DashboardLayout({ children }) {
       const projectCaps = capabilities.filter((item) => item.module_key === 'projects');
       const projectsScreen = fullAdmin || projectCaps.some((item) => item.scope_type === 'all');
       const projectScoped = fullAdmin || projectCaps.length > 0;
+      const manageAccess = fullAdmin || capabilityKeys.has('system.access.manage_access');
       const access = {
         fullAdmin,
         projects: projectsScreen,
@@ -69,9 +70,10 @@ export default function DashboardLayout({ children }) {
         projectScoped,
         hr: fullAdmin || capabilities.some((item) => item.module_key === 'hr'),
         finance: fullAdmin || capabilities.some((item) => item.module_key === 'finance'),
-        documents: fullAdmin || capabilities.some((item) => item.module_key === 'documents') || capabilityKeys.has('system.approvals.view'),
-        admin: fullAdmin || capabilities.some((item) => item.module_key === 'admin' || item.module_key === 'system'),
-        manageAccess: fullAdmin || capabilityKeys.has('system.access.manage_access'),
+        // البوابة لا تُفتح بصلاحية داخلية من بوابة أخرى. الصلاحية النظامية تبقى لأداتها فقط.
+        documents: fullAdmin || capabilities.some((item) => item.module_key === 'documents'),
+        admin: fullAdmin || capabilities.some((item) => item.module_key === 'admin') || manageAccess,
+        manageAccess,
         approvals: fullAdmin || capabilityKeys.has('system.approvals.view'),
       };
       const actionContext = normalizeActionContext(actionQ.error ? null : actionQ.data, {
