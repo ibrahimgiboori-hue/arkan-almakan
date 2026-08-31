@@ -1,0 +1,21 @@
+/*
+ * قاعدة تباين الطباعة: رؤوس الجداول يجب أن تبقى مقروءة حتى عندما
+ * يتجاهل المتصفح طباعة ألوان الخلفية.
+ */
+.print-data-table thead th {
+  color: #211d1a !important;
+  background: #e5e0da !important;
+  border-color: #8d857d !important;
+  font-weight: 700 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+@media print {
+  .print-data-table thead th {
+    color: #181512 !important;
+    background: #e9e5e0 !important;
+    border-color: #706961 !important;
+    text-shadow: none !important;
+  }
+}
