@@ -22,11 +22,6 @@ function dateLabel(value) {
   }).format(new Date(y, m - 1, d));
 }
 
-const EMPTY_ADD = {
-  names: '', labor_class: 'worker', trade: '', pay_basis: 'daily', rate: '', salary: '', salary_days: 30,
-  piece_rate: '', piece_unit: 'م2', effective_from: '',
-};
-
 export default function ProjectLaborPage() {
   const { id: projectId } = useParams();
   const {
@@ -38,14 +33,12 @@ export default function ProjectLaborPage() {
   } = useProjectOperationContext(projectId);
 
   const [contractors, setContractors] = useState([]);
-  const [allContractors, setAllContractors] = useState([]);
-  const [workers, setWorkers] = useState([]);
+  const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
-  const [addForm, setAddForm] = useState(() => ({ ...EMPTY_ADD }));
   const [editFor, setEditFor] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [moveFor, setMoveFor] = useState(null);
@@ -57,145 +50,136 @@ export default function ProjectLaborPage() {
     setLoadError('');
     setErr('');
     try {
-      const [linksQ, assignmentsQ, allContractorsQ] = await Promise.all([
-        supabase.from('project_contractors')
-          .select('contractor_id,basis,worker_daily,tech_daily,start_date,end_date,is_active')
-          .eq('project_id', projectId)
-          .eq('is_active', true)
-          .lte('start_date', date)
-          .or(`end_date.is.null,end_date.gte.${date}`),
-        supabase.from('labor_project_assignments')
-          .select('id,laborer_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to')
-          .eq('project_id', projectId),
-        supabase.from('contractors')
+      const linksQ = await supabase.from('project_contractors')
+        .select('contractor_id,basis,worker_daily,tech_daily,start_date,end_date,is_active')
+        .eq('project_id', projectId)
+        .eq('is_active', true)
+        .lte('start_date', date)
+        .or(`end_date.is.null,end_date.gte.${date}`);
+      if (linksQ.error) throw linksQ.error;
+
+      const projectContractorIds = [...new Set((linksQ.data || []).map((row) => row.contractor_id).filter(Boolean))];
+      const contractorsQ = projectContractorIds.length
+        ? await supabase.from('contractors')
           .select('id,name_ar,operation_alias,contractor_no,worker_daily,tech_daily,is_active')
+          .in('id', projectContractorIds)
           .eq('is_active', true)
-          .order('name_ar'),
-      ]);
-      const firstError = [linksQ, assignmentsQ, allContractorsQ].find((query) => query.error)?.error;
-      if (firstError) throw firstError;
+          .order('name_ar')
+        : { data: [], error: null };
+      if (contractorsQ.error) throw contractorsQ.error;
 
-      const historyAssignments = assignmentsQ.data || [];
-      const currentAssignments = historyAssignments.map((row) => {
-        const resolved = resolveRosterAssignment(
-          historyAssignments.filter((candidate) => candidate.laborer_id === row.laborer_id),
-          date,
-        );
-        return resolved.eligible ? resolved.assignment : null;
-      }).filter(Boolean);
-      const dedupedAssignments = [...new Map(currentAssignments.map((row) => [row.laborer_id, row])).values()];
+      const projectContractors = (contractorsQ.data || []).map((row) => {
+        const link = (linksQ.data || []).find((item) => item.contractor_id === row.id);
+        return {
+          ...row,
+          project_basis: link?.basis || null,
+          worker_daily: link?.worker_daily ?? row.worker_daily,
+          tech_daily: link?.tech_daily ?? row.tech_daily,
+        };
+      }).sort((a, b) => naturalCompare(a.name_ar, b.name_ar));
 
-      const projectContractorIds = [...new Set([
-        ...(linksQ.data || []).map((row) => row.contractor_id),
-        ...dedupedAssignments.map((row) => row.contractor_id),
-      ].filter(Boolean))];
-      const activeContractors = allContractorsQ.data || [];
-      const projectContractors = activeContractors
-        .filter((row) => projectContractorIds.includes(row.id))
-        .map((row) => {
-          const link = (linksQ.data || []).find((item) => item.contractor_id === row.id);
-          return {
-            ...row,
-            project_basis: link?.basis || null,
-            worker_daily: link?.worker_daily ?? row.worker_daily,
-            tech_daily: link?.tech_daily ?? row.tech_daily,
-          };
-        })
-        .sort((a, b) => naturalCompare(a.name_ar, b.name_ar));
-
-      const laborerIds = [...new Set(dedupedAssignments.map((row) => row.laborer_id).filter(Boolean))];
-      const laborersQ = laborerIds.length
+      const laborersQ = projectContractorIds.length
         ? await supabase.from('laborers')
-          .select('id,full_name,labor_class,trade,pay_basis,daily_rate,monthly_salary,salary_days,piece_rate,piece_unit,is_active')
-          .in('id', laborerIds)
+          .select('id,contractor_id,full_name,labor_class,trade,pay_basis,daily_rate,monthly_salary,salary_days,piece_rate,piece_unit,is_active')
+          .in('contractor_id', projectContractorIds)
+          .eq('is_active', true)
+          .order('full_name')
         : { data: [], error: null };
       if (laborersQ.error) throw laborersQ.error;
 
-      const assignmentByWorker = new Map(dedupedAssignments.map((row) => [row.laborer_id, row]));
-      const rows = (laborersQ.data || []).map((worker) => {
-        const assignment = assignmentByWorker.get(worker.id);
+      const laborerIds = (laborersQ.data || []).map((row) => row.id);
+      const assignmentsQ = laborerIds.length
+        ? await supabase.from('labor_project_assignments')
+          .select('id,laborer_id,project_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to,is_active,created_at')
+          .in('laborer_id', laborerIds)
+        : { data: [], error: null };
+      if (assignmentsQ.error) throw assignmentsQ.error;
+
+      const historyAssignments = assignmentsQ.data || [];
+      const rosterRows = (laborersQ.data || []).map((worker) => {
+        const resolved = resolveRosterAssignment(
+          historyAssignments.filter((candidate) => candidate.laborer_id === worker.id),
+          date,
+        );
+        const assignment = resolved.eligible ? resolved.assignment : null;
         return {
           ...worker,
-          contractor_id: assignment?.contractor_id || null,
-          labor_class: assignment?.labor_class || worker.labor_class,
-          trade: assignment?.trade || worker.trade,
-          pay_basis: assignment?.pay_basis || worker.pay_basis || 'daily',
-          daily_rate: assignment?.daily_rate ?? worker.daily_rate,
-          assignment_id: assignment?.id || null,
-          assignment_from: assignment?.valid_from || null,
-          assignment_to: assignment?.valid_to || null,
+          current_assignment: assignment,
+          assignment_id: assignment?.project_id === projectId ? assignment.id : null,
+          assignment_from: assignment?.project_id === projectId ? assignment.valid_from : null,
+          assignment_to: assignment?.project_id === projectId ? assignment.valid_to : null,
+          labor_class: assignment?.project_id === projectId ? (assignment.labor_class || worker.labor_class) : worker.labor_class,
+          trade: assignment?.project_id === projectId ? (assignment.trade || worker.trade) : worker.trade,
+          pay_basis: assignment?.project_id === projectId ? (assignment.pay_basis || worker.pay_basis) : worker.pay_basis,
+          daily_rate: assignment?.project_id === projectId ? (assignment.daily_rate ?? worker.daily_rate) : worker.daily_rate,
         };
-      }).filter((worker) => worker.assignment_id).sort((a, b) => naturalCompare(a.full_name, b.full_name));
+      }).sort((a, b) => naturalCompare(a.full_name, b.full_name));
 
-      setAllContractors(activeContractors);
       setContractors(projectContractors);
-      setWorkers(rows);
+      setRoster(rosterRows);
       const selectedStillExists = contractorId && projectContractors.some((row) => row.id === contractorId);
       if (!selectedStillExists) setContractorId(projectContractors[0]?.id || '');
-      setAddForm((current) => ({ ...current, effective_from: current.effective_from || date }));
     } catch (error) {
       const message = 'تعذر تحميل عمالة المشروع: ' + (error.message || error);
       setLoadError(message);
       setErr(message);
       setContractors([]);
-      setWorkers([]);
+      setRoster([]);
     }
     setLoading(false);
-  }, [contextReady, date, projectId, setContractorId]);
+  }, [contextReady, date, projectId, contractorId, setContractorId]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    setAddForm((current) => ({ ...current, effective_from: date }));
-  }, [date]);
 
   const selectedContractor = contractors.find((row) => row.id === contractorId) || null;
-  const visibleWorkers = useMemo(
-    () => workers.filter((worker) => !contractorId || worker.contractor_id === contractorId),
-    [contractorId, workers],
+  const contractorRoster = useMemo(
+    () => roster.filter((worker) => worker.contractor_id === contractorId),
+    [contractorId, roster],
   );
+  const projectWorkers = useMemo(
+    () => contractorRoster.filter((worker) => worker.current_assignment?.project_id === projectId),
+    [contractorRoster, projectId],
+  );
+
+  async function assignWorker(worker) {
+    if (!selectedContractor) return;
+    const otherAssignment = worker.current_assignment && worker.current_assignment.project_id !== projectId;
+    const key = `${otherAssignment ? 'move-in' : 'assign'}:${worker.id}`;
+    setBusy(key); setErr(''); setMsg('');
+    try {
+      const query = otherAssignment
+        ? await supabase.rpc('fn_move_laborer', {
+          p_laborer_id: worker.id,
+          p_project_id: projectId,
+          p_contractor_id: selectedContractor.id,
+          p_effective_from: date,
+          p_labor_class: worker.labor_class,
+          p_trade: worker.trade || null,
+          p_pay_basis: worker.pay_basis || 'daily',
+          p_daily_rate: worker.pay_basis === 'daily' ? (Number(worker.daily_rate) || null) : null,
+          p_notes: 'نقل صريح من إدارة عمالة المشروع',
+        })
+        : await supabase.rpc('fn_assign_existing_laborer', {
+          p_laborer_id: worker.id,
+          p_project_id: projectId,
+          p_contractor_id: selectedContractor.id,
+          p_effective_from: date,
+        });
+      if (query.error) throw query.error;
+      setMsg(otherAssignment ? `نُقل ${worker.full_name} إلى المشروع.` : `أُسند ${worker.full_name} للمشروع.`);
+      await load();
+    } catch (error) {
+      setErr(error.message || String(error));
+    }
+    setBusy('');
+  }
 
   function rateForTarget(targetId, worker = moveFor) {
     if (!targetId || !worker || worker.pay_basis !== 'daily') return '';
-    const target = contractors.find((row) => row.id === targetId) || allContractors.find((row) => row.id === targetId);
+    const target = contractors.find((row) => row.id === targetId);
     if (!target) return '';
     const rate = worker.labor_class === 'technician' ? target.tech_daily : target.worker_daily;
     return rate == null ? '' : String(rate);
-  }
-
-  async function addWorkers(event) {
-    event.preventDefault();
-    if (!contractorId) { setErr('اختر المقاول أولًا.'); return; }
-    const names = String(addForm.names || '').split(/\n|،/).map((value) => value.trim()).filter(Boolean);
-    if (!names.length) { setErr('اكتب أسماء العمال، كل اسم في سطر.'); return; }
-    setBusy('add'); setErr(''); setMsg('');
-    try {
-      const { data, error } = await supabase.rpc('fn_quick_add_workers', {
-        p_project_id: projectId,
-        p_contractor_id: contractorId,
-        p_effective_from: addForm.effective_from || date,
-        p_names: names,
-        p_labor_class: addForm.labor_class || 'worker',
-        p_trade: addForm.trade || null,
-        p_pay_basis: addForm.pay_basis || 'daily',
-        p_daily_rate: addForm.pay_basis === 'daily' ? (Number(addForm.rate) || null) : null,
-        p_monthly_salary: addForm.pay_basis === 'salary' ? (Number(addForm.salary) || null) : null,
-        p_salary_days: Number(addForm.salary_days || 30),
-        p_piece_rate: addForm.pay_basis === 'piecework' ? (Number(addForm.piece_rate) || null) : null,
-        p_piece_unit: addForm.piece_unit || 'م2',
-      });
-      if (error) throw error;
-      const result = Array.isArray(data) ? data : [];
-      const created = result.filter((row) => row.status === 'created').length;
-      const existing = result.filter((row) => row.status === 'existing').length;
-      const transfer = result.filter((row) => row.status === 'needs_transfer').map((row) => row.name);
-      setMsg(`أضيف ${created} · موجود مسبقًا ${existing}`);
-      if (transfer.length) setErr(`لم يُنقل تلقائيًا: ${transfer.join('، ')}. هؤلاء مرتبطون بإسناد آخر ويحتاجون استخدام «نقل» حتى يبقى التاريخ صحيحًا.`);
-      setAddForm({ ...EMPTY_ADD, effective_from: date });
-      await load();
-    } catch (error) {
-      setErr('تعذر إضافة العمال: ' + (error.message || error));
-    }
-    setBusy('');
   }
 
   function openEdit(worker) {
@@ -238,7 +222,7 @@ export default function ProjectLaborPage() {
         p_reason: editForm.reason,
       });
       if (error) throw error;
-      setMsg(`حُفظ تعديل ${editForm.full_name} مع الاحتفاظ بالسجل السابق.`);
+      setMsg(`حُفظ تعديل ${editForm.full_name}.`);
       setEditFor(null);
       await load();
     } catch (error) {
@@ -276,7 +260,7 @@ export default function ProjectLaborPage() {
       const movedName = moveFor.full_name;
       setMoveFor(null);
       setContractorId(moveForm.contractor_id);
-      setMsg(`تم نقل ${movedName} مع حفظ تاريخه السابق واعتماد أجر الإسناد الجديد.`);
+      setMsg(`تم نقل ${movedName} مع حفظ تاريخه السابق.`);
       await load();
     } catch (error) {
       setErr('تعذر نقل العامل: ' + (error.message || error));
@@ -300,45 +284,52 @@ export default function ProjectLaborPage() {
     {err && <div className={styles.error}>{err}</div>}
     {msg && <div className={styles.success}>{msg}</div>}
 
-    {loadError ? <div className={styles.error}>تعذر قراءة إسنادات العمالة. لن نعرض حالة «لا توجد عمالة» حتى لا تُنشأ بيانات فوق سجل غير مقروء.</div> : <>
-    <section className={styles.summaryStrip}>
-      <div><span>عمالة المشروع في التاريخ</span><strong>{workers.length}</strong></div>
-      <div><span>لدى المقاول المختار</span><strong>{visibleWorkers.length}</strong></div>
-      <div><span>عمال</span><strong>{visibleWorkers.filter((worker) => worker.labor_class === 'worker').length}</strong></div>
-      <div><span>صنايعية</span><strong>{visibleWorkers.filter((worker) => worker.labor_class === 'technician').length}</strong></div>
-    </section>
+    {loadError ? null : <>
+      <section className={styles.summaryStrip}>
+        <div><span>عمالة المقاول</span><strong>{contractorRoster.length}</strong></div>
+        <div><span>مسندة للمشروع</span><strong>{projectWorkers.length}</strong></div>
+        <div><span>عمال</span><strong>{projectWorkers.filter((worker) => worker.labor_class === 'worker').length}</strong></div>
+        <div><span>صنايعية</span><strong>{projectWorkers.filter((worker) => worker.labor_class === 'technician').length}</strong></div>
+      </section>
 
-    <section className={styles.contractorBar}>
-      <div className={styles.contractorTabs}>
-        {contractors.map((contractor) => <button key={contractor.id} type="button" className={contractorId === contractor.id ? styles.activeContractor : ''} onClick={() => setContractorId(contractor.id)}><span>{contractor.operation_alias || contractor.name_ar}</span><small>{workers.filter((worker) => worker.contractor_id === contractor.id).length} فرد</small></button>)}
-      </div>
-      <div className={styles.contractorMeta}><strong>{selectedContractor?.name_ar || '—'}</strong><span>الإسناد الفعلي في {date}</span></div>
-    </section>
+      <section className={styles.contractorBar}>
+        <div className={styles.contractorTabs}>
+          {contractors.map((contractor) => <button key={contractor.id} type="button" className={contractorId === contractor.id ? styles.activeContractor : ''} onClick={() => setContractorId(contractor.id)}><span>{contractor.operation_alias || contractor.name_ar}</span><small>{roster.filter((worker) => worker.contractor_id === contractor.id && worker.current_assignment?.project_id === projectId).length} مسند</small></button>)}
+        </div>
+        <div className={styles.contractorMeta}><strong>{selectedContractor?.name_ar || '—'}</strong><span>{date}</span></div>
+      </section>
 
-    {!selectedContractor ? <div className={styles.empty}>لا يوجد مقاول مرتبط بالمشروع في التاريخ المختار. ابدأ الإسناد من «النطاق والإسناد» أولًا.</div> : <section className={styles.operationGrid}>
-      <main className={styles.formPane}>
-        <div className={styles.panelTitle}><div><span>QUICK ADD</span><h2>إضافة عمالة</h2><p>كل اسم في سطر. الإضافة تُسند الأفراد للمقاول والتاريخ المختارين مباشرة.</p></div></div>
-        <form className={styles.operationForm} onSubmit={addWorkers}>
-          <label className={styles.wideField}><span>الأسماء</span><textarea rows="6" value={addForm.names} onChange={(event) => setAddForm((form) => ({ ...form, names: event.target.value }))} placeholder={'أحمد محمد\nمحمد علي'} /></label>
-          <label><span>الصفة</span><select value={addForm.labor_class} onChange={(event) => setAddForm((form) => ({ ...form, labor_class: event.target.value }))}>{Object.entries(LABOR_CLASS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <label><span>المهنة</span><input value={addForm.trade} onChange={(event) => setAddForm((form) => ({ ...form, trade: event.target.value }))} /></label>
-          <label><span>طريقة الأجر</span><select value={addForm.pay_basis} onChange={(event) => setAddForm((form) => ({ ...form, pay_basis: event.target.value }))}>{Object.entries(PAY_BASIS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          {addForm.pay_basis === 'daily' && <label><span>اليومية</span><input type="number" min="0" step="0.01" value={addForm.rate} onChange={(event) => setAddForm((form) => ({ ...form, rate: event.target.value }))} /></label>}
-          {addForm.pay_basis === 'salary' && <><label><span>الراتب الشهري</span><input type="number" min="0" step="0.01" value={addForm.salary} onChange={(event) => setAddForm((form) => ({ ...form, salary: event.target.value }))} /></label><label><span>أيام احتساب الراتب</span><input type="number" min="1" value={addForm.salary_days} onChange={(event) => setAddForm((form) => ({ ...form, salary_days: event.target.value }))} /></label></>}
-          {addForm.pay_basis === 'piecework' && <><label><span>سعر الوحدة</span><input type="number" min="0" step="0.01" value={addForm.piece_rate} onChange={(event) => setAddForm((form) => ({ ...form, piece_rate: event.target.value }))} /></label><label><span>الوحدة</span><input value={addForm.piece_unit} onChange={(event) => setAddForm((form) => ({ ...form, piece_unit: event.target.value }))} /></label></>}
-          <label><span>سريان الإسناد من</span><input type="date" value={addForm.effective_from || date} onChange={(event) => setAddForm((form) => ({ ...form, effective_from: event.target.value }))} /></label>
-          <button type="submit" className={styles.primaryAction} disabled={busy === 'add'}>{busy === 'add' ? 'جارٍ الإضافة…' : 'إضافة العمالة'}</button>
-        </form>
-      </main>
+      {!selectedContractor ? <div className={styles.empty}>لا يوجد مقاول مسند للمشروع في التاريخ المختار.</div> : <section className={styles.operationGrid}>
+        <main className={styles.formPane}>
+          <div className={styles.panelTitle}><div><h2>عمالة المقاول</h2></div></div>
+          <div className={styles.activityList}>
+            {contractorRoster.length === 0 ? <div className={styles.panelEmpty}>لا توجد عمالة لدى هذا المقاول.</div> : contractorRoster.map((worker) => {
+              const inThisProject = worker.current_assignment?.project_id === projectId;
+              const assignedElsewhere = Boolean(worker.current_assignment && !inThisProject);
+              const actionKey = `${assignedElsewhere ? 'move-in' : 'assign'}:${worker.id}`;
+              return <div className={styles.activityRow} key={worker.id}>
+                <div>
+                  <strong>{worker.full_name}</strong>
+                  <small>{LABOR_CLASS[worker.labor_class] || worker.labor_class} · {worker.trade || '—'} · {PAY_BASIS[worker.pay_basis] || worker.pay_basis}</small>
+                </div>
+                <div>
+                  {inThisProject
+                    ? <span className="pill ok">مسند</span>
+                    : <button type="button" className="btn" disabled={busy === actionKey} onClick={() => assignWorker(worker)}>{busy === actionKey ? 'جارٍ التنفيذ…' : assignedElsewhere ? 'نقل للمشروع' : 'إسناد'}</button>}
+                </div>
+              </div>;
+            })}
+          </div>
+        </main>
 
-      <aside className={styles.historyPane}>
-        <div className={styles.historyHead}><div><span>CURRENT ROSTER</span><strong>العمالة الحالية</strong></div><b>{visibleWorkers.length}</b></div>
-        <div className={styles.activityList}>{visibleWorkers.length === 0 ? <div className={styles.panelEmpty}>لا توجد عمالة مسندة لهذا المقاول في التاريخ المختار.</div> : visibleWorkers.map((worker) => <div className={styles.activityRow} key={worker.id}><div><strong>{worker.full_name}</strong><small>{LABOR_CLASS[worker.labor_class] || worker.labor_class} · {worker.trade || 'بلا مهنة'} · {PAY_BASIS[worker.pay_basis] || worker.pay_basis}</small></div><div><button type="button" className="btn ghost" onClick={() => openEdit(worker)}>تعديل</button> <button type="button" className="btn ghost" onClick={() => openMove(worker)}>نقل</button></div></div>)}</div>
-      </aside>
-    </section>}
+        <aside className={styles.historyPane}>
+          <div className={styles.historyHead}><div><strong>في المشروع</strong></div><b>{projectWorkers.length}</b></div>
+          <div className={styles.activityList}>{projectWorkers.length === 0 ? <div className={styles.panelEmpty}>لا توجد عمالة مسندة.</div> : projectWorkers.map((worker) => <div className={styles.activityRow} key={worker.id}><div><strong>{worker.full_name}</strong><small>{LABOR_CLASS[worker.labor_class] || worker.labor_class} · {worker.trade || '—'} · {PAY_BASIS[worker.pay_basis] || worker.pay_basis}</small></div><div><button type="button" className="btn ghost" onClick={() => openEdit(worker)}>تعديل</button> <button type="button" className="btn ghost" onClick={() => openMove(worker)}>نقل</button></div></div>)}</div>
+        </aside>
+      </section>}
     </>}
 
-    {editFor && <ConstitutionDialog title={`تعديل: ${editFor.full_name}`} description="التعديل يحفظ الأثر التاريخي ولا يعيد كتابة الحضور المالي السابق." size="wide" onClose={() => setEditFor(null)}>
+    {editFor && <ConstitutionDialog title={`تعديل: ${editFor.full_name}`} size="wide" onClose={() => setEditFor(null)}>
       <form className={styles.operationForm} onSubmit={saveEdit}>
         <label><span>الاسم</span><input required value={editForm.full_name || ''} onChange={(event) => setEditForm((form) => ({ ...form, full_name: event.target.value }))} /></label>
         <label><span>الصفة</span><select value={editForm.labor_class || 'worker'} onChange={(event) => setEditForm((form) => ({ ...form, labor_class: event.target.value }))}>{Object.entries(LABOR_CLASS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -349,18 +340,18 @@ export default function ProjectLaborPage() {
         {editForm.pay_basis === 'piecework' && <><label><span>سعر الوحدة</span><input type="number" min="0" step="0.01" value={editForm.piece_rate || ''} onChange={(event) => setEditForm((form) => ({ ...form, piece_rate: event.target.value }))} /></label><label><span>الوحدة</span><input value={editForm.piece_unit || ''} onChange={(event) => setEditForm((form) => ({ ...form, piece_unit: event.target.value }))} /></label></>}
         <label><span>من تاريخ</span><input required type="date" value={editForm.valid_from || ''} onChange={(event) => setEditForm((form) => ({ ...form, valid_from: event.target.value }))} /></label>
         <label><span>إلى تاريخ</span><input type="date" value={editForm.valid_to || ''} onChange={(event) => setEditForm((form) => ({ ...form, valid_to: event.target.value }))} /></label>
-        <label className={styles.wideField}><span>سبب التعديل *</span><input required value={editForm.reason || ''} onChange={(event) => setEditForm((form) => ({ ...form, reason: event.target.value }))} placeholder="مثال: تصحيح صفة العامل" /></label>
-        <button type="submit" className={styles.primaryAction} disabled={busy === 'edit'}>{busy === 'edit' ? 'جارٍ الحفظ…' : 'حفظ التعديل'}</button>
+        <label className={styles.wideField}><span>سبب التعديل *</span><input required value={editForm.reason || ''} onChange={(event) => setEditForm((form) => ({ ...form, reason: event.target.value }))} /></label>
+        <button type="submit" className={styles.primaryAction} disabled={busy === 'edit'}>{busy === 'edit' ? 'جارٍ الحفظ…' : 'حفظ'}</button>
       </form>
     </ConstitutionDialog>}
 
-    {moveFor && <ConstitutionDialog title={`نقل: ${moveFor.full_name}`} description="ينتهي الإسناد السابق قبل تاريخ النقل ويبدأ الإسناد الجديد مع حفظ التاريخ. اليومية أدناه تخص الإسناد الجديد." size="compact" onClose={() => setMoveFor(null)}>
+    {moveFor && <ConstitutionDialog title={`نقل: ${moveFor.full_name}`} size="compact" onClose={() => setMoveFor(null)}>
       <form className={styles.operationForm} onSubmit={saveMove}>
-        <label className={styles.wideField}><span>المقاول الجديد</span><select required value={moveForm.contractor_id} onChange={(event) => changeMoveContractor(event.target.value)}><option value="">اختر المقاول</option>{allContractors.filter((contractor) => contractor.id !== moveFor.contractor_id).map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name_ar}</option>)}</select></label>
+        <label className={styles.wideField}><span>المقاول الجديد</span><select required value={moveForm.contractor_id} onChange={(event) => changeMoveContractor(event.target.value)}><option value="">اختر المقاول</option>{contractors.filter((contractor) => contractor.id !== moveFor.contractor_id).map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name_ar}</option>)}</select></label>
         <label><span>من تاريخ</span><input required type="date" value={moveForm.effective_from} onChange={(event) => setMoveForm((form) => ({ ...form, effective_from: event.target.value }))} /></label>
-        {moveFor.pay_basis === 'daily' && <label><span>يومية الإسناد الجديد</span><input type="number" min="0" step="0.01" value={moveForm.daily_rate} onChange={(event) => setMoveForm((form) => ({ ...form, daily_rate: event.target.value }))} placeholder="يُستخدم سعر المقاول الجديد إذا تُرك فارغًا" /></label>}
+        {moveFor.pay_basis === 'daily' && <label><span>اليومية الجديدة</span><input type="number" min="0" step="0.01" value={moveForm.daily_rate} onChange={(event) => setMoveForm((form) => ({ ...form, daily_rate: event.target.value }))} /></label>}
         <label className={styles.wideField}><span>ملاحظة</span><input value={moveForm.notes} onChange={(event) => setMoveForm((form) => ({ ...form, notes: event.target.value }))} /></label>
-        <button type="submit" className={styles.primaryAction} disabled={busy === 'move'}>{busy === 'move' ? 'جارٍ النقل…' : 'نقل العامل'}</button>
+        <button type="submit" className={styles.primaryAction} disabled={busy === 'move'}>{busy === 'move' ? 'جارٍ النقل…' : 'نقل'}</button>
       </form>
     </ConstitutionDialog>}
   </div>;
