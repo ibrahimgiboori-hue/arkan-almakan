@@ -8,10 +8,10 @@ import { projectNavRequirement } from '@/lib/access-ui';
 import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice } from '@/components/ui/ConstitutionUI';
 
 const SECTIONS=Object.freeze({
-  planning:{key:'planning',label:'التخطيط والجدولة',description:'قراءة البنود ومدد التنفيذ وتوقيت التدفق المتوقع في مكان واحد.'},
-  'cost-control':{key:'cost-control',label:'التحكم المالي',description:'قيمة العقد والتقدم والتكلفة والتحصيل والنتيجة الحالية للمشروع.'},
-  changes:{key:'changes',label:'التغييرات',description:'أوامر التغيير وأثرها الزمني والمالي وحالتها.'},
-  correspondence:{key:'correspondence',label:'المراسلات الفنية',description:'مستندات الموقع والمستندات المرتبطة بالمشروع ضمن سجل واحد.'},
+  planning:{key:'planning',label:'التخطيط والجدولة'},
+  'cost-control':{key:'cost-control',label:'التحكم المالي'},
+  changes:{key:'changes',label:'التغييرات'},
+  correspondence:{key:'correspondence',label:'المراسلات الفنية'},
 });
 
 function n(value){return Number(value||0);}
@@ -31,7 +31,7 @@ async function loadPlanning(projectId){
   const timing=new Map((timingQ.data||[]).map(r=>[r.project_item_id,r]));
   const rows=(itemsQ.data||[]).map(item=>{const d=durations.get(item.id)||{};const t=timing.get(item.id)||{};return [item.sort_order??'—',item.description_ar||'—',item.contract_qty??'—',item.unit||'—',dateAr(t.forecast_start_date||d.first_day),dateAr(t.forecast_end_date||d.last_day),d.days_spent??'—',d.total_output??0];});
   const planned=(timingQ.data||[]).filter(r=>r.forecast_start_date||r.forecast_end_date).length;
-  return {summary:[{key:'items',label:'بنود المشروع',value:rows.length,note:'في النطاق الحالي'},{key:'planned',label:'لها توقيت',value:planned,note:'توقيت مالي/تنفيذي مسجل'},{key:'started',label:'بدأ تنفيذها',value:(durationQ.data||[]).filter(r=>r.first_day).length,note:'لها حركة فعلية'}],columns:['#','البند','الكمية','الوحدة','البداية','النهاية','أيام التنفيذ','المنجز'],rows,note:'هذه النسخة تبني الجدولة من البيانات الموجودة. الاعتماديات المتقدمة بين الأنشطة يمكن إضافتها لاحقًا إذا أصبح التخطيط الزمني التفصيلي مطلوبًا.'};
+  return {summary:[{key:'items',label:'بنود المشروع',value:rows.length},{key:'planned',label:'لها توقيت',value:planned},{key:'started',label:'بدأ تنفيذها',value:(durationQ.data||[]).filter(r=>r.first_day).length}],columns:['#','البند','الكمية','الوحدة','البداية','النهاية','أيام التنفيذ','المنجز'],rows};
 }
 
 async function loadCostControl(projectId){
@@ -41,12 +41,12 @@ async function loadCostControl(projectId){
   ]);if(financialQ.error)throw financialQ.error;if(snapshotsQ.error)throw snapshotsQ.error;
   const f=financialQ.data||{};const snapshots=snapshotsQ.data||[];
   const rows=snapshots.map(r=>[dateAr(r.snapshot_at),r.label||'لقطة مالية',`${Math.round(n(r.progress_pct))}%`,money(r.current_contract_value),money(r.earned_value),money(r.known_actual_cost),money(r.current_result),money(r.next_4w_inflow),money(r.next_4w_outflow)]);
-  return {summary:[{key:'contract',label:'قيمة العقد',value:money(f.contract_value),note:'القيمة الحالية'},{key:'earned',label:'القيمة المكتسبة',value:money(f.earned_value),note:`إنجاز ${Math.round(n(f.computed_progress_pct))}%`},{key:'cost',label:'التكلفة المعروفة',value:money(f.direct_cost_known),note:'حسب المصادر المسجلة'},{key:'result',label:'النتيجة الحالية',value:money(f.current_profit),note:'قبل الإقفال النهائي'}],columns:['التاريخ','اللقطة','الإنجاز','العقد','المكتسب','التكلفة','النتيجة','داخل 4 أسابيع','خارج 4 أسابيع'],rows,note:snapshots.length?'اللقطات تحفظ تطور الموقف المالي عبر الزمن.':'لا توجد لقطات مالية محفوظة بعد؛ الملخص العلوي يقرأ الوضع الحي للمشروع.'};
+  return {summary:[{key:'contract',label:'قيمة العقد',value:money(f.contract_value)},{key:'earned',label:'القيمة المكتسبة',value:money(f.earned_value),note:`إنجاز ${Math.round(n(f.computed_progress_pct))}%`},{key:'cost',label:'التكلفة المعروفة',value:money(f.direct_cost_known)},{key:'result',label:'النتيجة الحالية',value:money(f.current_profit)}],columns:['التاريخ','اللقطة','الإنجاز','العقد','المكتسب','التكلفة','النتيجة','داخل 4 أسابيع','خارج 4 أسابيع'],rows};
 }
 
 async function loadChanges(projectId){
   const {data,error}=await supabase.from('change_orders').select('id,co_number,co_date,description,reason,status,owner_ref,duration_days,approved_at,created_at').eq('project_id',projectId).order('co_date',{ascending:false});if(error)throw error;const rows=data||[];
-  return {summary:[{key:'count',label:'أوامر التغيير',value:rows.length,note:'المسجلة'},{key:'open',label:'غير معتمدة',value:rows.filter(r=>String(r.status||'').toLowerCase()!=='approved').length,note:'تحتاج متابعة'},{key:'days',label:'الأثر الزمني',value:`${rows.reduce((s,r)=>s+n(r.duration_days),0)} يوم`,note:'حسب الأوامر المسجلة'}],columns:['رقم التغيير','التاريخ','الوصف','السبب','الأثر الزمني','الحالة','اعتماد المالك'],rows:rows.map(r=>[r.co_number||'—',dateAr(r.co_date),r.description||'—',r.reason||'—',`${n(r.duration_days)} يوم`,status(r.status),r.owner_ref||dateAr(r.approved_at)]),note:'سجل المخاطر المستقل غير مضاف هنا لأنه يحتاج نموذج بيانات خاص؛ أما التغييرات فلها محرك موجود بالفعل.'};
+  return {summary:[{key:'count',label:'أوامر التغيير',value:rows.length},{key:'open',label:'غير معتمدة',value:rows.filter(r=>String(r.status||'').toLowerCase()!=='approved').length},{key:'days',label:'الأثر الزمني',value:`${rows.reduce((s,r)=>s+n(r.duration_days),0)} يوم`}],columns:['رقم التغيير','التاريخ','الوصف','السبب','الأثر الزمني','الحالة','اعتماد المالك'],rows:rows.map(r=>[r.co_number||'—',dateAr(r.co_date),r.description||'—',r.reason||'—',`${n(r.duration_days)} يوم`,status(r.status),r.owner_ref||dateAr(r.approved_at)])};
 }
 
 async function loadCorrespondence(projectId){
@@ -55,7 +55,7 @@ async function loadCorrespondence(projectId){
     supabase.from('documents').select('id,doc_number,subject,status,issued_at,sent_at,created_at').eq('project_id',projectId).order('created_at',{ascending:false}).limit(100),
   ]);if(siteQ.error)throw siteQ.error;if(docsQ.error)throw docsQ.error;
   const rows=[...(siteQ.data||[]).map(r=>['مستند موقع',r.doc_kind||'—',r.title||'—',dateAr(r.doc_date||r.created_at),'—']),...(docsQ.data||[]).map(r=>['مستند نظام',r.doc_number||'—',r.subject||'—',dateAr(r.issued_at||r.sent_at||r.created_at),status(r.status)])];
-  return {summary:[{key:'site',label:'مستندات الموقع',value:(siteQ.data||[]).length,note:'مرتبطة بالمشروع'},{key:'docs',label:'مستندات النظام',value:(docsQ.data||[]).length,note:'مرتبطة بالمشروع'},{key:'all',label:'الإجمالي',value:rows.length,note:'سجل موحد'}],columns:['المصدر','الرقم / النوع','الموضوع','التاريخ','الحالة'],rows,note:'RFI وSubmittal المتخصصان يحتاجان حقول دورة حياة إضافية؛ لذلك لا نسمي السجل بهما قبل بناء تلك الدورة فعليًا.'};
+  return {summary:[{key:'site',label:'مستندات الموقع',value:(siteQ.data||[]).length},{key:'docs',label:'مستندات النظام',value:(docsQ.data||[]).length},{key:'all',label:'الإجمالي',value:rows.length}],columns:['المصدر','الرقم / النوع','الموضوع','التاريخ','الحالة'],rows};
 }
 
 const LOADERS={planning:loadPlanning,'cost-control':loadCostControl,changes:loadChanges,correspondence:loadCorrespondence};
@@ -90,8 +90,8 @@ export default function ProjectInsightPage(){
     return()=>{alive=false;};
   },[definition,projectId,required,sectionKey]);
 
-  if(!definition)return <ConstitutionPage><EmptyState title="قسم غير معروف" description="هذه المساحة غير معرفة ضمن إدارة المشروع."/></ConstitutionPage>;
-  if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`} description="نقرأ بيانات المشروع من مصادرها الأصلية."/></ConstitutionPage>;
+  if(!definition)return <ConstitutionPage><EmptyState title="قسم غير معروف"/></ConstitutionPage>;
+  if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`}/></ConstitutionPage>;
   if(!state.allowed)return <ConstitutionPage><Notice tone="warning">{state.error}</Notice></ConstitutionPage>;
   const data=state.data;
   return <ConstitutionPage>
@@ -99,15 +99,12 @@ export default function ProjectInsightPage(){
       <div className="constitution-level-stage-main">
         <div className="constitution-level-stage-parent">{state.project?.project_no||'المشروع'} · {state.project?.city||'الموقع غير محدد'}</div>
         <h1 className="constitution-level-stage-title">{definition.label}</h1>
-        <p className="constitution-level-stage-description">{state.project?.name_ar||'المشروع'} — {definition.description}</p>
       </div>
-      <div className="constitution-level-stage-meta"><strong>{state.project?.name_ar||'المشروع'}</strong><span>السياق الأعلى</span></div>
     </section>
     {state.error&&<Notice tone="warning">تعذر تحميل البيانات الحالية: {state.error}</Notice>}
     {data?.summary?.length?<Section title="الملخص"><SummaryStrip items={data.summary}/></Section>:null}
-    <Section title={definition.label} description="قراءة تحليلية من بيانات المشروع الحالية؛ أي إدخال لاحق سيستخدم مسرح إدخال مستقل.">
-      {data?.rows?.length?<TableFrame><table><thead><tr>{data.columns.map((c,i)=><th key={`${c}-${i}`}>{c}</th>)}</tr></thead><tbody>{data.rows.map((r,ri)=><tr key={ri}>{r.map((c,ci)=><td key={ci}>{c??'—'}</td>)}</tr>)}</tbody></table></TableFrame>:<EmptyState title="لا توجد بيانات مسجلة" description="المساحة جاهزة ولكن لا توجد سجلات مطابقة لهذا المشروع حاليًا."/>}
+    <Section>
+      {data?.rows?.length?<TableFrame><table><thead><tr>{data.columns.map((c,i)=><th key={`${c}-${i}`}>{c}</th>)}</tr></thead><tbody>{data.rows.map((r,ri)=><tr key={ri}>{r.map((c,ci)=><td key={ci}>{c??'—'}</td>)}</tr>)}</tbody></table></TableFrame>:<EmptyState title="لا توجد بيانات"/>}
     </Section>
-    {data?.note?<Notice tone="neutral">{data.note}</Notice>:null}
   </ConstitutionPage>;
 }
