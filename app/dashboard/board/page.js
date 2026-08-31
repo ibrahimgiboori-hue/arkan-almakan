@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { dateAr, daysUntil, money } from '@/lib/format';
 import { useLiveRefresh, notifyChange } from '@/lib/live';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
-import { canUseCapability } from '@/lib/access-ui';
 import OrgRoleFields from '@/components/OrgRoleFields';
 
 const KIND = { owner:'مالك', partner:'شريك', board:'مجلس الإدارة' };
@@ -34,8 +33,8 @@ export default function BoardPage() {
   const [msg, setMsg] = useState('');
 
   const canWrite = useMemo(() => {
-    if (me?.access?.fullAdmin) return true;
-    return canUseCapability(me, 'hr.employees.edit') || canUseCapability(me, 'system.access.manage_access');
+    const keys = me?.capabilityKeys || new Set();
+    return Boolean(me?.access?.fullAdmin) || keys.has('hr.employees.edit') || keys.has('system.access.manage_access');
   }, [me]);
 
   async function load() {
@@ -87,7 +86,7 @@ export default function BoardPage() {
     p.in_payroll = Boolean(p.in_payroll);
     const monthlyCompensation = Number(p.monthly_compensation || 0);
     if(p.in_payroll && !p.hire_date){setErr('حدد تاريخ المباشرة قبل إدراج الشخص في مسير الرواتب.');return;}
-    if(monthlyCompensation < 0){setErr('المقابل الشهري لا يمكن أن يكون سالبًا.');return;}
+    if(monthlyCompensation < 0){setErr('الأجر الشهري لا يمكن أن يكون سالبًا.');return;}
 
     p.basic_salary = monthlyCompensation;
     p.housing_allowance = 0;
