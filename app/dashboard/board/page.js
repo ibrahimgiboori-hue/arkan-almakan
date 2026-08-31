@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr, daysUntil, money } from '@/lib/format';
 import { useLiveRefresh, notifyChange } from '@/lib/live';
+import { useDashboardSession } from '@/lib/dashboard-session-context';
+import { canUseCapability } from '@/lib/access-ui';
 import OrgRoleFields from '@/components/OrgRoleFields';
 
 const KIND = { owner:'مالك', partner:'شريك', board:'مجلس الإدارة' };
@@ -21,28 +23,38 @@ const n=(v)=>Number(v||0);
 const fixedMonthly=(r)=>n(r?.basic_salary)+n(r?.housing_allowance)+n(r?.transport_allowance)+n(r?.other_allowance);
 
 export default function BoardPage() {
+  const me = useDashboardSession();
   const [rows, setRows] = useState(null);
-  const [role, setRole] = useState(null);
   const [f, setF] = useState({ ...EMPTY });
   const [editId, setEditId] = useState(null);
   const [open, setOpen] = useState(false);
+  const [quick, setQuick] = useState({});
+  const [savingQuick, setSavingQuick] = useState(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
+  const canWrite = useMemo(() => {
+    if (me?.access?.fullAdmin) return true;
+    return canUseCapability(me, 'hr.employees.edit') || canUseCapability(me, 'system.access.manage_access');
+  }, [me]);
+
   async function load() {
-    const sess = (await supabase.auth.getSession()).data.session;
-    const [b, pay, u] = await Promise.all([
+    const [b, pay] = await Promise.all([
       supabase.from('v_board_report').select('*'),
       supabase.from('employees').select('id,hire_date,in_payroll,basic_salary,housing_allowance,transport_allowance,other_allowance').in('person_kind',['owner','partner','board']),
-      supabase.from('app_users').select('role').eq('id', sess?.user?.id).maybeSingle(),
     ]);
     if(b.error||pay.error){setErr((b.error||pay.error).message);setRows([]);return;}
     const payMap=new Map((pay.data||[]).map(r=>[r.id,r]));
-    setRows((b.data||[]).map(r=>{
+    const next=(b.data||[]).map(r=>{
       const p=payMap.get(r.id)||{};
       return {...r,...p,monthly_compensation:fixedMonthly(p)};
-    }));
-    setRole(u.data?.role || null);
+    });
+    setRows(next);
+    setQuick(Object.fromEntries(next.map(r=>[r.id,{
+      in_payroll:Boolean(r.in_payroll),
+      monthly_compensation:fixedMonthly(r),
+      hire_date:r.hire_date||'',
+    }])));
   }
 
   useEffect(() => { load(); }, []);
@@ -97,6 +109,35 @@ export default function BoardPage() {
     load(); notifyChange('board');
   }
 
+  function patchQuick(id, patch) {
+    setQuick(current=>({ ...current, [id]:{ ...(current[id]||{}), ...patch } }));
+  }
+
+  async function saveQuick(r) {
+    if(!canWrite)return;
+    const q=quick[r.id]||{};
+    const monthlyCompensation=Number(q.monthly_compensation||0);
+    if(monthlyCompensation<0){setErr('الأجر الشهري لا يمكن أن يكون سالبًا.');return;}
+    if(q.in_payroll&&!q.hire_date){setErr(`حدد تاريخ مباشرة ${r.full_name_ar} قبل إدراجه في المسير.`);return;}
+    setSavingQuick(r.id);setErr('');setMsg('');
+    const payload={
+      in_payroll:Boolean(q.in_payroll),
+      hire_date:q.hire_date||null,
+      basic_salary:monthlyCompensation,
+      housing_allowance:0,
+      transport_allowance:0,
+      other_allowance:0,
+    };
+    const {error}=await supabase.from('employees').update(payload).eq('id',r.id);
+    if(error)setErr('تعذر حفظ الأجر: '+error.message);
+    else{
+      setMsg(`تم حفظ الأجر وبيانات المسير لـ ${r.full_name_ar}.`);
+      await load();
+      notifyChange('board');
+    }
+    setSavingQuick(null);
+  }
+
   async function remove(r) {
     if (!window.confirm(`حذف "${r.full_name_ar}"؟`)) return;
     const {data,error}=await supabase.rpc('delete_employee_safe',{p_emp:r.id});
@@ -104,13 +145,12 @@ export default function BoardPage() {
   }
 
   if (!rows) return <div className="empty">جارٍ التحميل</div>;
-  const canWrite=['ceo','hr'].includes(role);
   const totalOwn=rows.reduce((t,r)=>t+Number(r.ownership_pct||0),0);
 
   return (
     <>
       <div className="page-head">
-        <div><h1>مجلس الإدارة والملاك</h1><p>الصفة التنظيمية والملكية والمقابل الشهري بيانات مستقلة عن بعضها.</p></div>
+        <div><h1>مجلس الإدارة والملاك</h1><p>الصفة التنظيمية والملكية والأجر الشهري بيانات مستقلة عن بعضها.</p></div>
         <div className="rowsplit">
           <Link className="btn ghost" href="/dashboard/employees">الموظفون</Link>
           <Link className="btn ghost" href="/print/board" target="_blank">طباعة</Link>
@@ -126,7 +166,7 @@ export default function BoardPage() {
         <header><h2>{editId?'تعديل البيانات':'إضافة شخص'}</h2></header>
         <div style={{padding:18}}>
           <div style={{marginBottom:16,padding:'11px 13px',border:'1px solid var(--line)',borderRadius:8,color:'var(--ink-soft)',fontSize:13,lineHeight:1.8}}>
-            الملكية ليست شرطًا للاستحقاق المالي. يمكن أن تكون نسبة الملكية فارغة تمامًا، ومع ذلك يحصل عضو مجلس الإدارة أو المالك على مقابل شهري ثابت إذا تم تفعيل إدراجه في مسير الرواتب.
+            الملكية ليست شرطًا للاستحقاق المالي. يمكن أن تكون نسبة الملكية فارغة تمامًا، ومع ذلك يحصل عضو مجلس الإدارة أو المالك على أجر شهري ثابت إذا تم تفعيل إدراجه في مسير الرواتب.
           </div>
           <div className="form-grid">
             <div className="field"><label>الصفة الأساسية *</label><select value={f.person_kind} onChange={(e)=>changeKind(e.target.value)}>{Object.entries(KIND).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
@@ -150,7 +190,7 @@ export default function BoardPage() {
               </label>
               <span className="hint">هذا الخيار مستقل تمامًا عن نسبة الملكية.</span>
             </div>
-            <div className="field"><label>المقابل الشهري الثابت</label><input type="number" min="0" step="0.01" dir="ltr" value={f.monthly_compensation??0} onChange={set('monthly_compensation')} disabled={!f.in_payroll} /><span className="hint">المبلغ الكامل للشهر قبل الغياب أو الاستحقاق الجزئي.</span></div>
+            <div className="field"><label>الأجر الشهري</label><input type="number" min="0" step="0.01" dir="ltr" value={f.monthly_compensation??0} onChange={set('monthly_compensation')} disabled={!f.in_payroll} /><span className="hint">الأجر الكامل للشهر قبل الغياب أو الاستحقاق الجزئي.</span></div>
             <div className="field"><label>تاريخ المباشرة {f.in_payroll?'*':''}</label><input required={Boolean(f.in_payroll)} type="date" dir="ltr" value={f.hire_date||''} onChange={set('hire_date')} disabled={!f.in_payroll} /><span className="hint">من هذا اليوم يبدأ احتساب استحقاق المسير.</span></div>
 
             <div className="field"><label>نوع الهوية</label><select value={f.id_kind||'national_id'} onChange={set('id_kind')}><option value="national_id">هوية وطنية</option><option value="iqama">إقامة</option></select></div>
@@ -167,22 +207,22 @@ export default function BoardPage() {
 
       <div className="section">
         <header><h2>الأعضاء والملاك</h2>{totalOwn>0 && <span style={{fontSize:13,color:'var(--ink-soft)'}}>مجموع الملكية {totalOwn}%</span>}</header>
+        <div style={{padding:'10px 14px',color:'var(--ink-soft)',fontSize:13,lineHeight:1.7}}>لتعديل الراتب بسرعة من الجوال: غيّر «داخل المسير»، اكتب «الأجر الشهري»، اختر «تاريخ المباشرة» ثم اضغط «حفظ الأجر» في نفس صف الشخص.</div>
         {rows.length===0 ? <div className="empty"><h3>لا توجد بيانات</h3><p>أضف الأشخاص من أعلى الصفحة.</p></div> : (
           <div style={{overflowX:'auto'}}><table>
-            <thead><tr><th>الاسم</th><th>التصنيف</th><th>المنصب</th><th>المسمى الوظيفي</th><th className="num">الملكية</th><th>المسير</th><th className="num">المقابل الشهري</th><th>المباشرة</th><th>رقم الهوية</th><th>الإجراءات</th></tr></thead>
+            <thead><tr><th>الاسم</th><th>التصنيف</th><th className="num">الملكية</th><th>داخل المسير</th><th className="num">الأجر الشهري</th><th>تاريخ المباشرة</th><th>حفظ سريع</th><th>الإجراءات</th></tr></thead>
             <tbody>{rows.map((r)=>{
               const left=daysUntil(r.id_expiry);
+              const q=quick[r.id]||{in_payroll:false,monthly_compensation:0,hire_date:''};
               return <tr key={r.id}>
-                <td><span style={{fontWeight:600}}>{r.full_name_ar}</span>{r.employee_no&&<div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>{r.employee_no}</div>}</td>
-                <td>{r.kind_label}</td>
-                <td>{r.board_role||'غير محدد'}</td>
-                <td>{r.job_title||'غير محدد'}</td>
+                <td><span style={{fontWeight:600}}>{r.full_name_ar}</span>{r.employee_no&&<div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>{r.employee_no}</div>}{r.id_number&&<div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>{r.id_number}{left!=null&&left<=60?` · ${left<0?'منتهية':`${left} يوم`}`:''}</div>}</td>
+                <td>{r.kind_label}<div style={{fontSize:11.5,color:'var(--ink-soft)'}}>{r.board_role||r.job_title||''}</div></td>
                 <td className="num">{r.ownership_pct!=null?`${r.ownership_pct}%`:'—'}</td>
-                <td>{r.in_payroll?'نعم':'لا'}</td>
-                <td className="num">{r.in_payroll?money(fixedMonthly(r)):'—'}</td>
-                <td className="mono">{r.in_payroll?dateAr(r.hire_date):'—'}</td>
-                <td className="mono">{r.id_number||'غير محدد'}{left!=null&&left<=60&&<div>{left<0?'هوية منتهية':`${left} يوم`}</div>}</td>
-                <td>{canWrite&&<div className="rowsplit"><button className="btn ghost" onClick={()=>startEdit(r)}>تعديل</button><button className="btn ghost" onClick={()=>remove(r)}>حذف</button></div>}</td>
+                <td><label style={{display:'flex',alignItems:'center',gap:7,whiteSpace:'nowrap'}}><input type="checkbox" checked={Boolean(q.in_payroll)} disabled={!canWrite||savingQuick===r.id} onChange={(e)=>patchQuick(r.id,{in_payroll:e.target.checked})}/><span>{q.in_payroll?'نعم':'لا'}</span></label></td>
+                <td className="num"><input aria-label={`الأجر الشهري لـ ${r.full_name_ar}`} type="number" inputMode="decimal" min="0" step="0.01" dir="ltr" value={q.monthly_compensation??0} disabled={!canWrite||!q.in_payroll||savingQuick===r.id} onChange={(e)=>patchQuick(r.id,{monthly_compensation:e.target.value})} style={{width:118,maxWidth:'30vw'}}/></td>
+                <td><input aria-label={`تاريخ مباشرة ${r.full_name_ar}`} type="date" dir="ltr" value={q.hire_date||''} disabled={!canWrite||!q.in_payroll||savingQuick===r.id} onChange={(e)=>patchQuick(r.id,{hire_date:e.target.value})} style={{minWidth:138}}/></td>
+                <td>{canWrite?<button className="btn" disabled={savingQuick===r.id} onClick={()=>saveQuick(r)}>{savingQuick===r.id?'جارٍ الحفظ…':'حفظ الأجر'}</button>:<span>{r.in_payroll?money(fixedMonthly(r)):'—'}</span>}</td>
+                <td>{canWrite&&<div className="rowsplit"><button className="btn ghost" onClick={()=>startEdit(r)}>تعديل باقي البيانات</button><button className="btn ghost" onClick={()=>remove(r)}>حذف</button></div>}</td>
               </tr>;
             })}</tbody>
           </table></div>
