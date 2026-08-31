@@ -189,8 +189,8 @@ export default function PayrollOperationalPage(){
       const ids=Array.from(selectedIds);
       const {data,error:submitError}=await supabase.rpc('fn_submit_payroll_batch',{p_run_id:run.id,p_line_ids:ids,p_note:null});
       if(submitError)throw submitError;
-      setMessage(`تم رفع ${ids.length} مستحق في معاملة رواتب مستقلة${data?' بنجاح':''}. بقية الشهر ما زالت مفتوحة.`);
       await load(run.id);
+      setMessage(`تم رفع ${ids.length} مستحق في معاملة رواتب مستقلة${data?' بنجاح':''}. للطباعة استخدم زر «طباعة المعاملة» أمام نفس المعاملة أدناه؛ ولن تدخل بقية أسماء الشهر فيها.`);
     }catch(e){setError(e?.message||'تعذر إرسال المحددين.');}
     setBusy(false);
   }
@@ -207,8 +207,28 @@ export default function PayrollOperationalPage(){
     setBusy(false);
   }
 
-  function printPayroll(){if(run)window.open(`/print/payroll/${run.id}`,'_blank','noopener,noreferrer');}
-  function printSelected(){if(run&&selectedIds.size)window.open(appendSelectionToUrl(`/print/payroll/${run.id}`,selectedIds),'_blank','noopener,noreferrer');}
+  function printSelected(){
+    if(run&&selectedIds.size)window.open(appendSelectionToUrl(`/print/payroll/${run.id}`,selectedIds),'_blank','noopener,noreferrer');
+  }
+
+  function printPayroll(){
+    if(!run)return;
+    const href=selectedIds.size
+      ? appendSelectionToUrl(`/print/payroll/${run.id}`,selectedIds)
+      : `/print/payroll/${run.id}`;
+    window.open(href,'_blank','noopener,noreferrer');
+  }
+
+  function batchLineIds(batch){
+    return lines.filter(row=>lineState(row)?.batch_id===batch?.id).map(row=>String(row.id));
+  }
+
+  function printBatch(batch){
+    if(!run)return;
+    const ids=batchLineIds(batch);
+    if(!ids.length){setError('تعذر تحديد سجلات هذه المعاملة للطباعة.');return;}
+    window.open(appendSelectionToUrl(`/print/payroll/${run.id}`,ids),'_blank','noopener,noreferrer');
+  }
 
   const availableLines=lines.filter(isLineAvailable);
   const selectedLines=lines.filter(row=>selectedIds.has(String(row.id))).map(calculated);
@@ -255,6 +275,7 @@ export default function PayrollOperationalPage(){
 
         {run?<div className="hint">الشهر <strong>{String(run.run_month).slice(0,7)}</strong> · المستحقون <strong>{lines.length}</strong> · معتمد <strong>{approvedCount}</strong> · تحت الاعتماد <strong>{pendingCount}</strong> · معاد للتعديل <strong>{returnedCount}</strong> · متاح لمعاملة جديدة <strong>{availableLines.length}</strong></div>:null}
         <div className="hint">قاعدة الحساب: المقابل الشهري ÷ 30 × أيام الاستحقاق. إذا باشر الشخص أثناء الشهر يبدأ الاستحقاق من يوم المباشرة، ثم يُخصم الغياب المسجل آليًا بسعر اليوم نفسه.</div>
+        <div className="hint"><strong>قاعدة النطاق:</strong> الأشخاص الذين تحددهم هم فقط نطاق «رفع المحدد للمالية» و«طباعة المحدد». وبعد إنشاء المعاملة يمكن طباعتها لاحقًا من زر «طباعة المعاملة» الخاص بها.</div>
 
         <RawGrid
           columns={columns}
@@ -285,7 +306,7 @@ export default function PayrollOperationalPage(){
             selectionCount={selectedIds.size}
             action={{key:'payroll.print-selected',label:'طباعة المحدد',kind:WORK_ACTION_KIND.PRINT,actionScope:WORK_ACTION_SCOPE.SELECTION,consequence:WORK_ACTION_CONSEQUENCE.SAFE}}
             onClick={printSelected}
-          >طباعة المحدد</ProgramAction>
+          >طباعة المحدد ({selectedIds.size})</ProgramAction>
           {auth.canSubmit?<ProgramAction
             className="btn"
             disabled={busy||!batchFeatureReady}
@@ -297,20 +318,21 @@ export default function PayrollOperationalPage(){
 
         {run?<RawGridFooter actions={<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button className="btn" type="button" disabled={busy||!editableRun} onClick={saveLines}>حفظ الدفتر</button>
-          <button className="btn ghost" type="button" disabled={busy} onClick={printPayroll}>طباعة المسير كاملًا</button>
+          <button className="btn ghost" type="button" disabled={busy} onClick={printPayroll}>{selectedIds.size?`طباعة المحدد (${selectedIds.size})`:'طباعة المسير كاملًا'}</button>
         </div>} summary={<strong>إجمالي الشهر {money(totals.gross)} · الخصومات {money(totals.ded)} · الصافي {money(totals.net)}</strong>}/>:null}
 
         {run&&batches.length?<div style={{display:'grid',gap:8}}>
           <strong>معاملات هذا الشهر</strong>
-          {batches.map(batch=><div key={batch.id} className="rowsplit" style={{paddingBlock:6,borderBottom:'1px solid var(--line,#e5e7eb)'}}>
+          {batches.map(batch=>{const batchIds=batchLineIds(batch);return <div key={batch.id} className="rowsplit" style={{paddingBlock:6,borderBottom:'1px solid var(--line,#e5e7eb)'}}>
             <strong>{batch.batch_no}</strong>
             <span>{batch.employee_count} مستحق</span>
             <span>{BATCH_STATUS[batch.status]||batch.status}</span>
             <span>الصافي {money(batch.total_net)}</span>
             {batch.return_note?<span title={batch.return_note}>السبب: {batch.return_note}</span>:null}
             <span className="spacer"/>
+            <button className="btn ghost" type="button" disabled={!batchIds.length} onClick={()=>printBatch(batch)}>طباعة المعاملة ({batchIds.length})</button>
             {auth.canSubmit&&['returned','rejected'].includes(batch.status)?<button className="btn" type="button" disabled={busy} onClick={()=>resubmitBatch(batch)}>إعادة إرسال نفس المعاملة</button>:null}
-          </div>)}
+          </div>;})}
         </div>:null}
       </div>
     </Section>
