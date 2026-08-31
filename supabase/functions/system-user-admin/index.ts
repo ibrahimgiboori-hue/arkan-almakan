@@ -20,7 +20,9 @@ const ACCESS_LEVELS = {
 
 type AccessLevelKey = keyof typeof ACCESS_LEVELS;
 
-const MANAGED_BUNDLE_KEYS = [
+type ProvisionAccountType = 'employee' | 'external';
+
+const MANAGED_PROJECT_BUNDLE_KEYS = [
   'projects_full_access',
   'project_site_supervisor',
   'project_manager',
@@ -32,6 +34,10 @@ function makeTemporaryPassword() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#%';
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return [...bytes].map((value) => alphabet[value % alphabet.length]).join('');
+}
+
+function normalizeEmail(value: unknown) {
+  return String(value || '').trim().toLowerCase();
 }
 
 async function requireAccessManager(req: Request) {
@@ -61,7 +67,7 @@ async function replaceProjectAccess(admin: any, actorId: string, userId: string,
   const { data: bundles, error: bundleError } = await admin
     .from('permission_bundles')
     .select('id,bundle_key')
-    .in('bundle_key', MANAGED_BUNDLE_KEYS)
+    .in('bundle_key', MANAGED_PROJECT_BUNDLE_KEYS)
     .eq('is_active', true);
   if (bundleError) return { error: 'bundle_lookup_failed', message: bundleError.message };
 
@@ -167,6 +173,15 @@ async function archiveUser(admin: any, actorId: string, userId: string, total: n
   return { ok: true, mode: 'archived' };
 }
 
+async function findAuthUserByEmail(admin: any, normalizedEmail: string) {
+  const authList = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (authList.error) return { error: authList.error };
+  const authUser = (authList.data?.users || []).find(
+    (item: any) => normalizeEmail(item.email) === normalizedEmail,
+  ) || null;
+  return { authUser, authUsers: authList.data?.users || [] };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -179,62 +194,119 @@ Deno.serve(async (req: Request) => {
     const action = String(body.action || '');
 
     if (action === 'directory') {
-      const [employeesQ, usersQ, grantsQ, bundlesQ, projectsQ, settingsQ, authUsersQ] = await Promise.all([
+      const [
+        employeesQ, usersQ, grantsQ, overridesQ, bundlesQ, bundleCapabilitiesQ,
+        capabilitiesQ, portalCapabilitiesQ, portalFullBundlesQ, projectsQ, settingsQ, authUsersQ,
+      ] = await Promise.all([
         admin.from('employees').select('id,employee_no,full_name_ar,job_title,department,email,status').order('full_name_ar'),
         admin.from('app_users').select('id,employee_id,role,is_active,is_system_admin,must_change_password,temporary_password_set_at,password_changed_at,access_note,archived_at,archived_by,created_at'),
         admin.from('user_permission_bundles').select('id,user_id,bundle_id,scope_type,scope_key,is_active,valid_from,valid_until,note,granted_at'),
-        admin.from('permission_bundles').select('id,bundle_key,name_ar,description_ar,is_active').in('bundle_key', MANAGED_BUNDLE_KEYS),
+        admin.from('user_permission_overrides').select('id,user_id,capability_key,effect,scope_type,scope_key,amount_limit,is_active,valid_from,valid_until,note,granted_at'),
+        admin.from('permission_bundles').select('id,bundle_key,name_ar,description_ar,is_active').eq('is_active', true),
+        admin.from('permission_bundle_capabilities').select('bundle_id,capability_key,amount_limit'),
+        admin.from('permission_capabilities').select('capability_key,module_key,module_label_ar,resource_key,resource_label_ar,action_key,description_ar,risk_level,is_active').eq('is_active', true),
+        admin.from('permission_portal_capabilities').select('portal_key,capability_key,group_key,feature_key,sort_order'),
+        admin.from('permission_portal_full_bundles').select('portal_key,bundle_id'),
         admin.from('projects').select('id,project_no,name_ar,city,stage,status').order('project_no'),
         admin.from('system_access_settings').select('primary_user_id').eq('singleton', true).maybeSingle(),
         admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
       ]);
-      const firstError = [employeesQ, usersQ, grantsQ, bundlesQ, projectsQ, settingsQ].find((q) => q.error)?.error;
+      const queries = [
+        employeesQ, usersQ, grantsQ, overridesQ, bundlesQ, bundleCapabilitiesQ,
+        capabilitiesQ, portalCapabilitiesQ, portalFullBundlesQ, projectsQ, settingsQ,
+      ];
+      const firstError = queries.find((q) => q.error)?.error;
       if (firstError) return json({ error: 'directory_failed', message: firstError.message }, 400);
-      const emailById = new Map((authUsersQ.data?.users || []).map((item: any) => [item.id, item.email || '']));
-      const users = (usersQ.data || []).map((item: any) => ({ ...item, auth_email: emailById.get(item.id) || '' }));
+      if (authUsersQ.error) return json({ error: 'auth_directory_failed', message: authUsersQ.error.message }, 400);
+
+      const authById = new Map((authUsersQ.data?.users || []).map((item: any) => [item.id, item]));
+      const users = (usersQ.data || []).map((item: any) => {
+        const authUser: any = authById.get(item.id) || {};
+        return {
+          ...item,
+          auth_email: authUser.email || '',
+          auth_display_name: authUser.user_metadata?.display_name || '',
+          auth_account_type: authUser.app_metadata?.account_type || (item.employee_id ? 'employee' : 'external'),
+        };
+      });
+
       return json({
         ok: true,
         employees: employeesQ.data || [],
         users,
         grants: grantsQ.data || [],
+        overrides: overridesQ.data || [],
         bundles: bundlesQ.data || [],
+        bundleCapabilities: bundleCapabilitiesQ.data || [],
+        capabilities: capabilitiesQ.data || [],
+        portalCapabilityMap: portalCapabilitiesQ.data || [],
+        portalFullBundles: portalFullBundlesQ.data || [],
         projects: projectsQ.data || [],
         primaryUserId: settingsQ.data?.primary_user_id || null,
       });
     }
 
     if (action === 'provision') {
-      const employeeId = String(body.employeeId || '');
-      const accessLevel = String(body.accessLevel || 'projects_portal_full') as AccessLevelKey;
-      const projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map(String).filter(Boolean))] : [];
-      if (!employeeId) return json({ error: 'employee_required' }, 400);
-      if (!ACCESS_LEVELS[accessLevel]) return json({ error: 'invalid_access_level' }, 400);
+      const accountType = String(body.accountType || 'employee') as ProvisionAccountType;
+      if (!['employee', 'external'].includes(accountType)) return json({ error: 'invalid_account_type' }, 400);
 
-      const { data: employee, error: employeeError } = await admin
-        .from('employees')
-        .select('id,employee_no,full_name_ar,email,status')
-        .eq('id', employeeId)
-        .maybeSingle();
-      if (employeeError || !employee) return json({ error: 'employee_not_found' }, 404);
-      if (!employee.email) return json({ error: 'employee_email_required' }, 400);
+      let employee: any = null;
+      let employeeId: string | null = null;
+      let displayName = '';
+      let normalizedEmail = '';
 
-      const { data: existingByEmployee } = await admin.from('app_users').select('id,archived_at').eq('employee_id', employeeId).maybeSingle();
-      if (existingByEmployee) return json({ error: existingByEmployee.archived_at ? 'archived_account_exists' : 'account_exists' }, 409);
+      if (accountType === 'employee') {
+        employeeId = String(body.employeeId || '');
+        if (!employeeId) return json({ error: 'employee_required' }, 400);
+        const { data, error: employeeError } = await admin
+          .from('employees')
+          .select('id,employee_no,full_name_ar,email,status')
+          .eq('id', employeeId)
+          .maybeSingle();
+        if (employeeError || !data) return json({ error: 'employee_not_found' }, 404);
+        employee = data;
+        if (!employee.email) return json({ error: 'employee_email_required' }, 400);
+        displayName = String(employee.full_name_ar || '').trim();
+        normalizedEmail = normalizeEmail(employee.email);
 
-      const normalizedEmail = String(employee.email).trim().toLowerCase();
-      const authList = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const existingAuth = (authList.data?.users || []).find((item: any) => String(item.email || '').toLowerCase() === normalizedEmail);
+        const { data: existingByEmployee } = await admin
+          .from('app_users')
+          .select('id,archived_at')
+          .eq('employee_id', employeeId)
+          .maybeSingle();
+        if (existingByEmployee) {
+          return json({ error: existingByEmployee.archived_at ? 'archived_account_exists' : 'account_exists' }, 409);
+        }
+      } else {
+        displayName = String(body.displayName || '').trim();
+        normalizedEmail = normalizeEmail(body.email);
+        if (!displayName) return json({ error: 'external_name_required' }, 400);
+        if (!normalizedEmail || !normalizedEmail.includes('@')) return json({ error: 'external_email_required' }, 400);
+      }
+
+      const authLookup = await findAuthUserByEmail(admin, normalizedEmail);
+      if ('error' in authLookup) return json({ error: 'auth_directory_failed', message: authLookup.error.message }, 400);
+      let authUser: any = authLookup.authUser;
       const password = makeTemporaryPassword();
-      let authUser = existingAuth || null;
+      let createdNow = false;
 
       if (authUser) {
-        const { data: existingApp } = await admin.from('app_users').select('id,employee_id,archived_at').eq('id', authUser.id).maybeSingle();
-        if (existingApp) return json({ error: existingApp.archived_at ? 'archived_account_exists' : 'email_account_exists' }, 409);
+        const { data: existingApp } = await admin
+          .from('app_users')
+          .select('id,employee_id,archived_at')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        if (existingApp) {
+          return json({ error: existingApp.archived_at ? 'archived_account_exists' : 'email_account_exists' }, 409);
+        }
         const { error: passwordError } = await admin.auth.admin.updateUserById(authUser.id, {
           password,
           email_confirm: true,
-          app_metadata: { account_type: 'employee', employee_id: employee.id },
-          user_metadata: { display_name: employee.full_name_ar },
+          app_metadata: {
+            account_type: accountType,
+            ...(employeeId ? { employee_id: employeeId } : {}),
+          },
+          user_metadata: { display_name: displayName },
         });
         if (passwordError) return json({ error: 'auth_update_failed', message: passwordError.message }, 400);
       } else {
@@ -242,17 +314,23 @@ Deno.serve(async (req: Request) => {
           email: normalizedEmail,
           password,
           email_confirm: true,
-          app_metadata: { account_type: 'employee', employee_id: employee.id },
-          user_metadata: { display_name: employee.full_name_ar },
+          app_metadata: {
+            account_type: accountType,
+            ...(employeeId ? { employee_id: employeeId } : {}),
+          },
+          user_metadata: { display_name: displayName },
         });
-        if (createError || !created.user) return json({ error: 'auth_create_failed', message: createError?.message || 'تعذر إنشاء حساب الدخول' }, 400);
+        if (createError || !created.user) {
+          return json({ error: 'auth_create_failed', message: createError?.message || 'تعذر إنشاء حساب الدخول' }, 400);
+        }
         authUser = created.user;
+        createdNow = true;
       }
 
       const now = new Date().toISOString();
       const { error: appUserError } = await admin.from('app_users').upsert({
         id: authUser.id,
-        employee_id: employee.id,
+        employee_id: employeeId,
         role: 'supervisor',
         is_active: true,
         is_system_admin: false,
@@ -260,16 +338,44 @@ Deno.serve(async (req: Request) => {
         temporary_password_set_at: now,
         archived_at: null,
         archived_by: null,
-        access_note: 'أُنشئ من إدارة الدخول وفق هرمية البوابات',
+        access_note: accountType === 'employee'
+          ? 'أُنشئ من إدارة الدخول؛ بانتظار تحديد الصلاحيات من الشجرة العامة'
+          : 'مستخدم خارجي؛ بانتظار تحديد الصلاحيات من الشجرة العامة',
       }, { onConflict: 'id' });
-      if (appUserError) return json({ error: 'app_user_create_failed', message: appUserError.message }, 400);
+      if (appUserError) {
+        if (createdNow) await admin.auth.admin.deleteUser(authUser.id);
+        return json({ error: 'app_user_create_failed', message: appUserError.message }, 400);
+      }
 
-      const accessResult = await replaceProjectAccess(admin, user.id, authUser.id, accessLevel, projectIds);
-      if ('error' in accessResult) return json(accessResult, 400);
+      // Compatibility: an older client may explicitly send the former Projects level.
+      // No level is assumed by default, so a new account never receives broad access accidentally.
+      if (body.accessLevel) {
+        const accessLevel = String(body.accessLevel) as AccessLevelKey;
+        const projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map(String).filter(Boolean))] : [];
+        if (!ACCESS_LEVELS[accessLevel]) return json({ error: 'invalid_access_level' }, 400);
+        const accessResult = await replaceProjectAccess(admin, user.id, authUser.id, accessLevel, projectIds);
+        if ('error' in accessResult) return json(accessResult, 400);
+      }
+
+      if (Array.isArray(body.accessTree)) {
+        const { error: treeError } = await admin.rpc('admin_replace_user_access_tree', {
+          p_actor_id: user.id,
+          p_user_id: authUser.id,
+          p_access_tree: body.accessTree,
+        });
+        if (treeError) return json({ error: 'access_tree_save_failed', message: treeError.message }, 400);
+      }
 
       return json({
         ok: true,
-        account: { userId: authUser.id, employeeId: employee.id, email: normalizedEmail, displayName: employee.full_name_ar, isActive: true },
+        account: {
+          userId: authUser.id,
+          employeeId,
+          accountType,
+          email: normalizedEmail,
+          displayName,
+          isActive: true,
+        },
         temporaryPassword: password,
       });
     }
@@ -283,7 +389,11 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (lookupError || !appUser) return json({ error: 'account_not_found' }, 404);
 
-    const { data: settings } = await admin.from('system_access_settings').select('primary_user_id').eq('singleton', true).maybeSingle();
+    const { data: settings } = await admin
+      .from('system_access_settings')
+      .select('primary_user_id')
+      .eq('singleton', true)
+      .maybeSingle();
     const isPrimaryTarget = settings?.primary_user_id === userId;
 
     if (action === 'delete_preview') {
@@ -343,6 +453,19 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, isActive });
     }
 
+    if (action === 'set_access_tree') {
+      if (isPrimaryTarget) return json({ error: 'primary_user_protected' }, 400);
+      if (!Array.isArray(body.accessTree)) return json({ error: 'access_tree_required' }, 400);
+      const { data, error } = await admin.rpc('admin_replace_user_access_tree', {
+        p_actor_id: user.id,
+        p_user_id: userId,
+        p_access_tree: body.accessTree,
+      });
+      if (error) return json({ error: 'access_tree_save_failed', message: error.message }, 400);
+      return json({ ok: true, result: data });
+    }
+
+    // Compatibility actions retained while all callers migrate to the general tree.
     if (action === 'set_access_level') {
       if (isPrimaryTarget) return json({ error: 'primary_user_protected' }, 400);
       const accessLevel = String(body.accessLevel || '') as AccessLevelKey;
@@ -365,7 +488,10 @@ Deno.serve(async (req: Request) => {
       if (isPrimaryTarget) return json({ error: 'primary_user_protected' }, 400);
       const projectId = String(body.projectId || '');
       if (!projectId) return json({ error: 'project_required' }, 400);
-      const { data: bundles } = await admin.from('permission_bundles').select('id').in('bundle_key', MANAGED_BUNDLE_KEYS);
+      const { data: bundles } = await admin
+        .from('permission_bundles')
+        .select('id')
+        .in('bundle_key', MANAGED_PROJECT_BUNDLE_KEYS);
       const ids = (bundles || []).map((bundle: any) => bundle.id);
       if (ids.length) {
         const { error } = await admin.from('user_permission_bundles')
