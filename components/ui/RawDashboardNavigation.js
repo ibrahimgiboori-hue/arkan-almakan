@@ -100,6 +100,8 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
 
     return merged
       .filter((item) => !item.hidden && !item.legacy && !isActionOnlyRoute(item.href))
+      // داخل مشروع محدد لا نكرر رابط سجل المشاريع نفسه؛ العودة/البوابة تقوم بهذا الدور.
+      .filter((item) => !(projectId && item.href === currentArea.href))
       .filter((item) => !isRedundantPortalTool(currentArea.key, item))
       .filter((item) => {
         if (me?.access?.fullAdmin) return true;
@@ -109,7 +111,7 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
         return true;
       })
       .map((item) => ({ ...item, label: cleanToolLabel(item) }));
-  }, [currentArea, me]);
+  }, [currentArea, me, projectId]);
 
   const currentGlobalTool = useMemo(() => (
     globalTools
@@ -220,21 +222,6 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
       <div className="rawNavContext">
         <span className="rawNavRailLabel">المسار</span>
         <div className="rawNavScroller rawNavContextScroller">
-          {projectId && globalTools.length > 0 && (
-            <ToolGroup label="عام">
-              {globalTools.map((item) => (
-                <NavTab
-                  key={item.href}
-                  tone="tool"
-                  active={currentGlobalTool?.href === item.href}
-                  onClick={() => go(item.href)}
-                >
-                  {item.label}
-                </NavTab>
-              ))}
-            </ToolGroup>
-          )}
-
           {!projectId && globalToolsByGroup.map((group) => (
             <ToolGroup key={group.key} label={group.label}>
               {group.items.map((item) => (
@@ -259,6 +246,21 @@ export default function RawDashboardNavigation({ me, onSignOut }) {
               ))}
             </ToolGroup>
           ))}
+
+          {projectId && globalTools.length > 0 && (
+            <ToolGroup label="سجلات عامة">
+              {globalTools.map((item) => (
+                <NavTab
+                  key={item.href}
+                  tone="tool"
+                  active={currentGlobalTool?.href === item.href}
+                  onClick={() => go(item.href)}
+                >
+                  {item.label}
+                </NavTab>
+              ))}
+            </ToolGroup>
+          )}
 
           {!globalTools.length && !projectToolsByGroup.length && <span className="rawNavEmptyRail" aria-hidden="true">—</span>}
         </div>
