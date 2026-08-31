@@ -4,10 +4,17 @@ import path from 'node:path';
 const root = process.cwd();
 const governed = [
   'app/dashboard/approvals/page.js',
-  'app/dashboard/workspace/workforce/section/payroll/page.js',
+  'components/payroll/PayrollOperationalPage.js',
   'app/dashboard/projects/[id]/insights/[section]/page.js',
 ];
 const violations = [];
+
+const payrollRoute = path.join(root, 'app/dashboard/workspace/workforce/section/payroll/page.js');
+if (!fs.existsSync(payrollRoute)) {
+  violations.push('app/dashboard/workspace/workforce/section/payroll/page.js: governed payroll route is missing');
+} else if (!fs.readFileSync(payrollRoute, 'utf8').includes("@/components/payroll/PayrollOperationalPage")) {
+  violations.push('app/dashboard/workspace/workforce/section/payroll/page.js: must route through canonical payroll component');
+}
 
 for (const rel of governed) {
   const full = path.join(root, rel);
