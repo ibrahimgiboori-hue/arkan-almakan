@@ -151,7 +151,7 @@ export default function DashboardLayout({ children }) {
         data-work-kernel="operational-notebook-v1"
         data-viewport-policy="fluid-full-width"
         data-action-mode={actingOnBehalf ? 'on_behalf_of' : 'self'}
-        data-real-actor-employee-id={state.me?.actionContext.realActorEmployeeId || undefined}
+        data-real-actor-employee-id={state.me?.actionContext?.realActorEmployeeId || undefined}
       >
         <WorkSurfaceRuntime>
           <RawDashboardNavigation me={state.me} onSignOut={signOut} />
