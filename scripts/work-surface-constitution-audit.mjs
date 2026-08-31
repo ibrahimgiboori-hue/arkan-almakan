@@ -143,11 +143,15 @@ const quotes = requireText('app/dashboard/quotes/page.js', [
 if (/className=["']page-head["']|style=\{\{width:420|minWidth:420/.test(quotes)) failures.push('/dashboard/quotes: عاد تخطيط سجل محلي كثيف بدل دفتر البرنامج.');
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(quotes)) failures.push('/dashboard/quotes: الصفحة أعادت اختراع صلاحيات العرض بدل النواة.');
 
-const payroll = requireText('app/dashboard/workspace/workforce/section/payroll/page.js', [
+requireText('app/dashboard/workspace/workforce/section/payroll/page.js', [
+  "@/components/payroll/PayrollOperationalPage",
+]);
+const payroll = requireText('components/payroll/PayrollOperationalPage.js', [
   'selection={{',
   'WorkSelectionDock',
   'طباعة المحدد',
   'رفع المحدد للمالية',
+  "@/lib/payroll-engine.mjs",
 ]);
 if (/p_source_table:'payroll_runs'.*fn_submit_transaction_source/s.test(payroll)) failures.push('الرواتب: ممنوع إعادة إرسال المسير كاملًا كبديل عن معاملة الموظفين المحددين.');
 
