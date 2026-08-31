@@ -6,7 +6,7 @@ import { money } from '@/lib/format';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
 import { useLiveRefresh } from '@/lib/live';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
-import { canUseAnyCapability, canUseCapability } from '@/lib/access-ui';
+import { canUseAnyCapability, canUseCapability, preferredProjectHref } from '@/lib/access-ui';
 import {
   ConstitutionPage,
   PageHeader,
@@ -61,7 +61,7 @@ export default function Projects(){
     const {data,error}=await supabase.from('projects').insert({project_no:number,name_ar:'مشروع جديد',stage:'opportunity',status:'active',supply_scope:'labor_only'}).select('id').single();
     setBusy(false);
     if(error){setErr('تعذّر إنشاء المشروع: '+error.message);return;}
-    router.push(`/dashboard/projects/${data.id}`);
+    router.push(`/dashboard/projects/${data.id}?view=settings`);
   }
 
   const list=useMemo(()=>{
@@ -72,42 +72,40 @@ export default function Projects(){
       .filter((row)=>!term||[row.name_ar,row.project_no,row.city].filter(Boolean).some((value)=>String(value).toLowerCase().includes(term)));
   },[rows,stage,q]);
 
-  if(!rows)return <ConstitutionPage><EmptyState title="جارٍ تحميل المشاريع" description="يتم تحميل المشاريع والمؤشرات الحالية."/></ConstitutionPage>;
+  if(!rows)return <ConstitutionPage><EmptyState title="جارٍ تحميل المشاريع"/></ConstitutionPage>;
 
   const executionCount=rows.filter((row)=>row.stage==='execution').length;
   const opportunityCount=rows.filter((row)=>['opportunity','pricing','submitted'].includes(row.stage)).length;
 
   return <ConstitutionPage>
     <PageHeader
-      eyebrow="PROJECTS"
       title="المشاريع"
-      description="دفتر المشاريع المتاحة لهذا الحساب؛ افتح أي سطر لتكمل العمل داخل المشروع نفسه."
-      actions={canCreate?<Toolbar><button className="btn" onClick={createProject} disabled={busy}>{busy?'جارٍ الإنشاء…':'+ إضافة مشروع'}</button></Toolbar>:null}
+      actions={canCreate?<Toolbar><button className="btn" onClick={createProject} disabled={busy}>{busy?'جارٍ الإنشاء…':'مشروع جديد'}</button></Toolbar>:null}
     />
 
     <SummaryStrip
       label="ملخص المشاريع"
       items={[
-        {key:'all',value:rows.length,label:'المشاريع المتاحة'},
+        {key:'all',value:rows.length,label:'المشاريع'},
         {key:'execution',value:executionCount,label:'قيد التنفيذ'},
         {key:'opportunity',value:opportunityCount,label:'فرص وتسعير'},
       ]}
     />
 
     <FilterSurface>
-      <input value={q} onChange={(event)=>setQ(event.target.value)} placeholder="ابحث باسم المشروع أو رقمه أو المدينة" aria-label="بحث في المشاريع"/>
+      <input value={q} onChange={(event)=>setQ(event.target.value)} placeholder="اسم المشروع أو رقمه أو المدينة" aria-label="بحث في المشاريع"/>
       <Toolbar>
         <button type="button" className="btn ghost" aria-pressed={stage==='all'} onClick={()=>setStage('all')}>الكل</button>
         <button type="button" className="btn ghost" aria-pressed={stage==='execution'} onClick={()=>setStage('execution')}>قيد التنفيذ</button>
         <button type="button" className="btn ghost" aria-pressed={stage==='opportunity'} onClick={()=>setStage('opportunity')}>فرص</button>
       </Toolbar>
-      <span>{list.length} مطابق</span>
+      <span>{list.length}</span>
     </FilterSurface>
 
     {err&&<Notice tone="error">{err}</Notice>}
 
-    <Section title="سجل المشاريع" description="كل مشروع سطر عمل؛ التفاصيل تظهر عند فتحه بدل تحويل الصفحة إلى بطاقات منفصلة.">
-      {list.length===0?<EmptyState title="لا توجد مشاريع مطابقة" description="غيّر البحث أو الفلتر الحالي."/>:<RecordList label="سجل المشاريع">
+    <Section title="المشاريع">
+      {list.length===0?<EmptyState title="لا توجد مشاريع مطابقة"/>:<RecordList label="المشاريع">
         {list.map((project)=>{
           const f=fin[project.id]||{};
           const progress=pct(f.computed_progress_pct);
@@ -127,7 +125,7 @@ export default function Projects(){
           ] : [];
           return <RecordRow
             key={project.id}
-            onOpen={()=>router.push(`/dashboard/projects/${project.id}`)}
+            onOpen={()=>router.push(preferredProjectHref(session,project.id))}
             ariaLabel={`فتح مشروع ${project.name_ar}`}
           >
             <RecordSummary
@@ -137,7 +135,7 @@ export default function Projects(){
               meta={[project.city||'المدينة غير محددة',SCOPE_AR[project.supply_scope]||'النطاق غير محدد']}
               metrics={metrics}
               progress={progress}
-              note={undecided>0?`${undecided} بند بلا قرار تنفيذ`:'لا توجد قرارات تنفيذ معلقة'}
+              note={undecided>0?`${undecided} بند بلا قرار تنفيذ`:null}
             />
           </RecordRow>;
         })}
