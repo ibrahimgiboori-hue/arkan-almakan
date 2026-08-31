@@ -79,6 +79,17 @@ if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardH
   failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك الشريط العلوي فقط.');
 }
 
+// 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
+if (/documents:\s*[^\n]*system\.approvals\.view/.test(dashboardLayout)) {
+  failures.push('صلاحيات البوابات: system.approvals.view لا يجوز أن تفتح بوابة المستندات.');
+}
+if (/admin:\s*[^\n]*module_key\s*===\s*['"]system['"]/.test(dashboardLayout)) {
+  failures.push('صلاحيات البوابات: module system لا يجوز أن يفتح بوابة الإدارة كاملة.');
+}
+if (!/documents:\s*fullAdmin\s*\|\|\s*capabilities\.some\(\(item\)\s*=>\s*item\.module_key\s*===\s*['"]documents['"]\)/.test(dashboardLayout)) {
+  failures.push('صلاحيات البوابات: بوابة المستندات يجب أن تعتمد على صلاحيات documents الأصلية فقط.');
+}
+
 const deadPlatformFiles = [
   'app/dashboard/workspace/page.js',
   'app/dashboard/workspace/[portal]/page.js',
@@ -100,13 +111,13 @@ for (const file of [...walk('app/dashboard'), ...walk('components'), ...walk('li
   }
 }
 
-// 6) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
+// 7) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
 const guidance = read('components/approval/ApprovalGuidanceRow.js');
 for (const forbidden of ['طلب إجراء', 'استفسار عن المعاملة', 'فتح أعمالي']) {
   if (guidance.includes(forbidden)) failures.push(`ApprovalGuidanceRow: أعاد إجراء «${forbidden}» إلى شاشة المصدر.`);
 }
 
-// 7) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
+// 8) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
 const legacyApprovals = read('app/dashboard/my-work/approvals/page.js');
 if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) {
   failures.push('المسار القديم my-work/approvals لا يتحول إلى /dashboard/approvals.');
