@@ -1,4 +1,5 @@
 import './globals.css';
+import './print-contrast.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
