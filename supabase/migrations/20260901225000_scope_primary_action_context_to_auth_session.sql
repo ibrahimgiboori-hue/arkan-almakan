@@ -233,6 +233,73 @@ $$;
 revoke all on function public.fn_set_my_action_context(boolean,uuid) from public,anon;
 grant execute on function public.fn_set_my_action_context(boolean,uuid) to authenticated;
 
+-- استثناء الحساب الرئيسي في مرحلة التأسيس:
+-- صلاحية الضغط والتنفيذ تبقى للحساب الرئيسي، أما «من قام بالفعل» فيُؤخذ من سياق النيابة.
+-- لا نشترط اكتمال حزم صلاحيات الشخص المُمثَّل عند مرحلة capability؛ لأن هذا السجل يوثّق
+-- واقعًا حدث خارج البرنامج أثناء بنائه. أما المرحلة المسندة إلى مستخدم بعينه فلا يجوز نسبتها
+-- إلى شخص آخر؛ المطابقة تكون بالموظف حتى لو تغيّر حسابه أو كانت له أكثر من هوية دخول.
+create or replace function private.fn_current_actor_can_take_approval_step(
+  p_workflow_id uuid,
+  p_step_id uuid
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path=public,private,pg_temp
+as $$
+declare
+  v_ctx record;
+  w public.approval_workflows;
+  s public.approval_workflow_steps;
+  v_target_employee_id uuid;
+  v_scope_type text;
+  v_scope_key text;
+begin
+  if auth.uid() is null then return false; end if;
+
+  select * into w from public.approval_workflows where id=p_workflow_id;
+  select * into s from public.approval_workflow_steps where id=p_step_id and workflow_id=p_workflow_id;
+  if w.id is null or s.id is null or w.status<>'pending' or s.status<>'pending' then return false; end if;
+
+  select * into v_ctx from private.fn_current_action_context();
+
+  if public.fn_is_primary_user() and v_ctx.acting_mode='on_behalf_of' then
+    if v_ctx.real_actor_employee_id is null then return false; end if;
+
+    if s.target_type='user' then
+      select au.employee_id into v_target_employee_id
+      from public.app_users au
+      where au.id=s.target_user_id
+      limit 1;
+      return v_target_employee_id is not null
+        and v_target_employee_id=v_ctx.real_actor_employee_id;
+    end if;
+
+    if s.target_type='capability' and s.target_capability is not null then
+      return true;
+    end if;
+
+    return false;
+  end if;
+
+  if s.target_type='user' then
+    return s.target_user_id=auth.uid();
+  end if;
+
+  if s.target_type<>'capability' or s.target_capability is null then return false; end if;
+  v_scope_type:=case when w.project_id is null then 'all' else 'project' end;
+  v_scope_key:=case when w.project_id is null then null else w.project_id::text end;
+
+  return public.has_capability(s.target_capability,v_scope_type,v_scope_key,w.amount);
+end;
+$$;
+
+revoke all on function private.fn_current_actor_can_take_approval_step(uuid,uuid) from public,anon,authenticated;
+
+comment on function private.fn_current_actor_can_take_approval_step(uuid,uuid) is
+  'الحكم المركزي للاعتماد: المستخدمون العاديون تحكمهم الصلاحيات التفصيلية، والحساب الرئيسي يستطيع أثناء التسجيل نيابةً عن توثيق الواقع مع إلزام مطابقة الشخص في المراحل المسندة لمستخدم بعينه.';
+
 -- إنهاء البنية العامة القديمة بعد نقل المصدر المركزي إلى الجلسة.
 -- لا نستخدم CASCADE عمدًا: إذا ظهر اعتماد خفي فالمهاجرة تفشل بدل حذف شيء غير مقصود.
 drop trigger if exists trg_guard_primary_action_context_settings on public.system_access_settings;
@@ -248,6 +315,6 @@ alter table public.system_access_settings
   drop column if exists primary_action_mode_updated_by;
 
 comment on function public.fn_set_my_action_context(boolean,uuid) is
-  'يضبط صاحب الإجراء الحقيقي للحساب الرئيسي داخل جلسة الدخول الحالية فقط. الصلاحيات لا تنتقل للشخص المختار.';
+  'يضبط صاحب الإجراء الحقيقي للحساب الرئيسي داخل جلسة الدخول الحالية فقط. سلطة التنفيذ النظامية تبقى للحساب الرئيسي ولا تنتقل للشخص المختار.';
 comment on function public.current_real_actor_employee_id() is
   'هوية صاحب الفعل الحقيقي في جلسة التنفيذ الحالية؛ يجب استخدامها في أي وظيفة جديدة بدل افتراض أن auth.uid هو صاحب الفعل.';
