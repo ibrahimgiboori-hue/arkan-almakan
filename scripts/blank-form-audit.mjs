@@ -20,9 +20,17 @@ function requireTokens(rel, tokens) {
   }
 }
 
+function forbidTokens(rel, tokens) {
+  const content = read(rel);
+  for (const token of tokens) {
+    if (content.includes(token)) violations.push(`${rel}: forbidden fixed journey contract ${token}`);
+  }
+}
+
 requireTokens('app/print/[id]/page.js', [
   'blankForm',
   'blankRows',
+  'blankStatusRows',
   'طباعة نموذج فارغ',
   'طباعة النموذج الفارغ',
   "className={blankForm ? 'blank-form-mode' : ''}",
@@ -30,6 +38,34 @@ requireTokens('app/print/[id]/page.js', [
   'BlankWritingLines',
   'blank={blankForm}',
   'hasRepeatableSection',
+  'ProjectReportJourneyPrint',
+]);
+
+requireTokens('components/print/ProjectReportJourneyPrint.js', [
+  'operational_lines',
+  'generatedSummary',
+  'generatedConclusion',
+  '_report_sections',
+  'blankStatusRows',
+  'report-operational-label',
+]);
+
+requireTokens('components/documents/ProjectReportJourneyEditor.js', [
+  'operational_lines',
+  'اكتب عنوان السطر',
+  'إضافة سطر',
+  'عنوان القسم',
+  'إضافة قسم',
+]);
+
+requireTokens('components/documents/ProjectReportDocumentForm.js', [
+  'GENERATED_KEYS',
+  '_report_sections',
+  'ProjectReportJourneyEditor',
+]);
+
+forbidTokens('app/print/[id]/page.js', [
+  'PROJECT_REPORT_OPERATIONAL_FIELDS',
 ]);
 
 requireTokens('components/PartiesPrint.js', [
@@ -55,4 +91,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('Blank form constitution audit passed: every document template keeps one governed filled/blank print path.');
+console.log('Blank form constitution audit passed: filled and blank documents share one print path, while project report journey titles remain flexible and summaries remain generated.');
