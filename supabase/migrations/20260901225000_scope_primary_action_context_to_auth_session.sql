@@ -318,3 +318,52 @@ comment on function public.fn_set_my_action_context(boolean,uuid) is
   'يضبط صاحب الإجراء الحقيقي للحساب الرئيسي داخل جلسة الدخول الحالية فقط. سلطة التنفيذ النظامية تبقى للحساب الرئيسي ولا تنتقل للشخص المختار.';
 comment on function public.current_real_actor_employee_id() is
   'هوية صاحب الفعل الحقيقي في جلسة التنفيذ الحالية؛ يجب استخدامها في أي وظيفة جديدة بدل افتراض أن auth.uid هو صاحب الفعل.';
+
+-- واجهة القراءة تبقى بنفس العقد jsonb، لكن تضيف وقت انتهاء السياق حتى لا تعرض الشاشة
+-- «نيابة عن» بعد أن تكون قاعدة البيانات قد أعادت التنفيذ تلقائيًا إلى self.
+create or replace function public.fn_my_action_context()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path=public,private,pg_temp
+as $$
+declare
+  v record;
+  v_expires_at timestamptz;
+begin
+  if auth.uid() is null then raise exception 'يجب تسجيل الدخول'; end if;
+
+  select * into v from private.fn_current_action_context();
+
+  if v.acting_mode='on_behalf_of' and v.action_context_id is not null then
+    select c.expires_at
+    into v_expires_at
+    from private.user_action_context_sessions c
+    where c.system_actor_user_id=auth.uid()
+      and c.auth_session_id=private.fn_current_auth_session_id()
+      and c.action_context_id=v.action_context_id
+      and c.expires_at>now()
+    limit 1;
+  end if;
+
+  return jsonb_build_object(
+    'system_actor_user_id',v.system_actor_user_id,
+    'system_actor_employee_id',v.system_actor_employee_id,
+    'real_actor_user_id',v.real_actor_user_id,
+    'real_actor_employee_id',v.real_actor_employee_id,
+    'real_actor_name',v.real_actor_name,
+    'acting_mode',coalesce(v.acting_mode,'self'),
+    'action_context_id',v.action_context_id,
+    'is_primary_user',coalesce(v.is_primary_user,false),
+    'started_at',v.started_at,
+    'expires_at',v_expires_at
+  );
+end;
+$$;
+
+revoke all on function public.fn_my_action_context() from public,anon;
+grant execute on function public.fn_my_action_context() to authenticated;
+
+comment on function public.fn_my_action_context() is
+  'يعيد سياق صاحب الإجراء الحالي للحساب المسجل، مع وقت انتهاء وضع النيابة حتى تبقى الواجهة متزامنة مع قرار قاعدة البيانات.';
