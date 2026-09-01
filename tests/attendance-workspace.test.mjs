@@ -85,8 +85,8 @@ test('load failures remain errors and never masquerade as empty rosters', () => 
   const labor = read('app/dashboard/projects/[id]/operations/labor/page.js');
   assert.match(attendance, /loadError/);
   assert.match(attendance, /لم تُعرض حالة فارغة بديلة/);
-  assert.match(labor, /loadError/);
-  assert.match(labor, /لن نعرض حالة «لا توجد عمالة»/);
+  assert.match(labor, /setLoadError\(message\)/);
+  assert.match(labor, /\{loadError \? null : <>/);
 });
 
 test('contractor with no labor has a corrective route instead of false completion', () => {
@@ -101,15 +101,28 @@ test('labor management lives inside the project and uses existing guarded RPCs',
   assert.match(page, /fn_quick_add_workers/);
   assert.match(page, /fn_move_laborer/);
   assert.match(page, /fn_update_labor_assignment/);
+  assert.match(page, /data-canonical-labor-create-form/);
   assert.equal(page.includes('/dashboard/site-operations'), false);
 });
 
 test('labor transfer uses the target contractor rate instead of carrying the old rate', () => {
   const labor = read('app/dashboard/projects/[id]/operations/labor/page.js');
   assert.match(labor, /rateForTarget/);
-  assert.match(labor, /يومية الإسناد الجديد/);
+  assert.match(labor, /changeMoveContractor/);
+  assert.match(labor, /يومية الجديدة/);
   assert.equal(labor.includes('p_daily_rate: moveFor.daily_rate'), false);
   assert.match(labor, /p_daily_rate: moveFor\.pay_basis === 'daily'/);
+});
+
+test('legacy contractor labor route cannot create laborers', () => {
+  const retired = read('app/dashboard/contractors/[id]/labor/page.js');
+  const router = read('app/dashboard/labor/page.js');
+  assert.match(retired, /data-retired-labor-entry="contractor-level"/);
+  assert.equal(retired.includes(".from('laborers').insert"), false);
+  assert.equal(retired.includes('buildLaborerSavePayload'), false);
+  assert.equal(retired.includes('إضافة عامل إلى'), false);
+  assert.equal(router.includes("searchParams?.add"), false);
+  assert.equal(router.includes('?add=1'), false);
 });
 
 test('custody follows the same project operation date and uses a constitutional confirmation', () => {
