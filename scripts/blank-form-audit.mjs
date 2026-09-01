@@ -81,8 +81,17 @@ requireTokens('app/print/print-blank-form.css', [
   'page-break-inside:avoid',
 ]);
 
+requireTokens('app/print/print-report-paper-form.css', [
+  '.report-metric-label',
+  'border-bottom:.24mm solid #CDBABA',
+  '.report-metric-value',
+  '.report-operational-row',
+  'grid-template-columns:32mm minmax(0,1fr)',
+]);
+
 requireTokens('app/print/layout.js', [
   "import './print-blank-form.css'",
+  "import './print-report-paper-form.css'",
 ]);
 
 if (violations.length) {
@@ -91,4 +100,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('Blank form constitution audit passed: filled and blank documents share one print path, while project report journey titles remain flexible and summaries remain generated.');
+console.log('Blank form constitution audit passed: filled and blank documents share one print path, project report titles remain flexible, numeric labels are separated from write-in values, and summaries remain generated.');
