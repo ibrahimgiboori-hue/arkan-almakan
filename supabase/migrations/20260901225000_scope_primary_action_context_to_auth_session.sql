@@ -141,6 +141,7 @@ declare
   v_primary_employee_id uuid;
   v_employee public.employees;
   v_current private.user_action_context_sessions%rowtype;
+  v_has_current boolean:=false;
   v_enable boolean;
 begin
   if auth.uid() is null then raise exception 'يجب تسجيل الدخول'; end if;
@@ -174,6 +175,7 @@ begin
   where system_actor_user_id=auth.uid()
     and auth_session_id=v_session_id
   for update;
+  v_has_current:=found;
 
   if v_enable then
     select * into v_employee
@@ -184,7 +186,9 @@ begin
       raise exception 'الشخص المحدد غير موجود في سجل الأشخاص';
     end if;
 
-    if found and v_current.real_actor_employee_id=p_real_actor_employee_id and v_current.expires_at>now() then
+    if v_has_current
+       and v_current.real_actor_employee_id=p_real_actor_employee_id
+       and v_current.expires_at>now() then
       update private.user_action_context_sessions
       set expires_at=now()+interval '8 hours',
           updated_at=now()
