@@ -9,9 +9,6 @@ const centralFiles = new Set([
   path.normalize('app/print/print-office-model.css'),
 ]);
 
-// /print/[id] is the single generic template renderer. It may still place
-// stamp/signature inside an explicit template stampbox until that renderer is
-// extracted into components/print. No document-specific page gets this right.
 const inlineMarkOwnerFiles = new Set([
   path.normalize('app/print/[id]/page.js'),
 ]);
@@ -90,10 +87,6 @@ if (!fs.existsSync(officeModelPath)) {
   }
 }
 
-// حد الليترهيد حد فيزيائي، وليس تفضيلاً لقالب بعينه. القالب يستطيع
-// زيادة مساحة الأمان فقط؛ لا يستطيع تقليصها ثم دفع المحتوى إلى الترويسة أو الذيل.
-// كذلك محول المستند المستمر يجب أن يكون شفافًا للقبطان: لا يضيف غلافًا يجعل
-// المستند كله كتلة واحدة ثم يترك المتصفح يشطر ورقة A4 من تلقاء نفسه.
 const framePath = path.join(root, 'components', 'print', 'ConstitutionPrintFrame.js');
 if (!fs.existsSync(framePath)) {
   violations.push('components/print/ConstitutionPrintFrame.js: محول القبطان العام مفقود');
@@ -116,43 +109,76 @@ if (!fs.existsSync(framePath)) {
   }
 }
 
-// تقرير متابعة الأعمال لا يعود إلى الجدول العريض القديم. البند هو وحدة القراءة:
-// حقيقة رقمية في الأعلى، ثم أسطر تشغيلية معنونة لا تضغط داخل عمود status واحد.
+// رحلة تقرير المشروع أصبحت مكوّناً مركزياً: السطر الرقمي ثم قائمة أسطر حرة
+// (عنوان + نص) لا أسماء تشغيلية مفروضة. والملخصات ناتج محسوب وليست حقول إدخال.
 const genericPrintPath = path.join(printRoot, '[id]', 'page.js');
-const genericEditorPath = path.join(root, 'components', 'DocumentForm.js');
+const journeyPrintPath = path.join(root, 'components', 'print', 'ProjectReportJourneyPrint.js');
+const journeyEditorPath = path.join(root, 'components', 'documents', 'ProjectReportJourneyEditor.js');
+const reportFormPath = path.join(root, 'components', 'documents', 'ProjectReportDocumentForm.js');
+const formRouterPath = path.join(root, 'components', 'documents', 'DocumentFormRouter.js');
+
 if (!fs.existsSync(genericPrintPath)) {
   violations.push('app/print/[id]/page.js: محرك طباعة المستندات العام مفقود');
 } else {
   const genericPrint = fs.readFileSync(genericPrintPath, 'utf8');
   for (const token of [
     "PROJECT_REPORT_PROFILE = 'project_work_claims_report'",
-    'reportOperationalRows',
-    'report-item-block',
-    'report-operational-row',
-    'المتبقي / قيد التحويل',
+    'ProjectReportJourneyPrint',
+    'blankStatusRows',
   ]) {
-    if (!genericPrint.includes(token)) violations.push(`app/print/[id]/page.js: missing project report item-journey contract ${token}`);
+    if (!genericPrint.includes(token)) violations.push(`app/print/[id]/page.js: missing central project-report journey bridge ${token}`);
   }
-}
-if (!fs.existsSync(genericEditorPath)) {
-  violations.push('components/DocumentForm.js: محرر المستندات العام مفقود');
-} else {
-  const genericEditor = fs.readFileSync(genericEditorPath, 'utf8');
-  for (const token of [
-    'PROJECT_REPORT_OPERATIONAL_FIELDS',
-    "execution_status",
-    "delivery_status",
-    "claim_status",
-    "po_status",
-    "collection_status",
-    "next_action",
-  ]) {
-    if (!genericEditor.includes(token)) violations.push(`DocumentForm.js: missing project report item-journey editor contract ${token}`);
+  if (genericPrint.includes('PROJECT_REPORT_OPERATIONAL_FIELDS')) {
+    violations.push('app/print/[id]/page.js: عناوين رحلة البند لا يجوز أن تعود ثابتة داخل صفحة الطباعة');
   }
 }
 
-// تنسيق النص اليدوي يملكه القبطان نفسه. لا نعود مستقبلاً إلى تخمين المحاذاة
-// داخل كل صفحة ولا إلى محررات منفصلة لكل نوع مستند.
+if (!fs.existsSync(journeyPrintPath)) {
+  violations.push('components/print/ProjectReportJourneyPrint.js: مكوّن طباعة رحلة البند مفقود');
+} else {
+  const journeyPrint = fs.readFileSync(journeyPrintPath, 'utf8');
+  for (const token of [
+    'operational_lines',
+    'report-item-block',
+    'report-operational-row',
+    'report-operational-label',
+    'المتبقي / قيد التحويل',
+    'generatedSummary',
+    'generatedConclusion',
+    '_report_sections',
+  ]) {
+    if (!journeyPrint.includes(token)) violations.push(`ProjectReportJourneyPrint.js: missing flexible item-journey contract ${token}`);
+  }
+}
+
+if (!fs.existsSync(journeyEditorPath)) {
+  violations.push('components/documents/ProjectReportJourneyEditor.js: محرر رحلة البند المرن مفقود');
+} else {
+  const journeyEditor = fs.readFileSync(journeyEditorPath, 'utf8');
+  for (const token of [
+    'operational_lines',
+    'اكتب عنوان السطر',
+    'إضافة سطر',
+    'عنوان القسم',
+    'إضافة قسم',
+  ]) {
+    if (!journeyEditor.includes(token)) violations.push(`ProjectReportJourneyEditor.js: missing flexible journey editor contract ${token}`);
+  }
+}
+
+if (!fs.existsSync(reportFormPath)) {
+  violations.push('components/documents/ProjectReportDocumentForm.js: سطح إدخال التقرير القائم على بيانات المصدر مفقود');
+} else {
+  const reportForm = fs.readFileSync(reportFormPath, 'utf8');
+  for (const token of ['GENERATED_KEYS','_report_sections','ProjectReportJourneyEditor']) {
+    if (!reportForm.includes(token)) violations.push(`ProjectReportDocumentForm.js: missing generated-summary/source-only contract ${token}`);
+  }
+}
+
+if (!fs.existsSync(formRouterPath) || !fs.readFileSync(formRouterPath, 'utf8').includes('ProjectReportDocumentForm')) {
+  violations.push('DocumentFormRouter.js: ملف التقرير لا يمر عبر سطح المستندات الموحد');
+}
+
 const textGovernancePath = path.join(root, 'lib', 'print-text-governance.js');
 const textEditorPath = path.join(root, 'components', 'print', 'PrintTextAlignmentEditor.js');
 const boundaryPath = path.join(root, 'components', 'print', 'PrintGovernanceBoundary.js');
@@ -197,4 +223,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model, physical page ownership, letterhead safety, item journeys and manual text alignment active).`);
+console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model, physical page ownership, letterhead safety, flexible item journeys and manual text alignment active).`);
