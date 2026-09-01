@@ -38,6 +38,9 @@ if (reactDomVersion !== reactVersion) {
 if (pkg.engines?.node !== '24.x') {
   fail(`project runtime must remain aligned on Node 24.x; found ${pkg.engines?.node || 'missing'}`);
 }
+if (pkg.type !== 'module') {
+  fail('package.json must declare type=module so Node does not reparse ES-module .js files at runtime/test time');
+}
 
 const proxyPath = path.join(root, 'proxy.js');
 const middlewarePath = path.join(root, 'middleware.js');
@@ -53,4 +56,4 @@ for (const retired of ['experimental.ppr', 'experimental.dynamicIO', 'experiment
   if (nextConfig.includes(retired)) fail(`retired Next configuration must not return: ${retired}`);
 }
 
-console.log(`Framework governance audit passed: Next ${nextVersion}, React ${reactVersion}, Node ${pkg.engines.node}, proxy entrypoint active.`);
+console.log(`Framework governance audit passed: Next ${nextVersion}, React ${reactVersion}, Node ${pkg.engines.node}, ESM package mode, proxy entrypoint active.`);
