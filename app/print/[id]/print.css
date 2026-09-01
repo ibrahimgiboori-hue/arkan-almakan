@@ -170,18 +170,16 @@ td.mono{unicode-bidi:isolate}
   font-variant-numeric:tabular-nums}
 
 @media print{
-  
   .toolbar{display:none}
   .sheet-wrap{padding:0;background:#fff}
   .sheet{width:auto;min-box-shadow:none}
   .print-doc-generic_document .governed-document-sheet{width:100%;min-height:0}
-  .card-doc,.plain-card,.sigtable,.declare,.tafqit,.footer-row,.stampbox-row,.pt-wrap{break-inside:avoid;page-break-inside:avoid}
+  .card-doc,.plain-card,.sigtable,.declare,.tafqit,.footer-row,.stampbox-row,.pt-wrap,.report-item-block{break-inside:avoid;page-break-inside:avoid}
   .amounts tbody tr{break-inside:avoid;page-break-inside:avoid}
   .amounts thead{display:table-header-group}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
     box-shadow:none!important}
 }
-
 
 /* ============================================================
    نموذج الخطاب العام
@@ -213,7 +211,6 @@ td.mono{unicode-bidi:isolate}
 .sigtable td:empty{height:16mm}
 .sigtable td:empty::after{content:''}
 
-
 /* ============================================================
    ترويسة الخطاب الرسمي — لا جدول ولا عناوين حقول
    ============================================================ */
@@ -237,7 +234,6 @@ td.mono{unicode-bidi:isolate}
 .ltr-to .to-title{white-space:nowrap;font-weight:600}
 .ltr-salut{font-size:10.5pt;color:var(--ink-print);margin-bottom:4mm}
 
-
 /* ============================================================
    بطاقة نصية بحد حاد — بيان وقيمة بلا رأس مالي
    ============================================================ */
@@ -259,7 +255,6 @@ td.mono{unicode-bidi:isolate}
 .pc-k{color:var(--ink-soft-print);width:34%;font-size:9pt;
   border-left:.25mm solid #CDBABA}
 .pc-v{color:var(--ink-print);font-weight:600;word-wrap:break-word}
-
 
 /* ============================================================
    بطاقات الأطراف — مفردة ومزدوجة ورباعية
@@ -283,3 +278,94 @@ td.mono{unicode-bidi:isolate}
 .pt-middle{font-size:9pt;line-height:1.9;color:var(--ink-print);
   text-align:justify;margin:0 0 var(--g-row);padding:2mm 2.6mm;
   background:var(--info-bg);border-radius:var(--info-radius)}
+
+/* ============================================================
+   تقرير متابعة الأعمال والمستخلصات — رحلة البند
+   البند نفسه وحدة القراءة ووحدة كسر الصفحة.
+   ============================================================ */
+.report-item-block{
+  width:100%;
+  margin:0 0 4mm;
+  border:.35mm solid #8B3332;
+  background:rgba(255,255,255,.72);
+  break-inside:avoid;
+  page-break-inside:avoid;
+  box-sizing:border-box;
+}
+.report-items-title{
+  background:#8B3332;
+  color:#fff;
+  font-size:9pt;
+  font-weight:700;
+  padding:1.5mm 2.2mm;
+  border-bottom:.25mm solid #8B3332;
+}
+.report-item-summary{
+  display:grid;
+  grid-template-columns:7mm minmax(32mm,1.9fr) 15mm 14mm minmax(21mm,1fr) minmax(20mm,1fr) minmax(24mm,1.1fr) minmax(24mm,1.1fr);
+  width:100%;
+  align-items:stretch;
+}
+.report-metric{
+  min-width:0;
+  padding:1.25mm 1.35mm;
+  border-left:.2mm solid #D8C9C9;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:.45mm;
+  box-sizing:border-box;
+}
+.report-metric:last-child{border-left:none}
+.report-metric-label{
+  display:block;
+  color:#7B5555;
+  font-size:6.7pt;
+  line-height:1.2;
+  font-weight:600;
+  white-space:normal;
+}
+.report-metric-value{
+  display:block;
+  color:#2E2E30;
+  font-size:8.2pt;
+  line-height:1.35;
+  font-weight:700;
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.report-metric-item .report-metric-value{font-size:8.7pt;overflow-wrap:normal;word-break:normal}
+.report-metric-money .report-metric-value,
+.report-metric-po .report-metric-value,
+.report-metric-serial .report-metric-value{
+  white-space:nowrap;
+  overflow-wrap:normal;
+  word-break:normal;
+}
+.report-metric-money .report-metric-value{direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.report-metric-po .report-metric-value{font-size:7.8pt;direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.report-operational-lines{border-top:.3mm solid #8B3332}
+.report-operational-row{
+  display:grid;
+  grid-template-columns:29mm minmax(0,1fr);
+  break-inside:avoid;
+  page-break-inside:avoid;
+}
+.report-operational-row + .report-operational-row{border-top:.2mm solid #D8C9C9}
+.report-operational-label{
+  padding:1.25mm 1.7mm;
+  color:#8B3332;
+  font-size:7.6pt;
+  font-weight:700;
+  border-left:.2mm solid #D8C9C9;
+  background:rgba(244,244,244,.62);
+}
+.report-operational-value{
+  padding:1.25mm 1.9mm;
+  color:#2E2E30;
+  font-size:8.3pt;
+  line-height:1.65;
+  white-space:pre-wrap;
+  overflow-wrap:break-word;
+  word-break:normal;
+}
