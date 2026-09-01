@@ -2,6 +2,9 @@
   "name": "arkan-almakan",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/navigation-cleanliness-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/blank-form-audit.mjs && node scripts/work-sheet-kernel-audit.mjs && node scripts/work-surface-constitution-audit.mjs && node scripts/format-governance-audit.mjs && node scripts/ui-constitution-audit.mjs && node scripts/v2-constitution-audit.mjs && node scripts/action-context-governance-audit.mjs && node scripts/labor-entry-governance-audit.mjs",
