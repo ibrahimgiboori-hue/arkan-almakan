@@ -9,6 +9,27 @@ import { money } from '@/lib/format';
 import { personLabel } from '@/lib/people';
 import PartiesEditor from '@/components/PartiesEditor';
 
+const PROJECT_REPORT_PROFILE = 'project_work_claims_report';
+const PROJECT_REPORT_OPERATIONAL_FIELDS = [
+  { key:'execution_status', label:'حالة التنفيذ' },
+  { key:'delivery_status', label:'حالة التسليم' },
+  { key:'claim_status', label:'حالة المستخلص' },
+  { key:'po_status', label:'حالة PO' },
+  { key:'collection_status', label:'حالة التحصيل' },
+  { key:'next_action', label:'الإجراء التالي' },
+  { key:'notes', label:'ملاحظات' },
+];
+const PROJECT_REPORT_ENTRY_FIELDS = [
+  { key:'item', label:'البند', type:'text' },
+  { key:'quantity', label:'الكمية', type:'number' },
+  { key:'unit', label:'الوحدة', type:'text' },
+  { key:'rate', label:'سعر الوحدة', type:'money' },
+  { key:'work_value', label:'قيمة الأعمال', type:'money' },
+  { key:'paid_value', label:'المحصّل', type:'money' },
+  { key:'pending_value', label:'المتبقي / قيد التحويل', type:'money' },
+  { key:'po_reference', label:'PO / المرجع', type:'text' },
+];
+
 export default function DocumentForm({ code, docId }) {
   const router = useRouter();
 
@@ -292,6 +313,7 @@ export default function DocumentForm({ code, docId }) {
   const relationScope = tpl?.relation_scope || [];
   const wantsEmployee = !!legacy || relationScope.includes('employee');
   const wantsProject = relationScope.includes('project');
+  const isProjectWorkClaimsReport = tpl?.layout?.profile === PROJECT_REPORT_PROFILE;
   const formGridSpan = (field) => {
     const columns = Number(tpl?.layout?.gridColumns || 12);
     const perFormColumn = columns / 3;
@@ -319,6 +341,30 @@ export default function DocumentForm({ code, docId }) {
         style={f.computed ? {background:'#F6EEEE',color:'#7C2B28',fontWeight:600} : undefined}
       />
     )
+  );
+
+  const journeyInput = (rowId, field, value) => (
+    ['execution_status','delivery_status','claim_status','po_status','collection_status','next_action','notes'].includes(field.key)
+      ? <textarea
+          rows={2}
+          value={value ?? ''}
+          disabled={isIssued}
+          onChange={(e)=>setRow(rowId, field.key, e.target.value)}
+          style={{width:'100%',minHeight:58,resize:'vertical'}}
+        />
+      : <input
+          type={['money','number'].includes(field.type) ? 'number' : 'text'}
+          step={field.type === 'money' ? '0.01' : field.type === 'number' ? 'any' : undefined}
+          dir={['money','number'].includes(field.type) ? 'ltr' : undefined}
+          value={value ?? ''}
+          disabled={isIssued}
+          onChange={(e)=>setRow(
+            rowId,
+            field.key,
+            ['money','number'].includes(field.type) ? Number(e.target.value || 0) : e.target.value
+          )}
+          style={{width:'100%'}}
+        />
   );
 
   return (
@@ -507,7 +553,62 @@ export default function DocumentForm({ code, docId }) {
             </div>
           )}
 
-          {s.kind === 'table' && (
+          {s.kind === 'table' && isProjectWorkClaimsReport && s.id === 'work_lines' && (
+            <div style={{padding:18,display:'grid',gap:14}}>
+              {!isIssued && (
+                <div>
+                  <button type="button" className="btn ghost" onClick={addRow}>إضافة بند</button>
+                </div>
+              )}
+              {computed.rows.map((r,i)=>(
+                <div key={r._id} style={{border:'1px solid var(--hair)',borderRadius:8,overflow:'hidden',background:'#fff'}}>
+                  <div style={{padding:'9px 12px',background:'var(--paper-soft)',display:'flex',alignItems:'center',gap:10}}>
+                    <strong style={{color:'var(--maroon)'}}>البند {i+1}</strong>
+                    <span style={{fontWeight:700}}>{r.item || 'بند جديد'}</span>
+                    <span className="spacer" />
+                    {!isIssued && (
+                      <button type="button" className="btn ghost" style={{padding:'3px 8px',fontSize:12}} onClick={()=>delRow(r._id)}>
+                        حذف البند
+                      </button>
+                    )}
+                  </div>
+                  <div style={{padding:12,display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:10}}>
+                    {PROJECT_REPORT_ENTRY_FIELDS.map((field)=>(
+                      <div className="field" key={field.key} style={{minWidth:0}}>
+                        <label>{field.label}</label>
+                        {journeyInput(r._id, field, rows.find((x)=>x._id===r._id)?.[field.key])}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{borderTop:'1px solid var(--hair)',padding:12,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>
+                    {PROJECT_REPORT_OPERATIONAL_FIELDS.map((field)=>(
+                      <div className="field" key={field.key} style={{minWidth:0,gridColumn:field.key === 'notes' ? 'span 2' : undefined}}>
+                        <label>{field.label}</label>
+                        {journeyInput(r._id, field, rows.find((x)=>x._id===r._id)?.[field.key])}
+                      </div>
+                    ))}
+                  </div>
+                  {!PROJECT_REPORT_OPERATIONAL_FIELDS.some((field)=>String(r[field.key] || '').trim()) && String(r.status || '').trim() && (
+                    <div style={{padding:'0 12px 12px'}} className="field">
+                      <label>الوضع التشغيلي السابق</label>
+                      <textarea
+                        rows={3}
+                        value={rows.find((x)=>x._id===r._id)?.status ?? ''}
+                        disabled={isIssued}
+                        onChange={(e)=>setRow(r._id,'status',e.target.value)}
+                        style={{width:'100%'}}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {computed.rows.length === 0 && (
+                <div className="empty"><h3>لا توجد بنود</h3><p>أضف بندًا للمتابعة.</p></div>
+              )}
+            </div>
+          )}
+
+          {s.kind === 'table' && !(isProjectWorkClaimsReport && s.id === 'work_lines') && (
             <>
               {!isIssued && (
                 <div style={{padding:'12px 18px'}}>
