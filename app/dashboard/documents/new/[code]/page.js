@@ -1,8 +1,8 @@
 'use client';
 import { useParams } from 'next/navigation';
-import DocumentForm from '@/components/DocumentForm';
+import DocumentFormRouter from '@/components/documents/DocumentFormRouter';
 
 export default function NewDocument() {
   const { code } = useParams();
-  return <DocumentForm code={code} />;
+  return <DocumentFormRouter code={code} />;
 }
