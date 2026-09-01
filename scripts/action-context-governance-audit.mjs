@@ -47,6 +47,7 @@ const sessionSource = requireText(sessionScopedMigration, 'private.user_action_c
 requireText(sessionScopedMigration, "auth.jwt()->>'session_id'", 'session isolation must be anchored to the Supabase auth session id');
 requireText(sessionScopedMigration, "expires_at timestamptz", 'on-behalf state must have an automatic expiry');
 requireText(sessionScopedMigration, "interval '8 hours'", 'session-scoped on-behalf mode must have a bounded lease');
+requireText(sessionScopedMigration, "'expires_at',v_expires_at", 'the public action-context snapshot must expose the authoritative lease expiry to the UI');
 requireText(sessionScopedMigration, 'drop column if exists primary_action_mode', 'retired global action-mode state must be removed instead of left as dead schema');
 requireText(sessionScopedMigration, 'drop function if exists private.fn_guard_primary_action_context_settings()', 'retired global action-context guard must be removed instead of left as dead code');
 requireText(sessionScopedMigration, 'create or replace function private.fn_current_action_context()', 'all consumers must keep using the same canonical resolver after session isolation');
@@ -98,10 +99,18 @@ requireText(control, "employee.id !== primaryEmployeeId", 'the primary account o
 requireText(control, 'المُسجّل النظامي', 'UI must explain the separation between registrant and real actor');
 
 requireText(settingsLayout, 'PrimaryActionModeSettings', 'primary action mode control must be mounted inside Settings');
-requireText(layout, "supabase.rpc('fn_my_action_context'", 'dashboard shell must load the canonical action context');
-requireText(layout, 'data-action-context-banner', 'dashboard must visibly announce active on-behalf mode');
+requireText(settingsLayout, 'primary-action-mode', 'the global action-identity strip must be able to jump directly to its control');
+const layoutSource = requireText(layout, "supabase.rpc('fn_my_action_context'", 'dashboard shell must load the canonical action context');
+requireText(layout, 'data-action-context-banner', 'dashboard must visibly announce the primary action identity');
+requireText(layout, 'data-action-context-active', 'primary identity must stay visible in both self and on-behalf states');
 requireText(layout, 'data-action-mode', 'dashboard root must expose the active execution mode to all portal surfaces');
+requireText(layout, 'actionContext?.expiresAt', 'dashboard must schedule synchronization against the server lease expiry');
+requireText(layout, 'window.dispatchEvent(new CustomEvent(ACTION_CONTEXT_EVENT))', 'lease expiry must force a fresh server action-context read');
+if (!layoutSource.includes("showPrimaryIdentity = state.me?.actionContext?.isPrimaryUser === true")) {
+  fail('primary action identity must remain visible even when the primary account is acting as itself');
+}
 requireText(model, "ON_BEHALF_OF: 'on_behalf_of'", 'client code must share one action-mode vocabulary');
 requireText(model, 'requestedRealActorEmployeeId !== systemActorEmployeeId', 'client model must normalize impossible self-delegation too');
+requireText(model, 'expiresAt:', 'client action-context model must retain the server lease expiry');
 
-console.log('Action context governance audit passed: authority and attribution are separated, primary builder approvals can document real-world actors before portal permissions are complete, normal users remain permission-governed, and active on-behalf state is isolated per authenticated session.');
+console.log('Action context governance audit passed: authority and attribution are separated, primary builder approvals can document real-world actors before portal permissions are complete, normal users remain permission-governed, and the visible action identity stays synchronized with the session lease.');
