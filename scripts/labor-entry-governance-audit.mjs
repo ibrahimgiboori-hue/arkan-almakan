@@ -5,11 +5,16 @@ const root = process.cwd();
 const canonical = 'app/dashboard/projects/[id]/operations/labor/page.js';
 const retiredContractorRoute = 'app/dashboard/contractors/[id]/labor/page.js';
 const legacyRouter = 'app/dashboard/labor/page.js';
+const retiredSiteOperationsRoute = 'app/dashboard/site-operations/page.js';
 const sourceRoots = ['app', 'components', 'lib'];
 const extensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx']);
 
 function fail(message) {
   throw new Error(`[labor-entry-governance] ${message}`);
+}
+
+function exists(relative) {
+  return fs.existsSync(path.join(root, relative));
 }
 
 function walk(relativeDir) {
@@ -59,4 +64,25 @@ if (routerSource.includes("searchParams?.add") || routerSource.includes('?add=1'
   fail('legacy /dashboard/labor router must never reopen an alternate add mode');
 }
 
-console.log('Labor entry governance audit passed: project labor is the only user-facing creation surface, direct client inserts are blocked, and legacy routes are non-creating.');
+const retiredSiteOperationsSource = sources.get(retiredSiteOperationsRoute) || '';
+if (!retiredSiteOperationsSource.includes("redirect('/dashboard/projects')")) {
+  fail('legacy site-operations parent route must remain a compatibility redirect to the projects portal');
+}
+for (const forbidden of ['fn_quick_add_workers', 'parseSiteCommand', 'openWorkers(', "'use client'"]) {
+  if (retiredSiteOperationsSource.includes(forbidden)) {
+    fail(`retired site-operations workspace reintroduced operational UI logic: ${forbidden}`);
+  }
+}
+
+const retiredArtifacts = [
+  'app/dashboard/site-operations/page.module.css',
+  'lib/labor-profile-write.mjs',
+  'tests/labor-profile-write.test.mjs',
+  'lib/site-operation-command.js',
+  'tests/site-operation-command.test.mjs',
+];
+for (const file of retiredArtifacts) {
+  if (exists(file)) fail(`retired duplicate labor/site-operations artifact must stay deleted: ${file}`);
+}
+
+console.log('Labor entry governance audit passed: project labor is the only user-facing creation surface, direct client inserts are blocked, and retired duplicate workspaces cannot return.');
