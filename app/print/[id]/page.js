@@ -9,23 +9,14 @@ import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import PartiesPrint from '@/components/PartiesPrint';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
 import './print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
 const PROJECT_REPORT_PROFILE = 'project_work_claims_report';
-const PROJECT_REPORT_OPERATIONAL_FIELDS = [
-  { key:'execution_status', label:'حالة التنفيذ' },
-  { key:'delivery_status', label:'حالة التسليم' },
-  { key:'claim_status', label:'حالة المستخلص' },
-  { key:'po_status', label:'حالة PO' },
-  { key:'collection_status', label:'حالة التحصيل' },
-  { key:'next_action', label:'الإجراء التالي' },
-  { key:'notes', label:'ملاحظات' },
-];
-
-const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
-const zeroLikeText = (value) => /^0+(?:[.,]0+)?$/.test(String(value ?? '').trim());
+const PROJECT_REPORT_GENERATED_SECTIONS = new Set(['executive_summary','intro','handover','conclusion']);
 const clampBlankRows = (value) => Math.max(1, Math.min(20, Number(value) || 5));
+const clampBlankStatusRows = (value) => Math.max(1, Math.min(8, Number(value) || 4));
 
 function BlankLine({ kind = 'text', wide = false }) {
   return <span className={`blank-write-line blank-${kind} ${wide ? 'wide' : ''}`.trim()} aria-hidden="true" />;
@@ -49,6 +40,7 @@ export default function PrintDoc() {
   const [bank, setBank] = useState(false);
   const [blankForm, setBlankForm] = useState(false);
   const [blankRows, setBlankRows] = useState(5);
+  const [blankStatusRows, setBlankStatusRows] = useState(4);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -83,7 +75,6 @@ export default function PrintDoc() {
 
   const stampUrl = !blankForm && stamp ? pub(cfg.stamp_image_path) : null;
 
-  // لا يسمح القالب أو المستند بتقليص المساحة الآمنة المحجوزة للترويسة.
   const requestedTop = Number(doc.margin_top_mm ?? tpl?.margin_top_mm ?? cfg.letterhead_top_mm ?? 0);
   const requestedBottom = Number(doc.margin_bottom_mm ?? tpl?.margin_bottom_mm ?? cfg.letterhead_bottom_mm ?? 0);
   const mTop = Math.max(requestedTop, Number(cfg.letterhead_top_mm || 0));
@@ -96,10 +87,8 @@ export default function PrintDoc() {
     : (p.letter_title || tpl?.name_ar || legacy?.name || doc.template_code);
   const signUrl = blankForm ? null : pub(cfg.signature_image_path);
   const signMm = Number(doc.sign_size_mm ?? cfg.signature_size_mm ?? 20);
-  const hasStampSection = !!custom &&
-    (tpl.layout.sections || []).some((x) => x.kind === 'stampbox');
-  const hasLetterHead = !!custom &&
-    (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
+  const hasStampSection = !!custom && (tpl.layout.sections || []).some((x) => x.kind === 'stampbox');
+  const hasLetterHead = !!custom && (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
 
   const fmt = (f, val) => {
@@ -111,27 +100,6 @@ export default function PrintDoc() {
     return String(val);
   };
 
-  const reportOperationalRows = (row, section) => {
-    const definitions = Array.isArray(section?.operational_fields) && section.operational_fields.length
-      ? section.operational_fields
-      : PROJECT_REPORT_OPERATIONAL_FIELDS;
-    if (blankForm) return definitions.map((field) => ({ label:field.label, value:null }));
-    const structured = definitions
-      .filter((field) => hasValue(row[field.key]))
-      .map((field) => ({ label:field.label, value:String(row[field.key]) }));
-    if (structured.length) return structured;
-    return hasValue(row.status)
-      ? [{ label:'الوضع التشغيلي', value:String(row.status) }]
-      : [];
-  };
-
-  const reportMoney = (value) => {
-    if (blankForm) return <BlankLine kind="money" />;
-    if (!hasValue(value)) return '—';
-    return <>{money(Number(value) || 0)} <Riyal /></>;
-  };
-
-  // ---------- النماذج المدمجة ----------
   const legacyRows = !custom && legacy
     ? legacy.fields
         .filter((f) => blankForm || (p[f.k] !== undefined && p[f.k] !== '' && p[f.k] !== null))
@@ -181,6 +149,18 @@ export default function PrintDoc() {
               />
             </label>
           )}
+          {blankForm && isProjectWorkClaimsReport && (
+            <label className="blank-row-control">
+              <span>أسطر المتابعة لكل بند</span>
+              <input
+                type="number"
+                min="1"
+                max="8"
+                value={blankStatusRows}
+                onChange={(event)=>setBlankStatusRows(clampBlankStatusRows(event.target.value))}
+              />
+            </label>
+          )}
         </div>
         <div className="tb-group">
           <span className="tb-warn">
@@ -206,7 +186,6 @@ export default function PrintDoc() {
         className={blankForm ? 'blank-form-mode' : ''}
       >
         <div className="sheet governed-document-sheet">
-
           {!hasLetterHead && (
             <div className="title-block">
               <h1>{title}</h1>
@@ -238,7 +217,6 @@ export default function PrintDoc() {
             )}
           </div>
 
-          {/* ---------- نموذج مخصص ---------- */}
           {hasLetterHead && (
             <div className="ltr-meta">
               <span className="mono">{blankForm ? <BlankLine /> : doc.doc_number}</span>
@@ -249,31 +227,28 @@ export default function PrintDoc() {
           {custom && tpl.intro_text && <div className="dc-body" style={{marginBottom:'6mm'}}>{tpl.intro_text}</div>}
 
           {custom && tpl.layout.sections.map((s) => {
+            if (isProjectWorkClaimsReport && PROJECT_REPORT_GENERATED_SECTIONS.has(s.id)) return null;
+
             if (s.kind === 'cards' || s.kind === 'totals') {
               const fields = blankForm
                 ? (s.fields || [])
                 : (s.fields || []).filter((f) => p[f.key] !== undefined && p[f.key] !== '' && p[f.key] !== null);
               if (!fields.length) return null;
-
-              // الجدول المالي: صندوق حسابات، أو نمط مالي صريح
               const isMoneyBlock = s.kind === 'totals' || s.money === true;
 
               if (isMoneyBlock) {
                 return (
                   <table className="amounts" key={s.id}>
-                    <thead><tr><th>{s.title || 'الحساب'}</th>
-                      <th className="num">القيمة <Riyal /></th></tr></thead>
+                    <thead><tr><th>{s.title || 'الحساب'}</th><th className="num">القيمة <Riyal /></th></tr></thead>
                     <tbody>
                       {fields.map((f) => (
-                        <tr key={f.key}><td>{f.label}</td>
-                          <td className="num">{fmt(f, p[f.key])}</td></tr>
+                        <tr key={f.key}><td>{f.label}</td><td className="num">{fmt(f, p[f.key])}</td></tr>
                       ))}
                     </tbody>
                   </table>
                 );
               }
 
-              // بطاقة نصية: سطر عنوان كامل ثم عمودا التسمية والقيمة
               if (s.style === 'strict') {
                 const heading = blankForm ? s.title : (p[s.title_key] || s.title);
                 return (
@@ -281,15 +256,13 @@ export default function PrintDoc() {
                     {heading && <div className="pc-head">{heading}</div>}
                     <table className="pc-table"><tbody>
                       {fields.map((f) => (
-                        <tr key={f.key}>
-                          <td className="pc-k">{f.label}</td>
-                          <td className="pc-v">{fmt(f, p[f.key])}</td>
-                        </tr>
+                        <tr key={f.key}><td className="pc-k">{f.label}</td><td className="pc-v">{fmt(f, p[f.key])}</td></tr>
                       ))}
                     </tbody></table>
                   </div>
                 );
               }
+
               return (
                 <div className="cards" key={s.id} style={{marginBottom:'6mm'}}>
                   <section className={`card-doc ${s.align === 'left' ? 'to-left' : ''}`}
@@ -297,8 +270,7 @@ export default function PrintDoc() {
                     <div className="card-head">{s.title}</div>
                     <table><tbody>
                       {fields.map((f) => (
-                        <tr key={f.key}><td className="k">{f.label}</td>
-                          <td className="v">{fmt(f, p[f.key])}</td></tr>
+                        <tr key={f.key}><td className="k">{f.label}</td><td className="v">{fmt(f, p[f.key])}</td></tr>
                       ))}
                     </tbody></table>
                   </section>
@@ -310,64 +282,15 @@ export default function PrintDoc() {
               if (!rows.length) return null;
 
               if (isProjectWorkClaimsReport && s.id === 'work_lines') {
-                return rows.map((r, i) => {
-                  const operational = reportOperationalRows(r, s);
-                  const hasQuantity = !blankForm && hasValue(r.quantity) && !zeroLikeText(r.quantity);
-                  const unit = blankForm
-                    ? null
-                    : hasQuantity && hasValue(r.unit) ? r.unit : (r.unit === 'مقطوعية' ? r.unit : '—');
-                  return (
-                    <section className="report-item-block" key={`${s.id}-${r._id || i}`} data-print-atomic="item">
-                      {i === 0 && <div className="report-items-title">{s.title || 'تفصيل الأعمال والمستخلصات'}</div>}
-                      <div className="report-item-summary">
-                        <div className="report-metric report-metric-serial">
-                          <span className="report-metric-label">م</span>
-                          <strong className="report-metric-value mono">{i + 1}</strong>
-                        </div>
-                        <div className="report-metric report-metric-item">
-                          <span className="report-metric-label">البند</span>
-                          <strong className="report-metric-value">{blankForm ? <BlankLine wide /> : r.item || '—'}</strong>
-                        </div>
-                        <div className="report-metric">
-                          <span className="report-metric-label">الكمية</span>
-                          <strong className="report-metric-value mono">{blankForm ? <BlankLine kind="number" /> : hasQuantity ? fmtQty(r.quantity) : '—'}</strong>
-                        </div>
-                        <div className="report-metric">
-                          <span className="report-metric-label">الوحدة</span>
-                          <strong className="report-metric-value">{blankForm ? <BlankLine /> : unit}</strong>
-                        </div>
-                        <div className="report-metric report-metric-money">
-                          <span className="report-metric-label">قيمة الأعمال</span>
-                          <strong className="report-metric-value">{reportMoney(r.work_value)}</strong>
-                        </div>
-                        <div className="report-metric report-metric-money">
-                          <span className="report-metric-label">المحصّل</span>
-                          <strong className="report-metric-value">{reportMoney(r.paid_value)}</strong>
-                        </div>
-                        <div className="report-metric report-metric-money">
-                          <span className="report-metric-label">المتبقي / قيد التحويل</span>
-                          <strong className="report-metric-value">{reportMoney(r.pending_value)}</strong>
-                        </div>
-                        <div className="report-metric report-metric-po">
-                          <span className="report-metric-label">PO / المرجع</span>
-                          <strong className="report-metric-value mono">{blankForm ? <BlankLine /> : r.po_reference || '—'}</strong>
-                        </div>
-                      </div>
-                      {operational.length > 0 && (
-                        <div className="report-operational-lines">
-                          {operational.map((line, lineIndex) => (
-                            <div className="report-operational-row" key={`${line.label}-${lineIndex}`}>
-                              <div className="report-operational-label">{line.label}</div>
-                              <div className="report-operational-value">
-                                {blankForm ? <BlankWritingLines lines={2} /> : line.value}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  );
-                });
+                return (
+                  <ProjectReportJourneyPrint
+                    key={s.id}
+                    rows={rows}
+                    payload={p}
+                    blankForm={blankForm}
+                    blankStatusRows={blankStatusRows}
+                  />
+                );
               }
 
               const columns = s.columns || [];
@@ -380,16 +303,11 @@ export default function PrintDoc() {
                       <col key={column.key} style={{width:`${(Number(column.span || 1) / spanTotal) * 92}%`}} />
                     ))}
                   </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="serial-col">م</th>
-                      {columns.map((c) => (
-                        <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
-                          {c.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
+                  <thead><tr><th className="serial-col">م</th>
+                    {columns.map((c) => (
+                      <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>{c.label}</th>
+                    ))}
+                  </tr></thead>
                   <tbody>
                     {rows.map((r, i) => (
                       <tr key={r._id || i}>
@@ -408,12 +326,9 @@ export default function PrintDoc() {
 
             if (s.kind === 'text') {
               if (!blankForm && !p[s.key]) return null;
-              if (s.style === 'plain') {
-                return <div className="letter-body" key={s.id}>{blankForm ? <BlankWritingLines lines={5} /> : p[s.key]}</div>;
-              }
+              if (s.style === 'plain') return <div className="letter-body" key={s.id}>{blankForm ? <BlankWritingLines lines={5} /> : p[s.key]}</div>;
               return (
-                <div className={s.style === 'strict' ? 'declare' : 'card-doc'} key={s.id}
-                     style={{marginBottom:'6mm'}}>
+                <div className={s.style === 'strict' ? 'declare' : 'card-doc'} key={s.id} style={{marginBottom:'6mm'}}>
                   <div className={s.style === 'strict' ? 'dc-head' : 'card-head'}>{s.title}</div>
                   <div className="dc-body">{blankForm ? <BlankWritingLines lines={4} /> : p[s.key]}</div>
                 </div>
@@ -424,10 +339,7 @@ export default function PrintDoc() {
               if (blankForm) {
                 return (
                   <div className="ltr-head blank-letterhead-fields" key={s.id}>
-                    <div className="ltr-refs">
-                      <span>إشارتنا: <BlankLine /></span>
-                      <span>إشارتكم: <BlankLine /></span>
-                    </div>
+                    <div className="ltr-refs"><span>إشارتنا: <BlankLine /></span><span>إشارتكم: <BlankLine /></span></div>
                     <div className="blank-letter-field"><strong>الموضوع:</strong><BlankLine wide /></div>
                     <div className="blank-letter-field"><strong>إلى:</strong><BlankLine wide /></div>
                     <div className="blank-letter-field"><strong>الصفة:</strong><BlankLine wide /></div>
@@ -446,29 +358,22 @@ export default function PrintDoc() {
                   )}
                   {p.letter_title && <h2 className="ltr-subject">{p.letter_title}</h2>}
                   {(p.addressee || p.addressee_title) && (
-                    <div className="ltr-to">
-                      <span className="to-name">{p.addressee}</span>
-                      <span className="to-title">{p.addressee_title}</span>
-                    </div>
+                    <div className="ltr-to"><span className="to-name">{p.addressee}</span><span className="to-title">{p.addressee_title}</span></div>
                   )}
                   {p.salutation && <div className="ltr-salut">{p.salutation}</div>}
                 </div>
               );
             }
 
-            if (s.kind === 'parties') {
-              return <PartiesPrint parties={doc.parties} blank={blankForm} key={s.id} />;
-            }
+            if (s.kind === 'parties') return <PartiesPrint parties={doc.parties} blank={blankForm} key={s.id} />;
 
             if (s.kind === 'stampbox') {
               if (!stampUrl && !signUrl) return null;
               return (
                 <div className="stampbox-row" key={s.id}>
                   <div className="stampbox">
-                    {signUrl && <img className="sb-sign" src={signUrl} alt=""
-                                     style={{height:`${signMm}mm`}} />}
-                    {stampUrl && <img className="sb-stamp" src={stampUrl} alt=""
-                                      style={{height:`${stampMm}mm`}} />}
+                    {signUrl && <img className="sb-sign" src={signUrl} alt="" style={{height:`${signMm}mm`}} />}
+                    {stampUrl && <img className="sb-stamp" src={stampUrl} alt="" style={{height:`${stampMm}mm`}} />}
                   </div>
                 </div>
               );
@@ -485,15 +390,10 @@ export default function PrintDoc() {
             return null;
           })}
 
-          {/* ---------- نموذج مدمج ---------- */}
           {!custom && moneyRows.length > 0 && (
             <table className="amounts">
               <thead><tr><th>البيان</th><th className="num">المبلغ <Riyal /></th></tr></thead>
-              <tbody>
-                {moneyRows.map(([k,val]) => (
-                  <tr key={k}><td>{k}</td><td className="num">{val}</td></tr>
-                ))}
-              </tbody>
+              <tbody>{moneyRows.map(([k,val]) => <tr key={k}><td>{k}</td><td className="num">{val}</td></tr>)}</tbody>
             </table>
           )}
 
@@ -517,9 +417,7 @@ export default function PrintDoc() {
             <PartiesPrint parties={doc.parties} blank={blankForm} />
           )}
 
-          {custom && tpl.closing_text && (
-            <div className="dc-body" style={{marginBottom:'6mm'}}>{tpl.closing_text}</div>
-          )}
+          {custom && tpl.closing_text && <div className="dc-body" style={{marginBottom:'6mm'}}>{tpl.closing_text}</div>}
 
           <div className="fill" />
 
@@ -532,24 +430,16 @@ export default function PrintDoc() {
 
           <div className="footer-row">
             {stampUrl && !hasStampSection && (
-              <div className="stamp-box">
-                <img src={stampUrl} alt="ختم الشركة" style={{height:`${stampMm}mm`}} />
-              </div>
+              <div className="stamp-box"><img src={stampUrl} alt="ختم الشركة" style={{height:`${stampMm}mm`}} /></div>
             )}
             {!blankForm && bank && (cfg.bank_name_full || cfg.bank_account_no || cfg.bank_iban) ? (
               <div className="bank">
                 <div className="bank-head">تفاصيل الحساب البنكي</div>
                 {cfg.bank_name_full && <div className="bank-line">{cfg.bank_name_full}</div>}
-                {cfg.bank_account_no && (
-                  <div className="bank-line">رقم الحساب:{' '}
-                    <span className="mono acct">{cfg.bank_account_no}</span></div>
-                )}
-                {cfg.bank_iban && (
-                  <div className="bank-line mono iban">IBAN: {cfg.bank_iban}</div>
-                )}
+                {cfg.bank_account_no && <div className="bank-line">رقم الحساب: <span className="mono acct">{cfg.bank_account_no}</span></div>}
+                {cfg.bank_iban && <div className="bank-line mono iban">IBAN: {cfg.bank_iban}</div>}
               </div>
             ) : (() => {
-              // لا يُطبع الصندوق إلا إذا كان فيه بيانات فعلية
               const lines = [];
               if (cfg.cr_number) lines.push(`سجل تجاري ${cfg.cr_number}`);
               if (cfg.vat_number) lines.push(`رقم ضريبي ${cfg.vat_number}`);
@@ -564,7 +454,6 @@ export default function PrintDoc() {
               );
             })()}
           </div>
-
         </div>
       </ConstitutionPrintFrame>
     </>
