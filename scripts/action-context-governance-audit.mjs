@@ -43,7 +43,7 @@ requireText(coreMigration, 'action_context_id', 'on-behalf actions must be group
 requireText(coreMigration, 'create or replace function public.fn_audit()', 'generic audit trigger must consume the action context centrally');
 requireText(coreMigration, 'public.fn_is_primary_user()', 'authority must remain anchored to the real signed-in primary account');
 
-requireText(sessionScopedMigration, 'private.user_action_context_sessions', 'active on-behalf state must be isolated per authenticated session');
+const sessionSource = requireText(sessionScopedMigration, 'private.user_action_context_sessions', 'active on-behalf state must be isolated per authenticated session');
 requireText(sessionScopedMigration, "auth.jwt()->>'session_id'", 'session isolation must be anchored to the Supabase auth session id');
 requireText(sessionScopedMigration, "expires_at timestamptz", 'on-behalf state must have an automatic expiry');
 requireText(sessionScopedMigration, "interval '8 hours'", 'session-scoped on-behalf mode must have a bounded lease');
@@ -51,6 +51,15 @@ requireText(sessionScopedMigration, 'drop column if exists primary_action_mode',
 requireText(sessionScopedMigration, 'drop function if exists private.fn_guard_primary_action_context_settings()', 'retired global action-context guard must be removed instead of left as dead code');
 requireText(sessionScopedMigration, 'create or replace function private.fn_current_action_context()', 'all consumers must keep using the same canonical resolver after session isolation');
 requireText(sessionScopedMigration, 'create or replace function public.fn_set_my_action_context', 'the existing UI contract must survive the session-isolation upgrade');
+
+// مرحلة التأسيس: الحساب الرئيسي يملك سلطة التسجيل، بينما الشخص المختار هو صاحب الفعل الحقيقي.
+requireText(sessionScopedMigration, 'create or replace function private.fn_current_actor_can_take_approval_step', 'session upgrade must explicitly govern the primary builder approval override');
+requireText(sessionScopedMigration, "public.fn_is_primary_user() and v_ctx.acting_mode='on_behalf_of'", 'builder override must be limited to the signed-in primary account while attribution mode is active');
+requireText(sessionScopedMigration, 'v_target_employee_id=v_ctx.real_actor_employee_id', 'user-targeted approval steps must still match the represented real employee');
+requireText(sessionScopedMigration, "s.target_type='capability' and s.target_capability is not null", 'capability-targeted approval must recognize the builder attribution path');
+if (!/s\.target_type='capability'[\s\S]{0,120}return true;/.test(sessionSource)) {
+  fail('primary builder must be able to record a real capability approval before the represented employee permissions are fully configured');
+}
 
 requireText(approvalAlignmentMigration, 'private.fn_current_actor_can_take_approval_step', 'approval inbox and decisions must share one effective-actor rule');
 requireText(approvalAlignmentMigration, 'create or replace function public.fn_my_approval_inbox()', 'My Approvals must follow the current real actor');
@@ -95,4 +104,4 @@ requireText(layout, 'data-action-mode', 'dashboard root must expose the active e
 requireText(model, "ON_BEHALF_OF: 'on_behalf_of'", 'client code must share one action-mode vocabulary');
 requireText(model, 'requestedRealActorEmployeeId !== systemActorEmployeeId', 'client model must normalize impossible self-delegation too');
 
-console.log('Action context governance audit passed: authority, attribution, approvals and operational events are centrally aligned, while active on-behalf state is isolated per authenticated session and retired global state is removed.');
+console.log('Action context governance audit passed: authority and attribution are separated, primary builder approvals can document real-world actors before portal permissions are complete, normal users remain permission-governed, and active on-behalf state is isolated per authenticated session.');
