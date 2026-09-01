@@ -112,8 +112,8 @@ export default function PrimaryActionModeSettings() {
     setContext(normalized);
     if (!effectiveEnabled) setSelectedEmployeeId('');
     setMessage(effectiveEnabled
-      ? `تم تفعيل الوضع الخاص. من هذه اللحظة كل إجراء تقوم به في البرنامج — إنشاءً أو تعديلًا أو اعتمادًا أو إتمام أي مرحلة — يُسجّل بأن الحساب الرئيسي هو المُسجّل النظامي وأن ${normalized.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'} هو صاحب الإجراء الفعلي.`
-      : `تم إيقاف الوضع الخاص. عادت كل الإجراءات إلى صاحب الحساب الرئيسي ${primaryEmployee?.full_name_ar || 'الحالي'}.`);
+      ? `تم تفعيل الوضع الخاص لهذه الجلسة. من هذه اللحظة كل إجراء تقوم به في البرنامج — إنشاءً أو تعديلًا أو اعتمادًا أو إتمام أي مرحلة — يُسجّل بأن الحساب الرئيسي هو المُسجّل النظامي وأن ${normalized.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'} هو صاحب الإجراء الفعلي. ينتهي الوضع تلقائيًا عند انتهاء جلسة الدخول أو بعد 8 ساعات كحد أقصى.`
+      : `تم إيقاف الوضع الخاص لهذه الجلسة. عادت كل الإجراءات إلى صاحب الحساب الرئيسي ${primaryEmployee?.full_name_ar || 'الحالي'}.`);
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(ACTION_CONTEXT_EVENT, { detail:data || null }));
@@ -132,7 +132,7 @@ export default function PrimaryActionModeSettings() {
       </header>
       <div style={{ padding:18 }}>
         <div className="msg" style={{ marginBottom:14 }}>
-          هذا الوضع لا ينتحل حساب أي شخص ولا يغيّر الصلاحيات. الحساب الرئيسي هو الذي ينفذ داخل البرنامج دائمًا، بينما يحدد هذا الوضع من هو صاحب الإجراء الفعلي في الواقع.
+          هذا الوضع لا ينتحل حساب أي شخص ولا يغيّر الصلاحيات. الحساب الرئيسي هو الذي ينفذ داخل البرنامج دائمًا، بينما يحدد هذا الوضع من هو صاحب الإجراء الفعلي في الواقع. التفعيل يخص جلسة الدخول الحالية فقط ولا ينتقل إلى جهاز أو جلسة أخرى.
         </div>
 
         <div style={{
@@ -172,7 +172,7 @@ export default function PrimaryActionModeSettings() {
               ))}
             </select>
             <span className="hint">
-              اختيار شخص هنا يغيّر صاحب الإجراء الفعلي فقط. الصلاحيات والهوية النظامية تبقى للحساب الرئيسي، والعودة إلى «لا أحد — تنفيذ بصفتي» تلغي سياق النيابة.
+              اختيار شخص هنا يغيّر صاحب الإجراء الفعلي لهذه الجلسة فقط. الصلاحيات والهوية النظامية تبقى للحساب الرئيسي. تسجيل الخروج، انتهاء المهلة، أو العودة إلى «لا أحد — تنفيذ بصفتي» يلغي سياق النيابة.
             </span>
           </div>
         </div>
@@ -199,8 +199,8 @@ export default function PrimaryActionModeSettings() {
         <div style={{ marginTop:14, fontSize:13.5 }} data-action-mode-state={active ? 'on_behalf_of' : 'self'}>
           <strong>الحالة الحالية:</strong>{' '}
           {active
-            ? <>كل إجراء جديد أو إتمام لأي مرحلة يُنفذ الآن نيابة عن <strong>{context.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'}</strong>. سيظهر تنبيه ثابت أعلى البرنامج ما دام الوضع مفعّلًا.</>
-            : <>كل إجراء يُنفذ بصفة <strong>{primaryEmployee?.full_name_ar || 'مستخدم الحساب الرئيسي'}</strong>، ولا توجد نيابة مفعّلة.</>}
+            ? <>كل إجراء جديد أو إتمام لأي مرحلة في هذه الجلسة يُنفذ الآن نيابة عن <strong>{context.realActorName || selectedEmployee?.full_name_ar || 'الشخص المحدد'}</strong>. سيظهر تنبيه ثابت أعلى البرنامج ما دام الوضع مفعّلًا.</>
+            : <>كل إجراء يُنفذ بصفة <strong>{primaryEmployee?.full_name_ar || 'مستخدم الحساب الرئيسي'}</strong>، ولا توجد نيابة مفعّلة في هذه الجلسة.</>}
         </div>
       </div>
     </div>
