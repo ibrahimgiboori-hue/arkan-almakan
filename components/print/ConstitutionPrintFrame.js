@@ -1,7 +1,8 @@
 'use client';
 
-import { Children, cloneElement, isValidElement } from 'react';
+import { Children, Fragment, cloneElement, isValidElement } from 'react';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
+import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
 import { getPrintLayoutPolicy } from '@/lib/print-governance';
 
 const finiteMm = (value) => {
@@ -11,6 +12,35 @@ const finiteMm = (value) => {
 
 function mergeClassName(base, extra) {
   return [base, extra].filter(Boolean).join(' ').trim();
+}
+
+function flattenRenderedBlocks(nodes) {
+  return Children.toArray(nodes).flatMap((node) => {
+    if (!isValidElement(node)) return [node];
+    if (node.type === Fragment) return flattenRenderedBlocks(node.props.children);
+    return [node];
+  });
+}
+
+/**
+ * ProjectReportJourneyPrint is intentionally a pure render component (no hooks).
+ * The report journey expands one React child into many physical print blocks:
+ * totals, summary, item blocks, free sections and conclusion. The captain must
+ * receive those blocks BEFORE measurement; otherwise DOM child count differs
+ * from the React flow and ConstitutionPagedFrame has to fall back to browser
+ * fragmentation, which can start continuation content inside the letterhead.
+ */
+function expandCaptainFlowBlocks(nodes) {
+  return Children.toArray(nodes).flatMap((node) => {
+    if (!isValidElement(node)) return [node];
+    if (node.type === Fragment) return expandCaptainFlowBlocks(node.props.children);
+    if (node.type === ProjectReportJourneyPrint) {
+      const rendered = ProjectReportJourneyPrint(node.props);
+      if (!isValidElement(rendered)) return [rendered];
+      return flattenRenderedBlocks(rendered.props.children);
+    }
+    return [node];
+  });
 }
 
 /**
@@ -29,6 +59,10 @@ function mergeClassName(base, extra) {
  * footer artwork. A single child is therefore passed through as the real flow
  * root, with any adapter class merged onto that child instead of adding a new
  * pagination layer.
+ *
+ * Composite report journeys are expanded into their real top-level print blocks
+ * before they reach the captain. This keeps React flow blocks and measured DOM
+ * blocks one-to-one and prevents browser-owned continuation pages.
  *
  * A document/template may request MORE white space, but it must never shrink
  * the physical safe area reserved by the approved letterhead. This is the
@@ -65,8 +99,8 @@ export default function ConstitutionPrintFrame({
   const flowChildren = childArray.length === 1 && isValidElement(childArray[0])
     ? cloneElement(childArray[0], {
         className:mergeClassName(childArray[0].props.className, className),
-      })
-    : <div className={className}>{childArray}</div>;
+      }, expandCaptainFlowBlocks(childArray[0].props.children))
+    : <div className={className}>{expandCaptainFlowBlocks(childArray)}</div>;
 
   return (
     <ConstitutionPagedFrame
