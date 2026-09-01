@@ -90,6 +90,58 @@ if (!fs.existsSync(officeModelPath)) {
   }
 }
 
+// حد الليترهيد حد فيزيائي، وليس تفضيلاً لقالب بعينه. القالب يستطيع
+// زيادة مساحة الأمان فقط؛ لا يستطيع تقليصها ثم دفع المحتوى إلى الترويسة أو الذيل.
+const framePath = path.join(root, 'components', 'print', 'ConstitutionPrintFrame.js');
+if (!fs.existsSync(framePath)) {
+  violations.push('components/print/ConstitutionPrintFrame.js: محول القبطان العام مفقود');
+} else {
+  const frame = fs.readFileSync(framePath, 'utf8');
+  for (const token of [
+    'cfg?.letterhead_top_mm',
+    'cfg?.letterhead_bottom_mm',
+    'Math.max(finiteMm(requestedTop), letterheadTop)',
+    'Math.max(finiteMm(requestedBottom), letterheadBottom)',
+  ]) {
+    if (!frame.includes(token)) violations.push(`ConstitutionPrintFrame.js: missing physical letterhead safety contract ${token}`);
+  }
+}
+
+// تقرير متابعة الأعمال لا يعود إلى الجدول العريض القديم. البند هو وحدة القراءة:
+// حقيقة رقمية في الأعلى، ثم أسطر تشغيلية معنونة لا تضغط داخل عمود status واحد.
+const genericPrintPath = path.join(printRoot, '[id]', 'page.js');
+const genericEditorPath = path.join(root, 'components', 'DocumentForm.js');
+if (!fs.existsSync(genericPrintPath)) {
+  violations.push('app/print/[id]/page.js: محرك طباعة المستندات العام مفقود');
+} else {
+  const genericPrint = fs.readFileSync(genericPrintPath, 'utf8');
+  for (const token of [
+    "PROJECT_REPORT_PROFILE = 'project_work_claims_report'",
+    'reportOperationalRows',
+    'report-item-block',
+    'report-operational-row',
+    'المتبقي / قيد التحويل',
+  ]) {
+    if (!genericPrint.includes(token)) violations.push(`app/print/[id]/page.js: missing project report item-journey contract ${token}`);
+  }
+}
+if (!fs.existsSync(genericEditorPath)) {
+  violations.push('components/DocumentForm.js: محرر المستندات العام مفقود');
+} else {
+  const genericEditor = fs.readFileSync(genericEditorPath, 'utf8');
+  for (const token of [
+    'PROJECT_REPORT_OPERATIONAL_FIELDS',
+    "execution_status",
+    "delivery_status",
+    "claim_status",
+    "po_status",
+    "collection_status",
+    "next_action",
+  ]) {
+    if (!genericEditor.includes(token)) violations.push(`DocumentForm.js: missing project report item-journey editor contract ${token}`);
+  }
+}
+
 // تنسيق النص اليدوي يملكه القبطان نفسه. لا نعود مستقبلاً إلى تخمين المحاذاة
 // داخل كل صفحة ولا إلى محررات منفصلة لكل نوع مستند.
 const textGovernancePath = path.join(root, 'lib', 'print-text-governance.js');
@@ -136,4 +188,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model and manual text alignment active).`);
+console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model, physical letterhead safety, item journeys and manual text alignment active).`);

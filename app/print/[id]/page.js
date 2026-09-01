@@ -12,6 +12,19 @@ import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import './print.css';
 
 const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
+const PROJECT_REPORT_PROFILE = 'project_work_claims_report';
+const PROJECT_REPORT_OPERATIONAL_FIELDS = [
+  { key:'execution_status', label:'حالة التنفيذ' },
+  { key:'delivery_status', label:'حالة التسليم' },
+  { key:'claim_status', label:'حالة المستخلص' },
+  { key:'po_status', label:'حالة PO' },
+  { key:'collection_status', label:'حالة التحصيل' },
+  { key:'next_action', label:'الإجراء التالي' },
+  { key:'notes', label:'ملاحظات' },
+];
+
+const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
+const zeroLikeText = (value) => /^0+(?:[.,]0+)?$/.test(String(value ?? '').trim());
 
 export default function PrintDoc() {
   const { id } = useParams();
@@ -47,13 +60,17 @@ export default function PrintDoc() {
   const legacy = byCode(doc.template_code);
   const p = doc.payload || {};
   const rows = p._rows || [];
+  const isProjectWorkClaimsReport = tpl?.layout?.profile === PROJECT_REPORT_PROFILE;
 
   const stampUrl = stamp ? pub(cfg.stamp_image_path) : null;
 
-  const mTop  = doc.margin_top_mm    ?? tpl?.margin_top_mm    ?? cfg.letterhead_top_mm;
-  const mBot  = doc.margin_bottom_mm ?? tpl?.margin_bottom_mm ?? cfg.letterhead_bottom_mm;
-  const mSide = doc.margin_side_mm   ?? tpl?.margin_side_mm   ?? cfg.letterhead_side_mm;
-  const stampMm = doc.stamp_size_mm  ?? cfg.stamp_size_mm ?? 30;
+  // لا يسمح القالب أو المستند بتقليص المساحة الآمنة المحجوزة للترويسة.
+  const requestedTop = Number(doc.margin_top_mm ?? tpl?.margin_top_mm ?? cfg.letterhead_top_mm ?? 0);
+  const requestedBottom = Number(doc.margin_bottom_mm ?? tpl?.margin_bottom_mm ?? cfg.letterhead_bottom_mm ?? 0);
+  const mTop = Math.max(requestedTop, Number(cfg.letterhead_top_mm || 0));
+  const mBot = Math.max(requestedBottom, Number(cfg.letterhead_bottom_mm || 0));
+  const mSide = doc.margin_side_mm ?? tpl?.margin_side_mm ?? cfg.letterhead_side_mm;
+  const stampMm = doc.stamp_size_mm ?? cfg.stamp_size_mm ?? 30;
 
   const title = p.letter_title || tpl?.name_ar || legacy?.name || doc.template_code;
   const signUrl = pub(cfg.signature_image_path);
@@ -70,6 +87,24 @@ export default function PrintDoc() {
     if (f.type === 'money') return <>{money(val)} <Riyal /></>;
     if (f.type === 'number') return fmtQty(val);
     return String(val);
+  };
+
+  const reportOperationalRows = (row, section) => {
+    const definitions = Array.isArray(section?.operational_fields) && section.operational_fields.length
+      ? section.operational_fields
+      : PROJECT_REPORT_OPERATIONAL_FIELDS;
+    const structured = definitions
+      .filter((field) => hasValue(row[field.key]))
+      .map((field) => ({ label:field.label, value:String(row[field.key]) }));
+    if (structured.length) return structured;
+    return hasValue(row.status)
+      ? [{ label:'الوضع التشغيلي', value:String(row.status) }]
+      : [];
+  };
+
+  const reportMoney = (value) => {
+    if (!hasValue(value)) return '—';
+    return <>{money(Number(value) || 0)} <Riyal /></>;
   };
 
   // ---------- النماذج المدمجة ----------
@@ -106,7 +141,7 @@ export default function PrintDoc() {
         </div>
         <div className="tb-group">
           <span className="tb-warn">
-            {!cfg.letterhead_image_path ? 'لم تُرفع صورة الترويسة بعد' : `الهوامش ${mTop}/${mBot}/${mSide} مم`}
+            {!cfg.letterhead_image_path ? 'لم تُرفع صورة الترويسة بعد' : `الهوامش الآمنة ${mTop}/${mBot}/${mSide} مم`}
           </span>
           <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
         </div>
@@ -222,6 +257,64 @@ export default function PrintDoc() {
 
             if (s.kind === 'table') {
               if (!rows.length) return null;
+
+              if (isProjectWorkClaimsReport && s.id === 'work_lines') {
+                return rows.map((r, i) => {
+                  const operational = reportOperationalRows(r, s);
+                  const hasQuantity = hasValue(r.quantity) && !zeroLikeText(r.quantity);
+                  const unit = hasQuantity && hasValue(r.unit) ? r.unit : (r.unit === 'مقطوعية' ? r.unit : '—');
+                  return (
+                    <section className="report-item-block" key={`${s.id}-${r._id || i}`} data-print-atomic="item">
+                      {i === 0 && <div className="report-items-title">{s.title || 'تفصيل الأعمال والمستخلصات'}</div>}
+                      <div className="report-item-summary">
+                        <div className="report-metric report-metric-serial">
+                          <span className="report-metric-label">م</span>
+                          <strong className="report-metric-value mono">{i + 1}</strong>
+                        </div>
+                        <div className="report-metric report-metric-item">
+                          <span className="report-metric-label">البند</span>
+                          <strong className="report-metric-value">{r.item || '—'}</strong>
+                        </div>
+                        <div className="report-metric">
+                          <span className="report-metric-label">الكمية</span>
+                          <strong className="report-metric-value mono">{hasQuantity ? fmtQty(r.quantity) : '—'}</strong>
+                        </div>
+                        <div className="report-metric">
+                          <span className="report-metric-label">الوحدة</span>
+                          <strong className="report-metric-value">{unit}</strong>
+                        </div>
+                        <div className="report-metric report-metric-money">
+                          <span className="report-metric-label">قيمة الأعمال</span>
+                          <strong className="report-metric-value">{reportMoney(r.work_value)}</strong>
+                        </div>
+                        <div className="report-metric report-metric-money">
+                          <span className="report-metric-label">المحصّل</span>
+                          <strong className="report-metric-value">{reportMoney(r.paid_value)}</strong>
+                        </div>
+                        <div className="report-metric report-metric-money">
+                          <span className="report-metric-label">المتبقي / قيد التحويل</span>
+                          <strong className="report-metric-value">{reportMoney(r.pending_value)}</strong>
+                        </div>
+                        <div className="report-metric report-metric-po">
+                          <span className="report-metric-label">PO / المرجع</span>
+                          <strong className="report-metric-value mono">{r.po_reference || '—'}</strong>
+                        </div>
+                      </div>
+                      {operational.length > 0 && (
+                        <div className="report-operational-lines">
+                          {operational.map((line, lineIndex) => (
+                            <div className="report-operational-row" key={`${line.label}-${lineIndex}`}>
+                              <div className="report-operational-label">{line.label}</div>
+                              <div className="report-operational-value">{line.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                });
+              }
+
               const columns = s.columns || [];
               const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
               return (
