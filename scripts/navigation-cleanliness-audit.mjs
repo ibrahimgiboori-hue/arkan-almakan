@@ -111,7 +111,7 @@ for (const file of [...walk('app/dashboard'), ...walk('components'), ...walk('li
   }
 }
 
-// 7) مصدر المعاملة يعرض حالة الاعتماد فقط؛ القرار له مركز واحد.
+// 7) التوجيه العام لا يصنع سطح عمل ثانياً داخل مصدر المعاملة.
 const guidance = read('components/approval/ApprovalGuidanceRow.js');
 for (const forbidden of ['طلب إجراء', 'استفسار عن المعاملة', 'فتح أعمالي']) {
   if (guidance.includes(forbidden)) failures.push(`ApprovalGuidanceRow: أعاد إجراء «${forbidden}» إلى شاشة المصدر.`);
@@ -121,6 +121,25 @@ for (const forbidden of ['طلب إجراء', 'استفسار عن المعام�
 const legacyApprovals = read('app/dashboard/my-work/approvals/page.js');
 if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) {
   failures.push('المسار القديم my-work/approvals لا يتحول إلى /dashboard/approvals.');
+}
+
+// 9) المعاملة ذات الرحلة الأصلية تملك أفعالها من أ إلى ي؛ الصناديق العامة مجرد مداخل إليها.
+const claimsJourney = read('components/ProjClaims.js');
+const approvalsInbox = read('app/dashboard/approvals/page.js');
+if (!claimsJourney.includes('fn_claim_collect_to_treasury')) {
+  failures.push('رحلة المستخلص: التحصيل يجب أن يُنفذ من نفس رحلة المستخلص ويُرحّل للخزينة من الخلف.');
+}
+if (/p_to\s*:\s*['"]collected['"]/.test(claimsJourney)) {
+  failures.push('رحلة المستخلص: عاد مسار تغيير الحالة إلى collected مباشرة بدل محرك الخزينة الواحد.');
+}
+if (!claimsJourney.includes('fn_approval_decide') || !claimsJourney.includes('record_claim_client_submission')) {
+  failures.push('رحلة المستخلص: الاعتماد الداخلي والتقديم للعميل يجب أن يبقيا داخل نفس الرحلة.');
+}
+if (!approvalsInbox.includes("transaction_type==='progress_claim'") || !approvalsInbox.includes('view=claims&claim=')) {
+  failures.push('صندوق الاعتمادات: المستخلص يجب أن يعيد المستخدم إلى رحلته الأصلية بدل إنشاء قرار موازٍ.');
+}
+if (!/if\(!selectedId\|\|isClaim\)return/.test(approvalsInbox)) {
+  failures.push('صندوق الاعتمادات: لا يجوز تنفيذ قرار progress_claim من سطح الاعتمادات العام.');
 }
 
 if (failures.length) {
