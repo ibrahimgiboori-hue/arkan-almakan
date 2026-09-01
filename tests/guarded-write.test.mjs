@@ -58,14 +58,11 @@ test('guarded screens ask for the affected rows instead of trusting error alone'
 
 test('the claims tab surfaces a load error instead of loading forever', () => {
   const claims = read('components/ProjClaims.js');
-  const guard = claims.match(/if \(!claims\) \{[\s\S]*?\n  \}/);
-  assert.ok(guard, 'claims must still guard on the unloaded state');
-  const body = guard[0];
-  const errorLine = body.indexOf('if (err) return');
-  const placeholderLine = body.indexOf('className="empty"');
-  assert.ok(errorLine > -1, 'the guard must render the captured error');
-  assert.ok(placeholderLine > -1, 'the guard must still have a loading placeholder');
-  assert.ok(errorLine < placeholderLine, 'the error must be checked before the loading placeholder');
+  assert.match(claims, /if \(cr\.error \|\| av\.error \|\| it\.error\)/);
+  assert.match(claims, /setErr\(\(cr\.error \|\| av\.error \|\| it\.error\)\?\.message \|\| 'تعذر تحميل المستخلصات'\)/);
+  assert.match(claims, /setClaims\(\[\]\); return;/);
+  assert.match(claims, /if\(claims===null\)return <div className="empty">جارٍ تحميل رحلة المستخلصات/);
+  assert.match(claims, /\{err&&<div className="msg err"/);
 });
 
 test('a queued attendance write distinguishes offline from server rejection', () => {
