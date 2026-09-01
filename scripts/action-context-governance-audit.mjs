@@ -14,6 +14,7 @@ const coreMigration = 'supabase/migrations/20260829204500_primary_on_behalf_acti
 const approvalAlignmentMigration = 'supabase/migrations/20260829223000_align_on_behalf_approval_execution.sql';
 const operationalPropagationMigration = 'supabase/migrations/20260829224000_propagate_action_context_to_operational_events.sql';
 const invariantMigration = 'supabase/migrations/20260829225000_normalize_primary_action_context_invariants.sql';
+const sessionScopedMigration = 'supabase/migrations/20260901225000_scope_primary_action_context_to_auth_session.sql';
 const layout = 'app/dashboard/layout.js';
 const settingsLayout = 'app/dashboard/settings/layout.js';
 const control = 'components/account/PrimaryActionModeSettings.js';
@@ -24,6 +25,7 @@ for (const file of [
   approvalAlignmentMigration,
   operationalPropagationMigration,
   invariantMigration,
+  sessionScopedMigration,
   layout,
   settingsLayout,
   control,
@@ -32,7 +34,7 @@ for (const file of [
   if (!fs.existsSync(path.join(root, file))) fail(`missing required core file: ${file}`);
 }
 
-requireText(coreMigration, 'alter table public.system_access_settings', 'special mode must live in the existing primary-user core settings, not a side store');
+requireText(coreMigration, 'alter table public.system_access_settings', 'historical primary-user action context migration must remain reproducible');
 requireText(coreMigration, 'private.fn_current_action_context()', 'database must expose one canonical action context resolver');
 requireText(coreMigration, 'public.fn_set_my_action_context', 'primary account must have one governed state transition RPC');
 requireText(coreMigration, 'system_actor_user_id', 'audit trail must preserve the system registrant');
@@ -40,6 +42,15 @@ requireText(coreMigration, 'real_actor_employee_id', 'audit trail must preserve 
 requireText(coreMigration, 'action_context_id', 'on-behalf actions must be grouped by an immutable context id');
 requireText(coreMigration, 'create or replace function public.fn_audit()', 'generic audit trigger must consume the action context centrally');
 requireText(coreMigration, 'public.fn_is_primary_user()', 'authority must remain anchored to the real signed-in primary account');
+
+requireText(sessionScopedMigration, 'private.user_action_context_sessions', 'active on-behalf state must be isolated per authenticated session');
+requireText(sessionScopedMigration, "auth.jwt()->>'session_id'", 'session isolation must be anchored to the Supabase auth session id');
+requireText(sessionScopedMigration, "expires_at timestamptz", 'on-behalf state must have an automatic expiry');
+requireText(sessionScopedMigration, "interval '8 hours'", 'session-scoped on-behalf mode must have a bounded lease');
+requireText(sessionScopedMigration, 'drop column if exists primary_action_mode', 'retired global action-mode state must be removed instead of left as dead schema');
+requireText(sessionScopedMigration, 'drop function if exists private.fn_guard_primary_action_context_settings()', 'retired global action-context guard must be removed instead of left as dead code');
+requireText(sessionScopedMigration, 'create or replace function private.fn_current_action_context()', 'all consumers must keep using the same canonical resolver after session isolation');
+requireText(sessionScopedMigration, 'create or replace function public.fn_set_my_action_context', 'the existing UI contract must survive the session-isolation upgrade');
 
 requireText(approvalAlignmentMigration, 'private.fn_current_actor_can_take_approval_step', 'approval inbox and decisions must share one effective-actor rule');
 requireText(approvalAlignmentMigration, 'create or replace function public.fn_my_approval_inbox()', 'My Approvals must follow the current real actor');
@@ -64,10 +75,10 @@ for (const table of [
 }
 requireText(operationalPropagationMigration, 'private.fn_stamp_generic_action_context', 'operational action records must use one generic context stamper');
 
-requireText(invariantMigration, 'private.fn_guard_primary_action_context_settings', 'database must guard impossible action-context states');
-requireText(invariantMigration, "new.primary_action_mode:='self'", 'self-target must normalize to self mode');
+requireText(invariantMigration, 'private.fn_guard_primary_action_context_settings', 'historical database state must have guarded impossible action-context states before retirement');
+requireText(invariantMigration, "new.primary_action_mode:='self'", 'historical self-target must normalize to self mode');
 requireText(invariantMigration, 'p_real_actor_employee_id is distinct from v_primary_employee_id', 'RPC must never create self-delegation');
-requireText(invariantMigration, 'settings.primary_acting_for_employee_id is distinct from me.employee_id', 'canonical resolver must distrust stale self-delegation state');
+requireText(invariantMigration, 'settings.primary_acting_for_employee_id is distinct from me.employee_id', 'historical canonical resolver must distrust stale self-delegation state');
 
 const controlSource = requireText(control, "supabase.rpc('fn_set_my_action_context'", 'settings control must use the canonical RPC');
 if (controlSource.includes('localStorage') || controlSource.includes('sessionStorage')) {
@@ -84,4 +95,4 @@ requireText(layout, 'data-action-mode', 'dashboard root must expose the active e
 requireText(model, "ON_BEHALF_OF: 'on_behalf_of'", 'client code must share one action-mode vocabulary');
 requireText(model, 'requestedRealActorEmployeeId !== systemActorEmployeeId', 'client model must normalize impossible self-delegation too');
 
-console.log('Action context governance audit passed: authority, attribution, approvals, operational events and self-mode invariants are centrally aligned.');
+console.log('Action context governance audit passed: authority, attribution, approvals and operational events are centrally aligned, while active on-behalf state is isolated per authenticated session and retired global state is removed.');
