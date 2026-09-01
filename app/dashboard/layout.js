@@ -143,6 +143,7 @@ export default function DashboardLayout({ children }) {
   }
 
   const actingOnBehalf = isOnBehalfMode(state.me?.actionContext);
+  const showPrimaryIdentity = state.me?.actionContext?.isPrimaryUser === true;
 
   return (
     <DashboardSessionProvider value={state.me}>
@@ -155,26 +156,35 @@ export default function DashboardLayout({ children }) {
       >
         <WorkSurfaceRuntime>
           <RawDashboardNavigation me={state.me} onSignOut={signOut} />
-          {actingOnBehalf ? (
+          {showPrimaryIdentity ? (
             <div
               role="status"
               aria-live="polite"
               data-action-context-banner="true"
+              data-action-context-active={actingOnBehalf ? 'true' : 'false'}
               style={{
                 position:'sticky',top:0,zIndex:35,
-                padding:'9px 18px',
+                padding:actingOnBehalf ? '9px 18px' : '6px 18px',
                 borderBottom:'1px solid var(--raw-line, #d8c8a8)',
-                background:'var(--raw-paper-strong, #fff8dd)',
+                background:actingOnBehalf ? 'var(--raw-paper-strong, #fff8dd)' : 'var(--raw-paper, #fff)',
                 color:'var(--raw-ink, #2f2924)',
                 display:'flex',gap:10,alignItems:'center',justifyContent:'center',flexWrap:'wrap',
-                fontSize:13.5,
+                fontSize:actingOnBehalf ? 13.5 : 12.5,
               }}
             >
-              <strong>تنفيذ نيابة عن مفعّل لهذه الجلسة:</strong>
-              <span>صاحب الإجراء الفعلي <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
-              <span>· المُسجّل النظامي هو حسابك الحالي</span>
-              <span>· لا ينتقل هذا الوضع إلى جلسة أو جهاز آخر</span>
-              <a href="/dashboard/settings" style={{fontWeight:700,textDecoration:'underline'}}>تغيير صاحب الإجراء</a>
+              {actingOnBehalf ? <>
+                <strong>صاحب الإجراء الفعلي:</strong>
+                <span><strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+                <span>· مُسجّل بواسطة الحساب الرئيسي</span>
+                <span>· خاص بهذه الجلسة</span>
+              </> : <>
+                <strong>صاحب الإجراء:</strong>
+                <span>أنت — تنفيذ بصفتي</span>
+                <span>· الحساب الرئيسي</span>
+              </>}
+              <a href="/dashboard/settings#primary-action-mode" style={{fontWeight:700,textDecoration:'underline'}}>
+                {actingOnBehalf ? 'تغيير الشخص' : 'تسجيل نيابة عن شخص'}
+              </a>
             </div>
           ) : null}
           <main className="rawDashboardContent" data-work-book="true">
