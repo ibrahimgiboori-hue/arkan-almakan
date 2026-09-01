@@ -92,6 +92,8 @@ if (!fs.existsSync(officeModelPath)) {
 
 // حد الليترهيد حد فيزيائي، وليس تفضيلاً لقالب بعينه. القالب يستطيع
 // زيادة مساحة الأمان فقط؛ لا يستطيع تقليصها ثم دفع المحتوى إلى الترويسة أو الذيل.
+// كذلك محول المستند المستمر يجب أن يكون شفافًا للقبطان: لا يضيف غلافًا يجعل
+// المستند كله كتلة واحدة ثم يترك المتصفح يشطر ورقة A4 من تلقاء نفسه.
 const framePath = path.join(root, 'components', 'print', 'ConstitutionPrintFrame.js');
 if (!fs.existsSync(framePath)) {
   violations.push('components/print/ConstitutionPrintFrame.js: محول القبطان العام مفقود');
@@ -102,8 +104,15 @@ if (!fs.existsSync(framePath)) {
     'cfg?.letterhead_bottom_mm',
     'Math.max(finiteMm(requestedTop), letterheadTop)',
     'Math.max(finiteMm(requestedBottom), letterheadBottom)',
+    'Children.toArray(children)',
+    'cloneElement(childArray[0]',
+    'className:mergeClassName(childArray[0].props.className, className)',
+    '{flowChildren}',
   ]) {
-    if (!frame.includes(token)) violations.push(`ConstitutionPrintFrame.js: missing physical letterhead safety contract ${token}`);
+    if (!frame.includes(token)) violations.push(`ConstitutionPrintFrame.js: missing physical-page ownership contract ${token}`);
+  }
+  if (frame.includes('<div className={className}>{children}</div>')) {
+    violations.push('ConstitutionPrintFrame.js: الغلاف الزائد يعيد المستند كله ككتلة واحدة ويمنح المتصفح حق كسر الصفحة');
   }
 }
 
@@ -188,4 +197,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model, physical letterhead safety, item journeys and manual text alignment active).`);
+console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model, physical page ownership, letterhead safety, item journeys and manual text alignment active).`);
