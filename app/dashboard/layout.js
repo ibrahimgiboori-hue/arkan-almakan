@@ -170,10 +170,11 @@ export default function DashboardLayout({ children }) {
                 fontSize:13.5,
               }}
             >
-              <strong>الوضع الخاص مفعّل:</strong>
-              <span>تنفذ الآن نيابة عن <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+              <strong>تنفيذ نيابة عن مفعّل لهذه الجلسة:</strong>
+              <span>صاحب الإجراء الفعلي <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
               <span>· المُسجّل النظامي هو حسابك الحالي</span>
-              <a href="/dashboard/settings" style={{fontWeight:700,textDecoration:'underline'}}>إدارة الوضع من الإعدادات</a>
+              <span>· لا ينتقل هذا الوضع إلى جلسة أو جهاز آخر</span>
+              <a href="/dashboard/settings" style={{fontWeight:700,textDecoration:'underline'}}>تغيير صاحب الإجراء</a>
             </div>
           ) : null}
           <main className="rawDashboardContent" data-work-book="true">
