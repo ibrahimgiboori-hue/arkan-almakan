@@ -1,5 +1,6 @@
 'use client';
 
+import { Children, cloneElement, isValidElement } from 'react';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import { getPrintLayoutPolicy } from '@/lib/print-governance';
 
@@ -7,6 +8,10 @@ const finiteMm = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 };
+
+function mergeClassName(base, extra) {
+  return [base, extra].filter(Boolean).join(' ').trim();
+}
 
 /**
  * Compatibility adapter for documents that still render one continuous body.
@@ -16,6 +21,14 @@ const finiteMm = (value) => {
  * grid editor, letterhead and pagination all belong to ConstitutionPagedFrame
  * (the Print Captain). Keeping this adapter thin prevents a second print
  * mechanism from growing beside the captain while legacy callers migrate.
+ *
+ * The adapter must also stay transparent to pagination. Wrapping a single
+ * document root in another div makes the captain see the entire document as
+ * one giant block. In that failure mode the browser, not the captain, fragments
+ * the physical sheet and continuation content can start inside letterhead or
+ * footer artwork. A single child is therefore passed through as the real flow
+ * root, with any adapter class merged onto that child instead of adding a new
+ * pagination layer.
  *
  * A document/template may request MORE white space, but it must never shrink
  * the physical safe area reserved by the approved letterhead. This is the
@@ -48,6 +61,13 @@ export default function ConstitutionPrintFrame({
   const safeTop = Math.max(finiteMm(requestedTop), letterheadTop) || undefined;
   const safeBottom = Math.max(finiteMm(requestedBottom), letterheadBottom) || undefined;
 
+  const childArray = Children.toArray(children);
+  const flowChildren = childArray.length === 1 && isValidElement(childArray[0])
+    ? cloneElement(childArray[0], {
+        className:mergeClassName(childArray[0].props.className, className),
+      })
+    : <div className={className}>{childArray}</div>;
+
   return (
     <ConstitutionPagedFrame
       {...rest}
@@ -70,7 +90,7 @@ export default function ConstitutionPrintFrame({
       pageClassName="print-page"
       contentClassName="print-content"
     >
-      <div className={className}>{children}</div>
+      {flowChildren}
     </ConstitutionPagedFrame>
   );
 }
