@@ -223,9 +223,9 @@ export default function ProjectReportJourneyPrint({
       })}
 
       {blankForm ? (
-        <div className="report-free-section blank-report-free-section" data-print-atomic="section">
-          <div className="report-free-section-title"><BlankLine wide /></div>
-          <div className="report-free-section-body"><BlankWritingLines lines={4} /></div>
+        <div className="declare report-free-section blank-report-free-section" data-print-atomic="section">
+          <div className="dc-head"><BlankLine wide /></div>
+          <div className="dc-body"><BlankWritingLines lines={4} /></div>
         </div>
       ) : sections.map((section) => (
         <div className="declare report-free-section" key={section.id} data-print-atomic="section">
