@@ -129,6 +129,21 @@ export default function DashboardLayout({ children }) {
     };
   }, []);
 
+  // قاعدة البيانات هي صاحبة قرار انتهاء النيابة. عند وقت انتهاء الـlease نطلب منها
+  // السياق من جديد بدل إبقاء شريط قديم قد ينسب الإجراء التالي للشخص الخطأ.
+  useEffect(() => {
+    const actionContext = state.me?.actionContext;
+    if (!isOnBehalfMode(actionContext) || !actionContext?.expiresAt || typeof window === 'undefined') return undefined;
+
+    const expiresAt = new Date(actionContext.expiresAt).getTime();
+    if (!Number.isFinite(expiresAt)) return undefined;
+    const delay = Math.max(0, expiresAt - Date.now() + 1000);
+    const timer = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent(ACTION_CONTEXT_EVENT));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [state.me?.actionContext?.actingMode, state.me?.actionContext?.expiresAt]);
+
   async function signOut() {
     await supabase.auth.signOut();
     router.replace('/login');
