@@ -56,4 +56,27 @@ for (const retired of ['experimental.ppr', 'experimental.dynamicIO', 'experiment
   if (nextConfig.includes(retired)) fail(`retired Next configuration must not return: ${retired}`);
 }
 
+// One-time self-modifying wiring is useful during migration only; it must not remain architecture.
+const workflowsDir = path.join(root, '.github', 'workflows');
+if (fs.existsSync(workflowsDir)) {
+  for (const file of fs.readdirSync(workflowsDir)) {
+    if (/^wire-/i.test(file)) fail(`obsolete self-modifying workflow must not return: ${file}`);
+  }
+}
+const scriptsDir = path.join(root, 'scripts');
+if (fs.existsSync(scriptsDir)) {
+  for (const file of fs.readdirSync(scriptsDir)) {
+    if (/^wire-/i.test(file)) fail(`obsolete self-modifying patch script must not return: ${file}`);
+  }
+}
+
+// New-document smart fill is in-page state only until an explicit save/issue action.
+const smartFillPath = path.join(root, 'components', 'documents', 'DocumentSmartFillPanel.js');
+if (fs.existsSync(smartFillPath)) {
+  const smartFillSource = fs.readFileSync(smartFillPath, 'utf8');
+  if (smartFillSource.includes('DRAFT-SMART-')) fail('smart fill must not generate phantom draft document numbers');
+  if (smartFillSource.includes("supabase.from('documents').insert")) fail('smart fill must not insert documents before explicit save');
+  if (!smartFillSource.includes('arkan:prepare-document-draft')) fail('smart fill must use the unified in-page preparation event');
+}
+
 console.log(`Framework governance audit passed: Next ${nextVersion}, React ${reactVersion}, Node ${pkg.engines.node}, ESM package mode, proxy entrypoint active.`);
