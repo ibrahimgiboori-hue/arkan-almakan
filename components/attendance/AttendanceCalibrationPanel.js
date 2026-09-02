@@ -48,11 +48,13 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
     if(kind==='calibrate') q=await supabase.rpc('hr_calibrate_attendance_import',{p_import_id:activeImport.id,p_snap_minutes:60});
     if(kind==='apply') q=await supabase.rpc('hr_apply_attendance_calibration',{p_import_id:activeImport.id,p_min_confidence:'medium'});
     if(kind==='analyze') q=await supabase.rpc('hr_analyze_attendance_import',{p_import_id:activeImport.id});
+    if(kind==='recalculate') q=await supabase.rpc('hr_recalculate_attendance_import',{p_import_id:activeImport.id});
     setBusy(false);
     if(q?.error){setErr(q.error.message);return;}
     if(kind==='calibrate') setMsg('تمت معايرة ساعات الدوام جماعيًا باعتماد النمط الأكثر تكرارًا فعليًا، مع تثبيت الساعات على رأس الساعة.');
     if(kind==='apply') setMsg('تم اعتماد ساعات الدوام ذات الثقة المتوسطة فأعلى. راجع الاستثناءات فقط.');
     if(kind==='analyze') setMsg('تم تحليل الحضور بناءً على ساعات الدوام المعتمدة.');
+    if(kind==='recalculate') setMsg('تم تطبيق ساعات الدوام الحالية وإعادة بناء نتائج الحضور على آخر مراجعاتك.');
     await load();
     await onRefresh?.();
   }
@@ -67,9 +69,10 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
         {activeImport.status==='parsed'&&<button className="btn" disabled={busy} onClick={()=>act('calibrate')}>معايرة ساعات الدوام من الملف</button>}
         {['calibrated','analyzed','recalculated','ready_to_post'].includes(activeImport.status)&&<button className="btn ghost" disabled={busy} onClick={()=>act('calibrate')}>إعادة معايرة ساعات الدوام</button>}
         {activeImport.status==='calibrated'&&<><button className="btn" disabled={busy} onClick={()=>act('apply')}>اعتماد الساعات الواضحة</button><button className="btn ghost" disabled={busy} onClick={()=>act('analyze')}>تحليل الحضور بعد المراجعة</button></>}
+        {['analyzed','justifications','recalculated','ready_to_post'].includes(activeImport.status)&&<button className="btn" disabled={busy} onClick={()=>act('recalculate')}>تطبيق تعديلات الدوام وإعادة الاحتساب</button>}
         <span className="hint">نافذة المعايرة ليست فترة سماح؛ 13:30 أمام دوام 13:00 تظل تأخير 30 دقيقة.</span>
       </div>
-      {rows.length>0&&<><div style={{overflowX:'auto'}}><table><thead><tr><th>الشخص</th><th>ساعات الدوام المقترحة</th><th>أيام القياس</th><th>الثقة</th><th>الحالة</th></tr></thead><tbody>{summary.map((r)=><tr key={r.id}><td>{r.no?`${r.no} - `:''}{r.name||'غير معروف'}</td><td>{r.patterns.length?r.patterns.join('، '):'تحتاج مراجعة'}</td><td>{r.candidate}</td><td>{CONF_AR[r.confidence]||r.confidence}</td><td>{r.decision==='accepted'?'معتمدة':r.decision==='manual'?'مراجعة يدوية / ساعات قائمة':'مقترحة'}</td></tr>)}</tbody></table></div><p className="hint" style={{marginTop:12}}>الحالات منخفضة الثقة أو غير الكافية لا تُفرض تلقائيًا؛ عدّل ساعاتها فقط من قسم «مراجعة / تعديل ساعات الدوام».</p></>}
+      {rows.length>0&&<><div style={{overflowX:'auto'}}><table><thead><tr><th>الشخص</th><th>ساعات الدوام المقترحة</th><th>أيام القياس</th><th>الثقة</th><th>الحالة</th></tr></thead><tbody>{summary.map((r)=><tr key={r.id}><td>{r.no?`${r.no} - `:''}{r.name||'غير معروف'}</td><td>{r.patterns.length?r.patterns.join('، '):'تحتاج مراجعة'}</td><td>{r.candidate}</td><td>{CONF_AR[r.confidence]||r.confidence}</td><td>{r.decision==='accepted'?'معتمدة':r.decision==='manual'?'مراجعة يدوية / ساعات قائمة':'مقترحة'}</td></tr>)}</tbody></table></div><p className="hint" style={{marginTop:12}}>الحالات منخفضة الثقة أو غير الكافية لا تُفرض تلقائيًا؛ عدّل ساعاتها من قسم «مراجعة / تعديل ساعات الدوام»، ثم اضغط «تطبيق تعديلات الدوام وإعادة الاحتساب» لتحديث النتائج فورًا.</p></>}
       {activeImport.status==='parsed'&&<p className="hint">ابدأ المعايرة أولًا. لا تحتاج إدخال ساعات كل موظف يدويًا.</p>}
     </div>
   </div>;
