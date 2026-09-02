@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }) {
     <DashboardSessionProvider value={state.me}>
       <div
         className="rawDashboardShell"
-        data-work-kernel="operational-notebook-v2"
+        data-work-kernel="operational-notebook-v1"
         data-viewport-policy="fluid-full-width"
         data-navigation-shell="contextual-slide-v2"
         data-action-mode={actingOnBehalf ? 'on_behalf_of' : 'self'}
