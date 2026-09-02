@@ -115,14 +115,14 @@ export default function EmployeeAttendancePage() {
     return a;
   },{total:0,complete:0,missing_in:0,missing_out:0,absent:0,day_off:0,no_schedule:0,needs_review:0,pre:0,final:0,work:0}), [days]);
 
-  async function loadImports(selectId = null) {
+  async function loadImports(selectId = null, ignoreCurrent = false) {
     const q = await supabase.from('hr_attendance_imports')
       .select('id,source_file_name,period_from,period_to,status,processing_scope,client_name_snapshot,client_reference,rows_received,matched_punches,unmatched_punches,review_revision,uploaded_at')
       .order('uploaded_at',{ascending:false}).limit(30);
     if (q.error) { setErr(q.error.message); return; }
     setImports(q.data || []);
-    const target = selectId || activeId || q.data?.[0]?.id || '';
-    if (target && target !== activeId) setActiveId(target);
+    const target = selectId || (!ignoreCurrent ? activeId : '') || q.data?.[0]?.id || '';
+    if (target !== activeId) setActiveId(target);
   }
 
   async function loadEmployees() {
@@ -138,7 +138,11 @@ export default function EmployeeAttendancePage() {
       supabase.from('hr_attendance_processing_events').select('*').eq('import_id',id).order('created_at'),
       supabase.from('hr_attendance_external_people').select('*').eq('import_id',id).order('external_employee_no').order('external_employee_name'),
     ]);
-    if (iQ.error) { setErr(iQ.error.message); return; }
+    if (iQ.error) {
+      setActiveImport(null); setDays([]); setEvents([]); setExternalPeople([]);
+      if (iQ.error.code !== 'PGRST116') setErr(iQ.error.message);
+      return;
+    }
     setActiveImport(iQ.data);
     setDays(dQ.error ? [] : (dQ.data || []));
     setEvents(eQ.error ? [] : (eQ.data || []));
@@ -237,6 +241,10 @@ export default function EmployeeAttendancePage() {
 
   async function runStage(action) {
     if (!activeImport) return;
+    if (action === 'close') {
+      const confirmed = window.confirm('تأكد أولًا أنك نزّلت تقرير العميل Excel النهائي. بعد المتابعة ستُحذف هذه الدفعة الخارجية وكل بياناتها من قاعدة البيانات نهائيًا ولا يمكن استرجاعها.');
+      if (!confirmed) return;
+    }
     setBusy(true); setErr(''); setMsg('');
     let q;
     if (action === 'analyze') q = await supabase.rpc('hr_analyze_attendance_import',{p_import_id:activeImport.id});
@@ -247,8 +255,16 @@ export default function EmployeeAttendancePage() {
     if (action === 'close') q = await supabase.rpc('hr_close_external_attendance_import',{p_import_id:activeImport.id});
     setBusy(false);
     if (q?.error) { setErr(q.error.message); return; }
-    const labels = {analyze:'تم التحليل الفني.',review:'بدأت مرحلة معالجة التبريرات.',recalculate:'تمت إعادة الاحتساب بعد المعالجة.',ready:'النتيجة جاهزة للمراجعة النهائية.',post:'تم الترحيل إلى سجل HR الرسمي.',close:'تم إغلاق المعالجة الخارجية دون أي أثر على HR.'};
+    const labels = {analyze:'تم التحليل الفني.',review:'بدأت مرحلة معالجة التبريرات.',recalculate:'تمت إعادة الاحتساب بعد المعالجة.',ready:'النتيجة جاهزة للمراجعة النهائية.',post:'تم الترحيل إلى سجل HR الرسمي.',close:'تم التسليم وحذف بيانات الدفعة الخارجية من قاعدة البيانات.'};
     setMsg(labels[action] || 'تمت العملية.');
+    if (action === 'close') {
+      setSelectedDay(null);
+      setActiveId('');
+      setActiveImport(null);
+      setDays([]); setEvents([]); setExternalPeople([]);
+      await loadImports(null,true);
+      return;
+    }
     await loadImports(activeImport.id); await loadActive(activeImport.id);
   }
 
@@ -318,7 +334,7 @@ export default function EmployeeAttendancePage() {
     {err && <div className="msg err">{err}</div>}{msg && <div className="msg ok">{msg}</div>}
 
     <div className="section" style={{marginTop:16}}>
-      <header><h2>دفعة معالجة جديدة</h2><span className="hint">الخدمة الخارجية لا تنشئ موظفين ولا تؤثر على بيانات أركان المكان.</span></header>
+      <header><h2>دفعة معالجة جديدة</h2><span className="hint">الخدمة الخارجية مؤقتة: لا تنشئ موظفين، ولا تؤثر على أركان المكان، وتُحذف بياناتها من القاعدة بعد التسليم.</span></header>
       <div style={{padding:18}}>
         <div className="form-grid">
           <div className="field"><label>نوع المعالجة</label><select value={newScope} onChange={(e)=>setNewScope(e.target.value)}><option value="internal">داخلي — أركان المكان</option><option value="external">خدمة لعميل خارجي</option></select></div>
@@ -346,9 +362,9 @@ export default function EmployeeAttendancePage() {
           {['justifications','analyzed'].includes(stage)&&<button className="btn" disabled={busy} onClick={()=>runStage('recalculate')}>إعادة الاحتساب</button>}
           {stage==='recalculated'&&<button className="btn" disabled={busy} onClick={()=>runStage('ready')}>اعتماد نتيجة المراجعة</button>}
           {stage==='ready_to_post'&&activeImport.processing_scope==='internal'&&canPost&&<button className="btn" disabled={busy} onClick={()=>runStage('post')}>ترحيل إلى HR</button>}
-          {stage==='ready_to_post'&&activeImport.processing_scope==='external'&&<button className="btn" disabled={busy} onClick={()=>runStage('close')}>إغلاق وتسليم للعميل</button>}
+          {stage==='ready_to_post'&&activeImport.processing_scope==='external'&&<button className="btn" disabled={busy} onClick={()=>runStage('close')}>تسليم وحذف بيانات الدفعة</button>}
         </div>
-        {activeImport.processing_scope==='external'&&<p className="hint" style={{marginTop:10}}>حتى بعد الإغلاق لا تُنشأ أي حركة حضور أو خصم في سجلات موظفي أركان المكان.</p>}
+        {activeImport.processing_scope==='external'&&<p className="hint" style={{marginTop:10}}>نزّل تقرير العميل Excel النهائي قبل التسليم. عند الضغط على «تسليم وحذف بيانات الدفعة» تُحذف البصمات والأسماء والتحليل والتبريرات وكل بيانات هذه الدفعة الخارجية من قاعدة البيانات نهائيًا.</p>}
       </div>}
     </div>
 
