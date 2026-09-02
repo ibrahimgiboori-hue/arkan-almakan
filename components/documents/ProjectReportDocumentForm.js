@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { uid } from '@/lib/form-engine';
 import { personLabel } from '@/lib/people';
+import { buildProjectReportDraft, loadProjectReportSnapshot } from '@/lib/project-report-intelligence';
 import ProjectReportJourneyEditor from '@/components/documents/ProjectReportJourneyEditor';
 
 const REPORT_CODE = 'PROJECT_WORK_CLAIMS_REPORT_V1';
@@ -46,11 +47,12 @@ export default function ProjectReportDocumentForm({ docId = null }) {
   const [signatoryEmployeeId, setSignatoryEmployeeId] = useState('');
   const [lang, setLang] = useState('ar');
   const [busy, setBusy] = useState(false);
+  const [smartBusy, setSmartBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
-  const flash = (value) => { setMsg(value); setTimeout(()=>setMsg(''), 1600); };
+  const flash = (value) => { setMsg(value); setTimeout(()=>setMsg(''), 2200); };
 
   const load = useCallback(async () => {
     setErr('');
@@ -134,6 +136,35 @@ export default function ProjectReportDocumentForm({ docId = null }) {
     if (!signatoryEmployeeId) setSignatoryEmployeeId(id);
     setDirty(true);
   };
+
+  async function generateFromProject() {
+    setErr('');
+    if (!projectId) {
+      setErr('اختر مشروعًا مسجلًا أولًا حتى يستطيع النظام تحليل بياناته.');
+      return;
+    }
+    if (dirty && (rows.some((row) => String(row?.item || '').trim()) || reportSections.length)) {
+      const ok = window.confirm('سيعيد النظام بناء البنود والنصوص من بيانات المشروع الحالية. هل تريد المتابعة؟');
+      if (!ok) return;
+    }
+
+    setSmartBusy(true);
+    try {
+      const snapshot = await loadProjectReportSnapshot(supabase, projectId);
+      const generated = buildProjectReportDraft(snapshot);
+      const { _rows, _report_sections, ...generatedFields } = generated.payload;
+      setRows(Array.isArray(_rows) && _rows.length ? _rows : [{ _id:uid(), operational_lines:[] }]);
+      setReportSections(Array.isArray(_report_sections) ? _report_sections : []);
+      setV((current) => ({ ...current, ...generatedFields }));
+      setLang('ar');
+      setDirty(true);
+      flash('تم تحليل المشروع وكتابة التقرير من البيانات المسجلة — راجعه ثم احفظه أو اطبعه');
+    } catch (error) {
+      setErr('تعذّر تحليل المشروع: ' + (error?.message || String(error)));
+    } finally {
+      setSmartBusy(false);
+    }
+  }
 
   const cleanPayload = () => {
     const payload = { ...v, _rows:rows, _report_sections:reportSections };
@@ -240,9 +271,9 @@ export default function ProjectReportDocumentForm({ docId = null }) {
       <div className="rowsplit stickybar">
         {!isIssued ? (
           <>
-            <button className="btn ghost" disabled={busy} onClick={()=>saveDraft(false)}>حفظ المسودة</button>
-            <button className="btn ghost" disabled={busy} onClick={preview}>حفظ ومعاينة</button>
-            <button className="btn" disabled={busy} onClick={issue}>إصدار نهائي برقم</button>
+            <button className="btn ghost" disabled={busy || smartBusy} onClick={()=>saveDraft(false)}>حفظ المسودة</button>
+            <button className="btn ghost" disabled={busy || smartBusy} onClick={preview}>حفظ ومعاينة</button>
+            <button className="btn" disabled={busy || smartBusy} onClick={issue}>إصدار نهائي برقم</button>
           </>
         ) : (
           <>
@@ -264,8 +295,8 @@ export default function ProjectReportDocumentForm({ docId = null }) {
               </select>
             </div>
             <div className="field">
-              <label>تعبئة سريعة من المشروع</label>
-              <select value={projectId} disabled={isIssued} onChange={pickProject}>
+              <label>المشروع المرتبط</label>
+              <select value={projectId} disabled={isIssued || smartBusy} onChange={pickProject}>
                 <option value="">مشروع غير مسجل / إدخال يدوي</option>
                 {projects.map((project)=><option key={project.id} value={project.id}>{project.project_no} - {project.name_ar}</option>)}
               </select>
@@ -285,6 +316,19 @@ export default function ProjectReportDocumentForm({ docId = null }) {
               </select>
             </div>
           </div>
+
+          {!isIssued && projectId && (
+            <div style={{marginTop:14,padding:14,border:'1px solid var(--hair)',borderRadius:8,background:'var(--paper-soft, #faf9f7)'}}>
+              <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+                <button className="btn" type="button" disabled={smartBusy || busy} onClick={generateFromProject}>
+                  {smartBusy ? 'جارٍ قراءة المشروع وتحليله…' : 'تحليل المشروع وكتابة التقرير'}
+                </button>
+                <span style={{fontSize:12.5,color:'var(--ink-soft)'}}>
+                  يقرأ البنود والإنجاز والقياسات والمستخلصات والحضور والتكاليف والمقاولين والمعاملات، ويكتب النصوص من البيانات المثبتة فقط دون اختراع أرقام.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
