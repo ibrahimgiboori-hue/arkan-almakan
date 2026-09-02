@@ -5,9 +5,11 @@ import DocumentForm from '@/components/DocumentForm';
 import ProjectReportDocumentForm from '@/components/documents/ProjectReportDocumentForm';
 import DocumentSmartFillPanel from '@/components/documents/DocumentSmartFillPanel';
 import LegacyDocumentSmartFillPanel from '@/components/documents/LegacyDocumentSmartFillPanel';
+import SalaryCertificateDocumentForm from '@/components/documents/SalaryCertificateDocumentForm';
 import { supabase } from '@/lib/supabase';
 
 const REPORT_CODE = 'PROJECT_WORK_CLAIMS_REPORT_V1';
+const SALARY_CERT_CODE = 'SALARY_CERT';
 
 export default function DocumentFormRouter({ code = null, docId = null }) {
   const [resolvedCode, setResolvedCode] = useState(code || '');
@@ -29,6 +31,10 @@ export default function DocumentFormRouter({ code = null, docId = null }) {
   if (resolvedCode === REPORT_CODE) return <ProjectReportDocumentForm docId={docId} />;
 
   const activeCode = code || resolvedCode || undefined;
+  if (activeCode === SALARY_CERT_CODE) {
+    return <SalaryCertificateDocumentForm docId={docId || undefined} />;
+  }
+
   return <>
     <DocumentSmartFillPanel code={activeCode} docId={docId || undefined} />
     <LegacyDocumentSmartFillPanel code={activeCode} docId={docId || undefined} />
