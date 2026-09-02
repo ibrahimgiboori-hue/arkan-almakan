@@ -16,9 +16,12 @@ function requireText(file, needles) {
 requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
   "import './raw-phase.css'",
+  "import './app-shell-v2.css'",
   'data-work-kernel="operational-notebook-v1"',
+  'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
   'className="workSheetMount"',
+  'ContextualDashboardNavigation',
 ]);
 
 if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) {
@@ -30,13 +33,10 @@ if (exists('app/dashboard/work-sheet-kernel.css')) {
 }
 
 if (exists('components/ui/RawDashboardNavigation.module.css')) {
-  failures.push('RawDashboardNavigation.module.css: هندسة الملاحة يجب أن تبقى تحت raw-phase.css فقط.');
+  failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
 }
 
 requireText('app/dashboard/raw-phase.css', [
-  '.rawNav {',
-  '.rawNavPrimary',
-  '.rawNavContext',
   '.rawDashboardContent > .workSheetMount',
   "[data-work-header='true']",
   "[data-work-ledger='true']",
@@ -44,15 +44,30 @@ requireText('app/dashboard/raw-phase.css', [
   'scrollbar-gutter: stable both-edges',
 ]);
 
-requireText('components/ui/RawDashboardNavigation.js', [
-  'className="rawNav"',
-  'className="rawNavPrimary"',
-  'className="rawNavContext"',
+requireText('app/dashboard/app-shell-v2.css', [
+  '.appNavHotZone',
+  '.appContextNav',
+  ".appContextNav[data-open='true']",
+  'body.appNavPinned .rawDashboardContent',
+  "@media (prefers-reduced-motion: reduce)",
 ]);
 
-const nav = read('components/ui/RawDashboardNavigation.js');
-if (nav.includes('RawDashboardNavigation.module.css')) failures.push('الملاحة عادت تعتمد CSS Module منافسًا.');
-if (nav.includes('useCompactOnScroll')) failures.push('الملاحة عادت تغير ارتفاعها حسب التمرير، وهذا يعيد القفزات.');
+requireText('components/ui/ContextualDashboardNavigation.js', [
+  'OPEN_INTENT_MS',
+  'CLOSE_GRACE_MS',
+  'filterAreasForAccess',
+  'projectNavRequirement',
+  'PORTAL_MANAGEMENT_SECTIONS',
+  'className="appContextNav"',
+]);
+
+if (exists('components/ui/RawDashboardNavigation.js')) {
+  failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
+}
+
+const nav = read('components/ui/ContextualDashboardNavigation.js');
+if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
+if (!nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة السياقية فقدت خيار تثبيت القائمة.');
 
 requireText('components/ui/ConstitutionUI.js', [
   "from './WorkSheetKernel'",
