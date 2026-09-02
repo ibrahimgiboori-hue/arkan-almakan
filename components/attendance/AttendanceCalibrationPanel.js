@@ -65,6 +65,7 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
       {err&&<div className="msg err">{err}</div>}{msg&&<div className="msg ok">{msg}</div>}
       <div className="rowsplit" style={{marginBottom:14}}>
         {activeImport.status==='parsed'&&<button className="btn" disabled={busy} onClick={()=>act('calibrate')}>معايرة ساعات الدوام من الملف</button>}
+        {['calibrated','analyzed','recalculated','ready_to_post'].includes(activeImport.status)&&<button className="btn ghost" disabled={busy} onClick={()=>act('calibrate')}>إعادة معايرة ساعات الدوام</button>}
         {activeImport.status==='calibrated'&&<><button className="btn" disabled={busy} onClick={()=>act('apply')}>اعتماد الساعات الواضحة</button><button className="btn ghost" disabled={busy} onClick={()=>act('analyze')}>تحليل الحضور بعد المراجعة</button></>}
         <span className="hint">نافذة المعايرة ليست فترة سماح؛ 13:30 أمام دوام 13:00 تظل تأخير 30 دقيقة.</span>
       </div>
