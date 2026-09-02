@@ -200,7 +200,7 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
         const scheduled = d.scheduled_start && d.scheduled_end ? `${clock(d.scheduled_start)}–${clock(d.scheduled_end)}` : '—';
         const scheduleMinutes = minutesBetween(d.scheduled_start, d.scheduled_end);
         const late = Math.max(0, Number(d.late_arrival_minutes ?? d.arrival_delta_minutes ?? 0));
-        const earlyOut = Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0));
+        const earlyOut = Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0)));
         const extra = Math.max(0, Number(d.late_departure_minutes ?? d.departure_delta_minutes ?? 0));
         const row = daily.addRow([
           d.subject_no || '', d.subject_name || '', dateOnly(d.work_date), raw.map(clock).join(' | ') || '—', scheduled,
@@ -262,7 +262,7 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
         g.worked += Number(d.worked_minutes || 0);
         if (!['day_off','no_schedule'].includes(d.day_status)) g.scheduled += minutesBetween(d.scheduled_start, d.scheduled_end);
         g.late += Math.max(0, Number(d.late_arrival_minutes ?? d.arrival_delta_minutes ?? 0));
-        g.earlyOut += Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0));
+        g.earlyOut += Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0)));
         g.extra += Math.max(0, Number(d.late_departure_minutes ?? d.departure_delta_minutes ?? 0));
         g.deduction += finalDeduction;
       }
