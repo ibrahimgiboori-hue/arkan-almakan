@@ -15,7 +15,7 @@ const PAY_BASIS = Object.freeze({ daily: 'يومية', salary: 'راتب شهر�
 const naturalCompare = (a = '', b = '') => String(a).localeCompare(String(b), 'ar', { numeric: true, sensitivity: 'base' });
 const EMPTY_QUICK_ADD = Object.freeze({
   names:'', labor_class:'worker', trade:'', pay_basis:'daily', daily_rate:'',
-  monthly_salary:'', salary_days:30, piece_rate:'', piece_unit:'م2',
+  monthly_salary:'', salary_days:30, piece_rate:'', piece_unit:'م2', effective_from:'',
 });
 
 function dateLabel(value) {
@@ -163,7 +163,7 @@ export default function ProjectLaborPage() {
 
   function openQuickAdd() {
     setQuickAddResults([]);
-    setQuickAddForm({ ...EMPTY_QUICK_ADD, daily_rate:suggestedDailyRate('worker') });
+    setQuickAddForm({ ...EMPTY_QUICK_ADD, daily_rate:suggestedDailyRate('worker'), effective_from:date });
     setQuickAddOpen(true);
     setErr('');
     setMsg('');
@@ -185,13 +185,22 @@ export default function ProjectLaborPage() {
       setErr('اكتب اسم عامل واحد على الأقل. يمكنك كتابة كل اسم في سطر مستقل.');
       return;
     }
+    const effectiveFrom = quickAddForm.effective_from || date;
+    if (!effectiveFrom) {
+      setErr('حدد تاريخ انضمام العامل للمقاول والمشروع.');
+      return;
+    }
+    if (effectiveFrom > todayIsoInRiyadh()) {
+      setErr('تاريخ الإسناد لا يمكن أن يكون في المستقبل.');
+      return;
+    }
 
     setBusy('quick-add'); setErr(''); setMsg(''); setQuickAddResults([]);
     try {
       const { data, error } = await supabase.rpc('fn_quick_add_workers', {
         p_project_id: projectId,
         p_contractor_id: selectedContractor.id,
-        p_effective_from: date,
+        p_effective_from: effectiveFrom,
         p_names: names,
         p_labor_class: quickAddForm.labor_class,
         p_trade: quickAddForm.trade || null,
@@ -213,7 +222,7 @@ export default function ProjectLaborPage() {
       if (created) parts.push(`أُضيف ${created}`);
       if (existing) parts.push(`أُسند ${existing} موجود`);
       if (transfers) parts.push(`${transfers} يحتاج نقلًا صريحًا`);
-      setMsg(parts.length ? `${parts.join('، ')}.` : 'لم تُنشأ سجلات جديدة.');
+      setMsg(parts.length ? `${parts.join('، ')}. تاريخ الإسناد: ${effectiveFrom}.` : 'لم تُنشأ سجلات جديدة.');
       await load();
       if (!transfers) {
         setQuickAddOpen(false);
@@ -240,20 +249,21 @@ export default function ProjectLaborPage() {
       const targetDaily = worker.pay_basis === 'daily'
         ? (worker.labor_class === 'technician' ? selectedContractor.tech_daily : selectedContractor.worker_daily)
         : null;
+      const effectiveFrom = quickAddForm.effective_from || date;
       const { error } = await supabase.rpc('fn_move_laborer', {
         p_laborer_id: worker.id,
         p_project_id: projectId,
         p_contractor_id: selectedContractor.id,
-        p_effective_from: date,
+        p_effective_from: effectiveFrom,
         p_labor_class: worker.labor_class,
         p_trade: worker.trade || null,
         p_pay_basis: worker.pay_basis || 'daily',
         p_daily_rate: worker.pay_basis === 'daily' ? (targetDaily ?? worker.daily_rate ?? null) : null,
-        p_notes: 'نقل صريح من الإضافة الموحدة في شاشة عمالة المشروع',
+        p_notes: `نقل صريح من الإضافة الموحدة في شاشة عمالة المشروع - تاريخ السريان ${effectiveFrom}`,
       });
       if (error) throw error;
       setQuickAddResults((rows) => rows.map((row) => row.laborer_id === candidate.laborer_id ? { ...row, status:'transferred' } : row));
-      setMsg(`تم نقل ${worker.full_name} إلى المقاول والمشروع مع حفظ تاريخه السابق.`);
+      setMsg(`تم نقل ${worker.full_name} إلى المقاول والمشروع اعتبارًا من ${effectiveFrom} مع حفظ تاريخه السابق.`);
       await load();
     } catch (error) {
       setErr('تعذر نقل العامل: ' + (error.message || error));
@@ -464,12 +474,12 @@ export default function ProjectLaborPage() {
         {quickAddForm.pay_basis === 'daily' && <label><span>اليومية</span><input type="number" min="0" step="0.01" value={quickAddForm.daily_rate} onChange={(event) => setQuickAddForm((form) => ({ ...form, daily_rate:event.target.value }))} /><small>تُقترح تلقائيًا من اتفاق المقاول ويمكن تعديلها قبل الحفظ.</small></label>}
         {quickAddForm.pay_basis === 'salary' && <><label><span>الراتب الشهري</span><input type="number" min="0" step="0.01" value={quickAddForm.monthly_salary} onChange={(event) => setQuickAddForm((form) => ({ ...form, monthly_salary:event.target.value }))} /></label><label><span>أيام الاحتساب</span><input type="number" min="1" value={quickAddForm.salary_days} onChange={(event) => setQuickAddForm((form) => ({ ...form, salary_days:event.target.value }))} /></label></>}
         {quickAddForm.pay_basis === 'piecework' && <><label><span>سعر الوحدة</span><input type="number" min="0" step="0.01" value={quickAddForm.piece_rate} onChange={(event) => setQuickAddForm((form) => ({ ...form, piece_rate:event.target.value }))} /></label><label><span>الوحدة</span><input value={quickAddForm.piece_unit} onChange={(event) => setQuickAddForm((form) => ({ ...form, piece_unit:event.target.value }))} /></label></>}
-        <label><span>تاريخ الإسناد</span><input type="date" value={date} readOnly /></label>
+        <label><span>تاريخ الإسناد *</span><input required type="date" max={todayIsoInRiyadh()} value={quickAddForm.effective_from || date} onChange={(event) => setQuickAddForm((form) => ({ ...form, effective_from:event.target.value }))} /><small>أول يوم فعلي للعامل مع هذا المقاول في المشروع. يصبح العامل متاحًا للتايم شيت من هذا التاريخ فما بعد.</small></label>
         <label><span>المقاول</span><input value={selectedContractor?.name_ar || ''} readOnly /></label>
         <button type="submit" className={styles.primaryAction} disabled={busy === 'quick-add'}>{busy === 'quick-add' ? 'جارٍ الإضافة…' : 'إضافة وإسناد للمشروع'}</button>
       </form>
       {quickAddResults.some((row) => row.status === 'needs_transfer') && <div style={{marginTop:14}}>
-        <div className={styles.panelEmpty}>وجد البرنامج أسماء موجودة أصلًا لدى مقاول آخر، لذلك لم ينشئ نسخًا مكررة. اختر النقل الصريح لكل اسم.</div>
+        <div className={styles.panelEmpty}>وجد البرنامج أسماء موجودة أصلًا لدى مقاول آخر، لذلك لم ينشئ نسخًا مكررة. اختر النقل الصريح لكل اسم بنفس تاريخ الإسناد المحدد أعلاه.</div>
         <div className={styles.activityList}>
           {quickAddResults.filter((row) => row.status === 'needs_transfer').map((row) => <div className={styles.activityRow} key={row.laborer_id}>
             <div><strong>{row.name}</strong><small>موجود لدى مقاول آخر</small></div>
