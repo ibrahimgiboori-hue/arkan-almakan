@@ -17,8 +17,8 @@ import {
 } from '@/lib/portal-section-constitution';
 import GlobalSearch from './GlobalSearch';
 
-const OPEN_INTENT_MS = 460;
-const CLOSE_GRACE_MS = 720;
+const OPEN_INTENT_MS = 620;
+const CLOSE_GRACE_MS = 520;
 const PIN_STORAGE_KEY = 'arkan-context-nav-pinned';
 
 function uniqueByHref(items = []) {
@@ -59,6 +59,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const openTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
   const lastPathRef = useRef(null);
+  const navRef = useRef(null);
+  const edgeRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [pinReady, setPinReady] = useState(false);
@@ -110,14 +112,13 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       .map((group) => ({
         key:group.key,
         label:group.label,
-        description:group.description,
         items:(group.hrefs || []).map((href) => itemByHref.get(href)).filter(Boolean),
       }))
       .filter((group) => group.items.length > 0);
 
     const assigned = new Set(configured.flatMap((group) => group.hrefs || []));
     const extras = tools.filter((item) => !assigned.has(item.href));
-    if (extras.length) groups.push({ key:'general', label:'أدوات أخرى', description:'وجهات إضافية متاحة وفق صلاحيات الحساب.', items:extras });
+    if (extras.length) groups.push({ key:'general', label:'أدوات أخرى', items:extras });
     return [area.key, groups];
   })), [accessibleAreas, toolsByArea]);
 
@@ -221,9 +222,18 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       setPinned(false);
       setOpen(false);
     }
+    function outsidePointer(event) {
+      if (!open || pinned) return;
+      if (navRef.current?.contains(event.target) || edgeRef.current?.contains(event.target)) return;
+      setOpen(false);
+    }
     window.addEventListener('keydown', keydown);
-    return () => window.removeEventListener('keydown', keydown);
-  }, [open]);
+    document.addEventListener('pointerdown', outsidePointer);
+    return () => {
+      window.removeEventListener('keydown', keydown);
+      document.removeEventListener('pointerdown', outsidePointer);
+    };
+  }, [open, pinned]);
 
   useEffect(() => () => {
     window.clearTimeout(openTimerRef.current);
@@ -306,12 +316,17 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   ];
 
   return <>
-    <div
+    <button
+      ref={edgeRef}
+      type="button"
       className="appNavHotZone"
-      aria-hidden="true"
+      aria-label="فتح قائمة البرنامج"
+      aria-expanded={open}
+      aria-controls="arkan-context-navigation"
       onPointerEnter={openFromIntent}
       onPointerLeave={() => window.clearTimeout(openTimerRef.current)}
-    />
+      onClick={openImmediately}
+    ><span aria-hidden="true" /></button>
 
     <button
       type="button"
@@ -321,14 +336,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       onClick={openImmediately}
     >القائمة</button>
 
-    <div
-      className="appNavBackdrop"
-      data-open={open && !pinned ? 'true' : 'false'}
-      onClick={() => setOpen(false)}
-      aria-hidden="true"
-    />
-
     <aside
+      ref={navRef}
       id="arkan-context-navigation"
       className="appContextNav"
       data-open={open ? 'true' : 'false'}
@@ -342,25 +351,16 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
         <header className="appNavHeader">
           <div className="appNavIdentity">
             <strong>أركان المكان</strong>
-            <span>{me?.email || 'مساحة العمل'}</span>
           </div>
           <button type="button" className="appNavPin" onClick={togglePinned}>
-            {pinned ? 'إلغاء التثبيت' : 'تثبيت القائمة'}
+            {pinned ? 'إلغاء التثبيت' : 'إبقاء مفتوحة'}
           </button>
         </header>
 
         <div className="appNavSearch"><GlobalSearch /></div>
 
-        <div
-          key={panelId(panel)}
-          className="appNavPanel"
-          data-motion={motionDirection}
-        >
+        <div key={panelId(panel)} className="appNavPanel" data-motion={motionDirection}>
           {panel.type === 'root' && <>
-            <div className="appNavPanelHead">
-              <strong>مساحة العمل</strong>
-              <span>اختر وجهتك، ثم تترك القائمة الساحة للعمل.</span>
-            </div>
             <div className="appNavSectionLabel">العمل</div>
             <div className="appNavList">
               {quickLinks.map((item) => (
@@ -374,34 +374,28 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
               {accessibleAreas.map((area) => (
                 <button key={area.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaKey === area.key ? 'true' : 'false'} onClick={() => dive({ type:'area', areaKey:area.key })}>
                   <span>{cleanPortalLabel(area.label)}</span>
-                  <small>{(groupsByArea[area.key] || []).length} مجموعات</small>
+                  <small>{(groupsByArea[area.key] || []).length}</small>
                 </button>
               ))}
             </div>
           </>}
 
           {panel.type === 'area' && activeArea && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>العودة إلى البوابات</button>
-            <div className="appNavPanelHead">
-              <strong>{cleanPortalLabel(activeArea.label)}</strong>
-              <span>اختر مجموعة العمل.</span>
-            </div>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>البوابات</button>
+            <div className="appNavPanelHead"><strong>{cleanPortalLabel(activeArea.label)}</strong></div>
             <div className="appNavList">
               {activeAreaGroups.map((group) => (
                 <button key={group.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaGroup?.key === group.key ? 'true' : 'false'} onClick={() => dive({ type:'areaGroup', areaKey:activeArea.key, groupKey:group.key })}>
                   <span>{group.label}</span>
-                  {group.description ? <small>{group.description}</small> : <small>{group.items.length} أدوات</small>}
+                  <small>{group.items.length}</small>
                 </button>
               ))}
             </div>
           </>}
 
           {panel.type === 'areaGroup' && activeArea && activeAreaGroup && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:activeArea.key })}>العودة إلى {cleanPortalLabel(activeArea.label)}</button>
-            <div className="appNavPanelHead">
-              <span>{cleanPortalLabel(activeArea.label)}</span>
-              <strong>{activeAreaGroup.label}</strong>
-            </div>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:activeArea.key })}>{cleanPortalLabel(activeArea.label)}</button>
+            <div className="appNavPanelHead"><strong>{activeAreaGroup.label}</strong></div>
             <div className="appNavList">
               {activeAreaGroup.items.map((item) => (
                 <button key={item.href} type="button" className="appNavRow" data-active={currentGlobalTool?.href === item.href ? 'true' : 'false'} onClick={() => go(item.href)}>
@@ -412,27 +406,21 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           </>}
 
           {panel.type === 'project' && projectId && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:'projects' })}>العودة إلى بوابة المشاريع</button>
-            <div className="appNavPanelHead">
-              <span>بوابة المشاريع</span>
-              <strong>المشروع الحالي</strong>
-            </div>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:'projects' })}>بوابة المشاريع</button>
+            <div className="appNavPanelHead"><strong>المشروع الحالي</strong></div>
             <div className="appNavList">
               {projectGroups.map((group) => (
                 <button key={group.key} type="button" className="appNavRow appNavRowParent" data-active={currentProjectGroup?.key === group.key ? 'true' : 'false'} onClick={() => dive({ type:'projectGroup', groupKey:group.key })}>
                   <span>{group.label}</span>
-                  <small>{group.items.length} أدوات</small>
+                  <small>{group.items.length}</small>
                 </button>
               ))}
             </div>
           </>}
 
           {panel.type === 'projectGroup' && projectId && activeProjectGroupPanel && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'project' })}>العودة إلى المشروع الحالي</button>
-            <div className="appNavPanelHead">
-              <span>المشروع الحالي</span>
-              <strong>{activeProjectGroupPanel.label}</strong>
-            </div>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'project' })}>المشروع الحالي</button>
+            <div className="appNavPanelHead"><strong>{activeProjectGroupPanel.label}</strong></div>
             <div className="appNavList">
               {activeProjectGroupPanel.items.map((item) => (
                 <button key={item.key} type="button" className="appNavRow" data-active={currentProjectTool?.key === item.key ? 'true' : 'false'} onClick={() => go(item.href)}>
@@ -445,7 +433,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
         <footer className="appNavFooter">
           <button type="button" onClick={() => go('/dashboard')}>مركز العمل</button>
-          <button type="button" onClick={onSignOut}>تسجيل الخروج</button>
+          <button type="button" onClick={onSignOut}>خروج</button>
         </footer>
       </> : null}
     </aside>
