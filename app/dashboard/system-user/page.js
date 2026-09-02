@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { PROJECT_ACCESS_LEVELS } from '@/lib/access-ui';
+import DocumentPackAccessManager from '@/components/documents/DocumentPackAccessManager';
 
 const ERROR_AR = {
   forbidden: 'هذا الحساب لا يملك صلاحية إدارة الدخول.',
@@ -361,6 +362,7 @@ export default function SystemUserPage() {
                 <button className="btn ghost" onClick={prepareDelete} disabled={busy === 'delete-preview' || busy === 'delete'}>{busy === 'delete-preview' ? 'جارٍ فحص الأثر…' : 'حذف المستخدم'}</button>
               </div>
             </>}
+          <DocumentPackAccessManager userId={selectedUser.id} primaryUserId={directory.primaryUserId} />
         </>}
       </div>
     </div>
