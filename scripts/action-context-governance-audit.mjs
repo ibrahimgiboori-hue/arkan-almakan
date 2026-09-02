@@ -53,7 +53,6 @@ requireText(sessionScopedMigration, 'drop function if exists private.fn_guard_pr
 requireText(sessionScopedMigration, 'create or replace function private.fn_current_action_context()', 'all consumers must keep using the same canonical resolver after session isolation');
 requireText(sessionScopedMigration, 'create or replace function public.fn_set_my_action_context', 'the existing UI contract must survive the session-isolation upgrade');
 
-// مرحلة التأسيس: الحساب الرئيسي يملك سلطة التسجيل، بينما الشخص المختار هو صاحب الفعل الحقيقي.
 requireText(sessionScopedMigration, 'create or replace function private.fn_current_actor_can_take_approval_step', 'session upgrade must explicitly govern the primary builder approval override');
 requireText(sessionScopedMigration, "public.fn_is_primary_user() and v_ctx.acting_mode='on_behalf_of'", 'builder override must be limited to the signed-in primary account while attribution mode is active');
 requireText(sessionScopedMigration, 'v_target_employee_id=v_ctx.real_actor_employee_id', 'user-targeted approval steps must still match the represented real employee');
@@ -99,18 +98,19 @@ requireText(control, "employee.id !== primaryEmployeeId", 'the primary account o
 requireText(control, 'المُسجّل النظامي', 'UI must explain the separation between registrant and real actor');
 
 requireText(settingsLayout, 'PrimaryActionModeSettings', 'primary action mode control must be mounted inside Settings');
-requireText(settingsLayout, 'primary-action-mode', 'the global action-identity strip must be able to jump directly to its control');
+requireText(settingsLayout, 'primary-action-mode', 'the exceptional action-identity alert must be able to jump directly to its control');
 const layoutSource = requireText(layout, "supabase.rpc('fn_my_action_context'", 'dashboard shell must load the canonical action context');
-requireText(layout, 'data-action-context-banner', 'dashboard must visibly announce the primary action identity');
-requireText(layout, 'data-action-context-active', 'primary identity must stay visible in both self and on-behalf states');
+requireText(layout, 'data-action-context-banner', 'dashboard must visibly announce the real actor when on-behalf mode is active');
+requireText(layout, 'data-action-context-active="true"', 'the exceptional identity alert must explicitly identify its active state');
 requireText(layout, 'data-action-mode', 'dashboard root must expose the active execution mode to all portal surfaces');
 requireText(layout, 'actionContext?.expiresAt', 'dashboard must schedule synchronization against the server lease expiry');
 requireText(layout, 'window.dispatchEvent(new CustomEvent(ACTION_CONTEXT_EVENT))', 'lease expiry must force a fresh server action-context read');
-if (!layoutSource.includes("showPrimaryIdentity = state.me?.actionContext?.isPrimaryUser === true")) {
-  fail('primary action identity must remain visible even when the primary account is acting as itself');
+requireText(layout, 'showExceptionalIdentity = actingOnBehalf', 'persistent work-surface identity chrome must be reserved for the exceptional on-behalf state');
+if (layoutSource.includes('أنت — تنفيذ بصفتي') || layoutSource.includes('صاحب الإجراء:')) {
+  fail('normal self mode must not consume permanent work-surface space with action-identity chrome');
 }
 requireText(model, "ON_BEHALF_OF: 'on_behalf_of'", 'client code must share one action-mode vocabulary');
 requireText(model, 'requestedRealActorEmployeeId !== systemActorEmployeeId', 'client model must normalize impossible self-delegation too');
 requireText(model, 'expiresAt:', 'client action-context model must retain the server lease expiry');
 
-console.log('Action context governance audit passed: authority and attribution are separated, primary builder approvals can document real-world actors before portal permissions are complete, normal users remain permission-governed, and the visible action identity stays synchronized with the session lease.');
+console.log('Action context governance audit passed: authority and attribution stay canonical, normal self mode remains visually quiet, and exceptional on-behalf execution is visibly announced and lease-synchronized.');
