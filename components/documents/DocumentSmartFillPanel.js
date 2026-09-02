@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 const PROFILE_LABELS = Object.freeze({
@@ -66,7 +65,6 @@ function isoDate(value) {
 }
 
 export default function DocumentSmartFillPanel({ code, docId = null }) {
-  const router = useRouter();
   const [template, setTemplate] = useState(null);
   const [documentRow, setDocumentRow] = useState(null);
   const [employees, setEmployees] = useState([]);
@@ -380,7 +378,6 @@ export default function DocumentSmartFillPanel({ code, docId = null }) {
         },
       };
 
-      const label = suggestions.employee_name || suggestions.project_name || suggestions.party_name || '';
       if (documentRow?.id) {
         const updateQ = await supabase.from('documents').update({
           payload,
@@ -392,20 +389,17 @@ export default function DocumentSmartFillPanel({ code, docId = null }) {
         setInfo(`تم استكمال ${merged.filled} حقلًا من بيانات النظام${rowCount ? ` وإضافة ${rowCount} سطرًا` : ''}. لم يتم استبدال أي قيمة مكتوبة يدويًا.`);
         setTimeout(() => window.location.reload(), 900);
       } else {
-        const draftNo = `DRAFT-SMART-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-        const insertQ = await supabase.from('documents').insert({
-          doc_number: draftNo,
-          template_code: template.code,
-          language: 'ar',
-          subject: `${template.name_ar}${label ? ` - ${label}` : ''}`,
-          employee_id: employeeId || null,
-          project_id: projectId || null,
-          payload,
-          status: 'draft',
-          parties: {},
-        }).select('id').single();
-        if (insertQ.error) throw insertQ.error;
-        router.replace(`/dashboard/documents/edit/${insertQ.data.id}`);
+        window.dispatchEvent(new CustomEvent('arkan:prepare-document-draft', {
+          detail: {
+            code: template.code,
+            payload,
+            employeeId: employeeId || null,
+            projectId: projectId || null,
+            language: 'ar',
+          },
+        }));
+        const rowCount = Array.isArray(special.rows) && special.rows.length && !hasMeaningfulRows ? special.rows.length : 0;
+        setInfo(`تم تجهيز ${merged.filled} حقلًا من بيانات النظام${rowCount ? ` وإضافة ${rowCount} سطرًا` : ''} داخل النموذج. لم يتم إنشاء مسودة في السجل بعد.`);
       }
     } catch (error) {
       setErr('تعذرت التعبئة الذكية: ' + (error.message || error));
@@ -453,8 +447,8 @@ export default function DocumentSmartFillPanel({ code, docId = null }) {
         </div>
       </div>
       <div style={{marginTop:14,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-        <button type="button" className="btn" disabled={busy} onClick={applySmartFill}>{busy ? 'جارٍ قراءة البيانات…' : documentRow ? 'استكمال الفراغات من النظام' : 'إنشاء مسودة معبأة من النظام'}</button>
-        <span className="hint">الحقول التي لا يدعمها البرنامج أو لا توجد لها بيانات تبقى مفتوحة للإدخال اليدوي.</span>
+        <button type="button" className="btn" disabled={busy} onClick={applySmartFill}>{busy ? 'جارٍ قراءة البيانات…' : documentRow ? 'استكمال الفراغات من النظام' : 'تعبئة النموذج من النظام'}</button>
+        <span className="hint">الحقول التي لا يدعمها البرنامج أو لا توجد لها بيانات تبقى مفتوحة للإدخال اليدوي. التعبئة وحدها لا تنشئ مسودة.</span>
       </div>
       {err && <div className="msg err" style={{marginTop:12}}>{err}</div>}
       {info && <div className="msg ok" style={{marginTop:12}}>{info}</div>}
