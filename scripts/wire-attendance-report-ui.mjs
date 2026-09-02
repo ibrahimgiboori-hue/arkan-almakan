@@ -69,6 +69,8 @@ const calibrationPath = 'components/attendance/AttendanceCalibrationPanel.js';
 let c = fs.readFileSync(calibrationPath, 'utf8');
 c = c.replace('تمت معايرة ساعات الدوام جماعيًا من الملف على رؤوس الساعات.','تمت معايرة ساعات الدوام جماعيًا باعتماد النمط الأكثر تكرارًا فعليًا، مع تثبيت الساعات على رأس الساعة.');
 c = c.replace('يستنتج البرنامج ساعات الدوام من تجمع البصمات حول رأس الساعة :00، ثم تراجع الاستثناءات فقط.','يستنتج البرنامج ساعات الدوام من النمط الأكثر تكرارًا فعليًا لحركات البصمة حول رأس الساعة :00؛ التعادل فقط يُحال للمراجعة.');
+c = c.replace(
+  "        {activeImport.status==='parsed'&&<button className=\"btn\" disabled={busy} onClick={()=>act('calibrate')}>معايرة ساعات الدوام من الملف</button>}",
+  "        {activeImport.status==='parsed'&&<button className=\"btn\" disabled={busy} onClick={()=>act('calibrate')}>معايرة ساعات الدوام من الملف</button>}\n        {['calibrated','analyzed','recalculated','ready_to_post'].includes(activeImport.status)&&<button className=\"btn ghost\" disabled={busy} onClick={()=>act('calibrate')}>إعادة معايرة ساعات الدوام</button>}"
+);
 fs.writeFileSync(calibrationPath, c);
-
-// Trigger final wiring after adding calibration file to workflow commit set.
