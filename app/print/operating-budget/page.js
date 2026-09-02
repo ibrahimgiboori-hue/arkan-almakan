@@ -33,7 +33,8 @@ function dueCell(line) {
   if (!line.has_due_in_period) return <span>لا يوجد</span>;
   return <>
     <strong>{money(line.due_amount_this_period)} ريال</strong>
-    {num(line.amount_due_now) !== num(line.due_amount_this_period) && <small>المتبقي للسداد {money(line.amount_due_now)} ريال</small>}
+    {line.payment_due_date && <small>موعد السداد {dateAr(line.payment_due_date)}</small>}
+    {num(line.amount_due_now) !== num(line.due_amount_this_period) && <small>المطلوب الآن {money(line.amount_due_now)} ريال</small>}
   </>;
 }
 
@@ -105,7 +106,7 @@ export default function OperatingBudgetPrintPage() {
         <div className="ob-kpis">
           <div><span>تكلفة الشهر</span><strong>{money(totals.monthly)} ريال</strong><small>المعادل الشهري للبنود الدورية</small></div>
           <div><span>استحقاقات الشهر</span><strong>{money(totals.due)} ريال</strong><small>قيمة الدفعات التي يحل موعدها خلال الشهر</small></div>
-          <div><span>المطلوب الآن</span><strong>{money(totals.dueNow)} ريال</strong><small>بعد احتساب ما تم سداده</small></div>
+          <div><span>المطلوب الآن</span><strong>{money(totals.dueNow)} ريال</strong><small>بعد احتساب ما تم سداده وحلول التاريخ</small></div>
           <div><span>متأخر</span><strong>{money(totals.overdue)} ريال</strong><small>استحقاقات سابقة غير مسددة</small></div>
         </div>
 
