@@ -23,6 +23,6 @@ jobs:
           fi
           git config user.name "arkan-system"
           git config user.email "actions@users.noreply.github.com"
-          git add app/dashboard/attendance/page.js components/attendance/AttendanceClientExcelReport.js
-          git commit -m "Fix attendance client Excel report"
+          git add app/dashboard/attendance/page.js components/attendance/AttendanceClientExcelReport.js components/attendance/AttendanceCalibrationPanel.js
+          git commit -m "Wire attendance review experience"
           git push
