@@ -5,7 +5,9 @@ import PrimaryActionModeSettings from '@/components/account/PrimaryActionModeSet
 export default function SettingsLayout({ children }) {
   return (
     <>
-      <PrimaryActionModeSettings />
+      <div id="primary-action-mode" data-primary-action-mode-anchor="true">
+        <PrimaryActionModeSettings />
+      </div>
       {children}
     </>
   );

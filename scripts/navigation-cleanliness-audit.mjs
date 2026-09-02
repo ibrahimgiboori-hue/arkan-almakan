@@ -57,16 +57,23 @@ if (constitution.includes("key: 'quote-register'")) {
   failures.push('PROJECT_NAV_GROUPS: سجل عروض الأسعار العام مكرر داخل المشروع؛ يجب أن يبقى له مدخل عام واحد فقط.');
 }
 
-// 4) العامل يُنشأ في سجل المقاول فقط؛ شاشة المشروع تسند عاملًا موجودًا ولا تنشئ ملف عامل جديدًا.
+// 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد: المشروع + المقاول + تاريخ الإسناد سياق واحد.
 const projectLabor = read('app/dashboard/projects/[id]/operations/labor/page.js');
-if (projectLabor.includes('fn_quick_add_workers') || projectLabor.includes('QUICK ADD')) {
-  failures.push('عمالة المشروع: عاد مسار إنشاء العمالة السريع داخل المشروع.');
+if (!projectLabor.includes('fn_quick_add_workers') || !projectLabor.includes('data-canonical-labor-create-form')) {
+  failures.push('عمالة المشروع: يجب أن تبقى شاشة المشروع هي مسار إنشاء العمالة وإسنادها الموحد.');
 }
 if (!projectLabor.includes('fn_assign_existing_laborer')) {
   failures.push('عمالة المشروع: يجب أن تستخدم الإسناد الصريح للعامل الموجود.');
 }
 if (/from\(['"]laborers['"]\)\.insert|from\(['"]laborers['"]\)[\s\S]{0,160}\.insert/.test(projectLabor)) {
-  failures.push('عمالة المشروع: لا يجوز إنشاء سجل laborers من داخل المشروع.');
+  failures.push('عمالة المشروع: لا يجوز تجاوز محرك العمالة الموحد بإنشاء laborers مباشرة من الواجهة.');
+}
+const contractorLabor = read('app/dashboard/contractors/[id]/labor/page.js');
+if (!contractorLabor.includes('data-retired-labor-entry="contractor-level"')) {
+  failures.push('عمالة المقاول: المسار القديم يجب أن يبقى بوابة اختيار مشروع فقط بلا إنشاء موازٍ.');
+}
+if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractorLabor)) {
+  failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
 // 5) لا توجد «منصة أعمال» موازية. الشريط الحالي هو القشرة الوحيدة، والتجميع داخله فقط.

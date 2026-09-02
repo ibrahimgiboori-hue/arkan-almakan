@@ -13,11 +13,14 @@ const PROJECT_ID = 'P1';
 const items = PROJECT_NAV_GROUPS.flatMap((group) => group.items);
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('project navigation puts labor before attendance and reports beside attendance', () => {
-  assert.equal(PROJECT_NAV_GROUPS[0].key, 'daily');
+test('project navigation separates daily work, setup-entry, and follow-up without duplicating functions', () => {
+  assert.deepEqual(PROJECT_NAV_GROUPS.map((group) => group.key), ['daily', 'entry', 'read']);
   assert.deepEqual(PROJECT_NAV_GROUPS[0].items.map((item) => item.key), [
-    'labor', 'attendance', 'timesheet-reports', 'daily-output', 'expenses', 'movements',
+    'attendance', 'expenses', 'daily-output',
   ]);
+  assert.equal(PROJECT_NAV_GROUPS[1].items[0].key, 'labor');
+  assert.equal(PROJECT_NAV_GROUPS[2].items.some((item) => item.key === 'timesheet-reports'), true);
+  assert.equal(PROJECT_NAV_GROUPS[2].items.some((item) => item.key === 'movements'), true);
 });
 
 test('project navigation has one canonical entry per visible function', () => {
