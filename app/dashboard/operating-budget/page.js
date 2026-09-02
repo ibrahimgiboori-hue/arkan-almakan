@@ -58,6 +58,11 @@ const EMPTY_SUMMARY = {
   plan_surplus_deficit: null,
   min_expected_cash: null,
   min_expected_free_balance: null,
+  monthly_operating_cost: 0,
+  accumulated_cycle_cost: 0,
+  scheduled_due_this_period: 0,
+  amount_due_now: 0,
+  overdue_amount: 0,
 };
 
 const CALC_TYPES = Object.keys(OPERATING_BUDGET.calculationLabels);
@@ -81,6 +86,23 @@ function num(value) {
 
 function amountLabel(value) {
   return `${money(value)} ريال`;
+}
+
+const PAYMENT_STATUS_LABELS = Object.freeze({
+  not_due: 'غير مستحق',
+  due: 'مستحق',
+  paid: 'مسدد',
+  overdue: 'متأخر',
+});
+
+function paymentStatusLabel(line) {
+  return PAYMENT_STATUS_LABELS[line?.payment_status] || line?.payment_status || '—';
+}
+
+function recurrenceLabel(line) {
+  const base = OPERATING_BUDGET.recurrenceLabels?.[line?.recurrence_unit] || line?.recurrence_unit || '';
+  const count = Number(line?.recurrence_interval_count || 1);
+  return count > 1 ? `${base} × ${count}` : base;
 }
 
 function stableJson(value) {
@@ -161,8 +183,11 @@ function buildGroupMaps(catalog) {
 
 function workErrorMessage(message) {
   const raw = String(message || 'تعذر تنفيذ الإجراء.');
+  if (raw.includes('BUDGET_CORRECTION_LOCKED')) {
+    return 'هذا البند عليه إجراء فعلي أو فترة مقفلة. لا يمكن إعادة كتابة الماضي؛ اختر تغييرًا من تاريخ جديد ليحفظ النظام التاريخ السابق.';
+  }
   if (raw.includes('إصدار التعرفة غير قابل للتعديل') || raw.includes('يوجد إصدار تعرفة يبدأ في نفس التاريخ')) {
-    return 'هذا الإصدار استُخدم بالفعل. إذا كانت المعلومة الجديدة تبدأ من تاريخ لاحق، غيّر «سريان القاعدة» إلى تاريخ بداية التغيير. وإذا كان التعديل لهذا الشهر فقط، نفّذه من كشف الشهر حتى يبقى التاريخ السابق محفوظًا.';
+    return 'إذا لم يقع على البند إجراء فعلي اختر «تصحيح بيانات سابقة». أما إذا بدأ التغيير الآن فاختر تغييرًا من تاريخ جديد.';
   }
   if (raw.includes('الجدول استُخدم فعليًا') || raw.includes('هذا الجدول استُخدم فعليًا')) {
     return 'هذه الجدولة دخلت في كشف سابق، لذلك لا نعيد كتابة الماضي. أنشئ التغيير من تاريخ سريان جديد، وسيبقى ما قبله محفوظًا.';
@@ -279,8 +304,8 @@ export default function OperatingBudgetPage() {
       return;
     }
     const [st, sm] = await Promise.all([
-      supabase.rpc('budget_period_statement', { p_period_id: periodRow.id }),
-      supabase.rpc('budget_period_summary', { p_period_id: periodRow.id }),
+      supabase.rpc('budget_period_statement_v2', { p_period_id: periodRow.id }),
+      supabase.rpc('budget_period_summary_v2', { p_period_id: periodRow.id }),
     ]);
     const firstError = st.error || sm.error;
     if (firstError) throw firstError;
@@ -410,15 +435,16 @@ export default function OperatingBudgetPage() {
     setMsg('');
     try {
       for (const line of selectedStatement) {
-        const dueAt = line.due_date ? `${line.due_date}T12:00:00+03:00` : null;
+        const attentionDate = line.payment_due_date || line.next_due_date || line.due_date;
+        const dueAt = attentionDate ? `${attentionDate}T12:00:00+03:00` : null;
         const { error } = await supabase.rpc('fn_set_attention', {
           p_source_table: 'budget_period_lines',
           p_source_id: line.line_id,
           p_title: line.item_name,
-          p_description: `${line.cash_effect_type === 'due_now' ? 'مستحق في' : 'ظاهر ضمن'} ${monthLabelAr(month)} · القيمة الحالية ${amountLabel(lineValue(line))}`,
+          p_description: `${line.has_due_in_period ? `استحقاق ${amountLabel(line.due_amount_this_period)} خلال ${monthLabelAr(month)}` : `تكلفة الشهر ${amountLabel(line.monthly_cost)}`} · ${paymentStatusLabel(line)}`,
           p_source_route: `/dashboard/operating-budget?month=${month}`,
           p_source_label: `ميزانية التشغيل · ${monthLabelAr(month)}`,
-          p_priority: line.cash_effect_type === 'due_now' ? 'high' : 'normal',
+          p_priority: ['due', 'overdue'].includes(line.payment_status) ? 'high' : 'normal',
           p_due_at: dueAt,
           p_project_id: null,
           p_active: true,
@@ -708,7 +734,7 @@ export default function OperatingBudgetPage() {
         );
         if (isCorrection) {
           revisionMode = 'correction';
-          revisionValidFrom = currentEffectiveFrom;
+          revisionValidFrom = nodeForm.valid_from;
         } else {
           const applyFromCurrentCycle = window.confirm(
             'هل تريد تطبيق التغيير من دورة ' + monthLabelAr(month) + ' وما بعدها؟\n\nاختيار «إلغاء» هنا يعني عدم الحفظ.'
@@ -726,28 +752,55 @@ export default function OperatingBudgetPage() {
         throw new Error('عرّف قاعدة الحساب أولًا قبل جدولة الاستحقاق.');
       }
 
-      const { error } = await supabase.rpc('budget_save_catalog_node', {
-        p_node_id: nodeForm.node_id || null,
-        p_node_type: nodeForm.node_type,
-        p_parent_item_id: nodeForm.parent_item_id || null,
-        p_branch_scope_id: nodeForm.branch_scope_id || null,
-        p_group_key: parent?.group_key || nodeForm.group_key,
-        p_name: nodeForm.name,
-        p_unit_label: nodeForm.node_type === 'item' ? nodeForm.unit_label || null : null,
-        p_calculation_type: nodeForm.node_type === 'item' ? nodeForm.calculation_type : null,
-        p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
-        p_cost_behavior: nodeForm.node_type === 'item' ? nodeForm.cost_behavior : null,
-        p_is_active: nodeForm.is_active,
-        p_notes: nodeForm.notes || null,
-        p_sort_order: Number(nodeForm.sort_order || 0),
-        p_rate_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
-        p_rate_params: rateParams,
-        p_rate_source: rateParams ? 'manual_entry' : null,
-        p_rate_bands: normalizedBands,
-        p_schedule_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
-        p_schedule: schedulePayload,
-      });
-      if (error) throw error;
+      let saveResult;
+      if (revisionMode === 'correction' && nodeForm.node_type === 'item') {
+        saveResult = await supabase.rpc('budget_save_catalog_item_revision', {
+          p_node_id: nodeForm.node_id,
+          p_parent_item_id: nodeForm.parent_item_id || null,
+          p_branch_scope_id: nodeForm.branch_scope_id || null,
+          p_group_key: parent?.group_key || nodeForm.group_key,
+          p_name: nodeForm.name,
+          p_unit_label: nodeForm.unit_label || null,
+          p_calculation_type: nodeForm.calculation_type,
+          p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
+          p_cost_behavior: nodeForm.cost_behavior,
+          p_is_active: nodeForm.is_active,
+          p_notes: nodeForm.notes || null,
+          p_sort_order: Number(nodeForm.sort_order || 0),
+          p_rate_version_id: currentRate?.id || null,
+          p_rate_valid_from: nodeForm.valid_from,
+          p_rate_params: rateParams,
+          p_rate_source: rateParams ? 'manual_entry' : null,
+          p_rate_bands: normalizedBands,
+          p_schedule_id: currentSchedule?.id || null,
+          p_schedule_valid_from: nodeForm.valid_from,
+          p_schedule: schedulePayload,
+          p_revision_mode: 'correction',
+        });
+      } else {
+        saveResult = await supabase.rpc('budget_save_catalog_node', {
+          p_node_id: nodeForm.node_id || null,
+          p_node_type: nodeForm.node_type,
+          p_parent_item_id: nodeForm.parent_item_id || null,
+          p_branch_scope_id: nodeForm.branch_scope_id || null,
+          p_group_key: parent?.group_key || nodeForm.group_key,
+          p_name: nodeForm.name,
+          p_unit_label: nodeForm.node_type === 'item' ? nodeForm.unit_label || null : null,
+          p_calculation_type: nodeForm.node_type === 'item' ? nodeForm.calculation_type : null,
+          p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
+          p_cost_behavior: nodeForm.node_type === 'item' ? nodeForm.cost_behavior : null,
+          p_is_active: nodeForm.is_active,
+          p_notes: nodeForm.notes || null,
+          p_sort_order: Number(nodeForm.sort_order || 0),
+          p_rate_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
+          p_rate_params: rateParams,
+          p_rate_source: rateParams ? 'manual_entry' : null,
+          p_rate_bands: normalizedBands,
+          p_schedule_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
+          p_schedule: schedulePayload,
+        });
+      }
+      if (saveResult.error) throw saveResult.error;
       const successMessage = nodeForm.node_type === 'group'
         ? 'تم حفظ التصنيف. قيمته ستأتي من أبنائه فقط.'
         : revisionMode === 'correction'
@@ -770,7 +823,7 @@ export default function OperatingBudgetPage() {
   }
 
   function lineValue(line) {
-    return num(line.confirmed_amount ?? line.expected_amount);
+    return num(line.monthly_cost);
   }
 
   function descendantLineTotal(groupId) {
@@ -794,7 +847,7 @@ export default function OperatingBudgetPage() {
       style={ACTIVE_WORK_STYLE}
       onKeyDown={(event) => contextualEscape(event, closeLineEditor)}
     >
-      <EntrySurface title={selectedLine.item_name} description={`${selectedLine.cash_effect_type === 'due_now' ? 'مستحق هذا الشهر' : 'التزام مستقبلي'} · ${dateAr(selectedLine.due_date)}`}>
+      <EntrySurface title={selectedLine.item_name} description={`${paymentStatusLabel(selectedLine)} · تكلفة الشهر ${amountLabel(selectedLine.monthly_cost)} · ${selectedLine.payment_due_date ? `موعد السداد ${dateAr(selectedLine.payment_due_date)}` : selectedLine.next_due_date ? `الاستحقاق القادم ${dateAr(selectedLine.next_due_date)}` : 'لا يوجد استحقاق قادم'}`}>
         <WorkGuide guidance={guidance} title={selectedLine.item_name} />
         <div style={{ padding: 22 }}>
           {workErr && <Notice tone="error">{workErr}</Notice>}
@@ -815,7 +868,7 @@ export default function OperatingBudgetPage() {
             <button className="btn ghost" onClick={confirmActual}>تثبيت القيمة الفعلية</button>
             <button className="btn ghost" onClick={closeLineEditor}>إغلاق</button>
           </Toolbar>}
-          {canMutatePeriod && selectedLine.cash_effect_type === 'due_now' && <form onSubmit={paySelected} style={{ marginTop: 18 }}>
+          {canMutatePeriod && num(selectedLine.amount_due_now) > 0 && <form onSubmit={paySelected} style={{ marginTop: 18 }}>
             <div className="form-grid">
               <div className="field"><label>حساب الخزينة</label><select value={paymentAccount} onChange={(e) => setPaymentAccount(e.target.value)}><option value="">اختر</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name_ar} — {money(a.current_balance)}</option>)}</select></div>
               <div className="field"><label>مبلغ السداد<InlineHelp text="المبلغ الذي سيخرج فعليًا من حساب الخزينة المختار ويرتبط بهذا الالتزام. لا يمكن أن يتجاوز المتبقي المستحق." /></label><input type="number" step="0.01" dir="ltr" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
@@ -843,28 +896,29 @@ export default function OperatingBudgetPage() {
 
     return <div key={group.id} style={{ marginInlineStart: depth * 14, marginBottom: 10 }}>
       <button type="button" className="btn ghost" style={{ width: '100%', justifyContent: 'space-between' }} onClick={() => setCollapsed((old) => ({ ...old, [group.id]: !isCollapsed }))}>
-        <strong>{isCollapsed ? '▸' : '▾'} {group.name}</strong><span>{amountLabel(total)}</span>
+        <strong>{isCollapsed ? '▸' : '▾'} {group.name}</strong><span>تكلفة الشهر {amountLabel(total)}</span>
       </button>
       {!isCollapsed && <div style={{ marginTop: 8 }}>
         {lines.length > 0 && <TableFrame><table data-selection-surface="true"><thead><tr>
           <th style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد بنود ${group.name}`} checked={allGroupSelected} ref={(node)=>{if(node)node.indeterminate=someGroupSelected;}} onChange={()=>toggleStatementGroup(lines)} /></th>
-          <th>التفصيل</th><th>المتوقع</th><th>الفعلي</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th>
+          <th>التفصيل</th><th>تكلفة الشهر</th><th>المتراكم</th><th>قيمة الدفعة</th><th>استحقاق هذا الشهر</th><th>الاستحقاق القادم</th><th>السداد</th><th></th>
         </tr></thead><tbody>
           {lines.map((line) => <Fragment key={line.line_id}>
             <tr data-record-row="true" data-record-id={line.line_id} data-record-source="budget_period_lines" data-record-selected={selectedStatementIds.has(String(line.line_id))?'true':'false'}>
               <td style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد ${line.item_name}`} checked={selectedStatementIds.has(String(line.line_id))} onChange={()=>toggleStatementLine(line)} /></td>
-              <td><strong>{line.item_name}</strong><div className="muted">{line.unit_label || ''}</div></td>
-              <td>{amountLabel(line.expected_amount)}</td>
-              <td>{line.confirmed_amount == null ? '—' : amountLabel(line.confirmed_amount)}</td>
-              <td>{amountLabel(line.paid_amount)}</td>
-              <td>{line.cash_effect_type === 'reserve_only' ? amountLabel(line.required_reserve) : '—'}</td>
-              <td>{line.cash_effect_type === 'due_now' ? 'مستحق' : `استحقاق ${dateAr(line.due_date)}`}</td>
+              <td><strong>{line.item_name}</strong><div className="muted">{[line.parent_name, recurrenceLabel(line)].filter(Boolean).join(' · ')}</div></td>
+              <td><strong>{amountLabel(line.monthly_cost)}</strong></td>
+              <td>{amountLabel(line.accumulated_cost)}</td>
+              <td><strong>{amountLabel(line.cycle_amount)}</strong></td>
+              <td>{line.has_due_in_period ? <><strong>{amountLabel(line.due_amount_this_period)}</strong><div className="muted">{line.payment_due_date ? dateAr(line.payment_due_date) : ''}</div></> : 'لا يوجد'}</td>
+              <td>{line.next_due_date ? dateAr(line.next_due_date) : '—'}</td>
+              <td><strong>{paymentStatusLabel(line)}</strong>{num(line.paid_amount) > 0 && <div className="muted">مدفوع {amountLabel(line.paid_amount)}</div>}{num(line.amount_due_now) > 0 && <div className="muted">المطلوب الآن {amountLabel(line.amount_due_now)}</div>}</td>
               <td><Toolbar>
                 {canMutatePeriod && <button id={`budget-line-edit-${line.line_id}`} className="btn ghost" onClick={() => editLine(line)}>تعديل</button>}
                 {canMutatePeriod && num(line.reserve_gap) > 0 && <button className="btn ghost" onClick={() => reserveGap(line)}>تم حجز المطلوب</button>}
               </Toolbar></td>
             </tr>
-            {selectedLine?.line_id === line.line_id && <tr><td colSpan={8} style={{ padding: 0, border: 0 }}>{renderLineEditor()}</td></tr>}
+            {selectedLine?.line_id === line.line_id && <tr><td colSpan={9} style={{ padding: 0, border: 0 }}>{renderLineEditor()}</td></tr>}
           </Fragment>)}
         </tbody></table></TableFrame>}
         {childGroups.map((child) => renderReportGroup(child, depth + 1))}
@@ -1009,17 +1063,17 @@ export default function OperatingBudgetPage() {
     </EntrySurface> : <>
       <Section title={`ملخص ${monthLabelAr(month)}`} actions={<>{period.status === 'closed' ? canReopen && <button className="btn ghost" onClick={reopenPeriod}>إعادة فتح</button> : canEdit && <button className="btn ghost" onClick={closePeriod}>إقفال الشهر</button>}</>}>
         <SummaryStrip items={[
-          { key: 'due', value: money(summary.confirmed_due || summary.expected_due), label: 'المطلوب هذا الشهر', note: 'ريال' },
-          { key: 'reserve', value: money(summary.required_reserve), label: 'المطلوب حجزه', note: 'ريال' },
+          { key: 'monthly', value: money(summary.monthly_operating_cost), label: 'تكلفة الشهر', note: 'ريال' },
+          { key: 'scheduled', value: money(summary.scheduled_due_this_period), label: 'استحقاقات الشهر', note: 'ريال' },
+          { key: 'due-now', value: money(summary.amount_due_now), label: 'المطلوب الآن', note: 'ريال' },
+          { key: 'overdue', value: money(summary.overdue_amount), label: 'متأخر', note: 'ريال' },
           { key: 'protected', value: money(summary.protected_balance), label: 'الرصيد المحمي', note: 'ريال' },
-          { key: 'free', value: summary.free_opening_balance == null ? '—' : money(summary.free_opening_balance), label: 'المتاح الحر', note: summary.free_opening_balance == null ? 'أدخل رصيد البداية' : 'ريال' },
           { key: 'paid', value: money(summary.paid), label: 'المدفوع فعليًا', note: 'ريال' },
-          { key: 'plan', value: summary.plan_surplus_deficit == null ? '—' : money(summary.plan_surplus_deficit), label: 'فائض/عجز الخطة', note: 'ريال' },
         ]} />
       </Section>
 
       <Section title="كشف الشهر" description="حدد ما تريد العمل عليه. التحديد لا ينشئ حركة مالية من تلقاء نفسه.">
-        <WorkSelectionDock count={selectedStatementIds.size} summary={`قيمة المحدد ${amountLabel(selectedStatementTotal)}`} onClear={()=>setSelectedStatementIds(new Set())}>
+        <WorkSelectionDock count={selectedStatementIds.size} summary={`تكلفة الشهر للمحدد ${amountLabel(selectedStatementTotal)}`} onClear={()=>setSelectedStatementIds(new Set())}>
           <button className="btn ghost" type="button" onClick={addSelectedToAttention} disabled={busy}>إضافة للمتابعة</button>
           <ProgramAction
             className="btn ghost"
