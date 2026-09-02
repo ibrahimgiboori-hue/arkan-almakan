@@ -10,39 +10,63 @@ function once(from, to) {
 }
 
 once(
-  "import { useDashboardSession } from '@/lib/dashboard-session-context';",
-  "import { useDashboardSession } from '@/lib/dashboard-session-context';\nimport AttendanceCalibrationPanel from '@/components/attendance/AttendanceCalibrationPanel';\nimport AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';"
+  "import AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';",
+  "import AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';\nimport AttendanceProcessingTable from '@/components/attendance/AttendanceProcessingTable';\nimport AttendanceJustificationDialog from '@/components/attendance/AttendanceJustificationDialog';"
 );
 
-s = s.replace("no_schedule:'لا يوجد روتين'", "no_schedule:'ساعات الدوام غير محددة'");
-s = s.replace("uploaded:'مرفوع', parsed:'تم الاستخراج', analyzed:'تم التحليل'", "uploaded:'مرفوع', parsed:'تم الاستخراج', calibrated:'تمت معايرة ساعات الدوام', analyzed:'تم التحليل'");
-s = s.replace("const STAGE_ORDER = ['parsed','analyzed'", "const STAGE_ORDER = ['parsed','calibrated','analyzed'");
-s = s.replace("<p className=\"hint\" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج تراجع الأشخاص والروتين ثم تبدأ التحليل.</p>", "<p className=\"hint\" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج يعاير البرنامج ساعات الدوام من البصمات، ثم تراجع الاستثناءات وتبدأ التحليل.</p>");
-s = s.replace("          {stage==='parsed'&&<button className=\"btn\" disabled={busy} onClick={()=>runStage('analyze')}>تحليل البيانات</button>}\n", "");
+const processedStart = '    {activeImport && stageIndex(stage)>=stageIndex(\'analyzed\') && <div className="section">';
+const justificationStart = '    {selectedDay && activeImport && ![\'posted\',\'closed\'].includes(stage) && <div className="section">';
+const eventsStart = '    {activeImport && events.length>0 && <div className="section">';
 
-once(
-  "          <button className=\"btn ghost\" disabled={busy} onClick={exportWorkbook}>تصدير Excel للحالة الحالية</button>",
-  "          <button className=\"btn ghost\" disabled={busy} onClick={exportWorkbook}>ملف المراجعة Excel</button>\n          <AttendanceClientExcelReport activeImport={activeImport} disabled={busy || !['recalculated','ready_to_post','posted','closed'].includes(stage)} />"
-);
+if (s.includes(processedStart)) {
+  const a = s.indexOf(processedStart);
+  const b = s.indexOf(justificationStart, a);
+  if (b < 0) throw new Error('Could not locate justification block after processed table');
+  s = s.slice(0,a) + `    {activeImport && stageIndex(stage)>=stageIndex('analyzed') && <AttendanceProcessingTable days={days} stage={stage} onOpenJustification={openJustification} />}\n\n` + s.slice(b);
+}
 
-once(
-  "    {activeImport && !['posted','closed'].includes(stage) && <div className=\"section\">\n      <header><h2>روتين الدوام للدفعة</h2><span className=\"hint\">التحليل يعتمد على الروتين لتحديد الدخول والخروج والانحرافات.</span></header>",
-  "    <AttendanceCalibrationPanel activeImport={activeImport} employees={employees} externalPeople={externalPeople} onRefresh={async()=>{ if(activeImport?.id){ await loadImports(activeImport.id); await loadActive(activeImport.id); } }} />\n\n    {activeImport && !['posted','closed'].includes(stage) && <div className=\"section\">\n      <header><h2>مراجعة / تعديل ساعات الدوام</h2><span className=\"hint\">استخدم هذا القسم فقط لتعديل الحالات التي لم يستطع البرنامج معايرتها بثقة أو لتسجيل ساعات دوام معتمدة من العميل.</span></header>"
-);
-
-s = s.replace('<label>اسم الروتين</label>', '<label>وصف ساعات الدوام</label>');
-s = s.replace('تم حفظ الروتين. لا يوجد أثر رسمي قبل الترحيل.', 'تم حفظ ساعات الدوام. لا يوجد أثر رسمي قبل الترحيل.');
-s = s.replace('كل يوم عمل يحتاج وقت بداية ونهاية.', 'كل يوم عمل يحتاج ساعة بداية وساعة نهاية.');
-s = s.replace('اختر الشخص وحدد بداية سريان الروتين.', 'اختر الشخص وحدد بداية سريان ساعات الدوام.');
-s = s.replace('>حفظ الروتين</button>', '>حفظ ساعات الدوام</button>');
-s = s.replace('<th>الروتين</th>', '<th>ساعات الدوام</th>');
+if (s.includes(justificationStart)) {
+  const a = s.indexOf(justificationStart);
+  const b = s.indexOf(eventsStart, a);
+  if (b < 0) throw new Error('Could not locate events block after justification panel');
+  const replacement = `    {selectedDay && activeImport && !['posted','closed'].includes(stage) && <AttendanceJustificationDialog day={selectedDay} isPrimary={isPrimary} onClose={()=>setSelectedDay(null)} onRefresh={async()=>{ await loadActive(activeImport.id); await loadImports(activeImport.id); }} />}\n\n`;
+  s = s.slice(0,a) + replacement + s.slice(b);
+}
 
 fs.writeFileSync(path, s);
 
 const reportPath = 'components/attendance/AttendanceClientExcelReport.js';
 let r = fs.readFileSync(reportPath, 'utf8');
-r = r.replaceAll(
-  "Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0));",
-  "Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0)));"
+if (!r.includes('const JUSTIFICATION_AR =')) {
+  r = r.replace(
+    "const DECISION_AR = {\n  accepted: 'مقبول',\n  rejected: 'غير مقبول',\n  pending: 'بانتظار القرار',\n};",
+    "const DECISION_AR = {\n  accepted: 'مقبول',\n  rejected: 'غير مقبول',\n  pending: 'بانتظار القرار',\n};\n\nconst JUSTIFICATION_AR = {\n  sick_leave:'إجازة مرضية', approved_leave:'إجازة معتمدة', non_working_day:'اليوم غير ضمن أيام العمل',\n  outside_work:'عمل خارج المركز', biometric_device_issue:'مشكلة تقنية في جهاز البصمة', forgot_punch:'نسيان البصمة',\n  approved_shift_change:'تغيير ساعات دوام / شفت معتمد', approved_late_early_permission:'إذن تأخير أو خروج معتمد',\n  training_meeting_assignment:'تدريب / اجتماع / تكليف رسمي', other_site_branch:'العمل في فرع أو موقع آخر', other:'أخرى',\n};"
+  );
+}
+r = r.replace(
+  "const processHeaders = ['رقم الموظف','الموظف','التاريخ','الحالة الأولية','التبرير المقدم','المرجع / المستند','قرار صاحب العمل','ملاحظة القرار','الخصم الأولي','الخصم بعد القرار','النتيجة'];",
+  "const processHeaders = ['رقم الموظف','الموظف','التاريخ','الحالة الأولية','نوع التبرير','تفاصيل التبرير','المرجع / المستند','قرار صاحب العمل','ملاحظة القرار','الخصم الأولي','الخصم بعد القرار','النتيجة'];"
+);
+r = r.replace(
+  "d.justification_text || 'لا يوجد تبرير', d.paper_reference || '—', decision === 'none' ? 'لا يوجد تبرير' : (DECISION_AR[decision] || decision),",
+  "d.justification_id ? (JUSTIFICATION_AR[d.justification_type] || 'تبرير مسجل') : 'لا يوجد تبرير', d.justification_text || '—', d.paper_reference || '—', decision === 'none' ? 'لا يوجد تبرير' : (DECISION_AR[decision] || decision),"
+);
+r = r.replace(
+  "if (decision === 'accepted') row.getCell(7).fill",
+  "if (decision === 'accepted') row.getCell(8).fill"
+);
+r = r.replace(
+  "if (decision === 'rejected') row.getCell(7).fill",
+  "if (decision === 'rejected') row.getCell(8).fill"
+);
+r = r.replace(
+  "if (decision === 'pending') row.getCell(7).fill",
+  "if (decision === 'pending') row.getCell(8).fill"
 );
 fs.writeFileSync(reportPath, r);
+
+const calibrationPath = 'components/attendance/AttendanceCalibrationPanel.js';
+let c = fs.readFileSync(calibrationPath, 'utf8');
+c = c.replace('تمت معايرة ساعات الدوام جماعيًا من الملف على رؤوس الساعات.','تمت معايرة ساعات الدوام جماعيًا باعتماد النمط الأكثر تكرارًا فعليًا، مع تثبيت الساعات على رأس الساعة.');
+c = c.replace('يستنتج البرنامج ساعات الدوام من تجمع البصمات حول رأس الساعة :00، ثم تراجع الاستثناءات فقط.','يستنتج البرنامج ساعات الدوام من النمط الأكثر تكرارًا فعليًا لحركات البصمة حول رأس الساعة :00؛ التعادل فقط يُحال للمراجعة.');
+fs.writeFileSync(calibrationPath, c);
