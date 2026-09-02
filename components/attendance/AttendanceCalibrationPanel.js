@@ -50,7 +50,7 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
     if(kind==='analyze') q=await supabase.rpc('hr_analyze_attendance_import',{p_import_id:activeImport.id});
     setBusy(false);
     if(q?.error){setErr(q.error.message);return;}
-    if(kind==='calibrate') setMsg('تمت معايرة ساعات الدوام جماعيًا من الملف على رؤوس الساعات.');
+    if(kind==='calibrate') setMsg('تمت معايرة ساعات الدوام جماعيًا باعتماد النمط الأكثر تكرارًا فعليًا، مع تثبيت الساعات على رأس الساعة.');
     if(kind==='apply') setMsg('تم اعتماد ساعات الدوام ذات الثقة المتوسطة فأعلى. راجع الاستثناءات فقط.');
     if(kind==='analyze') setMsg('تم تحليل الحضور بناءً على ساعات الدوام المعتمدة.');
     await load();
@@ -60,7 +60,7 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
   if(!activeImport || ['posted','closed'].includes(activeImport.status)) return null;
 
   return <div className="section">
-    <header><h2>معايرة ساعات الدوام</h2><span className="hint">يستنتج البرنامج ساعات الدوام من تجمع البصمات حول رأس الساعة :00، ثم تراجع الاستثناءات فقط.</span></header>
+    <header><h2>معايرة ساعات الدوام</h2><span className="hint">يستنتج البرنامج ساعات الدوام من النمط الأكثر تكرارًا فعليًا لحركات البصمة حول رأس الساعة :00؛ التعادل فقط يُحال للمراجعة.</span></header>
     <div style={{padding:18}}>
       {err&&<div className="msg err">{err}</div>}{msg&&<div className="msg ok">{msg}</div>}
       <div className="rowsplit" style={{marginBottom:14}}>
