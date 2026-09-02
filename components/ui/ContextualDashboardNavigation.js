@@ -58,8 +58,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const searchParams = useSearchParams();
   const openTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
+  const lastPathRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [pinReady, setPinReady] = useState(false);
   const [panel, setPanel] = useState({ type:'root' });
   const [motionDirection, setMotionDirection] = useState('forward');
 
@@ -182,34 +184,36 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }, [currentAreaGroup, currentAreaKey, currentProjectGroup, projectId]);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(PIN_STORAGE_KEY) === 'true';
-      setPinned(saved);
-      setOpen(saved);
-      if (saved) setPanel(contextPanel);
-    } catch (_) {
-      // التخزين المحلي تحسين تجربة فقط؛ فشله لا يعطل الملاحة.
-    }
+    let saved = false;
+    try { saved = window.localStorage.getItem(PIN_STORAGE_KEY) === 'true'; } catch (_) {}
+    setPinned(saved);
+    setOpen(saved);
+    if (saved) setPanel(contextPanel);
+    lastPathRef.current = pathname;
+    setPinReady(true);
+  // The first contextual panel is intentionally captured from the route at mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    if (!pinReady) return undefined;
     document.body.classList.toggle('appNavPinned', pinned);
     try { window.localStorage.setItem(PIN_STORAGE_KEY, String(pinned)); } catch (_) {}
     return () => document.body.classList.remove('appNavPinned');
-  }, [pinned]);
+  }, [pinReady, pinned]);
 
   useEffect(() => {
+    if (!pinReady) return;
+    const routeChanged = Boolean(lastPathRef.current && lastPathRef.current !== pathname);
     if (pinned) {
       setOpen(true);
       setPanel(contextPanel);
       setMotionDirection('forward');
-    } else {
+    } else if (routeChanged) {
       setOpen(false);
     }
-  // pathname is intentionally the route-change signal.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+    lastPathRef.current = pathname;
+  }, [contextPanel, pathname, pinReady, pinned]);
 
   useEffect(() => {
     function keydown(event) {
@@ -274,8 +278,14 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }
 
   function togglePinned() {
-    setPinned((value) => !value);
-    setOpen(true);
+    setPinned((value) => {
+      const next = !value;
+      if (next) {
+        setOpen(true);
+        setPanel(contextPanel);
+      }
+      return next;
+    });
   }
 
   const activeArea = panel.areaKey
