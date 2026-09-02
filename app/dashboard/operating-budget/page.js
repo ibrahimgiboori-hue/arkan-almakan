@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import { appendSelectionToUrl } from '@/lib/record-selection';
@@ -30,6 +31,9 @@ import {
 } from '@/lib/operating-budget';
 import ProgramAction from '@/components/ui/ProgramAction';
 import { WorkSelectionDock } from '@/components/ui/WorkSheetKernel';
+import InlineHelp from '@/components/ui/InlineHelp';
+import AttentionArea from '@/components/ui/AttentionArea';
+import DisclosureSection from '@/components/ui/DisclosureSection';
 import {
   ConstitutionPage,
   PageHeader,
@@ -178,11 +182,12 @@ function WorkGuide({ guidance, title }) {
 
 export default function OperatingBudgetPage() {
   const me = useDashboardSession();
+  const searchParams = useSearchParams();
   const canView = hasCapability(me, OPERATING_BUDGET.capability.view);
   const canEdit = hasCapability(me, OPERATING_BUDGET.capability.edit);
   const canReopen = hasCapability(me, OPERATING_BUDGET.capability.reopen);
 
-  const [month, setMonth] = useState(monthKey(operationalDate()));
+  const [month, setMonth] = useState(() => searchParams.get('month') || monthKey(operationalDate()));
   const [period, setPeriod] = useState(null);
   const [statement, setStatement] = useState([]);
   const [selectedStatementIds, setSelectedStatementIds] = useState(() => new Set());
@@ -204,6 +209,7 @@ export default function OperatingBudgetPage() {
   const [showNodeEditor, setShowNodeEditor] = useState(false);
   const [nodeForm, setNodeForm] = useState(() => emptyNode());
   const [openingBalance, setOpeningBalance] = useState('');
+  const [attentionRefresh, setAttentionRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -395,6 +401,38 @@ export default function OperatingBudgetPage() {
   function printSelectedStatement() {
     if (!selectedStatementIds.size) return;
     window.open(appendSelectionToUrl(`/print/operating-budget?month=${month}`, selectedStatementIds), '_blank', 'noopener,noreferrer');
+  }
+
+  async function addSelectedToAttention() {
+    if (!selectedStatement.length || busy) return;
+    setBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      for (const line of selectedStatement) {
+        const dueAt = line.due_date ? `${line.due_date}T12:00:00+03:00` : null;
+        const { error } = await supabase.rpc('fn_set_attention', {
+          p_source_table: 'budget_period_lines',
+          p_source_id: line.line_id,
+          p_title: line.item_name,
+          p_description: `${line.cash_effect_type === 'due_now' ? 'مستحق في' : 'ظاهر ضمن'} ${monthLabelAr(month)} · القيمة الحالية ${amountLabel(lineValue(line))}`,
+          p_source_route: `/dashboard/operating-budget?month=${month}`,
+          p_source_label: `ميزانية التشغيل · ${monthLabelAr(month)}`,
+          p_priority: line.cash_effect_type === 'due_now' ? 'high' : 'normal',
+          p_due_at: dueAt,
+          p_project_id: null,
+          p_active: true,
+        });
+        if (error) throw error;
+      }
+      setAttentionRefresh((value) => value + 1);
+      setSelectedStatementIds(new Set());
+      setMsg(`تمت إضافة ${selectedStatement.length} بند للمتابعة. سيظل ظاهرًا حتى تتم معالجته.`);
+    } catch (e) {
+      setErr(e?.message || 'تعذر إضافة البنود للمتابعة.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveLineEstimate(scope) {
@@ -762,12 +800,12 @@ export default function OperatingBudgetPage() {
           {workErr && <Notice tone="error">{workErr}</Notice>}
           <div className="form-grid">
             {selectedLineFields.map((field) => <div className="field" key={field.key}>
-              <label>{field.label}</label>
+              <label>{field.label}<InlineHelp text={field.help || 'هذا الرقم يدخل مباشرة في تقدير قيمة البند لهذا الشهر.'} /></label>
               <input type="number" step={field.step || '0.01'} dir="ltr" disabled={!canMutatePeriod} value={lineInputs[field.key] ?? ''} onChange={(e) => setLineInputs((old) => ({ ...old, [field.key]: e.target.value }))} />
               {field.help && <small>{field.help}</small>}
             </div>)}
             <div className="field">
-              <label>القيمة الفعلية</label>
+              <label>القيمة الفعلية<InlineHelp text="المبلغ المؤكد فعليًا لهذا البند في الشهر. بعد تثبيته يصبح هو المرجع بدل التقدير المتوقع." /></label>
               <input type="number" step="0.01" dir="ltr" disabled={!canMutatePeriod} value={confirmedAmount} onChange={(e) => setConfirmedAmount(e.target.value)} />
             </div>
           </div>
@@ -780,7 +818,7 @@ export default function OperatingBudgetPage() {
           {canMutatePeriod && selectedLine.cash_effect_type === 'due_now' && <form onSubmit={paySelected} style={{ marginTop: 18 }}>
             <div className="form-grid">
               <div className="field"><label>حساب الخزينة</label><select value={paymentAccount} onChange={(e) => setPaymentAccount(e.target.value)}><option value="">اختر</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name_ar} — {money(a.current_balance)}</option>)}</select></div>
-              <div className="field"><label>مبلغ السداد</label><input type="number" step="0.01" dir="ltr" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
+              <div className="field"><label>مبلغ السداد<InlineHelp text="المبلغ الذي سيخرج فعليًا من حساب الخزينة المختار ويرتبط بهذا الالتزام. لا يمكن أن يتجاوز المتبقي المستحق." /></label><input type="number" step="0.01" dir="ltr" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
               <div className="field"><label>المرجع</label><input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} /></div>
             </div>
             <Toolbar><button className="btn" type="submit">سداد وربط بالخزينة</button></Toolbar>
@@ -813,7 +851,7 @@ export default function OperatingBudgetPage() {
           <th>التفصيل</th><th>المتوقع</th><th>الفعلي</th><th>المدفوع</th><th>المخصص المطلوب</th><th>الحالة</th><th></th>
         </tr></thead><tbody>
           {lines.map((line) => <Fragment key={line.line_id}>
-            <tr data-record-row="true" data-record-selected={selectedStatementIds.has(String(line.line_id))?'true':'false'}>
+            <tr data-record-row="true" data-record-id={line.line_id} data-record-source="budget_period_lines" data-record-selected={selectedStatementIds.has(String(line.line_id))?'true':'false'}>
               <td style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد ${line.item_name}`} checked={selectedStatementIds.has(String(line.line_id))} onChange={()=>toggleStatementLine(line)} /></td>
               <td><strong>{line.item_name}</strong><div className="muted">{line.unit_label || ''}</div></td>
               <td>{amountLabel(line.expected_amount)}</td>
@@ -865,12 +903,12 @@ export default function OperatingBudgetPage() {
               <div className="field"><label>طريقة الحساب</label><select value={nodeForm.calculation_type} onChange={(e) => changeCalculationType(e.target.value)}>{CALC_TYPES.map((type) => <option key={type} value={type}>{OPERATING_BUDGET.calculationLabels[type]}</option>)}</select></div>
               <div className="field"><label>سلوك التكلفة</label><select value={nodeForm.cost_behavior} onChange={(e) => setNodeForm((old) => ({ ...old, cost_behavior: e.target.value }))}>{COST_BEHAVIORS.map((type) => <option key={type} value={type}>{OPERATING_BUDGET.costBehaviorLabels[type]}</option>)}</select></div>
               <div className="field"><label>الوحدة</label><input value={nodeForm.unit_label} onChange={(e) => setNodeForm((old) => ({ ...old, unit_label: e.target.value }))} /></div>
-              <div className="field"><label>سريان القاعدة</label><input type="date" dir="ltr" value={nodeForm.valid_from} onChange={(e) => setNodeForm((old) => ({ ...old, valid_from: e.target.value }))} /><small className="muted">إذا تغيرت القاعدة بعد أن استُخدمت سابقًا، اجعل هذا تاريخ بداية القاعدة الجديدة بدل تعديل الماضي.</small></div>
+              <div className="field"><label>سريان القاعدة<InlineHelp text="من هذا التاريخ يبدأ استخدام قاعدة الحساب أو القيمة الحالية. التاريخ القديم قد يجعل التعديل تصحيحًا تاريخيًا؛ لا تستخدمه إذا كان التغيير يبدأ من الآن." /></label><input type="date" dir="ltr" value={nodeForm.valid_from} onChange={(e) => setNodeForm((old) => ({ ...old, valid_from: e.target.value }))} /><small className="muted">إذا تغيرت القاعدة بعد أن استُخدمت سابقًا، اجعل هذا تاريخ بداية القاعدة الجديدة بدل تعديل الماضي.</small></div>
             </div>
 
-            {simpleRateFields.length > 0 && <Section title="أساس الاحتساب"><div className="form-grid" style={{ padding: 14 }}>{simpleRateFields.map((field) => <div className="field" key={field.key}><label>{field.label}</label><input type="number" step={field.step || '0.01'} dir="ltr" value={nodeForm.rate_inputs?.[field.key] ?? ''} onChange={(e) => setNodeForm((old) => ({ ...old, rate_inputs: { ...old.rate_inputs, [field.key]: e.target.value } }))} /></div>)}</div></Section>}
+            {simpleRateFields.length > 0 && <Section title="أساس الاحتساب"><div className="form-grid" style={{ padding: 14 }}>{simpleRateFields.map((field) => <div className="field" key={field.key}><label>{field.label}<InlineHelp text={field.help || 'هذا الرقم يدخل في حساب قيمة البند لكل دورة وفق طريقة الحساب المختارة.'} /></label><input type="number" step={field.step || '0.01'} dir="ltr" value={nodeForm.rate_inputs?.[field.key] ?? ''} onChange={(e) => setNodeForm((old) => ({ ...old, rate_inputs: { ...old.rate_inputs, [field.key]: e.target.value } }))} /></div>)}</div></Section>}
 
-            {nodeForm.calculation_type === 'tiered' && <Section title="الشرائح" description="قيمة الشريحة كاملة أو سعر لكل وحدة حسب نوعها."><div style={{ padding: 14 }}>{nodeForm.bands.map((band, i) => <div className="form-grid" key={i}><div className="field"><label>من</label><input type="number" value={band.min_count} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, min_count: e.target.value } : b) }))} /></div><div className="field"><label>إلى (فارغ = بلا حد)</label><input type="number" value={band.max_count ?? ''} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, max_count: e.target.value } : b) }))} /></div><div className="field"><label>طريقة الشريحة</label><select value={band.band_mode || 'flat_fee_on_entry'} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, band_mode: e.target.value } : b) }))}><option value="flat_fee_on_entry">قيمة الشريحة كاملة</option><option value="per_unit_in_band">سعر × العدد</option><option value="per_unit_cumulative">تراكمي</option></select></div><div className="field"><label>القيمة</label><input type="number" step="0.01" value={band.band_amount} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, band_amount: e.target.value } : b) }))} /></div><button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, bands: old.bands.filter((_, j) => j !== i) }))}>حذف</button></div>)}<button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, bands: [...old.bands, { band_order: old.bands.length + 1, min_count: 0, max_count: '', band_mode: 'flat_fee_on_entry', band_amount: '' }] }))}>+ شريحة</button></div></Section>}
+            {nodeForm.calculation_type === 'tiered' && <Section title="الشرائح" description="قيمة الشريحة كاملة أو سعر لكل وحدة حسب نوعها."><div style={{ padding: 14 }}>{nodeForm.bands.map((band, i) => <div className="form-grid" key={i}><div className="field"><label>من<InlineHelp text="أول كمية أو عدد تدخل ضمن هذه الشريحة." /></label><input type="number" value={band.min_count} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, min_count: e.target.value } : b) }))} /></div><div className="field"><label>إلى (فارغ = بلا حد)<InlineHelp text="آخر كمية أو عدد في هذه الشريحة. تركه فارغًا يجعل الشريحة مفتوحة بلا حد أعلى." /></label><input type="number" value={band.max_count ?? ''} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, max_count: e.target.value } : b) }))} /></div><div className="field"><label>طريقة الشريحة</label><select value={band.band_mode || 'flat_fee_on_entry'} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, band_mode: e.target.value } : b) }))}><option value="flat_fee_on_entry">قيمة الشريحة كاملة</option><option value="per_unit_in_band">سعر × العدد</option><option value="per_unit_cumulative">تراكمي</option></select></div><div className="field"><label>القيمة<InlineHelp text="المبلغ أو سعر الوحدة الذي يطبقه النظام على هذه الشريحة حسب طريقة الشريحة المختارة." /></label><input type="number" step="0.01" value={band.band_amount} onChange={(e) => setNodeForm((old) => ({ ...old, bands: old.bands.map((b, j) => j === i ? { ...b, band_amount: e.target.value } : b) }))} /></div><button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, bands: old.bands.filter((_, j) => j !== i) }))}>حذف</button></div>)}<button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, bands: [...old.bands, { band_order: old.bands.length + 1, min_count: 0, max_count: '', band_mode: 'flat_fee_on_entry', band_amount: '' }] }))}>+ شريحة</button></div></Section>}
 
             {COMPONENT_CALC_TYPES.includes(nodeForm.calculation_type) && <>
               <Section title="مدخلات الحساب" description="عرّف الأرقام التي ستعتمد عليها المكونات مرة واحدة، ثم اخترها صراحةً كأساس للاحتساب داخل كل مكوّن."><div style={{ padding: 14 }}>
@@ -891,11 +929,11 @@ export default function OperatingBudgetPage() {
                       <div className="field"><label>نوع الحساب</label><select value={c.mode} onChange={(e) => changeComponentMode(i, e.target.value)}>{COMPONENT_MODES.map((mode) => <option key={mode} value={mode}>{OPERATING_BUDGET.componentModeLabels[mode]}</option>)}</select></div>
                       <div className="field"><label>التجميع</label><select value={c.bucket} onChange={(e) => updateComponent(i, { bucket: e.target.value })}>{BUCKETS.map((bucket) => <option key={bucket} value={bucket}>{OPERATING_BUDGET.metricBucketLabels[bucket]}</option>)}</select></div>
                     </div>
-                    {c.mode === 'fixed' && <div className="field"><label>القيمة</label><input type="number" step="0.01" value={c.amount} onChange={(e) => updateComponent(i, { amount: e.target.value })} /></div>}
+                    {c.mode === 'fixed' && <div className="field"><label>القيمة<InlineHelp text="قيمة ثابتة تضاف لهذا المكون في كل احتساب تنطبق عليه القاعدة." /></label><input type="number" step="0.01" value={c.amount} onChange={(e) => updateComponent(i, { amount: e.target.value })} /></div>}
                     {budgetComponentNeedsSingleInput(c.mode) && <div className="field"><label>{c.mode === 'percentage_of_input' ? 'أساس الاحتساب' : 'المدخل'}</label><select value={c.input_key || ''} onChange={(e) => selectComponentInput(i, e.target.value)}><option value="">اختر</option>{inputOptions.map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}</select></div>}
-                    {c.mode === 'percentage_of_input' && <><div className="field"><label>النسبة %</label><input type="number" step="0.0001" value={c.rate_percent} onChange={(e) => updateComponent(i, { rate_percent: e.target.value })} /></div>{selectedInput && <small className="muted">{c.label || 'المكوّن'} = {selectedInput.label} × {c.rate_percent || 0}%</small>}</>}
-                    {c.mode === 'per_unit' && <div className="form-grid"><div className="field"><label>سعر الوحدة</label><input type="number" step="0.01" value={c.unit_price} onChange={(e) => updateComponent(i, { unit_price: e.target.value })} /></div><div className="field"><label>وحدات مشمولة</label><input type="number" value={c.included_units} onChange={(e) => updateComponent(i, { included_units: e.target.value })} /></div></div>}
-                    {c.mode === 'input_times_constant' && <div className="field"><label>المعامل</label><input type="number" step="0.0001" value={c.factor} onChange={(e) => updateComponent(i, { factor: e.target.value })} /></div>}
+                    {c.mode === 'percentage_of_input' && <><div className="field"><label>النسبة %<InlineHelp text="يضرب النظام أساس الاحتساب المختار في هذه النسبة لإنتاج قيمة المكون." /></label><input type="number" step="0.0001" value={c.rate_percent} onChange={(e) => updateComponent(i, { rate_percent: e.target.value })} /></div>{selectedInput && <small className="muted">{c.label || 'المكوّن'} = {selectedInput.label} × {c.rate_percent || 0}%</small>}</>}
+                    {c.mode === 'per_unit' && <div className="form-grid"><div className="field"><label>سعر الوحدة<InlineHelp text="السعر الذي يضربه النظام في عدد الوحدات الخاضعة للاحتساب." /></label><input type="number" step="0.01" value={c.unit_price} onChange={(e) => updateComponent(i, { unit_price: e.target.value })} /></div><div className="field"><label>وحدات مشمولة<InlineHelp text="عدد الوحدات التي تعتبر مشمولة قبل تطبيق أي تكلفة إضافية حسب قاعدة هذا المكون." /></label><input type="number" value={c.included_units} onChange={(e) => updateComponent(i, { included_units: e.target.value })} /></div></div>}
+                    {c.mode === 'input_times_constant' && <div className="field"><label>المعامل<InlineHelp text="يضرب النظام المدخل المختار في هذا الرقم لإنتاج قيمة المكون." /></label><input type="number" step="0.0001" value={c.factor} onChange={(e) => updateComponent(i, { factor: e.target.value })} /></div>}
                     {c.mode === 'multiply_inputs' && <div className="form-grid"><div className="field"><label>المدخل الأول</label><select value={c.left_input_key || ''} onChange={(e) => updateComponent(i, { left_input_key: e.target.value })}><option value="">اختر</option>{inputOptions.map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}</select></div><div className="field"><label>المدخل الثاني</label><select value={c.right_input_key || ''} onChange={(e) => updateComponent(i, { right_input_key: e.target.value })}><option value="">اختر</option>{inputOptions.map((field) => <option key={field.key} value={field.key}>{field.label}</option>)}</select></div></div>}
                     <button type="button" className="btn ghost" onClick={() => setNodeForm((old) => ({ ...old, components: old.components.filter((_, j) => j !== i) }))}>حذف المكون</button>
                   </div>;
@@ -905,12 +943,12 @@ export default function OperatingBudgetPage() {
             </>}
 
             <Section title="الجدولة" description="حدد التكرار وتاريخ الاستحقاق المرجعي. تاريخ الاستحقاق هو اليوم الذي تتوقع فيه نزول الفاتورة أو حلول الالتزام."><div className="form-grid" style={{ padding: 14 }}>
-              <div className="field"><label>الدورية</label><select value={nodeForm.recurrence_unit} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_unit: e.target.value }))}>{RECURRENCES.map((r) => <option key={r} value={r}>{OPERATING_BUDGET.recurrenceLabels[r]}</option>)}</select></div>
-              <div className="field"><label>كل كم دورة</label><input type="number" min="1" value={nodeForm.recurrence_interval_count} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_interval_count: e.target.value }))} /></div>
-              <div className="field"><label>تاريخ الاستحقاق المرجعي</label><input type="date" dir="ltr" value={nodeForm.anchor_date} onChange={(e) => setNodeForm((old) => ({ ...old, anchor_date: e.target.value }))} /></div>
-              <div className="field"><label>نهاية السريان (اختياري)</label><input type="date" dir="ltr" value={nodeForm.schedule_valid_to || ''} onChange={(e) => setNodeForm((old) => ({ ...old, schedule_valid_to: e.target.value }))} /><small className="muted">اتركها فارغة إذا كان الالتزام مستمرًا بلا نهاية محددة.</small></div>
-              <div className="field"><label>بداية الحجز</label><select value={nodeForm.accrual_start_rule} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_start_rule: e.target.value }))}><option value="from_period_start">من بداية دورة الاستحقاق</option><option value="immediately_after_previous_due">بعد الاستحقاق السابق مباشرة</option><option value="fixed_months_before_due">قبل الاستحقاق بعدد أشهر</option></select></div>
-              {nodeForm.accrual_start_rule === 'fixed_months_before_due' && <div className="field"><label>عدد الأشهر</label><input type="number" min="1" value={nodeForm.accrual_lead_months} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_lead_months: e.target.value }))} /></div>}
+              <div className="field"><label>الدورية<InlineHelp text="تحدد وحدة التكرار: شهر أو سنة أو غيرها. الرقم في «كل كم دورة» يعمل على هذه الوحدة." /></label><select value={nodeForm.recurrence_unit} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_unit: e.target.value }))}>{RECURRENCES.map((r) => <option key={r} value={r}>{OPERATING_BUDGET.recurrenceLabels[r]}</option>)}</select></div>
+              <div className="field"><label>كل كم دورة<InlineHelp text={`إذا كانت الدورية ${OPERATING_BUDGET.recurrenceLabels[nodeForm.recurrence_unit] || 'المختارة'} والرقم ${nodeForm.recurrence_interval_count || 1}، يتكرر الاستحقاق كل ${nodeForm.recurrence_interval_count || 1} دورة بدءًا من التاريخ المرجعي.`} /></label><input type="number" min="1" value={nodeForm.recurrence_interval_count} onChange={(e) => setNodeForm((old) => ({ ...old, recurrence_interval_count: e.target.value }))} /></div>
+              <div className="field"><label>تاريخ الاستحقاق المرجعي<InlineHelp text="هذا هو الموعد الذي يبني عليه النظام سلسلة الاستحقاقات القادمة. تغيير هذا التاريخ يغيّر مواعيد الدورات التالية." /></label><input type="date" dir="ltr" value={nodeForm.anchor_date} onChange={(e) => setNodeForm((old) => ({ ...old, anchor_date: e.target.value }))} /></div>
+              <div className="field"><label>نهاية السريان (اختياري)<InlineHelp text="آخر تاريخ تسري فيه هذه الجدولة. بعده لا يفترض إنشاء استحقاقات جديدة من نفس الجدول." /></label><input type="date" dir="ltr" value={nodeForm.schedule_valid_to || ''} onChange={(e) => setNodeForm((old) => ({ ...old, schedule_valid_to: e.target.value }))} /><small className="muted">اتركها فارغة إذا كان الالتزام مستمرًا بلا نهاية محددة.</small></div>
+              <div className="field"><label>بداية الحجز<InlineHelp text="تحدد متى يبدأ النظام تكوين المخصص قبل موعد السداد؛ لا تغيّر موعد الاستحقاق نفسه." /></label><select value={nodeForm.accrual_start_rule} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_start_rule: e.target.value }))}><option value="from_period_start">من بداية دورة الاستحقاق</option><option value="immediately_after_previous_due">بعد الاستحقاق السابق مباشرة</option><option value="fixed_months_before_due">قبل الاستحقاق بعدد أشهر</option></select></div>
+              {nodeForm.accrual_start_rule === 'fixed_months_before_due' && <div className="field"><label>عدد الأشهر<InlineHelp text="كلما زاد هذا الرقم بدأ تكوين المخصص أبكر قبل تاريخ الاستحقاق." /></label><input type="number" min="1" value={nodeForm.accrual_lead_months} onChange={(e) => setNodeForm((old) => ({ ...old, accrual_lead_months: e.target.value }))} /></div>}
             </div></Section>
           </>}
 
@@ -958,12 +996,13 @@ export default function OperatingBudgetPage() {
     <PageHeader
       eyebrow="المالية"
       title="ميزانية وتشغيل الشركة"
-      description="التفاصيل هي التي تصنع القيمة؛ التصنيفات تجمعها فقط. نفس المحرك يخدم المستهلكات والتأمينات والشرائح والاشتراكات والمعادلات المركبة."
+      description="خطة الشهر، الاستحقاقات، المتابعة والتنفيذ المالي."
       actions={<><input type="month" dir="ltr" value={month} onChange={(e) => setMonth(e.target.value)} /><a className="btn ghost" href={`/print/operating-budget?month=${month}`} target="_blank" rel="noreferrer">طباعة التقرير كاملًا</a><button className="btn ghost" onClick={loadAll} disabled={busy}>تحديث</button></>}
     />
 
     {err && <Notice tone="error">{err}</Notice>}
     {msg && <Notice tone="success">{msg}</Notice>}
+    <AttentionArea sourceTable="budget_period_lines" title="متابعة" refreshToken={attentionRefresh} />
 
     {!period ? <EntrySurface title={`فتح ${monthLabelAr(month)}`} description="فتح الشهر يولد الأوراق الحسابية المجدولة فقط؛ التصنيفات لا تولد مبالغ.">
       <div style={{ padding: 22 }}>{canEdit ? <button className="btn" onClick={openMonth} disabled={busy}>فتح الشهر وتوليد الكشف</button> : <Notice>فتح شهر جديد يحتاج صلاحية إدارة ميزانية التشغيل.</Notice>}</div>
@@ -979,12 +1018,9 @@ export default function OperatingBudgetPage() {
         ]} />
       </Section>
 
-      <EntrySurface title="رصيد بداية الشهر" description="المخصص لا يخرج من البنك؛ لذلك نعرض الرصيد النقدي والرصيد الحر منفصلين.">
-        <form onSubmit={saveOpeningBalance} style={{ padding: 22 }}><div className="form-grid"><div className="field"><label>الرصيد (ريال)</label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!canMutatePeriod} onChange={(e) => setOpeningBalance(e.target.value)} /></div><div className="field"><label>أدنى رصيد حر متوقع</label><strong>{summary.min_expected_free_balance == null ? '—' : amountLabel(summary.min_expected_free_balance)}</strong></div></div>{canMutatePeriod && <Toolbar><button className="btn" type="submit">حفظ الرصيد</button></Toolbar>}</form>
-      </EntrySurface>
-
-      <Section title="كشف الشهر" description="يمكن تحديد عدة بنود ثم طباعة المحدد فقط. التحديد هنا نطاق تقرير ولا ينشئ معاملة مالية من تلقاء نفسه.">
+      <Section title="كشف الشهر" description="حدد ما تريد العمل عليه. التحديد لا ينشئ حركة مالية من تلقاء نفسه.">
         <WorkSelectionDock count={selectedStatementIds.size} summary={`قيمة المحدد ${amountLabel(selectedStatementTotal)}`} onClear={()=>setSelectedStatementIds(new Set())}>
+          <button className="btn ghost" type="button" onClick={addSelectedToAttention} disabled={busy}>إضافة للمتابعة</button>
           <ProgramAction
             className="btn ghost"
             selectionCount={selectedStatementIds.size}
@@ -993,17 +1029,23 @@ export default function OperatingBudgetPage() {
           >طباعة المحدد</ProgramAction>
         </WorkSelectionDock>
         {rootGroups.map((group) => renderReportGroup(group))}
-        {!statement.length && <EmptyState title="لا توجد أوراق حسابية لهذا الشهر" description="أضف أو جدْول التفاصيل من كتالوج التشغيل." />}
+        {!statement.length && <EmptyState title="لا توجد أوراق حسابية لهذا الشهر" description="أضف أو جدْول التفاصيل من إعداد الميزانية." />}
       </Section>
+
+      <DisclosureSection title="رصيد الشهر" description={period.opening_bank_balance == null ? 'غير مسجل' : amountLabel(period.opening_bank_balance)} defaultOpen={period.opening_bank_balance == null}>
+        <form onSubmit={saveOpeningBalance} style={{ padding: 10 }}><div className="form-grid"><div className="field"><label>الرصيد (ريال)<InlineHelp text="الرصيد الفعلي المتاح في بداية الشهر. يستخدمه النظام لحساب المتاح الحر والعجز أو الفائض المتوقع؛ لا ينشئ حركة خزينة." /></label><input type="number" step="0.01" dir="ltr" value={openingBalance} disabled={!canMutatePeriod} onChange={(e) => setOpeningBalance(e.target.value)} /></div><div className="field"><label>أدنى رصيد حر متوقع</label><strong>{summary.min_expected_free_balance == null ? '—' : amountLabel(summary.min_expected_free_balance)}</strong></div></div>{canMutatePeriod && <Toolbar><button className="btn" type="submit">حفظ الرصيد</button></Toolbar>}</form>
+      </DisclosureSection>
     </>}
 
-    <Section title="التوقع" description="قراءة صافية لا تنشئ التزامات وهمية." actions={<select value={forecastMonths} onChange={(e) => setForecastMonths(Number(e.target.value))}><option value={3}>3 أشهر</option><option value={6}>6 أشهر</option><option value={12}>12 شهرًا</option></select>}>
+    <DisclosureSection title="التوقع" description={`${forecastMonths} أشهر`}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><select value={forecastMonths} onChange={(e) => setForecastMonths(Number(e.target.value))}><option value={3}>3 أشهر</option><option value={6}>6 أشهر</option><option value={12}>12 شهرًا</option></select></div>
       <TableFrame><table><thead><tr><th>الشهر</th><th>استحقاقات</th><th>مخصص مطلوب</th><th>إجمالي الخطة</th></tr></thead><tbody>{forecast.map((row) => <tr key={row.period_start}><td>{monthLabelAr(row.period_start)}</td><td>{amountLabel(row.expected_due)}</td><td>{amountLabel(row.required_reserve)}</td><td><strong>{amountLabel(row.planned_total)}</strong></td></tr>)}</tbody></table></TableFrame>
-    </Section>
+    </DisclosureSection>
 
-    <Section title="كتالوج التشغيل" description="اضغط «إعداد». منطقة العمل تظهر عند نفس العنصر، تتمركز داخل الشاشة، وتوضح لك ما الذي تعمله وما الخطوة التالية." actions={canEdit ? <Toolbar><button id={rootAddId} className="btn" onClick={() => startNode('group', null, rootAddId)}>+ تصنيف رئيسي</button></Toolbar> : null}>
+    <DisclosureSection title="إعداد الميزانية" description="التصنيفات والحساب والجدولة" defaultOpen={showNodeEditor}>
+      {canEdit ? <Toolbar><button id={rootAddId} className="btn" onClick={() => startNode('group', null, rootAddId)}>+ تصنيف رئيسي</button></Toolbar> : null}
       {rootEditorOpen && <div style={{ marginBottom: 10 }}>{renderNodeEditor()}</div>}
       {rootGroups.map((node) => renderCatalogNode(node))}
-    </Section>
+    </DisclosureSection>
   </ConstitutionPage>;
 }
