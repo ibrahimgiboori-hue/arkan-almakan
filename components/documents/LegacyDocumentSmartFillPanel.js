@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { byCode } from '@/lib/doc-templates';
 
@@ -32,7 +31,6 @@ function installmentValue(amount, installments) {
 }
 
 export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
-  const router = useRouter();
   const legacy = useMemo(() => byCode(code), [code]);
   const [template, setTemplate] = useState(null);
   const [documentRow, setDocumentRow] = useState(null);
@@ -214,7 +212,6 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
         },
       };
 
-      const subjectLabel = suggestions.employee_name || suggestions.candidate_name || suggestions.name || '';
       if (documentRow?.id) {
         const q = await supabase.from('documents').update({
           payload,
@@ -224,19 +221,15 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
         setInfo(`تم استكمال ${merged.filled} حقلًا من بيانات النظام دون استبدال أي قيمة كتبتها يدويًا.`);
         setTimeout(() => window.location.reload(), 900);
       } else {
-        const draftNo = `DRAFT-SMART-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-        const q = await supabase.from('documents').insert({
-          doc_number: draftNo,
-          template_code: code,
-          language: 'ar',
-          subject: `${legacy.name}${subjectLabel ? ` - ${subjectLabel}` : ''}`,
-          employee_id: employeeId || null,
-          payload,
-          status: 'draft',
-          parties: {},
-        }).select('id').single();
-        if (q.error) throw q.error;
-        router.replace(`/dashboard/documents/edit/${q.data.id}`);
+        window.dispatchEvent(new CustomEvent('arkan:prepare-document-draft', {
+          detail: {
+            code,
+            payload,
+            employeeId: employeeId || null,
+            language:'ar',
+          },
+        }));
+        setInfo(`تمت تعبئة ${merged.filled} حقلًا داخل النموذج. لم يتم إنشاء مسودة في السجل بعد.`);
       }
     } catch (error) {
       setErr('تعذرت التعبئة الذكية: ' + (error.message || error));
@@ -245,10 +238,10 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
   }
 
   return <div className="section" style={{marginTop:0,border:'1px solid var(--line)'}} data-legacy-document-smart-fill="true">
-    <header><h2>التعبئة الذكية من النظام</h2></header>
+    <header><h2>التعبئة من النظام</h2></header>
     <div style={{padding:18}}>
       <div style={{marginBottom:14,color:'var(--ink-soft)',fontSize:13.5,lineHeight:1.8}}>
-        هذا نموذج من مجموعة الموارد البشرية القديمة. جرى ربطه بملف الموظف والبيانات الفعلية المتاحة مع إبقاء كل الحقول غير المسجلة مفتوحة للإدخال اليدوي.
+        تُستكمل البيانات المتاحة من ملف الموظف أو السجل المرتبط، وتبقى البيانات غير المسجلة قابلة للإدخال اليدوي. التعبئة وحدها لا تحفظ المستند.
       </div>
       <div className="form-grid">
         {!CANDIDATE_CODES.has(code) && <div className="field">
@@ -268,21 +261,21 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
         {code === 'LEAVE_REQUEST' && employeeId && <div className="field">
           <label>طلب إجازة مسجل — اختياري</label>
           <select value={leaveRequestId} onChange={(event)=>setLeaveRequestId(event.target.value)}>
-            <option value="">تعبئة بيانات الموظف والرصيد فقط</option>
+            <option value="">بيانات الموظف والرصيد فقط</option>
             {leaveRequests.map((row)=><option key={row.id} value={row.id}>{row.request_no || row.paper_reference || 'طلب'} — {row.start_date} إلى {row.end_date}</option>)}
           </select>
         </div>}
         {code === 'LOAN_REQUEST' && employeeId && <div className="field">
           <label>طلب سلفة مسجل — اختياري</label>
           <select value={advanceId} onChange={(event)=>setAdvanceId(event.target.value)}>
-            <option value="">تعبئة بيانات الموظف والمديونية فقط</option>
+            <option value="">بيانات الموظف والمديونية فقط</option>
             {advances.map((row)=><option key={row.id} value={row.id}>{row.request_no || 'طلب سلفة'} — {Number(row.finance_approved_amount || row.amount || 0).toLocaleString('ar-SA')} ريال — {row.status}</option>)}
           </select>
         </div>}
       </div>
       <div style={{marginTop:14,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-        <button type="button" className="btn" disabled={busy} onClick={applySmartFill}>{busy ? 'جارٍ قراءة البيانات…' : documentRow ? 'استكمال الفراغات من النظام' : 'إنشاء مسودة معبأة من النظام'}</button>
-        <span className="hint">البيانات غير الموجودة في البرنامج لا يتم اختراعها؛ تكتبها أنت يدويًا.</span>
+        <button type="button" className="btn" disabled={busy} onClick={applySmartFill}>{busy ? 'جارٍ قراءة البيانات…' : documentRow ? 'استكمال الفراغات' : 'تعبئة النموذج'}</button>
+        <span className="hint">لن يظهر المستند في السجل قبل الضغط على حفظ المسودة أو الإصدار.</span>
       </div>
       {err && <div className="msg err" style={{marginTop:12}}>{err}</div>}
       {info && <div className="msg ok" style={{marginTop:12}}>{info}</div>}
