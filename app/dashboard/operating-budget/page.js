@@ -752,54 +752,30 @@ export default function OperatingBudgetPage() {
         throw new Error('عرّف قاعدة الحساب أولًا قبل جدولة الاستحقاق.');
       }
 
-      let saveResult;
-      if (revisionMode === 'correction' && nodeForm.node_type === 'item') {
-        saveResult = await supabase.rpc('budget_save_catalog_item_revision', {
-          p_node_id: nodeForm.node_id,
-          p_parent_item_id: nodeForm.parent_item_id || null,
-          p_branch_scope_id: nodeForm.branch_scope_id || null,
-          p_group_key: parent?.group_key || nodeForm.group_key,
-          p_name: nodeForm.name,
-          p_unit_label: nodeForm.unit_label || null,
-          p_calculation_type: nodeForm.calculation_type,
-          p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
-          p_cost_behavior: nodeForm.cost_behavior,
-          p_is_active: nodeForm.is_active,
-          p_notes: nodeForm.notes || null,
-          p_sort_order: Number(nodeForm.sort_order || 0),
-          p_rate_version_id: currentRate?.id || null,
-          p_rate_valid_from: nodeForm.valid_from,
-          p_rate_params: rateParams,
-          p_rate_source: rateParams ? 'manual_entry' : null,
-          p_rate_bands: normalizedBands,
-          p_schedule_id: currentSchedule?.id || null,
-          p_schedule_valid_from: nodeForm.valid_from,
-          p_schedule: schedulePayload,
-          p_revision_mode: 'correction',
-        });
-      } else {
-        saveResult = await supabase.rpc('budget_save_catalog_node', {
-          p_node_id: nodeForm.node_id || null,
-          p_node_type: nodeForm.node_type,
-          p_parent_item_id: nodeForm.parent_item_id || null,
-          p_branch_scope_id: nodeForm.branch_scope_id || null,
-          p_group_key: parent?.group_key || nodeForm.group_key,
-          p_name: nodeForm.name,
-          p_unit_label: nodeForm.node_type === 'item' ? nodeForm.unit_label || null : null,
-          p_calculation_type: nodeForm.node_type === 'item' ? nodeForm.calculation_type : null,
-          p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
-          p_cost_behavior: nodeForm.node_type === 'item' ? nodeForm.cost_behavior : null,
-          p_is_active: nodeForm.is_active,
-          p_notes: nodeForm.notes || null,
-          p_sort_order: Number(nodeForm.sort_order || 0),
-          p_rate_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
-          p_rate_params: rateParams,
-          p_rate_source: rateParams ? 'manual_entry' : null,
-          p_rate_bands: normalizedBands,
-          p_schedule_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
-          p_schedule: schedulePayload,
-        });
-      }
+      const saveResult = await supabase.rpc('budget_save_catalog_node', {
+        p_node_id: nodeForm.node_id || null,
+        p_node_type: nodeForm.node_type,
+        p_parent_item_id: nodeForm.parent_item_id || null,
+        p_branch_scope_id: nodeForm.branch_scope_id || null,
+        p_group_key: parent?.group_key || nodeForm.group_key,
+        p_name: nodeForm.name,
+        p_unit_label: nodeForm.node_type === 'item' ? nodeForm.unit_label || null : null,
+        p_calculation_type: nodeForm.node_type === 'item' ? nodeForm.calculation_type : null,
+        p_external_source: nodeForm.calculation_type === 'external_forecast_actual' ? 'payroll_run' : null,
+        p_cost_behavior: nodeForm.node_type === 'item' ? nodeForm.cost_behavior : null,
+        p_is_active: nodeForm.is_active,
+        p_notes: nodeForm.notes || null,
+        p_sort_order: Number(nodeForm.sort_order || 0),
+        p_rate_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
+        p_rate_params: rateParams,
+        p_rate_source: rateParams ? 'manual_entry' : null,
+        p_rate_bands: normalizedBands,
+        p_schedule_valid_from: nodeForm.node_type === 'item' ? revisionValidFrom : null,
+        p_schedule: schedulePayload,
+        p_revision_mode: revisionMode,
+        p_rate_version_id: revisionMode === 'correction' ? currentRate?.id || null : null,
+        p_schedule_id: revisionMode === 'correction' ? currentSchedule?.id || null : null,
+      });
       if (saveResult.error) throw saveResult.error;
       const successMessage = nodeForm.node_type === 'group'
         ? 'تم حفظ التصنيف. قيمته ستأتي من أبنائه فقط.'
