@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import DocumentForm from '@/components/DocumentForm';
 import ProjectReportDocumentForm from '@/components/documents/ProjectReportDocumentForm';
 import DocumentSmartFillPanel from '@/components/documents/DocumentSmartFillPanel';
+import LegacyDocumentSmartFillPanel from '@/components/documents/LegacyDocumentSmartFillPanel';
 import { supabase } from '@/lib/supabase';
 
 const REPORT_CODE = 'PROJECT_WORK_CLAIMS_REPORT_V1';
@@ -30,6 +31,7 @@ export default function DocumentFormRouter({ code = null, docId = null }) {
   const activeCode = code || resolvedCode || undefined;
   return <>
     <DocumentSmartFillPanel code={activeCode} docId={docId || undefined} />
+    <LegacyDocumentSmartFillPanel code={activeCode} docId={docId || undefined} />
     <DocumentForm code={activeCode} docId={docId || undefined} />
   </>;
 }
