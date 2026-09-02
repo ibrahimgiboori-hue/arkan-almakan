@@ -76,14 +76,34 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) لا توجد «منصة أعمال» موازية. الشريط الحالي هو القشرة الوحيدة، والتجميع داخله فقط.
+// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. لا يعود شريط علوي موازٍ ولا منصة أعمال ثانية.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
-if (!dashboardLayout.includes('RawDashboardNavigation')) {
-  failures.push('app/dashboard/layout.js: الملاحة العليا غير مركبة في RawDashboardNavigation.');
+const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
+const contextualShellCss = 'app/dashboard/app-shell-v2.css';
+if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
+  failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
+}
+if (!dashboardLayout.includes("data-navigation-shell=\"contextual-slide-v2\"")) {
+  failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
+}
+if (!dashboardLayout.includes("'./app-shell-v2.css'")) {
+  failures.push('app/dashboard/layout.js: أنماط الجسد الجديد app-shell-v2.css غير مربوطة.');
+}
+if (!exists(contextualNavigation) || !exists(contextualShellCss)) {
+  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو أنماطها غير موجودة.');
+}
+if (dashboardLayout.includes('RawDashboardNavigation')) {
+  failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
 }
 if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) {
-  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك الشريط العلوي فقط.');
+  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك قشرة التنقل الموحدة فقط.');
+}
+if (exists(contextualNavigation)) {
+  const nav = read(contextualNavigation);
+  for (const required of ['OPEN_INTENT_MS', 'CLOSE_GRACE_MS', 'filterAreasForAccess', 'projectNavRequirement', 'PORTAL_MANAGEMENT_SECTIONS']) {
+    if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
+  }
 }
 
 // 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
