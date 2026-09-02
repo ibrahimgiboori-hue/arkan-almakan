@@ -35,7 +35,14 @@ s = s.replace('تم حفظ الروتين. لا يوجد أثر رسمي قبل 
 s = s.replace('كل يوم عمل يحتاج وقت بداية ونهاية.', 'كل يوم عمل يحتاج ساعة بداية وساعة نهاية.');
 s = s.replace('اختر الشخص وحدد بداية سريان الروتين.', 'اختر الشخص وحدد بداية سريان ساعات الدوام.');
 s = s.replace('>حفظ الروتين</button>', '>حفظ ساعات الدوام</button>');
+s = s.replace('<th>الروتين</th>', '<th>ساعات الدوام</th>');
 
 fs.writeFileSync(path, s);
 
-// One-time wiring trigger.
+const reportPath = 'components/attendance/AttendanceClientExcelReport.js';
+let r = fs.readFileSync(reportPath, 'utf8');
+r = r.replaceAll(
+  "Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0));",
+  "Math.max(0, Number(d.early_departure_minutes ?? (Number(d.departure_delta_minutes || 0) < 0 ? -Number(d.departure_delta_minutes || 0) : 0)));"
+);
+fs.writeFileSync(reportPath, r);
