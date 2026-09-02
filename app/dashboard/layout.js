@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/lib/action-context';
-import RawDashboardNavigation from '@/components/ui/RawDashboardNavigation';
+import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import './raw-tokens.css';
 import './raw-phase.css';
+import './app-shell-v2.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -164,13 +165,14 @@ export default function DashboardLayout({ children }) {
     <DashboardSessionProvider value={state.me}>
       <div
         className="rawDashboardShell"
-        data-work-kernel="operational-notebook-v1"
+        data-work-kernel="operational-notebook-v2"
         data-viewport-policy="fluid-full-width"
+        data-navigation-shell="contextual-slide-v2"
         data-action-mode={actingOnBehalf ? 'on_behalf_of' : 'self'}
         data-real-actor-employee-id={state.me?.actionContext?.realActorEmployeeId || undefined}
       >
         <WorkSurfaceRuntime>
-          <RawDashboardNavigation me={state.me} onSignOut={signOut} />
+          <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
           {showPrimaryIdentity ? (
             <div
               role="status"
