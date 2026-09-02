@@ -37,3 +37,5 @@ s = s.replace('اختر الشخص وحدد بداية سريان الروتين
 s = s.replace('>حفظ الروتين</button>', '>حفظ ساعات الدوام</button>');
 
 fs.writeFileSync(path, s);
+
+// One-time wiring trigger.
