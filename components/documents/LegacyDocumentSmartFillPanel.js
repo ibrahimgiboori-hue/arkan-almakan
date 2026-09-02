@@ -24,6 +24,13 @@ function fillBlanks(current, suggestions) {
   return { next, filled };
 }
 
+function installmentValue(amount, installments) {
+  const a = Number(amount || 0);
+  const n = Number(installments || 0);
+  if (!(a > 0) || !(n > 0)) return '';
+  return Math.round((a / n) * 100) / 100;
+}
+
 export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
   const router = useRouter();
   const legacy = useMemo(() => byCode(code), [code]);
@@ -35,6 +42,8 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
   const [candidateId, setCandidateId] = useState('');
   const [leaveRequestId, setLeaveRequestId] = useState('');
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [advanceId, setAdvanceId] = useState('');
+  const [advances, setAdvances] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
@@ -69,6 +78,7 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
         const meta = docQ.data.payload?._autofill || {};
         if (meta.candidate_id) setCandidateId(meta.candidate_id);
         if (meta.leave_request_id) setLeaveRequestId(meta.leave_request_id);
+        if (meta.advance_id) setAdvanceId(meta.advance_id);
       }
     })();
     return () => { active = false; };
@@ -85,6 +95,23 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
         .select('id,request_no,leave_kind,start_date,end_date,days_count,reason,return_date,status,record_source,paper_reference')
         .eq('employee_id', employeeId).order('start_date', { ascending:false }).limit(30);
       if (active) setLeaveRequests(q.data || []);
+    })();
+    return () => { active = false; };
+  }, [code, employeeId]);
+
+  useEffect(() => {
+    if (code !== 'LOAN_REQUEST' || !employeeId) {
+      setAdvances([]);
+      return;
+    }
+    let active = true;
+    (async () => {
+      const q = await supabase.from('advances')
+        .select('id,request_no,amount,installments,first_deduction_month,reason,status,finance_approved_amount,finance_installments,finance_first_deduction_month,finance_note,disbursed_at')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending:false })
+        .limit(30);
+      if (active) setAdvances(q.data || []);
     })();
     return () => { active = false; };
   }, [code, employeeId]);
@@ -148,6 +175,23 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
       ref_doc: leave.request_no || leave.paper_reference,
     });
 
+    const advance = advances.find((row) => row.id === advanceId);
+    if (advance) {
+      const amount = Number(advance.finance_approved_amount || 0) > 0
+        ? Number(advance.finance_approved_amount)
+        : Number(advance.amount || 0);
+      const installments = Number(advance.finance_installments || 0) > 0
+        ? Number(advance.finance_installments)
+        : Number(advance.installments || 0);
+      Object.assign(suggestions, {
+        amount,
+        installments,
+        monthly: installmentValue(amount, installments),
+        first_month: advance.finance_first_deduction_month || advance.first_deduction_month,
+        reason: advance.reason,
+      });
+    }
+
     return suggestions;
   }
 
@@ -164,6 +208,7 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
           employee_id: employeeId || null,
           candidate_id: candidateId || null,
           leave_request_id: leaveRequestId || null,
+          advance_id: advanceId || null,
           last_filled_at: new Date().toISOString(),
           mode: 'fill_blanks_only',
         },
@@ -225,6 +270,13 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
           <select value={leaveRequestId} onChange={(event)=>setLeaveRequestId(event.target.value)}>
             <option value="">تعبئة بيانات الموظف والرصيد فقط</option>
             {leaveRequests.map((row)=><option key={row.id} value={row.id}>{row.request_no || row.paper_reference || 'طلب'} — {row.start_date} إلى {row.end_date}</option>)}
+          </select>
+        </div>}
+        {code === 'LOAN_REQUEST' && employeeId && <div className="field">
+          <label>طلب سلفة مسجل — اختياري</label>
+          <select value={advanceId} onChange={(event)=>setAdvanceId(event.target.value)}>
+            <option value="">تعبئة بيانات الموظف والمديونية فقط</option>
+            {advances.map((row)=><option key={row.id} value={row.id}>{row.request_no || 'طلب سلفة'} — {Number(row.finance_approved_amount || row.amount || 0).toLocaleString('ar-SA')} ريال — {row.status}</option>)}
           </select>
         </div>}
       </div>
