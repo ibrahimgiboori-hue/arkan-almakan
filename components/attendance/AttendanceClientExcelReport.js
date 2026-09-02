@@ -19,6 +19,13 @@ const DECISION_AR = {
   pending: 'بانتظار القرار',
 };
 
+const JUSTIFICATION_AR = {
+  sick_leave:'إجازة مرضية', approved_leave:'إجازة معتمدة', non_working_day:'اليوم غير ضمن أيام العمل',
+  outside_work:'عمل خارج المركز', biometric_device_issue:'مشكلة تقنية في جهاز البصمة', forgot_punch:'نسيان البصمة',
+  approved_shift_change:'تغيير ساعات دوام / شفت معتمد', approved_late_early_permission:'إذن تأخير أو خروج معتمد',
+  training_meeting_assignment:'تدريب / اجتماع / تكليف رسمي', other_site_branch:'العمل في فرع أو موقع آخر', other:'أخرى',
+};
+
 const COLORS = {
   navy: 'FF24364B',
   slate: 'FF52616B',
@@ -217,7 +224,7 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
 
       // 2) Justifications and decisions
       const processing = workbook.addWorksheet('2- التبريرات والمعالجات', { views: [{ rightToLeft: true }] });
-      const processHeaders = ['رقم الموظف','الموظف','التاريخ','الحالة الأولية','التبرير المقدم','المرجع / المستند','قرار صاحب العمل','ملاحظة القرار','الخصم الأولي','الخصم بعد القرار','النتيجة'];
+      const processHeaders = ['رقم الموظف','الموظف','التاريخ','الحالة الأولية','نوع التبرير','تفاصيل التبرير','المرجع / المستند','قرار صاحب العمل','ملاحظة القرار','الخصم الأولي','الخصم بعد القرار','النتيجة'];
       addTitle(processing, 'التبريرات والمعالجات', `${client} — الفترة ${period}. ${justificationNote}`, processHeaders.length);
       processing.addRow([]);
       const processHeaderRow = processing.addRow(processHeaders);
@@ -229,10 +236,10 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
         const result = decision === 'accepted' ? 'تم قبول التبرير وإعادة احتساب الأثر' : decision === 'rejected' ? 'التبرير غير مقبول والأثر قائم' : decision === 'pending' ? 'بانتظار قرار صاحب العمل — الأثر لا يزال قائمًا' : 'لا يوجد تبرير — الأثر قائم';
         const row = processing.addRow([
           d.subject_no || '', d.subject_name || '', dateOnly(d.work_date), STATUS_AR[d.day_status] || d.day_status || '—',
-          d.justification_text || 'لا يوجد تبرير', d.paper_reference || '—', decision === 'none' ? 'لا يوجد تبرير' : (DECISION_AR[decision] || decision),
+          d.justification_id ? (JUSTIFICATION_AR[d.justification_type] || 'تبرير مسجل') : 'لا يوجد تبرير', d.justification_text || '—', d.paper_reference || '—', decision === 'none' ? 'لا يوجد تبرير' : (DECISION_AR[decision] || decision),
           d.decision_note || '—', Number(d.preliminary_deduction_days || 0), Number(d.final_deduction_days ?? d.preliminary_deduction_days ?? 0), result,
         ]);
-        if (decision === 'accepted') row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.softGreen } };
+        if (decision === 'accepted') row.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.softGreen } };
         else if (decision === 'rejected' || decision === 'none') row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.softRed } };
         else row.getCell(7).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.softAmber } };
       }
