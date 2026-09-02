@@ -71,7 +71,6 @@ export default function DashboardLayout({ children }) {
         projectScoped,
         hr: fullAdmin || capabilities.some((item) => item.module_key === 'hr'),
         finance: fullAdmin || capabilities.some((item) => item.module_key === 'finance'),
-        // البوابة لا تُفتح بصلاحية داخلية من بوابة أخرى. الصلاحية النظامية تبقى لأداتها فقط.
         documents: fullAdmin || capabilities.some((item) => item.module_key === 'documents'),
         admin: fullAdmin || capabilities.some((item) => item.module_key === 'admin') || manageAccess,
         manageAccess,
@@ -130,8 +129,6 @@ export default function DashboardLayout({ children }) {
     };
   }, []);
 
-  // قاعدة البيانات هي صاحبة قرار انتهاء النيابة. عند وقت انتهاء الـlease نطلب منها
-  // السياق من جديد بدل إبقاء شريط قديم قد ينسب الإجراء التالي للشخص الخطأ.
   useEffect(() => {
     const actionContext = state.me?.actionContext;
     if (!isOnBehalfMode(actionContext) || !actionContext?.expiresAt || typeof window === 'undefined') return undefined;
@@ -159,7 +156,7 @@ export default function DashboardLayout({ children }) {
   }
 
   const actingOnBehalf = isOnBehalfMode(state.me?.actionContext);
-  const showPrimaryIdentity = state.me?.actionContext?.isPrimaryUser === true;
+  const showExceptionalIdentity = actingOnBehalf && state.me?.actionContext?.isPrimaryUser === true;
 
   return (
     <DashboardSessionProvider value={state.me}>
@@ -173,35 +170,16 @@ export default function DashboardLayout({ children }) {
       >
         <WorkSurfaceRuntime>
           <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
-          {showPrimaryIdentity ? (
+          {showExceptionalIdentity ? (
             <div
               role="status"
               aria-live="polite"
               data-action-context-banner="true"
-              data-action-context-active={actingOnBehalf ? 'true' : 'false'}
-              style={{
-                position:'sticky',top:0,zIndex:35,
-                padding:actingOnBehalf ? '9px 18px' : '6px 18px',
-                borderBottom:'1px solid var(--raw-line, #d8c8a8)',
-                background:actingOnBehalf ? 'var(--raw-paper-strong, #fff8dd)' : 'var(--raw-paper, #fff)',
-                color:'var(--raw-ink, #2f2924)',
-                display:'flex',gap:10,alignItems:'center',justifyContent:'center',flexWrap:'wrap',
-                fontSize:actingOnBehalf ? 13.5 : 12.5,
-              }}
+              data-action-context-active="true"
+              className="appActionContextAlert"
             >
-              {actingOnBehalf ? <>
-                <strong>صاحب الإجراء الفعلي:</strong>
-                <span><strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
-                <span>· مُسجّل بواسطة الحساب الرئيسي</span>
-                <span>· خاص بهذه الجلسة</span>
-              </> : <>
-                <strong>صاحب الإجراء:</strong>
-                <span>أنت — تنفيذ بصفتي</span>
-                <span>· الحساب الرئيسي</span>
-              </>}
-              <a href="/dashboard/settings#primary-action-mode" style={{fontWeight:700,textDecoration:'underline'}}>
-                {actingOnBehalf ? 'تغيير الشخص' : 'تسجيل نيابة عن شخص'}
-              </a>
+              <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+              <a href="/dashboard/settings#primary-action-mode">تغيير</a>
             </div>
           ) : null}
           <main className="rawDashboardContent" data-work-book="true">
