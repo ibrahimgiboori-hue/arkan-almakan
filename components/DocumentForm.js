@@ -30,6 +30,39 @@ const PROJECT_REPORT_ENTRY_FIELDS = [
   { key:'po_reference', label:'PO / المرجع', type:'text' },
 ];
 
+const firstText = (...values) => values.find((value) => String(value || '').trim()) || '';
+
+function composeDocumentSubject(name, payload = {}) {
+  const explicit = firstText(payload.subject, payload.document_title, payload.letter_title);
+  if (explicit) return String(explicit).trim();
+
+  const anchor = firstText(
+    payload.project_name,
+    payload.project_name_text,
+    payload.employee_name,
+    payload.candidate_name,
+    payload.contractor,
+    payload.party_name,
+    payload.name
+  );
+  const from = firstText(payload.period_from, payload.date_from);
+  const to = firstText(payload.period_to, payload.date_to);
+  const singleDate = firstText(
+    payload.report_date,
+    payload.transaction_date,
+    payload.effective_date,
+    payload.work_date,
+    payload.doc_date,
+    payload.request_date
+  );
+
+  const parts = [name];
+  if (anchor) parts.push(String(anchor).trim());
+  if (from && to) parts.push(`${from} إلى ${to}`);
+  else if (singleDate) parts.push(String(singleDate));
+  return parts.join(' — ');
+}
+
 export default function DocumentForm({ code, docId }) {
   const router = useRouter();
 
@@ -51,7 +84,7 @@ export default function DocumentForm({ code, docId }) {
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
-  const flash = (m) => { setMsg(m); setTimeout(()=>setMsg(''), 1600); };
+  const flash = (m) => { setMsg(m); setTimeout(()=>setMsg(''), 2200); };
 
   const load = useCallback(async () => {
     let theCode = code;
@@ -117,6 +150,39 @@ export default function DocumentForm({ code, docId }) {
   }, [code, docId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (docId) return undefined;
+    const handlePreparedDraft = (event) => {
+      const detail = event?.detail || {};
+      const activeCode = tpl?.code || legacy?.code || code;
+      if (detail.code && activeCode && detail.code !== activeCode) return;
+      const payload = detail.payload || {};
+      const nextRows = Array.isArray(payload._rows) ? payload._rows : null;
+      const clean = { ...payload };
+      delete clean._rows;
+      setV((current) => ({ ...current, ...clean }));
+      if (nextRows) setRows(nextRows);
+      if (detail.projectId) setProjectId(detail.projectId);
+      if (detail.employeeId) setEmployeeId(detail.employeeId);
+      if (detail.parties) setParties(detail.parties);
+      if (detail.language) setLang(detail.language);
+      setDirty(true);
+      flash('تم تجهيز النموذج داخل الصفحة فقط — لن يظهر في سجل المستندات قبل الحفظ');
+    };
+    window.addEventListener('arkan:prepare-document-draft', handlePreparedDraft);
+    return () => window.removeEventListener('arkan:prepare-document-draft', handlePreparedDraft);
+  }, [docId, code, tpl?.code, legacy?.code]);
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const guard = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [dirty]);
 
   const computed = useMemo(() => {
     if (!tpl) return { payload: v, rows };
@@ -208,9 +274,7 @@ export default function DocumentForm({ code, docId }) {
     delete payload._employee_id;
 
     const name = tpl ? tpl.name_ar : legacy.name;
-    const who = payload.letter_title || payload.employee_name || payload.candidate_name
-      || payload.project_name || payload.party_name || payload.name || payload.contractor || '';
-    const subject = payload.letter_title || (name + (who ? ' - ' + who : ''));
+    const subject = composeDocumentSubject(name, payload);
 
     const documentData = {
       payload,
@@ -377,7 +441,7 @@ export default function DocumentForm({ code, docId }) {
               isIssued
                 ? <>صادر برقم <span className="mono">{doc.doc_number}</span></>
                 : <>مسودة قابلة للتعديل والمعاينة قبل الإصدار</>
-            ) : 'مسودة جديدة - احفظها لتعاينها'}
+            ) : 'جديد — لا يظهر في سجل المستندات قبل الحفظ'}
             {dirty && <span style={{color:'var(--warn)'}}> - تغييرات غير محفوظة</span>}
           </p>
         </div>
