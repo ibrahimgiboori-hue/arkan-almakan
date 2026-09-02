@@ -10,6 +10,7 @@ export default function ProjDocs({ project, canWrite, mode = 'all' }) {
   const showDocs = mode === 'all' || mode === 'documents';
   const showMaterials = mode === 'all' || mode === 'materials';
   const [docs, setDocs] = useState([]);
+  const [centralDocs, setCentralDocs] = useState([]);
   const [mats, setMats] = useState([]);
   const [nd, setNd] = useState({ doc_kind:'محضر استلام', title:'', description:'' });
   const [file, setFile] = useState(null);
@@ -20,11 +21,28 @@ export default function ProjDocs({ project, canWrite, mode = 'all' }) {
 
   async function load() {
     const tasks = [];
-    if (showDocs) tasks.push(supabase.from('site_documents').select('*').eq('project_id', project.id).order('doc_date', { ascending: false }));
+    if (showDocs) {
+      tasks.push(supabase.from('site_documents').select('*').eq('project_id', project.id).order('doc_date', { ascending: false }));
+      tasks.push(
+        supabase
+          .from('documents')
+          .select('id,doc_number,subject,status,created_at,updated_at,template_code,internal_approval_status')
+          .eq('project_id', project.id)
+          .order('created_at', { ascending: false })
+      );
+    }
     if (showMaterials) tasks.push(supabase.from('project_materials').select('*').eq('project_id', project.id).order('received_at', { ascending: false }));
     const results = await Promise.all(tasks);
     let i = 0;
-    if (showDocs) setDocs(results[i++]?.data || []);
+    if (showDocs) {
+      const siteResult = results[i++];
+      const centralResult = results[i++];
+      setDocs(siteResult?.data || []);
+      setCentralDocs(centralResult?.data || []);
+      if (siteResult?.error || centralResult?.error) {
+        setErr(siteResult?.error?.message || centralResult?.error?.message || 'تعذّر تحميل مستندات المشروع');
+      }
+    }
     if (showMaterials) setMats(results[i++]?.data || []);
   }
 
@@ -105,9 +123,16 @@ export default function ProjDocs({ project, canWrite, mode = 'all' }) {
           <button className="btn" type="submit" disabled={busy}>{busy?'جارٍ…':'إضافة مستند'}</button>
         </div>
       </form>}
+
       <div className="section">
+        <header><h2>مستندات المشروع النظامية ({centralDocs.length})</h2></header>
+        {centralDocs.length===0?<div className="empty"><h3>لا مستندات نظامية مرتبطة</h3><p>التقارير والنماذج المنشأة من نظام المستندات ستظهر هنا تلقائيًا عند ربطها بالمشروع.</p></div>:
+        <div style={{overflowX:'auto'}}><table><thead><tr><th>التاريخ</th><th>المرجع</th><th>الموضوع</th><th>الحالة</th><th style={{width:150}}>فتح</th></tr></thead><tbody>{centralDocs.map(d=><tr key={d.id}><td className="mono">{dateAr(d.updated_at||d.created_at)}</td><td className="mono">{d.doc_number||'—'}</td><td>{d.subject||'مستند مشروع'}<div style={{fontSize:12,color:'var(--ink-soft)'}}>{d.template_code||''}</div></td><td><span className="pill" style={{fontSize:11.5}}>{d.internal_approval_status||d.status||'draft'}</span></td><td><div style={{display:'flex',gap:6,flexWrap:'wrap'}}><a className="btn ghost" href={`/dashboard/documents/edit/${d.id}`}>فتح</a><a className="btn ghost" href={`/print/${d.id}`} target="_blank" rel="noreferrer">طباعة</a></div></td></tr>)}</tbody></table></div>}
+      </div>
+
+      <div className="section" style={{marginTop:18}}>
         <header><h2>مستندات الموقع ({docs.length})</h2></header>
-        {docs.length===0?<div className="empty"><h3>لا مستندات</h3><p>محاضر الاستلام والتقارير والصور تحفظ كسجل مستقل للمشروع.</p></div>:
+        {docs.length===0?<div className="empty"><h3>لا مستندات موقع</h3><p>محاضر الاستلام والتقارير والصور تحفظ كسجل مستقل للمشروع.</p></div>:
         <table><thead><tr><th>التاريخ</th><th>النوع</th><th>العنوان</th><th>الملف</th>{canWrite&&<th style={{width:70}}>—</th>}</tr></thead><tbody>{docs.map(d=><tr key={d.id}><td className="mono">{dateAr(d.doc_date)}</td><td>{d.doc_kind}</td><td>{d.title}{d.description&&<div style={{fontSize:12,color:'var(--ink-soft)'}}>{d.description}</div>}</td><td>{d.file_path?<button className="btn ghost" onClick={()=>openFile(d.file_path)}>فتح</button>:'—'}</td>{canWrite&&<td><button className="btn ghost" onClick={()=>delDoc(d.id)}>حذف</button></td>}</tr>)}</tbody></table>}
       </div>
     </>}
