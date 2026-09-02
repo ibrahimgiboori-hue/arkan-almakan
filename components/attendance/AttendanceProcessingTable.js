@@ -40,34 +40,52 @@ function reviewState(day) {
   return 'clear';
 }
 
+function subjectKey(day) {
+  return day.external_person_id || day.employee_id || `${day.subject_no || ''}|${day.subject_name || ''}`;
+}
+
+function compareNames(a,b) {
+  const byName = String(a?.subject_name || '').localeCompare(String(b?.subject_name || ''),'ar',{sensitivity:'base',numeric:true});
+  if (byName !== 0) return byName;
+  const byNo = String(a?.subject_no || '').localeCompare(String(b?.subject_no || ''),'ar',{sensitivity:'base',numeric:true});
+  if (byNo !== 0) return byNo;
+  return String(a?.work_date || '').localeCompare(String(b?.work_date || ''));
+}
+
 export default function AttendanceProcessingTable({ days = [], stage, onOpenJustification }) {
   const [person,setPerson] = useState('all');
   const [review,setReview] = useState('all');
   const [status,setStatus] = useState('all');
 
+  const baseSorted = useMemo(() => [...days].sort(compareNames),[days]);
+
   const people = useMemo(() => {
     const m = new Map();
-    days.forEach((d) => {
-      const key = d.external_person_id || d.employee_id || `${d.subject_no || ''}|${d.subject_name || ''}`;
+    baseSorted.forEach((d) => {
+      const key = subjectKey(d);
       if (!m.has(key)) m.set(key,{key,no:d.subject_no||'',name:d.subject_name||'غير معروف'});
     });
-    return [...m.values()].sort((a,b)=>String(a.no||a.name).localeCompare(String(b.no||b.name),'ar'));
-  },[days]);
+    return [...m.values()].sort((a,b)=>{
+      const byName=String(a.name||'').localeCompare(String(b.name||''),'ar',{sensitivity:'base',numeric:true});
+      if(byName!==0) return byName;
+      return String(a.no||'').localeCompare(String(b.no||''),'ar',{sensitivity:'base',numeric:true});
+    });
+  },[baseSorted]);
 
-  const filtered = useMemo(() => days.filter((d) => {
-    const key = d.external_person_id || d.employee_id || `${d.subject_no || ''}|${d.subject_name || ''}`;
+  const filtered = useMemo(() => baseSorted.filter((d) => {
+    const key = subjectKey(d);
     if (person !== 'all' && key !== person) return false;
     if (status !== 'all' && d.day_status !== status) return false;
     if (review !== 'all' && reviewState(d) !== review) return false;
     return true;
-  }),[days,person,review,status]);
+  }),[baseSorted,person,review,status]);
 
   const reviewable = days.filter(needsReview).length;
   const withoutJustification = days.filter((d)=>needsReview(d) && !d.justification_id).length;
   const pending = days.filter((d)=>d.justification_decision === 'pending').length;
 
   return <div className="section">
-    <header><h2>البيانات المعالجة</h2><span className="hint">فلتر الجدول للوصول مباشرة للموظف أو الحالات التي تحتاج تبريرًا ومراجعة.</span></header>
+    <header><h2>البيانات المعالجة</h2><span className="hint">الترتيب الأساسي: الموظف أبجديًا ثم التاريخ من الأقدم للأحدث. الفلاتر تضيق النتائج دون تغيير هذا الترتيب.</span></header>
     <div style={{padding:18}}>
       <div className="rowsplit" style={{alignItems:'end',gap:12,flexWrap:'wrap'}}>
         <div className="field" style={{minWidth:240}}><label>الموظف</label><select value={person} onChange={(e)=>setPerson(e.target.value)}><option value="all">كل الموظفين</option>{people.map((p)=><option key={p.key} value={p.key}>{p.no?`${p.no} - `:''}{p.name}</option>)}</select></div>
