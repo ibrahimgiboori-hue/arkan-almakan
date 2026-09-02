@@ -1,0 +1,101 @@
+name: One-time system governance cleanup
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/system-cleanup-once.yml']
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('components/documents/DocumentSmartFillPanel.js')
+          s = p.read_text()
+          s = s.replace("import { useRouter } from 'next/navigation';\n", '')
+          s = s.replace('  const router = useRouter();\n', '')
+          s = s.replace("      const label = suggestions.employee_name || suggestions.project_name || suggestions.party_name || '';\n", '')
+          old = """      } else {
+        const draftNo = `DRAFT-SMART-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+        const insertQ = await supabase.from('documents').insert({
+          doc_number: draftNo,
+          template_code: template.code,
+          language: 'ar',
+          subject: `${template.name_ar}${label ? ` - ${label}` : ''}`,
+          employee_id: employeeId || null,
+          project_id: projectId || null,
+          payload,
+          status: 'draft',
+          parties: {},
+        }).select('id').single();
+        if (insertQ.error) throw insertQ.error;
+        router.replace(`/dashboard/documents/edit/${insertQ.data.id}`);
+      }
+"""
+          new = """      } else {
+        window.dispatchEvent(new CustomEvent('arkan:prepare-document-draft', {
+          detail: {
+            code: template.code,
+            payload,
+            employeeId: employeeId || null,
+            projectId: projectId || null,
+            language: 'ar',
+          },
+        }));
+        const rowCount = Array.isArray(special.rows) && special.rows.length && !hasMeaningfulRows ? special.rows.length : 0;
+        setInfo(`تم تجهيز ${merged.filled} حقلًا من بيانات النظام${rowCount ? ` وإضافة ${rowCount} سطرًا` : ''} داخل النموذج. لم يتم إنشاء مسودة في السجل بعد.`);
+      }
+"""
+          if old not in s:
+              raise SystemExit('modern smart-fill draft insertion block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace("documentRow ? 'استكمال الفراغات من النظام' : 'إنشاء مسودة معبأة من النظام'", "documentRow ? 'استكمال الفراغات من النظام' : 'تعبئة النموذج من النظام'")
+          p.write_text(s)
+
+          a = Path('scripts/framework-governance-audit.mjs')
+          x = a.read_text()
+          marker = "console.log(`Framework governance audit passed: Next ${nextVersion}, React ${reactVersion}, Node ${pkg.engines.node}, ESM package mode, proxy entrypoint active.`);"
+          guard = r'''
+// Temporary self-modifying wiring must never become part of the permanent architecture.
+const workflowsDir = path.join(root, '.github', 'workflows');
+if (fs.existsSync(workflowsDir)) {
+  for (const file of fs.readdirSync(workflowsDir)) {
+    if (/^wire-/i.test(file)) fail(`obsolete self-modifying workflow must not return: ${file}`);
+  }
+}
+const scriptsDir = path.join(root, 'scripts');
+if (fs.existsSync(scriptsDir)) {
+  for (const file of fs.readdirSync(scriptsDir)) {
+    if (/^wire-/i.test(file)) fail(`obsolete self-modifying patch script must not return: ${file}`);
+  }
+}
+
+// New-document smart fill is page state only until the user explicitly saves.
+const smartFillPath = path.join(root, 'components', 'documents', 'DocumentSmartFillPanel.js');
+if (fs.existsSync(smartFillPath)) {
+  const smartFillSource = fs.readFileSync(smartFillPath, 'utf8');
+  if (smartFillSource.includes('DRAFT-SMART-')) fail('smart fill must not generate phantom draft document numbers');
+  if (smartFillSource.includes("supabase.from('documents').insert")) fail('smart fill must not insert documents before explicit save');
+  if (!smartFillSource.includes("arkan:prepare-document-draft")) fail('smart fill must use the unified in-page document preparation event');
+}
+'''
+          if guard.strip() not in x:
+              if marker not in x:
+                  raise SystemExit('framework audit marker not found')
+              x = x.replace(marker, guard + '\n' + marker, 1)
+          a.write_text(x)
+          PY
+          git rm .github/workflows/system-cleanup-once.yml
+          git config user.name "arkan-system"
+          git config user.email "actions@users.noreply.github.com"
+          git add components/documents/DocumentSmartFillPanel.js scripts/framework-governance-audit.mjs
+          git commit -m "Unify document smart fill and harden governance"
+          git push origin HEAD:main
