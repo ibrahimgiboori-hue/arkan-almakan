@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
+import AttendanceCalibrationPanel from '@/components/attendance/AttendanceCalibrationPanel';
+import AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';
 
 const WEEKDAYS = [
   {weekday:0,label:'الأحد'}, {weekday:1,label:'الاثنين'}, {weekday:2,label:'الثلاثاء'},
@@ -11,16 +13,16 @@ const WEEKDAYS = [
 
 const STATUS_AR = {
   complete:'مكتمل', missing_in:'بصمة دخول مفقودة', missing_out:'بصمة خروج مفقودة',
-  absent:'غياب', day_off:'إجازة', no_schedule:'لا يوجد روتين', needs_review:'يحتاج مراجعة',
+  absent:'غياب', day_off:'إجازة', no_schedule:'ساعات الدوام غير محددة', needs_review:'يحتاج مراجعة',
 };
 
 const STAGE_AR = {
-  uploaded:'مرفوع', parsed:'تم الاستخراج', analyzed:'تم التحليل', justifications:'معالجة التبريرات',
+  uploaded:'مرفوع', parsed:'تم الاستخراج', calibrated:'تمت معايرة ساعات الدوام', analyzed:'تم التحليل', justifications:'معالجة التبريرات',
   recalculated:'أعيد الاحتساب', ready_to_post:'جاهز للترحيل / التسليم', posted:'مرحّل إلى HR',
   closed:'مغلق ومسلّم', failed:'فشل', superseded:'مستبدل',
 };
 
-const STAGE_ORDER = ['parsed','analyzed','justifications','recalculated','ready_to_post','posted'];
+const STAGE_ORDER = ['parsed','calibrated','analyzed','justifications','recalculated','ready_to_post','posted'];
 
 function fmtTime(value) {
   if (!value) return '—';
@@ -218,8 +220,8 @@ export default function EmployeeAttendancePage() {
   function applyBulkTime() { if (bulkStart && bulkEnd) setScheduleDays((list)=>list.map((d)=>d.is_workday?{...d,start_time:bulkStart,end_time:bulkEnd}:d)); }
 
   async function saveSchedule() {
-    if (!activeImport || !subjectId || !validFrom) { setErr('اختر الشخص وحدد بداية سريان الروتين.'); return; }
-    if (scheduleDays.some((d)=>d.is_workday && (!d.start_time || !d.end_time))) { setErr('كل يوم عمل يحتاج وقت بداية ونهاية.'); return; }
+    if (!activeImport || !subjectId || !validFrom) { setErr('اختر الشخص وحدد بداية سريان ساعات الدوام.'); return; }
+    if (scheduleDays.some((d)=>d.is_workday && (!d.start_time || !d.end_time))) { setErr('كل يوم عمل يحتاج ساعة بداية وساعة نهاية.'); return; }
     setBusy(true); setErr('');
     const daysPayload = scheduleDays.map(({weekday,is_workday,start_time,end_time,notes})=>({weekday,is_workday,start_time,end_time,notes}));
     const external = activeImport.processing_scope === 'external';
@@ -228,7 +230,7 @@ export default function EmployeeAttendancePage() {
       : await supabase.rpc('hr_save_employee_work_schedule',{p_schedule_id:scheduleId,p_employee_id:subjectId,p_name:scheduleName,p_valid_from:validFrom,p_valid_to:validTo||null,p_days:daysPayload,p_notes:null});
     setBusy(false);
     if (error) { setErr(error.message); return; }
-    setScheduleId(data); setMsg('تم حفظ الروتين. لا يوجد أثر رسمي قبل الترحيل.');
+    setScheduleId(data); setMsg('تم حفظ ساعات الدوام. لا يوجد أثر رسمي قبل الترحيل.');
   }
 
   async function runStage(action) {
@@ -321,7 +323,7 @@ export default function EmployeeAttendancePage() {
           {newScope==='external' && <><div className="field"><label>اسم العميل</label><input value={clientName} onChange={(e)=>setClientName(e.target.value)} /></div><div className="field"><label>مرجع العميل / المهمة</label><input value={clientReference} onChange={(e)=>setClientReference(e.target.value)} /></div></>}
         </div>
         <div className="rowsplit" style={{marginTop:16}}><label className="btn ghost" style={{cursor:'pointer'}}>اختيار ملف Excel<input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={(e)=>readAttendanceFile(e.target.files?.[0])} /></label>{file&&<span>{file.name}</span>}{punchCount>0&&<strong>{punchCount} حركة خام مقروءة</strong>}<button className="btn" disabled={busy||!punchCount} onClick={createBatch}>{busy?'جارٍ الاستخراج':'رفع واستخراج فقط'}</button></div>
-        <p className="hint" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج تراجع الأشخاص والروتين ثم تبدأ التحليل.</p>
+        <p className="hint" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج يعاير البرنامج ساعات الدوام من البصمات، ثم تراجع الاستثناءات وتبدأ التحليل.</p>
       </div>
     </div>
 
@@ -336,8 +338,8 @@ export default function EmployeeAttendancePage() {
           <div className="stat"><span>إصدار المراجعة</span><strong>{activeImport.review_revision||0}</strong></div>
         </div>
         <div className="rowsplit" style={{marginTop:16}}>
-          <button className="btn ghost" disabled={busy} onClick={exportWorkbook}>تصدير Excel للحالة الحالية</button>
-          {stage==='parsed'&&<button className="btn" disabled={busy} onClick={()=>runStage('analyze')}>تحليل البيانات</button>}
+          <button className="btn ghost" disabled={busy} onClick={exportWorkbook}>ملف المراجعة Excel</button>
+          <AttendanceClientExcelReport activeImport={activeImport} disabled={busy || !['recalculated','ready_to_post','posted','closed'].includes(stage)} />
           {stage==='analyzed'&&<button className="btn" disabled={busy} onClick={()=>runStage('review')}>بدء معالجة التبريرات</button>}
           {['justifications','analyzed'].includes(stage)&&<button className="btn" disabled={busy} onClick={()=>runStage('recalculate')}>إعادة الاحتساب</button>}
           {stage==='recalculated'&&<button className="btn" disabled={busy} onClick={()=>runStage('ready')}>اعتماد نتيجة المراجعة</button>}
@@ -348,18 +350,20 @@ export default function EmployeeAttendancePage() {
       </div>}
     </div>
 
+    <AttendanceCalibrationPanel activeImport={activeImport} employees={employees} externalPeople={externalPeople} onRefresh={async()=>{ if(activeImport?.id){ await loadImports(activeImport.id); await loadActive(activeImport.id); } }} />
+
     {activeImport && !['posted','closed'].includes(stage) && <div className="section">
-      <header><h2>روتين الدوام للدفعة</h2><span className="hint">التحليل يعتمد على الروتين لتحديد الدخول والخروج والانحرافات.</span></header>
+      <header><h2>مراجعة / تعديل ساعات الدوام</h2><span className="hint">استخدم هذا القسم فقط لتعديل الحالات التي لم يستطع البرنامج معايرتها بثقة أو لتسجيل ساعات دوام معتمدة من العميل.</span></header>
       <div style={{padding:18}}>
         <div className="form-grid">
           <div className="field"><label>{activeImport.processing_scope==='external'?'شخص ملف العميل':'الموظف'}</label><select value={subjectId} onChange={(e)=>loadSchedule(e.target.value)}><option value="">اختر</option>{subjects.map((s)=><option key={s.id} value={s.id}>{s.no?`${s.no} - `:''}{s.name}</option>)}</select></div>
-          <div className="field"><label>اسم الروتين</label><input value={scheduleName} onChange={(e)=>setScheduleName(e.target.value)} /></div>
+          <div className="field"><label>وصف ساعات الدوام</label><input value={scheduleName} onChange={(e)=>setScheduleName(e.target.value)} /></div>
           <div className="field"><label>يسري من</label><input type="date" value={validFrom} onChange={(e)=>setValidFrom(e.target.value)} /></div>
           <div className="field"><label>يسري إلى</label><input type="date" value={validTo} onChange={(e)=>setValidTo(e.target.value)} /></div>
         </div>
         <div className="rowsplit" style={{margin:'16px 0'}}><div className="field"><label>وقت موحد</label><input type="time" value={bulkStart} onChange={(e)=>setBulkStart(e.target.value)} /></div><div className="field"><label>إلى</label><input type="time" value={bulkEnd} onChange={(e)=>setBulkEnd(e.target.value)} /></div><button type="button" className="btn ghost" onClick={applyBulkTime}>تطبيق على أيام العمل</button></div>
         <div style={{overflowX:'auto'}}><table><thead><tr><th>اليوم</th><th>يوم عمل</th><th>البداية</th><th>النهاية</th><th>ملاحظات</th></tr></thead><tbody>{scheduleDays.map((d)=><tr key={d.weekday}><td>{d.label}</td><td><input type="checkbox" checked={d.is_workday} onChange={(e)=>updateScheduleDay(d.weekday,{is_workday:e.target.checked,start_time:e.target.checked?d.start_time:'',end_time:e.target.checked?d.end_time:''})}/></td><td><input type="time" disabled={!d.is_workday} value={d.start_time} onChange={(e)=>updateScheduleDay(d.weekday,{start_time:e.target.value})}/></td><td><input type="time" disabled={!d.is_workday} value={d.end_time} onChange={(e)=>updateScheduleDay(d.weekday,{end_time:e.target.value})}/></td><td><input disabled={!d.is_workday} value={d.notes} onChange={(e)=>updateScheduleDay(d.weekday,{notes:e.target.value})}/></td></tr>)}</tbody></table></div>
-        <div style={{marginTop:16}}><button className="btn" disabled={busy||!subjectId} onClick={saveSchedule}>حفظ الروتين</button></div>
+        <div style={{marginTop:16}}><button className="btn" disabled={busy||!subjectId} onClick={saveSchedule}>حفظ ساعات الدوام</button></div>
       </div>
     </div>}
 
