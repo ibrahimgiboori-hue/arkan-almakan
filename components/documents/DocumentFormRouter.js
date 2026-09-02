@@ -6,10 +6,10 @@ import ProjectReportDocumentForm from '@/components/documents/ProjectReportDocum
 import DocumentSmartFillPanel from '@/components/documents/DocumentSmartFillPanel';
 import LegacyDocumentSmartFillPanel from '@/components/documents/LegacyDocumentSmartFillPanel';
 import SalaryCertificateDocumentForm from '@/components/documents/SalaryCertificateDocumentForm';
-import ProjectProgressSmartFillPanel, {
+import ProjectOperationDocumentPanel, {
   DAILY_PROGRESS_CODE,
   ACHIEVEMENT_LOG_CODE,
-} from '@/components/documents/ProjectProgressSmartFillPanel';
+} from '@/components/documents/ProjectOperationDocumentPanel';
 import { supabase } from '@/lib/supabase';
 
 const REPORT_CODE = 'PROJECT_WORK_CLAIMS_REPORT_V1';
@@ -41,7 +41,7 @@ export default function DocumentFormRouter({ code = null, docId = null }) {
 
   if (activeCode === DAILY_PROGRESS_CODE || activeCode === ACHIEVEMENT_LOG_CODE) {
     return <>
-      <ProjectProgressSmartFillPanel code={activeCode} docId={docId || undefined} />
+      <ProjectOperationDocumentPanel code={activeCode} docId={docId || undefined} />
       <DocumentForm code={activeCode} docId={docId || undefined} />
     </>;
   }
