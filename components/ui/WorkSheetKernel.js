@@ -65,8 +65,7 @@ export function WorkSelectionDock({ count = 0, summary = null, actions = null, o
     >
       <strong data-selection-count-label="true">{count} محدد</strong>
       {summary ? <span data-selection-summary="true">{summary}</span> : null}
-      <span data-selection-spacer="true" />
-      <div data-selection-actions="true">
+      <div data-work-dock-actions="true" data-selection-actions="true">
         {children || actions}
         {onClear ? <button type="button" className="btn ghost" onClick={onClear}>إلغاء التحديد</button> : null}
       </div>
