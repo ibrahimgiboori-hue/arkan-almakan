@@ -7,63 +7,69 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const exists = (relative) => fs.existsSync(path.join(root, relative));
 
 function requireText(file, needles) {
+  if (!exists(file)) {
+    failures.push(`${file}: الملف مفقود.`);
+    return '';
+  }
   const text = read(file);
   for (const needle of needles) {
     if (!text.includes(needle)) failures.push(`${file}: مفقود الثابت البنيوي ${needle}`);
   }
+  return text;
 }
 
-requireText('app/dashboard/layout.js', [
+const layout = requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
-  "import './raw-phase.css'",
-  "import './transaction-underwear.css'",
-  "import './app-shell-v2.css'",
-  "import './living-navigation.css'",
-  "import './navigation-comfort-v1.css'",
+  "import './arkan-skin-v1.css'",
+  "import './arkan-dashboard-geometry-v2.css'",
   'data-work-kernel="operational-notebook-v1"',
   'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
+  'data-geometry-owner="arkan-dashboard-v2"',
   'className="workSheetMount"',
   'ContextualDashboardNavigation',
 ]);
 
-if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
-if (exists('app/dashboard/work-sheet-kernel.css')) failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
-if (exists('components/ui/RawDashboardNavigation.module.css')) failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
-
-requireText('app/dashboard/raw-phase.css', [
+const geometry = requireText('app/dashboard/arkan-dashboard-geometry-v2.css', [
+  'ARKAN DASHBOARD GEOMETRY V2',
   '.rawDashboardContent > .workSheetMount',
-  "[data-work-header='true']",
-  "[data-work-ledger='true']",
-  "[data-work-dock='true']",
-  'scrollbar-gutter: stable both-edges',
-]);
-
-requireText('app/dashboard/transaction-underwear.css', [
-  'TRANSACTION UNDERWEAR V1',
-  '--transaction-field-height',
-  "input[readonly]",
-  "select:disabled",
-  "[data-field-mode='generated']",
-  "[data-field-mode='linked']",
-  "[data-field-mode='calculated']",
-  "[data-work-underwear='transaction-shell-v1']",
-]);
-
-requireText('app/dashboard/app-shell-v2.css', [
   '.appNavHotZone',
   '.appContextNav',
   ".appContextNav[data-open='true']",
   '.appNavTopLine',
   '.appNavBottomActions',
+  '.appNavAccountMenu',
+  '.appNavAccountMenuBody',
+  '.appNavGrandchildTabs',
+  '.appNavGrandchildGroupTitle',
+  '.appNavMirrorPortal',
+  "[data-work-form-grid='true'] [data-work-field='true']",
+  "[data-field-mode='generated']",
+  "[data-field-mode='linked']",
+  "[data-field-mode='calculated']",
+  'scrollbar-gutter: stable both-edges',
   "@media (prefers-reduced-motion: reduce)",
 ]);
 
-requireText('app/dashboard/navigation-comfort-v1.css', [
-  'NAVIGATION COMFORT V1',
-  '.appNavAccountMenu',
-  '.appNavAccountMenuBody',
-]);
+const forbiddenGeometry = [
+  'app/dashboard/raw-phase.css',
+  'app/dashboard/transaction-underwear.css',
+  'app/dashboard/app-shell-v2.css',
+  'app/dashboard/app-body-v3.css',
+  'app/dashboard/living-navigation.css',
+  'app/dashboard/body-resuscitation.css',
+  'app/dashboard/legacy-structure-bridge-v1.css',
+  'app/dashboard/navigation-comfort-v1.css',
+  'app/dashboard/arkan-field-geometry-v1.css',
+  'app/dashboard/arkan-workspace-geometry-v1.css',
+  'app/dashboard/work-sheet-kernel.css',
+];
+for (const file of forbiddenGeometry) {
+  if (exists(file)) failures.push(`${file}: هندسة قديمة/منافسة يجب ألا تعود بعد توحيد القبطان.`);
+  if (layout.includes(path.basename(file))) failures.push(`app/dashboard/layout.js: عاد تحميل ${path.basename(file)}.`);
+}
+if (exists('components/ui/RawDashboardNavigation.module.css')) failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
+if (exists('components/ui/RawDashboardNavigation.js')) failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب ألا يعود.');
 
 requireText('lib/navigation-shell-constitution.js', [
   'SHELL_PORTAL_GROUPS',
@@ -84,7 +90,7 @@ requireText('lib/portal-living-navigation.js', [
   'portalCoverageReport',
 ]);
 
-requireText('components/ui/ContextualDashboardNavigation.js', [
+const nav = requireText('components/ui/ContextualDashboardNavigation.js', [
   'filterAreasForAccess',
   'projectNavRequirement',
   'portalEntryNodes',
@@ -112,9 +118,6 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'returnToEmployeeDesktop',
 ]);
 
-if (exists('components/ui/RawDashboardNavigation.js')) failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
-
-const nav = read('components/ui/ContextualDashboardNavigation.js');
 if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
 if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة الجديدة عادت للاعتماد على تجميعات كتالوج البوابات القديم.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
@@ -126,9 +129,7 @@ if (nav.includes('NAVIGATION_YIELD_EVENT') || /function\s+yieldToWork\s*\(/.test
 if (!/function\s+go\s*\([^)]*\)\s*\{[\s\S]{0,500}?setOpen\(true\);/.test(nav)) failures.push('الملاحة: اختيار العمل أو الحفيد يجب أن يبقي القائمة موجودة حتى يخفيها المستخدم.');
 if (!/<details[^>]+className="appNavAccountMenu"[\s\S]{0,300}?تسجيل الخروج/.test(nav)) failures.push('الملاحة: تسجيل الخروج يجب أن يبقى خلف خطوة الحساب الآمنة.');
 
-const livingCss = read('app/dashboard/living-navigation.css');
-if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحة من الجسد بدل تغطية العمل.');
-if (!livingCss.includes('.appNavGrandchildTabs') || !livingCss.includes('.appNavGrandchildGroupTitle')) failures.push('قائمة الحفيد: قبطان الشكل لا يعرف تبويبات الأداة أو مجموعاتها المنطقية.');
+if (!geometry.includes(".rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage") && !geometry.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) failures.push('سطح المكتب: القبطان الموحد يجب أن يحجز مساحة للقائمة المفتوحة.');
 
 requireText('components/ui/ConstitutionUI.js', [
   "from './WorkSheetKernel'",
@@ -167,4 +168,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: one visual captain dresses navigation and transactions, navigation stays until manual dismissal, protected account actions stay out of the work path, and the selected action alone owns the stage.');
+console.log('Single visual captain audit passed: arkan-dashboard-geometry-v2 is the only dashboard geometry captain, old geometry cannot return, navigation stays until manual dismissal, and protected account actions stay out of the work path.');
