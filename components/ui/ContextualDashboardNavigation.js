@@ -28,6 +28,7 @@ import {
 import { requestWorkSessionNavigation } from '@/components/ui/WorkSessionRuntime';
 
 const NAVIGATION_YIELD_EVENT = 'arkan:navigation-yield-to-work';
+const FAST_DESKTOP_BACK_WINDOW_MS = 5000;
 
 function isCompactNavigationViewport() {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -41,6 +42,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const queryKey = searchParams?.toString() || '';
   const navRef = useRef(null);
   const edgeRef = useRef(null);
+  const lastSemanticBackAtRef = useRef(0);
+  const navigationIntentRef = useRef('');
   const [open, setOpen] = useState(false);
   const [expandedAreaKey, setExpandedAreaKey] = useState(null);
   const [mirrorSubject, setMirrorSubject] = useState(null);
@@ -127,6 +130,15 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }, [projectId]);
 
   useEffect(() => {
+    if (navigationIntentRef.current === 'semantic-back') {
+      navigationIntentRef.current = '';
+      return;
+    }
+    navigationIntentRef.current = '';
+    lastSemanticBackAtRef.current = 0;
+  }, [pathname, queryKey]);
+
+  useEffect(() => {
     function mirrorContext(event) {
       const detail = event?.detail && typeof event.detail === 'object' ? event.detail : null;
       if (!detail?.portalKey || detail.portalKey !== currentAreaKey) return;
@@ -173,7 +185,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       setOpen(false);
     }
     function yieldToWork() {
-      // الإجراء الحقيقي يملك المسرح وحده؛ القائمة تتنحى حتى يستدعيها المستخدم مرة أخرى.
       setOpen(false);
     }
     window.addEventListener('keydown', keydown);
@@ -186,23 +197,29 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     };
   }, [open]);
 
+  function resetFastBackSequence() {
+    lastSemanticBackAtRef.current = 0;
+  }
+
   function openNavigation() {
     setOpen(true);
   }
 
   function go(href, options = {}) {
     if (!href) return;
+    if (options.fromBack !== true) resetFastBackSequence();
     const accepted = requestWorkSessionNavigation(href, { replace:options.replace === true });
     if (!accepted) return;
+    navigationIntentRef.current = options.fromBack === true ? 'semantic-back' : 'forward';
     setOpen(options.keepOpen !== false);
     if (options.replace) router.replace(href);
     else router.push(href);
   }
 
   function selectArea(area) {
+    resetFastBackSequence();
     setExpandedAreaKey(area.key);
     setOpen(true);
-    // فتح البوابة يفتح فرعًا ملاحيًا فقط؛ الخمول لا يتبدل قبل اختيار عقدة حقيقية.
   }
 
   const backTarget = useMemo(() => {
@@ -269,8 +286,30 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     workspaceMatch,
   ]);
 
+  function returnToEmployeeDesktop() {
+    const accepted = requestWorkSessionNavigation('/dashboard');
+    if (!accepted) return;
+    lastSemanticBackAtRef.current = 0;
+    navigationIntentRef.current = 'semantic-back';
+    setOpen(false);
+    setExpandedAreaKey(null);
+    setMirrorSubject(null);
+    setGrandchildContext(null);
+    setActiveGrandchildTab('');
+    setExpandedGrandchildGroup('');
+    router.push('/dashboard');
+  }
+
   function goBack() {
     if (!backTarget) return;
+    const now = Date.now();
+    const previous = lastSemanticBackAtRef.current;
+    if (previous > 0 && now - previous < FAST_DESKTOP_BACK_WINDOW_MS) {
+      returnToEmployeeDesktop();
+      return;
+    }
+    lastSemanticBackAtRef.current = now;
+
     if (backTarget.kind === 'collapse') {
       setExpandedAreaKey(null);
       setOpen(true);
@@ -278,10 +317,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     }
     if (backTarget.kind === 'idle') {
       setExpandedAreaKey(backTarget.areaKey || null);
-      go(backTarget.href);
+      go(backTarget.href,{fromBack:true});
       return;
     }
-    go(backTarget.href);
+    go(backTarget.href,{fromBack:true});
   }
 
   function renderGrandchild() {
@@ -302,6 +341,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           className="appNavGrandchildTab"
           data-current={currentTab?.key===tab.key ? 'true':'false'}
           onClick={()=>{
+            resetFastBackSequence();
             setActiveGrandchildTab(tab.key);
             setExpandedGrandchildGroup('');
           }}
@@ -315,7 +355,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
         {groups.map((group)=>{
           const expanded = expandedGrandchildGroup === group.key;
           return <div className="appNavGrandchildGroup" key={group.key} data-expanded={expanded ? 'true':'false'}>
-            <button type="button" className="appNavGrandchildGroupTitle" onClick={()=>setExpandedGrandchildGroup(expanded ? '' : group.key)}>
+            <button type="button" className="appNavGrandchildGroupTitle" onClick={()=>{
+              resetFastBackSequence();
+              setExpandedGrandchildGroup(expanded ? '' : group.key);
+            }}>
               <span>{group.label}</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
             </button>
             {expanded ? <div className="appNavGrandchildItems">
