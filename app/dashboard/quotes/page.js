@@ -75,37 +75,30 @@ export default function Quotes() {
 
   return <ConstitutionPage>
     <div data-new-quotation-operation="true" data-stage-occupancy="single-action">
-      <PageHeader
-        eyebrow="QUOTATIONS · CREATE NEW"
-        title={`${documentLabel} — إصدار جديد`}
-        description="حدد نوع المستند ولغته ثم ابدأ. بعد إنشاء المعاملة ستأخذ وحدها مساحة العمل."
-      />
+      <PageHeader title={`${documentLabel} — إصدار جديد`} />
 
       {err ? <Notice tone="error">{err}</Notice> : null}
       {msg ? <InlineStatus tone="success" live>{msg}</InlineStatus> : null}
 
-      <Section title="بيانات الإصدار" description="كل الحقول تتبع نفس لغة المعاملة؛ القيم التي يولدها النظام تبقى واضحة دون أن تبدو كحقل معطل." boundary>
+      <Section title="بيانات الإصدار" boundary>
         <WorkFormGrid label="بيانات المستند الجديد">
-          <WorkField label="النوع" span={4}>
+          <WorkField label="النوع /" span={4}>
             <select value={kind} onChange={(event)=>setKind(event.target.value)} aria-label="نوع المستند الجديد">
               <option value="quotation">عرض سعر</option>
               <option value="boq">جدول كميات</option>
             </select>
           </WorkField>
-          <WorkField label="اللغة" span={4}>
+          <WorkField label="اللغة /" span={4}>
             <select value={language} onChange={(event)=>setLanguage(event.target.value)} aria-label="لغة المستند الجديد">
               <option value="ar">العربية</option>
               <option value="en">English</option>
             </select>
           </WorkField>
-          <WorkField label="رقم المستند" mode="generated" span={4} value="يُولد عند بدء الإصدار" />
+          <WorkField label="رقم المستند /" mode="generated" span={4} value="يُولد عند بدء الإصدار" />
         </WorkFormGrid>
       </Section>
 
-      <ActionDock
-        actions={<button className="btn" disabled={busy} onClick={create}>{busy ? 'جارٍ الإنشاء…' : `بدء ${documentLabel}`}</button>}
-        status="الرقم المرجعي وبقية القيم النظامية تُنشأ من المصدر نفسه عند بدء المعاملة."
-      />
+      <ActionDock actions={<button className="btn" disabled={busy} onClick={create}>{busy ? 'جارٍ الإنشاء…' : `بدء ${documentLabel}`}</button>} />
     </div>
   </ConstitutionPage>;
 }
