@@ -14,6 +14,7 @@ import './raw-tokens.css';
 import './raw-phase.css';
 import './app-shell-v2.css';
 import './app-body-v3.css';
+import './body-resuscitation.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
