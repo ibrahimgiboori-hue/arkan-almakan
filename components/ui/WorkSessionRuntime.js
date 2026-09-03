@@ -7,6 +7,9 @@ import { normalizeInnervationSubject } from '@/lib/persistent-innervation';
 
 export const WORK_SESSION_EVENT = Object.freeze({
   BEGIN: 'arkan:work-session-begin',
+  DIRTY: 'arkan:work-session-dirty',
+  CLEAN: 'arkan:work-session-clean',
+  NAVIGATE: 'arkan:work-session-navigate',
   COMPLETE: 'arkan:work-session-completed',
   RESET: 'arkan:work-session-reset',
 });
@@ -71,6 +74,27 @@ export function emitWorkSessionBegin(detail = {}) {
   return true;
 }
 
+export function emitWorkSessionDirty(detail = {}) {
+  if (typeof window === 'undefined') return false;
+  window.dispatchEvent(new CustomEvent(WORK_SESSION_EVENT.DIRTY, { detail }));
+  return true;
+}
+
+export function emitWorkSessionClean() {
+  if (typeof window === 'undefined') return false;
+  window.dispatchEvent(new CustomEvent(WORK_SESSION_EVENT.CLEAN));
+  return true;
+}
+
+// الملاحة تطلب الانتقال فقط. إذا كان هناك تقدم غير محفوظ، الجلسة ترفض الانتقال
+// لحظيًا وتعرض خيارات حقيقية قبل أن تسمح بتغيير المسار.
+export function requestWorkSessionNavigation(href, options = {}) {
+  if (typeof window === 'undefined' || !href) return true;
+  const detail = { href:String(href), replace:options.replace === true, accepted:true };
+  window.dispatchEvent(new CustomEvent(WORK_SESSION_EVENT.NAVIGATE, { detail }));
+  return detail.accepted !== false;
+}
+
 export function emitWorkSessionCompletion(detail) {
   if (typeof window === 'undefined') return false;
   if (detail?.serverConfirmed !== true) return false;
@@ -119,11 +143,34 @@ function CompletedSurface({ completion, onAction }) {
   );
 }
 
+function UnsavedNavigationGuard({ pending, canSaveDraft, busy, error, onContinue, onSaveDraft, onDiscard }) {
+  if (!pending) return null;
+  return (
+    <section className="appUnsavedNavigationGuard" data-unsaved-navigation-guard="true" aria-live="polite">
+      <div className="appUnsavedNavigationCopy">
+        <strong>لديك تقدم غير محفوظ في هذا الإجراء.</strong>
+        <span>أكمل ما بدأته أو احفظ مسودة قبل الانتقال. تجاهل التقدم قد لا يضمن حفظ ما لم يُحفظ بعد.</span>
+        {error ? <span className="appUnsavedNavigationError">{error}</span> : null}
+      </div>
+      <div className="appUnsavedNavigationActions">
+        <button type="button" onClick={onContinue} disabled={busy}>إكمال الإجراء</button>
+        {canSaveDraft ? <button type="button" onClick={onSaveDraft} disabled={busy}>{busy ? 'جارٍ حفظ المسودة…' : 'حفظ مسودة والمتابعة'}</button> : null}
+        <button type="button" className="appUnsavedDiscard" onClick={onDiscard} disabled={busy}>تجاهل والمتابعة</button>
+      </div>
+    </section>
+  );
+}
+
 export default function WorkSessionRuntime({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [sessionSubject, setSessionSubject] = useState(null);
   const [started, setStarted] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [draftSaver, setDraftSaver] = useState(null);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [guardBusy, setGuardBusy] = useState(false);
+  const [guardError, setGuardError] = useState('');
   const [completion, setCompletion] = useState(null);
 
   const begin = useCallback((detail = {}) => {
@@ -133,17 +180,44 @@ export default function WorkSessionRuntime({ children }) {
     return true;
   }, []);
 
+  const markDirty = useCallback((detail = {}) => {
+    setCompletion(null);
+    setStarted(true);
+    setDirty(true);
+    setGuardError('');
+    if (typeof detail?.saveDraft === 'function') setDraftSaver(() => detail.saveDraft);
+    if (detail?.subject) setSessionSubject(normalizeInnervationSubject(detail.subject));
+    return true;
+  }, []);
+
+  const markClean = useCallback(() => {
+    setDirty(false);
+    setDraftSaver(null);
+    setPendingNavigation(null);
+    setGuardError('');
+    return true;
+  }, []);
+
   const complete = useCallback((detail) => {
     const next = normalizeCompletion(detail);
     if (!next) return false;
     setSessionSubject(next.subject || null);
     setStarted(false);
+    setDirty(false);
+    setDraftSaver(null);
+    setPendingNavigation(null);
+    setGuardError('');
     setCompletion(next);
     return true;
   }, []);
 
   const reset = useCallback(() => {
     setStarted(false);
+    setDirty(false);
+    setDraftSaver(null);
+    setPendingNavigation(null);
+    setGuardBusy(false);
+    setGuardError('');
     setSessionSubject(null);
     setCompletion(null);
   }, []);
@@ -155,39 +229,121 @@ export default function WorkSessionRuntime({ children }) {
 
   useEffect(() => {
     function onBegin(event) { begin(event?.detail || {}); }
+    function onDirty(event) { markDirty(event?.detail || {}); }
+    function onClean() { markClean(); }
     function onComplete(event) { complete(event?.detail || {}); }
     function onReset() { reset(); }
+    function onNavigate(event) {
+      const detail = event?.detail;
+      if (!detail?.href) return;
+      if (!dirty) {
+        detail.accepted = true;
+        return;
+      }
+      detail.accepted = false;
+      setPendingNavigation({ href:String(detail.href), replace:detail.replace === true });
+      setGuardError('');
+    }
     window.addEventListener(WORK_SESSION_EVENT.BEGIN, onBegin);
+    window.addEventListener(WORK_SESSION_EVENT.DIRTY, onDirty);
+    window.addEventListener(WORK_SESSION_EVENT.CLEAN, onClean);
+    window.addEventListener(WORK_SESSION_EVENT.NAVIGATE, onNavigate);
     window.addEventListener(WORK_SESSION_EVENT.COMPLETE, onComplete);
     window.addEventListener(WORK_SESSION_EVENT.RESET, onReset);
     return () => {
       window.removeEventListener(WORK_SESSION_EVENT.BEGIN, onBegin);
+      window.removeEventListener(WORK_SESSION_EVENT.DIRTY, onDirty);
+      window.removeEventListener(WORK_SESSION_EVENT.CLEAN, onClean);
+      window.removeEventListener(WORK_SESSION_EVENT.NAVIGATE, onNavigate);
       window.removeEventListener(WORK_SESSION_EVENT.COMPLETE, onComplete);
       window.removeEventListener(WORK_SESSION_EVENT.RESET, onReset);
     };
-  }, [begin, complete, reset]);
+  }, [begin, complete, dirty, markClean, markDirty, reset]);
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+    function beforeUnload(event) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+  }, [dirty]);
 
   const state = completion
     ? WORK_SESSION_STATE.RELEASED
-    : started
-      ? WORK_SESSION_STATE.WORKING
-      : WORK_SESSION_STATE.IDLE;
+    : dirty
+      ? WORK_SESSION_STATE.DIRTY
+      : started
+        ? WORK_SESSION_STATE.WORKING
+        : WORK_SESSION_STATE.IDLE;
 
   useEffect(() => {
     const shell = document.querySelector('.rawDashboardShell');
     if (!shell) return undefined;
     shell.setAttribute('data-work-session-state', state);
-    return () => shell.removeAttribute('data-work-session-state');
-  }, [state]);
+    shell.setAttribute('data-work-session-dirty', dirty ? 'true' : 'false');
+    return () => {
+      shell.removeAttribute('data-work-session-state');
+      shell.removeAttribute('data-work-session-dirty');
+    };
+  }, [dirty, state]);
 
   const value = useMemo(() => Object.freeze({
     state,
+    dirty,
     subject:sessionSubject,
     completion,
     begin,
+    markDirty,
+    markClean,
     complete,
     reset,
-  }), [begin, complete, completion, reset, sessionSubject, state]);
+  }), [begin, complete, completion, dirty, markClean, markDirty, reset, sessionSubject, state]);
+
+  function performNavigation(target) {
+    if (!target?.href) return;
+    if (target.replace) router.replace(target.href);
+    else router.push(target.href);
+  }
+
+  function continueCurrentWork() {
+    setPendingNavigation(null);
+    setGuardError('');
+  }
+
+  async function saveDraftAndContinue() {
+    if (!pendingNavigation || typeof draftSaver !== 'function' || guardBusy) return;
+    setGuardBusy(true);
+    setGuardError('');
+    try {
+      const result = await draftSaver();
+      const confirmed = result === true || result?.serverConfirmed === true;
+      if (!confirmed) {
+        setGuardError('لم يؤكد النظام حفظ المسودة. ابقَ في الإجراء وتحقق من الحفظ قبل الانتقال.');
+        return;
+      }
+      const target = pendingNavigation;
+      setDirty(false);
+      setDraftSaver(null);
+      setPendingNavigation(null);
+      performNavigation(target);
+    } catch (error) {
+      setGuardError(error?.message ? `تعذر حفظ المسودة: ${error.message}` : 'تعذر حفظ المسودة.');
+    } finally {
+      setGuardBusy(false);
+    }
+  }
+
+  function discardAndContinue() {
+    if (!pendingNavigation) return;
+    const target = pendingNavigation;
+    setDirty(false);
+    setDraftSaver(null);
+    setPendingNavigation(null);
+    setGuardError('');
+    performNavigation(target);
+  }
 
   function act(action) {
     if (!action) return;
@@ -197,7 +353,18 @@ export default function WorkSessionRuntime({ children }) {
 
   return (
     <WorkSessionContext.Provider value={value}>
-      {completion ? <CompletedSurface completion={completion} onAction={act} /> : children}
+      {completion ? <CompletedSurface completion={completion} onAction={act} /> : <>
+        <UnsavedNavigationGuard
+          pending={pendingNavigation}
+          canSaveDraft={typeof draftSaver === 'function'}
+          busy={guardBusy}
+          error={guardError}
+          onContinue={continueCurrentWork}
+          onSaveDraft={saveDraftAndContinue}
+          onDiscard={discardAndContinue}
+        />
+        {children}
+      </>}
     </WorkSessionContext.Provider>
   );
 }
