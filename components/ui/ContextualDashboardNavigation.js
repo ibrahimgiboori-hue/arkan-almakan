@@ -13,17 +13,15 @@ import { anatomyAreaLabel } from '@/lib/anatomical-navigation';
 import {
   NAVIGATION_MIRROR_EVENT,
   PROJECT_APPROACH_REGIONS,
-  PROJECT_GUARDIANS,
   normalizeProjectCare,
   normalizeProjectRegion,
   projectApproachHref,
   projectRegionForItemKey,
 } from '@/lib/living-navigation';
 import {
-  accessiblePortalTools,
   activePortalGroup,
   activePortalTool,
-  livingPortalGroups,
+  portalEntryNodes,
   portalApproachHref,
 } from '@/lib/portal-living-navigation';
 import { requestWorkSessionNavigation } from '@/components/ui/WorkSessionRuntime';
@@ -51,6 +49,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     [me],
   );
 
+  const entryNodesByArea = useMemo(() => Object.fromEntries(
+    accessibleAreas.map((area) => [area.key, portalEntryNodes(area.key, me)]),
+  ), [accessibleAreas, me]);
+
   const projectMatch = pathname.match(/^\/dashboard\/projects\/([^/]+)(?:\/|$)/);
   const projectId = projectMatch?.[1] || null;
   const isProjectAnatomy = Boolean(projectId && pathname === `/dashboard/projects/${projectId}/anatomy`);
@@ -59,13 +61,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const rawAreaKey = projectId ? 'projects' : workspaceMatch?.[1] || constitutionItem?.area?.key || null;
   const currentAreaKey = rawAreaKey === 'home' ? null : rawAreaKey;
   const currentArea = accessibleAreas.find((area) => area.key === currentAreaKey) || null;
-
-  const groupsByArea = useMemo(() => Object.fromEntries(
-    accessibleAreas.map((area) => [area.key, livingPortalGroups(area.key, me)]),
-  ), [accessibleAreas, me]);
-
-  const projectAreaTools = useMemo(() => accessiblePortalTools('projects', me), [me]);
-  const projectToolHrefs = useMemo(() => new Set(projectAreaTools.map((item) => item.href)), [projectAreaTools]);
 
   const projectTools = useMemo(() => {
     if (!projectId) return [];
@@ -101,9 +96,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     ? 'quotes'
     : (currentAreaKey === 'projects' && (pathname.startsWith('/dashboard/projects') || projectId) ? currentCare : '');
 
-  const availableProjectGuardians = useMemo(() => PROJECT_GUARDIANS.filter((guardian) =>
-    guardian.entityKind === 'project' || projectToolHrefs.has(guardian.href)
-  ), [projectToolHrefs]);
+  const projectGuardianNodes = useMemo(() => (entryNodesByArea.projects || [])
+    .filter((node) => node.nodeKind === 'guardian'), [entryNodesByArea.projects]);
 
   const currentGenericGroup = useMemo(() => {
     if (!currentAreaKey || guardianKey) return null;
@@ -128,8 +122,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   useEffect(() => {
     function mirrorContext(event) {
       const detail = event?.detail && typeof event.detail === 'object' ? event.detail : null;
-      if (!detail?.portalKey) return;
-      if (detail.portalKey !== currentAreaKey) return;
+      if (!detail?.portalKey || detail.portalKey !== currentAreaKey) return;
       setMirrorSubject(detail);
     }
     window.addEventListener(NAVIGATION_MIRROR_EVENT, mirrorContext);
@@ -175,15 +168,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   function selectArea(area) {
     setExpandedAreaKey(area.key);
     setOpen(true);
-    // فتح البوابة هو فتح فرع ملاحي فقط؛ الخمول لا يتغير قبل اختيار حاضنة/مجموعة.
+    // فتح أي بوابة هو فتح فرع ملاحي فقط؛ شاشة الخمول لا تتبدل قبل اختيار عقدة داخل البوابة.
   }
-
-  function selectGenericGroup(areaKey, groupKey) {
-    go(portalApproachHref(areaKey, groupKey));
-  }
-
-  const projectAuxiliaryGroups = useMemo(() => (groupsByArea.projects || [])
-    .filter((group) => !['projects','commercial'].includes(group.key)), [groupsByArea.projects]);
 
   const backTarget = useMemo(() => {
     if (!currentAreaKey) {
@@ -206,7 +192,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
         };
       }
       if (isProjectAnatomy) {
-        const guardian = availableProjectGuardians.find((item) => item.key === currentCare);
+        const guardian = projectGuardianNodes.find((item) => item.guardianKey === currentCare);
         return {
           kind:'route',
           href:`/dashboard/projects?care=${encodeURIComponent(currentCare)}`,
@@ -233,7 +219,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
     return { kind:'idle', areaKey:currentAreaKey, href:'/dashboard', label:anatomyAreaLabel(currentArea || { key:currentAreaKey }) };
   }, [
-    availableProjectGuardians,
     currentArea,
     currentAreaKey,
     currentCare,
@@ -243,6 +228,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     guardianKey,
     isProjectAnatomy,
     mirrorSubject,
+    projectGuardianNodes,
     projectId,
     queryKey,
     searchParams,
@@ -266,7 +252,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
   function renderMirror() {
     if (!currentArea) return null;
-    const guardian = availableProjectGuardians.find((item) => item.key === guardianKey) || null;
+    const guardian = projectGuardianNodes.find((item) => item.guardianKey === guardianKey) || null;
 
     return <div className="appNavMirror" data-navigation-role="mirror">
       <div className="appNavMirrorPortal">{anatomyAreaLabel(currentArea)}</div>
@@ -307,7 +293,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     return <div className="appNavList appNavPortalList" data-navigation-role="guide">
       {accessibleAreas.map((area) => {
         const areaExpanded = expandedAreaKey === area.key;
-        const groups = groupsByArea[area.key] || [];
+        const entryNodes = entryNodesByArea[area.key] || [];
         return <div key={area.key} className="appNavBranch" data-expanded={areaExpanded ? 'true' : 'false'}>
           <button
             type="button"
@@ -318,23 +304,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
             <span>{anatomyAreaLabel(area)}</span>
           </button>
 
-          {areaExpanded && area.key === 'projects' ? <div className="appNavChildren" data-branch-kind="project-guardians">
-            {availableProjectGuardians.map((guardian) => (
-              <button key={guardian.key} type="button" className="appNavRow appNavRowNested" onClick={() => go(guardian.href)}>
-                <span>{guardian.label}</span>
-              </button>
-            ))}
-            {projectAuxiliaryGroups.map((group) => (
-              <button key={group.key} type="button" className="appNavRow appNavRowNested" onClick={() => selectGenericGroup('projects', group.key)}>
-                <span>{group.label}</span>
-              </button>
-            ))}
-          </div> : null}
-
-          {areaExpanded && area.key !== 'projects' ? <div className="appNavChildren" data-branch-kind="portal-groups">
-            {groups.map((group) => (
-              <button key={group.key} type="button" className="appNavRow appNavRowNested" onClick={() => selectGenericGroup(area.key, group.key)}>
-                <span>{group.label}</span>
+          {areaExpanded ? <div className="appNavChildren" data-branch-kind="portal-entry-nodes">
+            {entryNodes.map((node) => (
+              <button key={node.key} type="button" className="appNavRow appNavRowNested" onClick={() => go(node.href)}>
+                <span>{node.label}</span>
               </button>
             ))}
           </div> : null}
