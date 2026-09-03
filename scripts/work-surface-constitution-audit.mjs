@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { guardConflict } from './governance-guard.mjs';
 
 const root = process.cwd();
 const failures = [];
@@ -35,8 +36,8 @@ const constitution = requireText('lib/work-surface-constitution.js', [
   'same-work-surface-not-mobile-clone',
   'route-content-preserved-in-place',
   'single-route-content-host-no-cloning',
-  'hidden-until-explicitly-called',
-  'progressive-drill-in-no-stacked-accordions',
+  'visible-by-default-user-hideable',
+  'progressive-accordion-current-branch-and-siblings-visible',
   'reserve-space-on-desktop-overlay-on-touch',
   'work-first-no-global-status-card-wall',
   'forbidRouteContentDuplication',
@@ -120,13 +121,15 @@ if ((layout.match(/\{children\}/g) || []).length !== 1) {
 const bodyCss = requireText('app/dashboard/app-body-v3.css', [
   'APPLICATION BODY V3',
   "[data-organ-host='route-content']",
-  ".appContextNav[data-open='true'][data-pinned='true']",
-  'padding-inline-end: var(--app-body-nav-width)',
+  'Navigation geometry belongs to the',
   'content: none !important',
   '.appCompletedSurface',
   '.appCompletedActions',
   'data-work-session-state',
 ]);
+if (/data-pinned|--app-body-nav-width|padding-inline-end:\s*var\(--app-body-nav-width\)/.test(bodyCss)) {
+  failures.push('app-body-v3.css: عاد منطق هندسة/تثبيت الملاحة إلى جسم العمل بدل بقائه في القشرة المشتركة.');
+}
 if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodyCss)) {
   failures.push('app-body-v3.css: الجسد الجديد يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
 }
@@ -135,7 +138,7 @@ if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fi
 }
 
 requireText('components/ui/ConstitutionUI.js', [
-  "import { useWorkSurface } from './WorkSurfaceRuntime'",
+  "from './WorkSheetKernel'",
   'const resolvedMode = surface?.mode || mode ||',
   'data-page-portal',
   'data-work-section-style',
@@ -236,8 +239,8 @@ if (/submitSelectedStatement|approveSelectedStatement/i.test(budget)) failures.p
 
 if (failures.length) {
   console.error('\nProgram-driven work surface audit failed:\n');
-  failures.forEach((item) => console.error(`- ${item}`));
+  failures.forEach((item) => console.error(`- ${guardConflict(item)}`));
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion, and controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs, keeps navigation law in the shared shell, enforces zero-residue completion, and controls surfaces, selection scopes, actions and interaction grammar.');
