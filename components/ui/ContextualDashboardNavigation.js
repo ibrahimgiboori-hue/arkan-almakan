@@ -45,6 +45,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const [expandedAreaKey, setExpandedAreaKey] = useState(null);
   const [mirrorSubject, setMirrorSubject] = useState(null);
   const [grandchildContext, setGrandchildContext] = useState(null);
+  const [activeGrandchildTab, setActiveGrandchildTab] = useState('');
   const [expandedGrandchildGroup, setExpandedGrandchildGroup] = useState('');
 
   const accessibleAreas = useMemo(
@@ -145,8 +146,19 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }, [currentAreaKey]);
 
   useEffect(() => {
-    if (!grandchildMode || !grandchildContext?.currentItemId) return;
-    const activeGroup = (grandchildContext.groups || []).find((group)=>(group.items || []).some((item)=>item.id===grandchildContext.currentItemId));
+    if (!grandchildMode || !grandchildContext) return;
+    const tabs = grandchildContext.tabs || [];
+    const preferredTab = grandchildContext.currentItemTabKey || grandchildContext.defaultTabKey || tabs[0]?.key || '';
+    if (preferredTab && tabs.some((tab)=>tab.key===preferredTab)) setActiveGrandchildTab(preferredTab);
+
+    if (!grandchildContext.currentItemId) {
+      setExpandedGrandchildGroup('');
+      return;
+    }
+
+    const itemTab = tabs.find((tab)=>(tab.groups || []).some((group)=>(group.items || []).some((item)=>item.id===grandchildContext.currentItemId)));
+    const activeGroup = (itemTab?.groups || []).find((group)=>(group.items || []).some((item)=>item.id===grandchildContext.currentItemId));
+    if (itemTab) setActiveGrandchildTab(itemTab.key);
     if (activeGroup) setExpandedGrandchildGroup(activeGroup.key);
   }, [grandchildContext, grandchildMode]);
 
@@ -161,8 +173,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       setOpen(false);
     }
     function yieldToWork() {
-      // الوصول إلى منطقة إجراء/إدخال حقيقية ينهي دور الملاحة تلقائيًا.
-      // إن احتاجها المستخدم داخل العمل يستدعيها من جديد صراحةً.
+      // الإجراء الحقيقي يملك المسرح وحده؛ القائمة تتنحى حتى يستدعيها المستخدم مرة أخرى.
       setOpen(false);
     }
     window.addEventListener('keydown', keydown);
@@ -191,7 +202,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   function selectArea(area) {
     setExpandedAreaKey(area.key);
     setOpen(true);
-    // فتح أي بوابة هو فتح فرع ملاحي فقط؛ شاشة الخمول لا تتبدل قبل اختيار عقدة داخل البوابة.
+    // فتح البوابة يفتح فرعًا ملاحيًا فقط؛ الخمول لا يتبدل قبل اختيار عقدة حقيقية.
   }
 
   const backTarget = useMemo(() => {
@@ -275,68 +286,53 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
   function renderGrandchild() {
     if (!grandchildContext) return null;
-    const primary = grandchildContext.primaryAction;
-    const secondary = grandchildContext.secondaryAction;
-    const priorityItems = grandchildContext.priorityItems || [];
-    const groups = grandchildContext.groups || [];
+    const tabs = grandchildContext.tabs || [];
+    const currentTab = tabs.find((tab)=>tab.key===activeGrandchildTab) || tabs[0] || null;
+    const groups = currentTab?.groups || [];
 
     return <div className="appNavGrandchild" data-navigation-role="grandchild" data-tool-key={grandchildContext.toolKey || ''}>
       <div className="appNavGrandchildTitle">{grandchildContext.title}</div>
 
-      {primary ? <button
-        type="button"
-        className="appNavGrandchildPrimary"
-        data-current={pathname === primary.href ? 'true' : 'false'}
-        onClick={()=>go(primary.href,{keepOpen:false})}
-      >{primary.label}</button> : null}
+      {tabs.length ? <div className="appNavGrandchildTabs" role="tablist" aria-label={`تصنيف ${grandchildContext.title}`}>
+        {tabs.map((tab)=><button
+          type="button"
+          role="tab"
+          aria-selected={currentTab?.key===tab.key}
+          key={tab.key}
+          className="appNavGrandchildTab"
+          data-current={currentTab?.key===tab.key ? 'true':'false'}
+          onClick={()=>{
+            setActiveGrandchildTab(tab.key);
+            setExpandedGrandchildGroup('');
+          }}
+        >
+          <span>{tab.label}</span>
+          <small>{tab.count}</small>
+        </button>)}
+      </div> : <div className="appNavGrandchildEmpty">لا توجد معاملات محفوظة.</div>}
 
-      {secondary ? <button
-        type="button"
-        className="appNavGrandchildSecondary"
-        onClick={()=>go(secondary.href,{keepOpen:false})}
-      >{secondary.label}</button> : null}
-
-      {priorityItems.length ? <div className="appNavGrandchildSection">
-        <div className="appNavGrandchildSectionTitle">{grandchildContext.priorityLabel || 'قيد العمل'}</div>
-        <div className="appNavGrandchildItems">
-          {priorityItems.map((item)=><button
-            type="button"
-            key={item.id || item.href}
-            className="appNavGrandchildItem"
-            data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
-            onClick={()=>go(item.href,{keepOpen:false})}
-          >
-            <span>{item.label}</span>
-            {item.meta ? <small>{item.meta}</small> : null}
-          </button>)}
-        </div>
+      {currentTab ? <div className="appNavGrandchildGroups" data-classification="tool-defined">
+        {groups.map((group)=>{
+          const expanded = expandedGrandchildGroup === group.key;
+          return <div className="appNavGrandchildGroup" key={group.key} data-expanded={expanded ? 'true':'false'}>
+            <button type="button" className="appNavGrandchildGroupTitle" onClick={()=>setExpandedGrandchildGroup(expanded ? '' : group.key)}>
+              <span>{group.label}</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
+            </button>
+            {expanded ? <div className="appNavGrandchildItems">
+              {(group.items || []).map((item)=><button
+                type="button"
+                key={item.id || item.href}
+                className="appNavGrandchildItem"
+                data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
+                onClick={()=>go(item.href,{keepOpen:false})}
+              >
+                <span>{item.label}</span>
+                {item.meta ? <small>{item.meta}</small> : null}
+              </button>)}
+            </div> : null}
+          </div>;
+        })}
       </div> : null}
-
-      <div className="appNavGrandchildSection appNavGrandchildHistory">
-        <div className="appNavGrandchildSectionTitle">{grandchildContext.historyLabel || 'السجل'}</div>
-        <div className="appNavGrandchildGroups">
-          {groups.map((group)=>{
-            const expanded = expandedGrandchildGroup === group.key;
-            return <div className="appNavGrandchildGroup" key={group.key} data-expanded={expanded ? 'true':'false'}>
-              <button type="button" className="appNavGrandchildGroupTitle" onClick={()=>setExpandedGrandchildGroup(expanded ? '' : group.key)}>
-                <span>{group.label}</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
-              </button>
-              {expanded ? <div className="appNavGrandchildItems">
-                {(group.items || []).map((item)=><button
-                  type="button"
-                  key={item.id || item.href}
-                  className="appNavGrandchildItem"
-                  data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
-                  onClick={()=>go(item.href,{keepOpen:false})}
-                >
-                  <span>{item.label}</span>
-                  {item.meta ? <small>{item.meta}</small> : null}
-                </button>)}
-              </div> : null}
-            </div>;
-          })}
-        </div>
-      </div>
     </div>;
   }
 
