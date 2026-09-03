@@ -141,7 +141,11 @@ export default function RecruitmentPage(){
     {key:'_action',label:'إجراء',type:'action',render:a=><Link className={rawGridStyles.actionButton} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',textDecoration:'none'}} href={`/dashboard/recruitment/applications/${a.id}`}>فتح</Link>},
   ];
 
-  return <>
+  return <div
+    data-geometry-owner="arkan-workspace-v1"
+    data-workspace-kind="operational-index"
+    data-workspace-scope="workforce-recruitment"
+  >
     <div className="page-head">
       <div>
         <h1>التوظيف والمرشحون</h1>
@@ -214,5 +218,5 @@ export default function RecruitmentPage(){
       <header><h2>3. بنك المواهب</h2></header>
       <div className="empty"><p>المرشحون الممتازون يبقون لمدة لا تتجاوز 90 يوماً ثم ينتقلون إلى الأرشيف المقيد.</p></div>
     </div>
-  </>;
+  </div>;
 }
