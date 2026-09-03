@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
+import { FOCUS_VALVE_STATE } from '@/lib/focus-valve-constitution';
+import { FocusValve, FocusReady, FocusRegister, FocusWork, FocusContextLine } from '@/components/ui/FocusValve';
 import AttendanceCalibrationPanel from '@/components/attendance/AttendanceCalibrationPanel';
 import AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';
 import AttendanceProcessingTable from '@/components/attendance/AttendanceProcessingTable';
@@ -121,7 +123,7 @@ export default function EmployeeAttendancePage() {
       .order('uploaded_at',{ascending:false}).limit(30);
     if (q.error) { setErr(q.error.message); return; }
     setImports(q.data || []);
-    const target = selectId || (!ignoreCurrent ? activeId : '') || q.data?.[0]?.id || '';
+    const target = selectId || (!ignoreCurrent ? activeId : '') || '';
     if (target !== activeId) setActiveId(target);
   }
 
@@ -323,72 +325,113 @@ export default function EmployeeAttendancePage() {
     setBusy(false);
   }
 
+  function leaveFocusedImport() {
+    if (busy) return;
+    setSelectedDay(null);
+    setSubjectId('');
+    setActiveId('');
+    setActiveImport(null);
+    setDays([]); setEvents([]); setExternalPeople([]);
+    setErr(''); setMsg('');
+  }
+
   const subjects = activeImport?.processing_scope === 'external'
     ? externalPeople.map((p)=>({id:p.id,no:p.external_employee_no,name:p.external_employee_name}))
     : employees.map((p)=>({id:p.id,no:p.employee_no,name:p.full_name_ar}));
 
   const stage = activeImport?.status;
+  const focusState = activeImport ? FOCUS_VALVE_STATE.FOCUSED : FOCUS_VALVE_STATE.READY;
+  const focusTitle = activeImport
+    ? (activeImport.processing_scope === 'external' ? (activeImport.client_name_snapshot || 'دفعة عميل خارجي') : 'دفعة حضور أركان المكان')
+    : 'الحضور والانصراف';
+  const focusMeta = activeImport ? [
+    activeImport.period_from && activeImport.period_to ? `${activeImport.period_from} — ${activeImport.period_to}` : (activeImport.period_from || ''),
+    STAGE_AR[stage] || stage,
+    activeImport.client_reference || '',
+  ].filter(Boolean) : [];
 
-  return <>
-    <div className="page-head"><div><h1>معمل الحضور والانصراف</h1><p>معالجة ومراجعة ملفات البصمة أولًا، ثم الترحيل فقط عند اعتماد النتيجة النهائية.</p></div></div>
+  return <FocusValve
+    state={focusState}
+    entity={activeImport ? {type:'attendance-import',id:activeImport.id} : null}
+    stage={stage}
+  >
+    <FocusReady>
+      <div className="page-head"><div><h1>معمل الحضور والانصراف</h1><p>معالجة ومراجعة ملفات البصمة أولًا، ثم الترحيل فقط عند اعتماد النتيجة النهائية.</p></div></div>
+
+      <div className="section" style={{marginTop:16}}>
+        <header><h2>دفعة معالجة جديدة</h2><span className="hint">الخدمة الخارجية مؤقتة: لا تنشئ موظفين، ولا تؤثر على أركان المكان، وتُحذف بياناتها من القاعدة بعد التسليم.</span></header>
+        <div style={{padding:18}}>
+          <div className="form-grid">
+            <div className="field"><label>نوع المعالجة</label><select value={newScope} onChange={(e)=>setNewScope(e.target.value)}><option value="internal">داخلي — أركان المكان</option><option value="external">خدمة لعميل خارجي</option></select></div>
+            {newScope==='external' && <><div className="field"><label>اسم العميل</label><input value={clientName} onChange={(e)=>setClientName(e.target.value)} /></div><div className="field"><label>مرجع العميل / المهمة</label><input value={clientReference} onChange={(e)=>setClientReference(e.target.value)} /></div></>}
+          </div>
+          <div className="rowsplit" style={{marginTop:16}}><label className="btn ghost" style={{cursor:'pointer'}}>اختيار ملف Excel<input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={(e)=>readAttendanceFile(e.target.files?.[0])} /></label>{file&&<span>{file.name}</span>}{punchCount>0&&<strong>{punchCount} حركة خام مقروءة</strong>}<button className="btn" disabled={busy||!punchCount} onClick={createBatch}>{busy?'جارٍ الاستخراج':'رفع واستخراج فقط'}</button></div>
+          <p className="hint" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج يعاير البرنامج ساعات الدوام من البصمات، ثم تراجع الاستثناءات وتبدأ التحليل.</p>
+        </div>
+      </div>
+    </FocusReady>
+
     {err && <div className="msg err">{err}</div>}{msg && <div className="msg ok">{msg}</div>}
 
-    <div className="section" style={{marginTop:16}}>
-      <header><h2>دفعة معالجة جديدة</h2><span className="hint">الخدمة الخارجية مؤقتة: لا تنشئ موظفين، ولا تؤثر على أركان المكان، وتُحذف بياناتها من القاعدة بعد التسليم.</span></header>
-      <div style={{padding:18}}>
-        <div className="form-grid">
-          <div className="field"><label>نوع المعالجة</label><select value={newScope} onChange={(e)=>setNewScope(e.target.value)}><option value="internal">داخلي — أركان المكان</option><option value="external">خدمة لعميل خارجي</option></select></div>
-          {newScope==='external' && <><div className="field"><label>اسم العميل</label><input value={clientName} onChange={(e)=>setClientName(e.target.value)} /></div><div className="field"><label>مرجع العميل / المهمة</label><input value={clientReference} onChange={(e)=>setClientReference(e.target.value)} /></div></>}
-        </div>
-        <div className="rowsplit" style={{marginTop:16}}><label className="btn ghost" style={{cursor:'pointer'}}>اختيار ملف Excel<input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={(e)=>readAttendanceFile(e.target.files?.[0])} /></label>{file&&<span>{file.name}</span>}{punchCount>0&&<strong>{punchCount} حركة خام مقروءة</strong>}<button className="btn" disabled={busy||!punchCount} onClick={createBatch}>{busy?'جارٍ الاستخراج':'رفع واستخراج فقط'}</button></div>
-        <p className="hint" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج يعاير البرنامج ساعات الدوام من البصمات، ثم تراجع الاستثناءات وتبدأ التحليل.</p>
+    <FocusRegister>
+      <div className="section">
+        <header><h2>دفعات المعالجة</h2><div className="field" style={{minWidth:300}}><select value={activeId} onChange={(e)=>setActiveId(e.target.value)}><option value="">اختر دفعة</option>{imports.map((i)=><option key={i.id} value={i.id}>{i.processing_scope==='external'?(i.client_name_snapshot||'عميل خارجي'):'أركان المكان'} — {i.period_from||'بدون فترة'} — {STAGE_AR[i.status]||i.status}</option>)}</select></div></header>
       </div>
-    </div>
+    </FocusRegister>
 
-    <div className="section">
-      <header><h2>دفعات المعالجة</h2><div className="field" style={{minWidth:300}}><select value={activeId} onChange={(e)=>setActiveId(e.target.value)}><option value="">اختر دفعة</option>{imports.map((i)=><option key={i.id} value={i.id}>{i.processing_scope==='external'?(i.client_name_snapshot||'عميل خارجي'):'أركان المكان'} — {i.period_from||'بدون فترة'} — {STAGE_AR[i.status]||i.status}</option>)}</select></div></header>
-      {activeImport && <div style={{padding:18}}>
-        <div className="stat-grid">
-          <div className="stat"><span>النوع</span><strong>{activeImport.processing_scope==='external'?'خارجي':'داخلي'}</strong></div>
-          <div className="stat"><span>المرحلة</span><strong>{STAGE_AR[stage]||stage}</strong></div>
-          <div className="stat"><span>الحركات</span><strong>{activeImport.rows_received||0}</strong></div>
-          <div className="stat"><span>غير مطابق</span><strong>{activeImport.unmatched_punches||0}</strong></div>
-          <div className="stat"><span>إصدار المراجعة</span><strong>{activeImport.review_revision||0}</strong></div>
+    <FocusWork>
+      {activeImport && <div data-attendance-focus="current-import">
+        <FocusContextLine
+          title={focusTitle}
+          meta={focusMeta}
+          actions={<button type="button" className="btn ghost" disabled={busy} onClick={leaveFocusedImport}>الدفعات</button>}
+        />
+
+        <div className="section">
+          <div style={{padding:18}}>
+            <div className="stat-grid">
+              <div className="stat"><span>النوع</span><strong>{activeImport.processing_scope==='external'?'خارجي':'داخلي'}</strong></div>
+              <div className="stat"><span>المرحلة</span><strong>{STAGE_AR[stage]||stage}</strong></div>
+              <div className="stat"><span>الحركات</span><strong>{activeImport.rows_received||0}</strong></div>
+              <div className="stat"><span>غير مطابق</span><strong>{activeImport.unmatched_punches||0}</strong></div>
+              <div className="stat"><span>إصدار المراجعة</span><strong>{activeImport.review_revision||0}</strong></div>
+            </div>
+            <div className="rowsplit" style={{marginTop:16}}>
+              <button className="btn ghost" disabled={busy} onClick={exportWorkbook}>ملف المراجعة Excel</button>
+              <AttendanceClientExcelReport activeImport={activeImport} disabled={busy || !['recalculated','ready_to_post','posted','closed'].includes(stage)} />
+              {stage==='analyzed'&&<button className="btn" disabled={busy} onClick={()=>runStage('review')}>بدء معالجة التبريرات</button>}
+              {['justifications','analyzed'].includes(stage)&&<button className="btn" disabled={busy} onClick={()=>runStage('recalculate')}>إعادة الاحتساب</button>}
+              {stage==='recalculated'&&<button className="btn" disabled={busy} onClick={()=>runStage('ready')}>اعتماد نتيجة المراجعة</button>}
+              {stage==='ready_to_post'&&activeImport.processing_scope==='internal'&&canPost&&<button className="btn" disabled={busy} onClick={()=>runStage('post')}>ترحيل إلى HR</button>}
+              {stage==='ready_to_post'&&activeImport.processing_scope==='external'&&<button className="btn" disabled={busy} onClick={()=>runStage('close')}>تسليم وحذف بيانات الدفعة</button>}
+            </div>
+            {activeImport.processing_scope==='external'&&<p className="hint" style={{marginTop:10}}>نزّل تقرير العميل Excel النهائي قبل التسليم. عند الضغط على «تسليم وحذف بيانات الدفعة» تُحذف البصمات والأسماء والتحليل والتبريرات وكل بيانات هذه الدفعة الخارجية من قاعدة البيانات نهائيًا.</p>}
+          </div>
         </div>
-        <div className="rowsplit" style={{marginTop:16}}>
-          <button className="btn ghost" disabled={busy} onClick={exportWorkbook}>ملف المراجعة Excel</button>
-          <AttendanceClientExcelReport activeImport={activeImport} disabled={busy || !['recalculated','ready_to_post','posted','closed'].includes(stage)} />
-          {stage==='analyzed'&&<button className="btn" disabled={busy} onClick={()=>runStage('review')}>بدء معالجة التبريرات</button>}
-          {['justifications','analyzed'].includes(stage)&&<button className="btn" disabled={busy} onClick={()=>runStage('recalculate')}>إعادة الاحتساب</button>}
-          {stage==='recalculated'&&<button className="btn" disabled={busy} onClick={()=>runStage('ready')}>اعتماد نتيجة المراجعة</button>}
-          {stage==='ready_to_post'&&activeImport.processing_scope==='internal'&&canPost&&<button className="btn" disabled={busy} onClick={()=>runStage('post')}>ترحيل إلى HR</button>}
-          {stage==='ready_to_post'&&activeImport.processing_scope==='external'&&<button className="btn" disabled={busy} onClick={()=>runStage('close')}>تسليم وحذف بيانات الدفعة</button>}
-        </div>
-        {activeImport.processing_scope==='external'&&<p className="hint" style={{marginTop:10}}>نزّل تقرير العميل Excel النهائي قبل التسليم. عند الضغط على «تسليم وحذف بيانات الدفعة» تُحذف البصمات والأسماء والتحليل والتبريرات وكل بيانات هذه الدفعة الخارجية من قاعدة البيانات نهائيًا.</p>}
+
+        <AttendanceCalibrationPanel activeImport={activeImport} employees={employees} externalPeople={externalPeople} onRefresh={async()=>{ if(activeImport?.id){ await loadImports(activeImport.id); await loadActive(activeImport.id); } }} />
+
+        {activeImport && !['posted','closed'].includes(stage) && <div className="section">
+          <header><h2>مراجعة / تعديل ساعات الدوام</h2><span className="hint">استخدم هذا القسم فقط لتعديل الحالات التي لم يستطع البرنامج معايرتها بثقة أو لتسجيل ساعات دوام معتمدة من العميل.</span></header>
+          <div style={{padding:18}}>
+            <div className="form-grid">
+              <div className="field"><label>{activeImport.processing_scope==='external'?'شخص ملف العميل':'الموظف'}</label><select value={subjectId} onChange={(e)=>loadSchedule(e.target.value)}><option value="">اختر</option>{subjects.map((s)=><option key={s.id} value={s.id}>{s.no?`${s.no} - `:''}{s.name}</option>)}</select></div>
+              <div className="field"><label>وصف ساعات الدوام</label><input value={scheduleName} onChange={(e)=>setScheduleName(e.target.value)} /></div>
+              <div className="field"><label>يسري من</label><input type="date" value={validFrom} onChange={(e)=>setValidFrom(e.target.value)} /></div>
+              <div className="field"><label>يسري إلى</label><input type="date" value={validTo} onChange={(e)=>setValidTo(e.target.value)} /></div>
+            </div>
+            <div className="rowsplit" style={{margin:'16px 0'}}><div className="field"><label>وقت موحد</label><input type="time" value={bulkStart} onChange={(e)=>setBulkStart(e.target.value)} /></div><div className="field"><label>إلى</label><input type="time" value={bulkEnd} onChange={(e)=>setBulkEnd(e.target.value)} /></div><button type="button" className="btn ghost" onClick={applyBulkTime}>تطبيق على أيام العمل</button></div>
+            <div style={{overflowX:'auto'}}><table><thead><tr><th>اليوم</th><th>يوم عمل</th><th>البداية</th><th>النهاية</th><th>ملاحظات</th></tr></thead><tbody>{scheduleDays.map((d)=><tr key={d.weekday}><td>{d.label}</td><td><input type="checkbox" checked={d.is_workday} onChange={(e)=>updateScheduleDay(d.weekday,{is_workday:e.target.checked,start_time:e.target.checked?d.start_time:'',end_time:e.target.checked?d.end_time:''})}/></td><td><input type="time" disabled={!d.is_workday} value={d.start_time} onChange={(e)=>updateScheduleDay(d.weekday,{start_time:e.target.value})}/></td><td><input type="time" disabled={!d.is_workday} value={d.end_time} onChange={(e)=>updateScheduleDay(d.weekday,{end_time:e.target.value})}/></td><td><input disabled={!d.is_workday} value={d.notes} onChange={(e)=>updateScheduleDay(d.weekday,{notes:e.target.value})}/></td></tr>)}</tbody></table></div>
+            <div style={{marginTop:16}}><button className="btn" disabled={busy||!subjectId} onClick={saveSchedule}>حفظ ساعات الدوام</button></div>
+          </div>
+        </div>}
+
+        {activeImport && stageIndex(stage)>=stageIndex('analyzed') && <AttendanceProcessingTable days={days} stage={stage} onOpenJustification={openJustification} />}
+
+        {selectedDay && activeImport && !['posted','closed'].includes(stage) && <AttendanceJustificationDialog day={selectedDay} isPrimary={isPrimary} onClose={()=>setSelectedDay(null)} onRefresh={async()=>{ await loadActive(activeImport.id); await loadImports(activeImport.id); }} />}
+
+        {activeImport && events.length>0 && <div className="section"><header><h2>سجل مراحل المعالجة</h2></header><div style={{overflowX:'auto'}}><table><thead><tr><th>الوقت</th><th>المرحلة</th><th>الإجراء</th></tr></thead><tbody>{events.map((e)=><tr key={e.id}><td>{new Date(e.created_at).toLocaleString('ar-SA')}</td><td>{STAGE_AR[e.stage]||e.stage}</td><td>{e.action_key}</td></tr>)}</tbody></table></div></div>}
       </div>}
-    </div>
-
-    <AttendanceCalibrationPanel activeImport={activeImport} employees={employees} externalPeople={externalPeople} onRefresh={async()=>{ if(activeImport?.id){ await loadImports(activeImport.id); await loadActive(activeImport.id); } }} />
-
-    {activeImport && !['posted','closed'].includes(stage) && <div className="section">
-      <header><h2>مراجعة / تعديل ساعات الدوام</h2><span className="hint">استخدم هذا القسم فقط لتعديل الحالات التي لم يستطع البرنامج معايرتها بثقة أو لتسجيل ساعات دوام معتمدة من العميل.</span></header>
-      <div style={{padding:18}}>
-        <div className="form-grid">
-          <div className="field"><label>{activeImport.processing_scope==='external'?'شخص ملف العميل':'الموظف'}</label><select value={subjectId} onChange={(e)=>loadSchedule(e.target.value)}><option value="">اختر</option>{subjects.map((s)=><option key={s.id} value={s.id}>{s.no?`${s.no} - `:''}{s.name}</option>)}</select></div>
-          <div className="field"><label>وصف ساعات الدوام</label><input value={scheduleName} onChange={(e)=>setScheduleName(e.target.value)} /></div>
-          <div className="field"><label>يسري من</label><input type="date" value={validFrom} onChange={(e)=>setValidFrom(e.target.value)} /></div>
-          <div className="field"><label>يسري إلى</label><input type="date" value={validTo} onChange={(e)=>setValidTo(e.target.value)} /></div>
-        </div>
-        <div className="rowsplit" style={{margin:'16px 0'}}><div className="field"><label>وقت موحد</label><input type="time" value={bulkStart} onChange={(e)=>setBulkStart(e.target.value)} /></div><div className="field"><label>إلى</label><input type="time" value={bulkEnd} onChange={(e)=>setBulkEnd(e.target.value)} /></div><button type="button" className="btn ghost" onClick={applyBulkTime}>تطبيق على أيام العمل</button></div>
-        <div style={{overflowX:'auto'}}><table><thead><tr><th>اليوم</th><th>يوم عمل</th><th>البداية</th><th>النهاية</th><th>ملاحظات</th></tr></thead><tbody>{scheduleDays.map((d)=><tr key={d.weekday}><td>{d.label}</td><td><input type="checkbox" checked={d.is_workday} onChange={(e)=>updateScheduleDay(d.weekday,{is_workday:e.target.checked,start_time:e.target.checked?d.start_time:'',end_time:e.target.checked?d.end_time:''})}/></td><td><input type="time" disabled={!d.is_workday} value={d.start_time} onChange={(e)=>updateScheduleDay(d.weekday,{start_time:e.target.value})}/></td><td><input type="time" disabled={!d.is_workday} value={d.end_time} onChange={(e)=>updateScheduleDay(d.weekday,{end_time:e.target.value})}/></td><td><input disabled={!d.is_workday} value={d.notes} onChange={(e)=>updateScheduleDay(d.weekday,{notes:e.target.value})}/></td></tr>)}</tbody></table></div>
-        <div style={{marginTop:16}}><button className="btn" disabled={busy||!subjectId} onClick={saveSchedule}>حفظ ساعات الدوام</button></div>
-      </div>
-    </div>}
-
-    {activeImport && stageIndex(stage)>=stageIndex('analyzed') && <AttendanceProcessingTable days={days} stage={stage} onOpenJustification={openJustification} />}
-
-    {selectedDay && activeImport && !['posted','closed'].includes(stage) && <AttendanceJustificationDialog day={selectedDay} isPrimary={isPrimary} onClose={()=>setSelectedDay(null)} onRefresh={async()=>{ await loadActive(activeImport.id); await loadImports(activeImport.id); }} />}
-
-    {activeImport && events.length>0 && <div className="section"><header><h2>سجل مراحل المعالجة</h2></header><div style={{overflowX:'auto'}}><table><thead><tr><th>الوقت</th><th>المرحلة</th><th>الإجراء</th></tr></thead><tbody>{events.map((e)=><tr key={e.id}><td>{new Date(e.created_at).toLocaleString('ar-SA')}</td><td>{STAGE_AR[e.stage]||e.stage}</td><td>{e.action_key}</td></tr>)}</tbody></table></div></div>}
-  </>;
+    </FocusWork>
+  </FocusValve>;
 }
