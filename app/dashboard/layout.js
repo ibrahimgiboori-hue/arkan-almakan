@@ -18,6 +18,7 @@ import './app-shell-v2.css';
 import './app-body-v3.css';
 import './living-navigation.css';
 import './body-resuscitation.css';
+import './arkan-skin-v1.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
