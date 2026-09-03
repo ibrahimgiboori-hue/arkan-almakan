@@ -9,7 +9,8 @@ import {
   PORTAL_MANAGEMENT_SECTIONS,
   PORTAL_SECTION_ITEMS,
 } from '@/lib/portal-section-constitution';
-import { portalApproachHref } from '@/lib/living-navigation';
+import { PROJECT_GUARDIANS, portalApproachHref } from '@/lib/living-navigation';
+import { requestWorkSessionNavigation } from '@/components/ui/WorkSessionRuntime';
 import styles from './approach.module.css';
 
 function uniqueByHref(items=[]){
@@ -34,17 +35,21 @@ export default function PortalApproachStage(){
   const session=useDashboardSession();
   const area=AREAS.find((item)=>item.key===portal&&item.key!=='home')||null;
 
-  const groups=useMemo(()=>{
+  const tools=useMemo(()=>{
     if(!area)return[];
-    const tools=uniqueByHref([...(area.items||[]),...(PORTAL_SECTION_ITEMS[portal]||[])])
+    return uniqueByHref([...(area.items||[]),...(PORTAL_SECTION_ITEMS[portal]||[])])
       .filter((item)=>!item.hidden&&!item.legacy)
       .filter((item)=>canSeeItem(session,item));
+  },[area,portal,session]);
+
+  const groups=useMemo(()=>{
+    if(!area||portal==='projects')return[];
     const byHref=new Map(tools.map((item)=>[item.href,item]));
     return (PORTAL_MANAGEMENT_SECTIONS[portal]||[]).map((group)=>({
       ...group,
       items:(group.hrefs||[]).map((href)=>byHref.get(href)).filter(Boolean),
     })).filter((group)=>group.items.length);
-  },[area,portal,session]);
+  },[area,portal,tools]);
 
   if(!area){
     return <div className={styles.stage}><div className={styles.empty}>هذه البوابة غير متاحة.</div></div>;
@@ -52,18 +57,29 @@ export default function PortalApproachStage(){
 
   const requested=searchParams.get('group')||'';
   const selected=groups.find((group)=>group.key===requested)||null;
-  const choices=selected?selected.items:groups;
-  const title=selected?selected.label:String(area.label||'').replace(/^بوابة\s+/,'');
-  const description=selected?.description||'اختر المسار الذي تريد الاقتراب منه. الاختيار التالي ينتقل إلى مساحة العمل المناسبة.';
+  const projectsGuardians=portal==='projects'
+    ? PROJECT_GUARDIANS.filter((guardian)=>guardian.entityKind==='project'||tools.some((item)=>item.href===guardian.href))
+    : [];
+  const choices=portal==='projects' ? projectsGuardians : (selected?selected.items:groups);
+  const title=portal==='projects'
+    ? 'المشاريع'
+    : selected?selected.label:String(area.label||'').replace(/^بوابة\s+/,'');
+  const description=portal==='projects'
+    ? 'اختر الحاضنة الحالية. أسماء المشاريع الحقيقية لا تعيش في القائمة؛ ستظهر هنا بحسب حالتها.'
+    : selected?.description||'اختر المسار الذي تريد الاقتراب منه. الاختيار التالي ينتقل إلى مساحة العمل المناسبة.';
 
   function openChoice(choice){
-    if(selected){router.push(choice.href);return;}
-    router.push(portalApproachHref(portal,choice.key));
+    const href=portal==='projects'
+      ? choice.href
+      : selected?choice.href:portalApproachHref(portal,choice.key);
+    if(!href)return;
+    const accepted=requestWorkSessionNavigation(href);
+    if(accepted)router.push(href);
   }
 
   return <section className={styles.stage} data-navigation-stage="approach" data-portal={portal} data-group={selected?.key||''}>
     <header className={styles.head}>
-      <div className={styles.eyebrow}>{selected?'منطقة الملاحة':'البوابة'}</div>
+      <div className={styles.eyebrow}>{portal==='projects'?'حاضنات الحالة':selected?'منطقة الملاحة':'البوابة'}</div>
       <h1>{title}</h1>
       <p>{description}</p>
     </header>
@@ -77,7 +93,7 @@ export default function PortalApproachStage(){
       >
         <span>
           <strong>{choice.label}</strong>
-          {!selected&&choice.description?<small>{choice.description}</small>:null}
+          {portal!=='projects'&&!selected&&choice.description?<small>{choice.description}</small>:null}
         </span>
         <span className={styles.choiceMark} aria-hidden="true">‹</span>
       </button>):<div className={styles.empty}>لا توجد مسارات متاحة ضمن صلاحياتك الحالية.</div>}
