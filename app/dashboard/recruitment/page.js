@@ -142,7 +142,6 @@ export default function RecruitmentPage(){
   ];
 
   return <div
-    data-geometry-owner="arkan-workspace-v1"
     data-workspace-kind="operational-index"
     data-workspace-scope="workforce-recruitment"
   >
