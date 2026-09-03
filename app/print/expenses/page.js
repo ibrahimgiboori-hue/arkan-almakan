@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
-import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 
-const REPORT_LAYOUT = getPrintLayoutPolicy('expense_report');
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 const PAYER_AR = { contractor:'المقاول', arkan_direct:'أركان مباشرة', arkan_custody:'أركان من العهدة', employee:'مدفوع من الحساب الشخصي' };
 const CHARGE_AR = { arkan:'أركان', contractor:'المقاول', owner:'المالك' };
@@ -28,7 +27,6 @@ export default function ExpensePrintPage(){
   const employeeMap=useMemo(()=>Object.fromEntries(employees.map(x=>[x.id,x.full_name_ar])),[employees]);
   const total=useMemo(()=>rows.reduce((s,x)=>s+Number(x.amount||0),0),[rows]);
   const employeeDue=useMemo(()=>rows.reduce((s,x)=>s+(x.paid_by_employee_id?Math.max(0,Number(x.amount||0)-Number(x.reimbursed_amount||0)):0),0),[rows]);
-  const pages=useMemo(()=>paginateRows(rows,REPORT_LAYOUT.pagination),[rows]);
 
   function changeRange(key,value){const next={...query,[key]:value};setQuery(next);const p=new URLSearchParams(window.location.search);p.set(key,value);history.replaceState(null,'',`${window.location.pathname}?${p.toString()}`);}
   function payerText(r){
@@ -42,7 +40,6 @@ export default function ExpensePrintPage(){
   if(!query||loading)return <div style={{padding:40}}>جارٍ إعداد تقرير المصروفات…</div>;
   if(error)return <div style={{padding:40,color:'#b91c1c'}}>{error}</div>;
 
-  let rowOffset=0;
   return <>
     <div className="no-print" style={{position:'sticky',top:0,zIndex:20,display:'flex',gap:10,alignItems:'center',padding:12,background:'#111',color:'#fff',direction:'rtl'}}>
       <button onClick={()=>window.print()} style={{padding:'9px 16px',fontWeight:800}}>طباعة أو حفظ PDF</button>
@@ -51,33 +48,27 @@ export default function ExpensePrintPage(){
       <strong>الإجمالي: {money(total)} ر.س</strong>
     </div>
 
-    <ConstitutionPagedFrame documentKey="expense_report" cfg={cfg} contentTopMm={REPORT_LAYOUT.topMm} contentBottomMm={REPORT_LAYOUT.bottomMm} contentSideMm={REPORT_LAYOUT.sideMm}>
-      {pages.map((pageRows,pageIndex)=>{
-        const start=rowOffset; rowOffset+=pageRows.length;
-        const isFirst=pageIndex===0, isLast=pageIndex===pages.length-1;
-        return <div key={`expense-page-${pageIndex}`} dir="rtl" style={{fontFamily:'Arial, sans-serif',fontSize:12,color:'#111',height:'100%',boxSizing:'border-box'}}>
-          <div style={{textAlign:'center',marginBottom:isFirst?14:9}}>
-            <h1 style={{margin:0,fontSize:isFirst?22:17}}>تقرير مصروفات المشروع{!isFirst?' — تابع':''}</h1>
-            <div style={{marginTop:5}}>{fmt(query.from)} — {fmt(query.to)}</div>
-          </div>
+    <ConstitutionPrintFrame documentKey="expense_report" cfg={cfg}>
+      <div dir="rtl" style={{fontFamily:'Arial, sans-serif',fontSize:12,color:'#111',boxSizing:'border-box'}}>
+        <div style={{textAlign:'center',marginBottom:14}} data-print-keep-with-next="true">
+          <h1 style={{margin:0,fontSize:22}}>تقرير مصروفات المشروع</h1>
+          <div style={{marginTop:5}}>{fmt(query.from)} — {fmt(query.to)}</div>
+        </div>
 
-          {isFirst&&<table style={{width:'100%',borderCollapse:'collapse',marginBottom:14}}><tbody>
-            <tr><th style={th}>المشروع</th><td style={td}>{project?.project_no||''} — {project?.name_ar||'—'}</td><th style={th}>المقاول</th><td style={td}>{contractor?.name_ar||'—'}</td></tr>
-            <tr><th style={th}>الفترة</th><td style={td}>{fmt(query.from)} — {fmt(query.to)}</td><th style={th}>الإجمالي</th><td style={td}><b>{money(total)} ر.س</b>{employeeDue>0&&<div style={{marginTop:3,fontSize:10}}>منه مستحق لموظفين عن مدفوعات من الحساب الشخصي: {money(employeeDue)} ر.س</div>}</td></tr>
-          </tbody></table>}
+        <table style={{width:'100%',borderCollapse:'collapse',marginBottom:14}}><tbody>
+          <tr><th style={th}>المشروع</th><td style={td}>{project?.project_no||''} — {project?.name_ar||'—'}</td><th style={th}>المقاول</th><td style={td}>{contractor?.name_ar||'—'}</td></tr>
+          <tr><th style={th}>الفترة</th><td style={td}>{fmt(query.from)} — {fmt(query.to)}</td><th style={th}>الإجمالي</th><td style={td}><b>{money(total)} ر.س</b>{employeeDue>0&&<div style={{marginTop:3,fontSize:10}}>منه مستحق لموظفين عن مدفوعات من الحساب الشخصي: {money(employeeDue)} ر.س</div>}</td></tr>
+        </tbody></table>
 
-          {!isFirst&&<div style={{display:'flex',justifyContent:'space-between',gap:10,marginBottom:8,fontSize:10.5,fontWeight:700}}><span>{project?.project_no||''} — {project?.name_ar||'—'}</span><span>{contractor?.name_ar||'—'}</span></div>}
-
-          <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
-            <thead><tr><th style={{...th,width:'5%'}}>م</th><th style={{...th,width:'12%'}}>التاريخ</th><th style={{...th,width:'13%'}}>التصنيف</th><th style={{...th,width:'27%'}}>البيان</th><th style={{...th,width:'17%'}}>البند</th><th style={{...th,width:'16%'}}>جهة السداد</th><th style={{...th,width:'10%'}}>المبلغ</th></tr></thead>
-            <tbody>{pageRows.length?pageRows.map((r,idx)=><tr key={r.id} style={{breakInside:'avoid',pageBreakInside:'avoid'}}>
-              <td style={td}>{start+idx+1}</td><td style={td}>{fmt(r.expense_date)}</td><td style={td}>{r.category||'—'}</td><td style={{...td,textAlign:'right'}}>{r.notes||'—'}</td><td style={{...td,textAlign:'right'}}>{r.project_item_id?(itemMap[r.project_item_id]||'بند مرتبط'):'مصروف عام'}</td><td style={td}>{payerText(r)}</td><td style={{...td,fontWeight:800}}>{money(r.amount)}</td>
-            </tr>):<tr><td style={td} colSpan={7}>لا توجد مصروفات في الفترة المحددة.</td></tr>}</tbody>
-            {isLast&&<tfoot><tr><th style={th} colSpan={6}>إجمالي المصروفات</th><th style={th}>{money(total)} ر.س</th></tr></tfoot>}
-          </table>
-        </div>;
-      })}
-    </ConstitutionPagedFrame>
+        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}} data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
+          <thead><tr><th style={{...th,width:'5%'}}>م</th><th style={{...th,width:'12%'}}>التاريخ</th><th style={{...th,width:'13%'}}>التصنيف</th><th style={{...th,width:'27%'}}>البيان</th><th style={{...th,width:'17%'}}>البند</th><th style={{...th,width:'16%'}}>جهة السداد</th><th style={{...th,width:'10%'}}>المبلغ</th></tr></thead>
+          <tbody>{rows.length?rows.map((r,idx)=><tr key={r.id}>
+            <td style={td}>{idx+1}</td><td style={td}>{fmt(r.expense_date)}</td><td style={td}>{r.category||'—'}</td><td style={{...td,textAlign:'right'}}>{r.notes||'—'}</td><td style={{...td,textAlign:'right'}}>{r.project_item_id?(itemMap[r.project_item_id]||'بند مرتبط'):'مصروف عام'}</td><td style={td}>{payerText(r)}</td><td style={{...td,fontWeight:800}}>{money(r.amount)}</td>
+          </tr>):<tr><td style={td} colSpan={7}>لا توجد مصروفات في الفترة المحددة.</td></tr>}</tbody>
+          <tfoot><tr><th style={th} colSpan={6}>إجمالي المصروفات</th><th style={th}>{money(total)} ر.س</th></tr></tfoot>
+        </table>
+      </div>
+    </ConstitutionPrintFrame>
   </>;
 }
 
