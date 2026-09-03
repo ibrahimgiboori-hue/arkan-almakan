@@ -10,10 +10,10 @@ import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import PartiesPrint from '@/components/PartiesPrint';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PrintMark } from '@/components/print/PrintMarks';
 import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
 import './print.css';
 
-const pub = (p) => p ? supabase.storage.from('brand').getPublicUrl(p).data.publicUrl : null;
 const PROJECT_REPORT_PROFILE = 'project_work_claims_report';
 const PROJECT_REPORT_GENERATED_SECTIONS = new Set(['executive_summary','intro','handover','conclusion']);
 const clampBlankRows = (value) => Math.max(1, Math.min(20, Number(value) || 5));
@@ -72,21 +72,9 @@ export default function PrintDoc() {
     ? Array.from({ length:clampBlankRows(blankRows) }, (_, index) => ({ _id:`blank-${index + 1}`, _blank:true }))
     : sourceRows;
   const isProjectWorkClaimsReport = tpl?.layout?.profile === PROJECT_REPORT_PROFILE;
-
-  const stampUrl = !blankForm && stamp ? pub(cfg.stamp_image_path) : null;
-
-  // هوامش المستند/القالب هي طلب إضافي فقط. القبطان وحده يضيف حجز الليترهيد الفيزيائي
-  // بحسب مصدره واتجاه الورقة، فلا تعيد الصفحة حساب مناطق الأمان.
-  const mTop = doc.margin_top_mm ?? tpl?.margin_top_mm;
-  const mBot = doc.margin_bottom_mm ?? tpl?.margin_bottom_mm;
-  const mSide = doc.margin_side_mm ?? tpl?.margin_side_mm;
-  const stampMm = doc.stamp_size_mm ?? cfg.stamp_size_mm ?? 30;
-
   const title = blankForm
     ? (tpl?.name_ar || legacy?.name || doc.template_code)
     : (p.letter_title || tpl?.name_ar || legacy?.name || doc.template_code);
-  const signUrl = blankForm ? null : pub(cfg.signature_image_path);
-  const signMm = Number(doc.sign_size_mm ?? cfg.signature_size_mm ?? 20);
   const hasStampSection = !!custom && (tpl.layout.sections || []).some((x) => x.kind === 'stampbox');
   const hasLetterHead = !!custom && (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
@@ -137,25 +125,15 @@ export default function PrintDoc() {
           {blankForm && hasRepeatableSection && (
             <label className="blank-row-control">
               <span>عدد البنود / الصفوف</span>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={blankRows}
-                onChange={(event)=>setBlankRows(clampBlankRows(event.target.value))}
-              />
+              <input type="number" min="1" max="20" value={blankRows}
+                onChange={(event)=>setBlankRows(clampBlankRows(event.target.value))} />
             </label>
           )}
           {blankForm && isProjectWorkClaimsReport && (
             <label className="blank-row-control">
               <span>أسطر المتابعة لكل بند</span>
-              <input
-                type="number"
-                min="1"
-                max="8"
-                value={blankStatusRows}
-                onChange={(event)=>setBlankStatusRows(clampBlankStatusRows(event.target.value))}
-              />
+              <input type="number" min="1" max="8" value={blankStatusRows}
+                onChange={(event)=>setBlankStatusRows(clampBlankStatusRows(event.target.value))} />
             </label>
           )}
         </div>
@@ -174,12 +152,9 @@ export default function PrintDoc() {
       <ConstitutionPrintFrame
         documentKey="generic_document"
         cfg={cfg}
-        contentTopMm={mTop}
-        contentBottomMm={mBot}
-        contentSideMm={mSide}
         className={blankForm ? 'blank-form-mode' : ''}
       >
-        <div className="sheet governed-document-sheet">
+        <div className="governed-document-sheet">
           {!hasLetterHead && (
             <div className="title-block" data-print-keep-with-next="true">
               <h1>{title}</h1>
@@ -234,11 +209,9 @@ export default function PrintDoc() {
                 return (
                   <table className="amounts" key={s.id} data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
                     <thead><tr><th>{s.title || 'الحساب'}</th><th className="num">القيمة <Riyal /></th></tr></thead>
-                    <tbody>
-                      {fields.map((f) => (
-                        <tr key={f.key}><td>{f.label}</td><td className="num">{fmt(f, p[f.key])}</td></tr>
-                      ))}
-                    </tbody>
+                    <tbody>{fields.map((f) => (
+                      <tr key={f.key}><td>{f.label}</td><td className="num">{fmt(f, p[f.key])}</td></tr>
+                    ))}</tbody>
                   </table>
                 );
               }
@@ -248,11 +221,9 @@ export default function PrintDoc() {
                 return (
                   <div className={`plain-card ${s.align === 'left' ? 'to-left' : ''}`} key={s.id}>
                     {heading && <div className="pc-head">{heading}</div>}
-                    <table className="pc-table"><tbody>
-                      {fields.map((f) => (
-                        <tr key={f.key}><td className="pc-k">{f.label}</td><td className="pc-v">{fmt(f, p[f.key])}</td></tr>
-                      ))}
-                    </tbody></table>
+                    <table className="pc-table"><tbody>{fields.map((f) => (
+                      <tr key={f.key}><td className="pc-k">{f.label}</td><td className="pc-v">{fmt(f, p[f.key])}</td></tr>
+                    ))}</tbody></table>
                   </div>
                 );
               }
@@ -262,11 +233,9 @@ export default function PrintDoc() {
                   <section className={`card-doc ${s.align === 'left' ? 'to-left' : ''}`}
                            style={{gridColumn: s.align === 'left' ? 'span 6' : 'span 12'}}>
                     <div className="card-head">{s.title}</div>
-                    <table><tbody>
-                      {fields.map((f) => (
-                        <tr key={f.key}><td className="k">{f.label}</td><td className="v">{fmt(f, p[f.key])}</td></tr>
-                      ))}
-                    </tbody></table>
+                    <table><tbody>{fields.map((f) => (
+                      <tr key={f.key}><td className="k">{f.label}</td><td className="v">{fmt(f, p[f.key])}</td></tr>
+                    ))}</tbody></table>
                   </section>
                 </div>
               );
@@ -274,19 +243,9 @@ export default function PrintDoc() {
 
             if (s.kind === 'table') {
               if (!rows.length) return null;
-
               if (isProjectWorkClaimsReport && s.id === 'work_lines') {
-                return (
-                  <ProjectReportJourneyPrint
-                    key={s.id}
-                    rows={rows}
-                    payload={p}
-                    blankForm={blankForm}
-                    blankStatusRows={blankStatusRows}
-                  />
-                );
+                return <ProjectReportJourneyPrint key={s.id} rows={rows} payload={p} blankForm={blankForm} blankStatusRows={blankStatusRows} />;
               }
-
               const columns = s.columns || [];
               const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
               return (
@@ -297,23 +256,17 @@ export default function PrintDoc() {
                       <col key={column.key} style={{width:`${(Number(column.span || 1) / spanTotal) * 92}%`}} />
                     ))}
                   </colgroup>
-                  <thead><tr><th className="serial-col">م</th>
-                    {columns.map((c) => (
-                      <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>{c.label}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={r._id || i}>
-                        <td className="mono">{i+1}</td>
-                        {columns.map((c) => (
-                          <td key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>
-                            {fmt(c, r[c.key])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
+                  <thead><tr><th className="serial-col">م</th>{columns.map((c) => (
+                    <th key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>{c.label}</th>
+                  ))}</tr></thead>
+                  <tbody>{rows.map((r, i) => (
+                    <tr key={r._id || i}>
+                      <td className="mono">{i+1}</td>
+                      {columns.map((c) => (
+                        <td key={c.key} className={['money','number'].includes(c.type) ? 'num nowrap' : c.type === 'date' ? 'nowrap' : ''}>{fmt(c, r[c.key])}</td>
+                      ))}
+                    </tr>
+                  ))}</tbody>
                 </table>
               );
             }
@@ -344,12 +297,10 @@ export default function PrintDoc() {
               const hasRef = p.our_ref || p.your_ref;
               return (
                 <div className="ltr-head" key={s.id}>
-                  {hasRef && (
-                    <div className="ltr-refs">
-                      {p.our_ref && <span>إشارتنا: <span className="mono">{p.our_ref}</span></span>}
-                      {p.your_ref && <span>إشارتكم: <span className="mono">{p.your_ref}</span></span>}
-                    </div>
-                  )}
+                  {hasRef && <div className="ltr-refs">
+                    {p.our_ref && <span>إشارتنا: <span className="mono">{p.our_ref}</span></span>}
+                    {p.your_ref && <span>إشارتكم: <span className="mono">{p.your_ref}</span></span>}
+                  </div>}
                   {p.letter_title && <h2 className="ltr-subject">{p.letter_title}</h2>}
                   {(p.addressee || p.addressee_title) && (
                     <div className="ltr-to"><span className="to-name">{p.addressee}</span><span className="to-title">{p.addressee_title}</span></div>
@@ -362,12 +313,12 @@ export default function PrintDoc() {
             if (s.kind === 'parties') return <PartiesPrint parties={doc.parties} blank={blankForm} key={s.id} />;
 
             if (s.kind === 'stampbox') {
-              if (!stampUrl && !signUrl) return null;
+              if (blankForm) return null;
               return (
                 <div className="stampbox-row" key={s.id}>
                   <div className="stampbox">
-                    {signUrl && <img className="sb-sign" src={signUrl} alt="" style={{height:`${signMm}mm`}} />}
-                    {stampUrl && <img className="sb-stamp" src={stampUrl} alt="" style={{height:`${stampMm}mm`}} />}
+                    <PrintMark cfg={cfg} kind="signature" mode="inline" />
+                    <PrintMark cfg={cfg} kind="stamp" show={stamp} mode="inline" />
                   </div>
                 </div>
               );
@@ -423,8 +374,8 @@ export default function PrintDoc() {
           )}
 
           <div className="footer-row">
-            {stampUrl && !hasStampSection && (
-              <div className="stamp-box"><img src={stampUrl} alt="ختم الشركة" style={{height:`${stampMm}mm`}} /></div>
+            {!blankForm && stamp && !hasStampSection && (
+              <div className="stamp-box"><PrintMark cfg={cfg} kind="stamp" mode="inline" /></div>
             )}
             {!blankForm && bank && (cfg.bank_name_full || cfg.bank_account_no || cfg.bank_iban) ? (
               <div className="bank">
