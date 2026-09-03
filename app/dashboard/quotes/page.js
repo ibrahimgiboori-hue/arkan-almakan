@@ -16,6 +16,7 @@ import {
   InlineStatus,
   Toolbar,
   ContextActions,
+  TableFrame,
   EmptyState,
 } from '@/components/ui/ConstitutionUI';
 
@@ -38,6 +39,7 @@ export default function Quotes() {
   const [msg, setMsg] = useState('');
 
   const canCreate = canUseCapability(session,'projects.quotes.create','all');
+  const canEdit = canUseCapability(session,'projects.quotes.edit','all');
   const requestedKind = searchParams.get('new') === 'boq' ? 'boq' : 'quotation';
 
   async function load() {
@@ -90,6 +92,17 @@ export default function Quotes() {
     router.push(`/dashboard/quotes/${data.id}`);
   }
 
+  async function removeDraft(row) {
+    if (!canEdit || row.status !== 'draft') return;
+    if (!window.confirm(`حذف المسودة ${row.quote_no} وكل بنودها نهائياً؟`)) return;
+    setBusy(true); setErr(''); setMsg('');
+    const { error } = await supabase.from('quotations').delete().eq('id', row.id);
+    setBusy(false);
+    if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
+    setMsg('حُذفت المسودة.');
+    await load();
+  }
+
   if (!rows) return <ConstitutionPage><EmptyState title="جارٍ تجهيز مساحة عروض الأسعار" description="يتم تحميل العمل الجاري."/></ConstitutionPage>;
 
   return <ConstitutionPage>
@@ -115,29 +128,29 @@ export default function Quotes() {
     {err ? <Notice tone="error">{err}</Notice> : null}
     {msg ? <InlineStatus tone="success" live>{msg}</InlineStatus> : null}
 
-    <Section title="العمل الجاري" description="المسودات فقط؛ السجل التاريخي لا يزاحم مساحة العمل">
+    <Section title="العمل الجاري" description="المسودات المفتوحة فقط؛ السجل التاريخي لا يزاحم مساحة العمل">
       {currentWork.length === 0
         ? <EmptyState
             title="مساحة العمل جاهزة"
             description={canCreate?'لا توجد مسودة مفتوحة الآن. أنشئ عرض سعر جديد عندما تحتاج.':'لا توجد مسودات مفتوحة لهذا الحساب.'}
           />
-        : <div className="grid k2" data-current-work-only="true">
-          {currentWork.map((row)=><article className="card" key={row.id} style={{display:'grid',gap:9}}>
-            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
-              <div>
-                <div className="mono" style={{fontSize:12,color:'var(--ink-soft)'}}>{row.quote_no}</div>
-                <h3 style={{margin:'4px 0 0'}}>{row.client_name || 'عميل غير محدد'}</h3>
-              </div>
-              <span className="pill">{row.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</span>
-            </div>
-            <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:13,color:'var(--ink-soft)'}}>
-              <span>{dateAr(row.quote_date)}</span>
-              <span>{QSTATUS_AR[row.status] || row.status}</span>
-              <span className="num">{money(tot[row.id]?.grand_total || 0)}</span>
-            </div>
-            <div><Link className="btn ghost" href={`/dashboard/quotes/${row.id}`}>استكمال العمل</Link></div>
-          </article>)}
-        </div>}
+        : <TableFrame data-current-work-only="true">
+          <table>
+            <thead><tr><th>العرض</th><th>العميل</th><th>النوع</th><th>التاريخ</th><th className="num">القيمة</th><th>الإجراء</th></tr></thead>
+            <tbody>{currentWork.map((row)=><tr key={row.id} data-record-row="true">
+              <td className="mono"><Link href={`/dashboard/quotes/${row.id}`}>{row.quote_no}</Link></td>
+              <td>{row.client_name || 'عميل غير محدد'}</td>
+              <td>{row.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</td>
+              <td className="mono">{dateAr(row.quote_date)}</td>
+              <td className="num">{money(tot[row.id]?.grand_total || 0)}</td>
+              <td><ContextActions
+                primary={<Link className="btn ghost" href={`/dashboard/quotes/${row.id}`}>استكمال العمل</Link>}
+                secondary={canEdit ? [{key:'delete',node:<button className="btn ghost" disabled={busy} data-action-consequence="destructive" onClick={()=>removeDraft(row)}>حذف المسودة</button>}] : []}
+                label={`إجراءات ${row.quote_no}`}
+              /></td>
+            </tr>)}</tbody>
+          </table>
+        </TableFrame>}
     </Section>
 
     <div style={{fontSize:12.5,color:'var(--ink-soft)',padding:'4px 2px 0'}}>
