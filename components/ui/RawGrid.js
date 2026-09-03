@@ -21,7 +21,24 @@ function fieldMeta(column, rowIndex) {
     'data-grid-row':String(rowIndex),
     'data-grid-column':String(column.key),
     'data-cell-type':column.type || 'custom',
+    'data-field-mode':column.fieldMode || 'editable',
   };
+}
+
+function DisplayField({ column, row, value }) {
+  const rendered = typeof column.format === 'function'
+    ? column.format(value, row)
+    : typeof column.render === 'function'
+      ? column.render(row)
+      : value;
+  return <output
+    className={`${styles.field} ${styles.fieldReadOnly}`}
+    data-grid-field="true"
+    data-grid-column={String(column.key)}
+    data-cell-type={column.type}
+    data-field-mode={column.type}
+    aria-readonly="true"
+  >{rendered === null || rendered === undefined || rendered === '' ? '—' : rendered}</output>;
 }
 
 function Cell({ column, row, rowIndex, onPatchRow, disabled }) {
@@ -54,6 +71,12 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled }) {
         </td>
       );
     }
+
+    case 'read-only':
+    case 'generated':
+    case 'linked':
+    case 'calculated':
+      return <td data-cell-type={column.type}><DisplayField column={column} row={row} value={value}/></td>;
 
     case 'date':
       return (
@@ -109,7 +132,7 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled }) {
       if (!isVisible) {
         return (
           <td data-cell-type="select" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
-            <span className={styles.fieldMuted}>{column.placeholderWhenHidden ?? '—'}</span>
+            <span className={styles.fieldMuted} data-field-mode="read-only">{column.placeholderWhenHidden ?? '—'}</span>
           </td>
         );
       }
@@ -214,6 +237,7 @@ export default function RawGrid({
       data-keyboard-policy="enter-tab-native"
       data-selection-surface={hasSelection ? 'true' : undefined}
       data-selection-count={hasSelection ? selected.size : undefined}
+      data-work-underwear="transaction-grid-v1"
     >
       <table className={styles.table} onKeyDown={keyDown}>
         <thead>
