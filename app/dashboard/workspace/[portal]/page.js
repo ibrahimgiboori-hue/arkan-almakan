@@ -6,7 +6,6 @@ import { AREAS } from '@/lib/app-constitution';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { livingPortalGroups } from '@/lib/portal-living-navigation';
 import { requestWorkSessionNavigation } from '@/components/ui/WorkSessionRuntime';
-import styles from './approach.module.css';
 
 export default function PortalApproachStage(){
   const { portal }=useParams();
@@ -17,7 +16,6 @@ export default function PortalApproachStage(){
   const groups=area?livingPortalGroups(portal,session):[];
   const groupKey=searchParams.get('group')||'';
   const group=groups.find((item)=>item.key===groupKey)||null;
-  const geometryOwner=portal==='workforce'&&group?.key==='recruitment'?'arkan-workspace-v1':undefined;
 
   useEffect(()=>{
     if(!area||!groupKey||!group){
@@ -32,31 +30,28 @@ export default function PortalApproachStage(){
   }
 
   if(!area||!group){
-    return <section className={styles.stage} data-navigation-stage="approach" data-living-branch-scope="all-portals">
-      <div className={styles.empty}>جارٍ العودة إلى مساحة الخمول…</div>
+    return <section data-navigation-stage="approach" data-living-branch-scope="all-portals">
+      <div data-workspace-empty="true">جارٍ العودة إلى مساحة الخمول…</div>
     </section>;
   }
 
   return <section
-    className={styles.stage}
     data-navigation-stage="portal-group"
     data-stage-leadership="stage"
     data-portal={portal}
     data-portal-group={group.key}
-    data-geometry-owner={geometryOwner}
     data-living-branch-scope="all-portals"
   >
-    <header className={styles.head} data-workspace-head="true">
-      <div className={styles.eyebrow} data-workspace-eyebrow="true">{area.label}</div>
+    <header data-workspace-head="true">
+      <div data-workspace-eyebrow="true">{area.label}</div>
       <h1 data-workspace-title="true">{group.label}</h1>
       <p data-workspace-description="true">من هنا تقود المساحة الكبيرة الاختيار، بينما تتحول القائمة إلى مرآة هادئة للمجموعة وما تحتويه.</p>
     </header>
 
-    <div className={styles.choices} data-workspace-choices="true" role="list" aria-label={group.label}>
+    <div data-workspace-choices="true" role="list" aria-label={group.label}>
       {group.items.map((item)=><button
         key={item.href}
         type="button"
-        className={styles.choice}
         data-workspace-choice="true"
         onClick={()=>go(item.href)}
         role="listitem"
@@ -65,7 +60,7 @@ export default function PortalApproachStage(){
           <strong>{item.label}</strong>
           {item.description?<small>{item.description}</small>:null}
         </span>
-        <span className={styles.choiceMark} data-workspace-choice-mark="true" aria-hidden="true">‹</span>
+        <span data-workspace-choice-mark="true" aria-hidden="true">‹</span>
       </button>)}
     </div>
   </section>;
