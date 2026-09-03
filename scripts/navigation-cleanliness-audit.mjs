@@ -76,7 +76,7 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة، ومحرك الفرع الحي يعمل على كل البوابات.
+// 5) الجسد الجديد هو القشرة الوحيدة، ومحرك الفرع الحي واحد لكل البوابات.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
@@ -108,7 +108,9 @@ if (exists(contextualNavigation)) {
   for (const required of [
     'filterAreasForAccess',
     'projectNavRequirement',
-    'livingPortalGroups',
+    'portalEntryNodes',
+    'entryNodesByArea',
+    'entryNodes.map',
     'portalApproachHref',
     'requestWorkSessionNavigation',
     'data-living-branch="single"',
@@ -127,6 +129,9 @@ if (exists(contextualNavigation)) {
   }
   if (/<button[^>]+className="appNavHonorary"/.test(nav)) {
     failures.push('مرآة السياق: العنصر الشرفي غير القابل للضغط عاد كاختصار عمل داخل القائمة.');
+  }
+  if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) {
+    failures.push('القائمة الموحدة: ما زال فرع المشاريع يُرسم بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
   }
 }
 
@@ -148,8 +153,10 @@ if (exists(shellConstitution)) {
 if (exists(portalLivingModel)) {
   const model = read(portalLivingModel);
   for (const required of [
+    'LIVING_PORTALS',
     'accessiblePortalTools',
     'livingPortalGroups',
+    'portalEntryNodes',
     'activePortalGroup',
     'activePortalTool',
     'portalCoverageReport',
@@ -256,4 +263,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: one living behavior engine spans every portal, desktop navigation persists without covering the stage, stage-led choices mirror back as non-interactive context, and legacy business journeys remain intact.');
+console.log('Navigation cleanliness audit passed: one entry-node behavior engine spans every portal, desktop navigation persists without covering the stage, stage-led choices mirror back as non-interactive context, and legacy business journeys remain intact.');
