@@ -39,13 +39,17 @@ const assetUrl = (path) => path ? supabase.storage.from('brand').getPublicUrl(pa
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value)));
 const snap = (value) => Math.round(Number(value) * 2) / 2;
 const finiteMm = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-const MIN_MARGIN = 8;
 const MAX_MARGIN = 90;
-const MIN_SAFE_EDGE = 12;
-const MAX_SAFE_EDGE = 90;
 const CSS_PX_PER_MM = 96 / 25.4;
-const NORMAL_TOP_MM = 19;
-const NORMAL_BOTTOM_MM = 19;
+const CAPTAIN_GEOMETRY_SCHEMA = 6;
+
+function pxToMm(value) {
+  return Number(value || 0) / CSS_PX_PER_MM;
+}
+
+function mmCssFromPx(value) {
+  return `${pxToMm(value).toFixed(4)}mm`;
+}
 
 function mergeSettings(familySettings = {}, documentSettings = {}) {
   return {
@@ -120,6 +124,137 @@ function sourceLabel(source) {
   return 'ليترهيد داخل المستند';
 }
 
+function measuredLineBands(element) {
+  if (!element || typeof document === 'undefined' || typeof NodeFilter === 'undefined') return [];
+  const rowRect = element.getBoundingClientRect();
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const rects = [];
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (!node?.nodeValue?.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    for (const rect of range.getClientRects()) {
+      if (rect.width < 0.5 || rect.height < 0.5) continue;
+      rects.push({
+        top:Math.max(0, rect.top - rowRect.top),
+        bottom:Math.min(rowRect.height, rect.bottom - rowRect.top),
+      });
+    }
+    range.detach?.();
+  }
+
+  rects.sort((a,b)=>a.top-b.top || a.bottom-b.bottom);
+  const bands = [];
+  for (const rect of rects) {
+    const last = bands[bands.length - 1];
+    if (!last || rect.top >= last.bottom - 0.75) {
+      bands.push({ ...rect });
+    } else {
+      last.top = Math.min(last.top, rect.top);
+      last.bottom = Math.max(last.bottom, rect.bottom);
+    }
+  }
+  return bands;
+}
+
+function visualLineSeams(element) {
+  const bands = measuredLineBands(element);
+  if (!bands.length) return { bands:[], seams:[] };
+  const seams = bands.map((band,index) => {
+    const next = bands[index + 1];
+    if (!next) return band.bottom;
+    const gap = Math.max(0, next.top - band.bottom);
+    return band.bottom + gap / 2;
+  });
+  return { bands, seams };
+}
+
+function chooseVisualLineBreak(element, startPx, maxEndPx, rowHeightPx, mustSplit) {
+  const { bands, seams } = visualLineSeams(element);
+  if (!bands.length) return null;
+  const remainingBands = bands.filter((band)=>band.bottom > startPx + 0.5);
+  const candidates = seams.filter((seam)=>
+    seam > startPx + 1
+    && seam <= maxEndPx + 0.5
+    && seam < rowHeightPx - 1
+  );
+  if (!candidates.length) return null;
+
+  const preferred = candidates.filter((candidate) => {
+    const before = remainingBands.filter((band)=>band.bottom <= candidate + 0.75).length;
+    const after = remainingBands.filter((band)=>band.top >= candidate - 0.75).length;
+    const enoughBefore = before >= 2 || remainingBands.length <= 2;
+    const noSingleWidow = after === 0 || after >= 2;
+    return enoughBefore && noSingleWidow;
+  });
+  if (preferred.length) return preferred[preferred.length - 1];
+
+  // إذا كان الصف يستطيع الانتقال كاملًا إلى صفحة جديدة، لا نترك سطرًا يتيمًا فقط لملء الفراغ.
+  if (!mustSplit) return null;
+  return candidates[candidates.length - 1];
+}
+
+function canSliceRow(row, domRow) {
+  if (!isValidElement(row) || !domRow) return false;
+  if (row.props?.['data-print-row-atomic'] === true || row.props?.['data-print-row-atomic'] === 'true') return false;
+  if (row.props?.['data-print-row-role'] === 'total') return false;
+  if (domRow.querySelector('img,svg,canvas,video,input,textarea,select')) return false;
+  const cells = Children.toArray(row.props.children);
+  const domCells = [...domRow.children];
+  if (!cells.length || cells.length !== domCells.length) return false;
+  return cells.every((cell)=>
+    (isHtmlElement(cell,'td') || isHtmlElement(cell,'th'))
+    && Number(cell.props?.rowSpan || 1) === 1
+  );
+}
+
+function measuredRowSlice(row, domRow, startPx, endPx, key) {
+  if (!canSliceRow(row,domRow)) return null;
+  const rowHeightPx = domRow.getBoundingClientRect().height;
+  const sliceHeightPx = Math.max(1, endPx - startPx);
+  const cells = Children.toArray(row.props.children);
+  const domCells = [...domRow.children];
+  const slicedCells = cells.map((cell,index) => {
+    const style = window.getComputedStyle(domCells[index]);
+    const padding = [style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft]
+      .map((value)=>mmCssFromPx(parseFloat(value) || 0))
+      .join(' ');
+    const cellStyle = {
+      ...(cell.props.style || {}),
+      padding:0,
+      height:mmCssFromPx(sliceHeightPx),
+      overflow:'hidden',
+      verticalAlign:'top',
+    };
+    return cloneElement(cell, {
+      key:`${key}-cell-${index}`,
+      style:cellStyle,
+    }, (
+      <div className="print-line-slice-viewport" style={{height:mmCssFromPx(sliceHeightPx)}}>
+        <div
+          className="print-line-slice-content"
+          style={{
+            minHeight:mmCssFromPx(rowHeightPx),
+            padding,
+            transform:`translateY(-${pxToMm(startPx).toFixed(4)}mm)`,
+          }}
+        >
+          {cell.props.children}
+        </div>
+      </div>
+    ));
+  });
+  return cloneElement(row, {
+    key,
+    'data-print-row-slice':'true',
+    'data-print-row-slice-start-mm':pxToMm(startPx).toFixed(3),
+    'data-print-row-slice-end-mm':pxToMm(endPx).toFixed(3),
+    style:{ ...(row.props.style || {}), height:mmCssFromPx(sliceHeightPx) },
+  }, slicedCells);
+}
+
 export default function ConstitutionPagedFrame({
   documentKey,
   cfg,
@@ -148,6 +283,8 @@ export default function ConstitutionPagedFrame({
 }) {
   const definition = getPrintDefinition(documentKey);
   const layout = getPrintLayoutPolicy(documentKey);
+  const paper = layout.paper;
+  const letterheadProfile = layout.letterheadProfile;
   const reportColumns = useMemo(()=>getPrintReportColumns(documentKey), [documentKey]);
   const defaultLabels = useMemo(()=>defaultPrintColumnLabels(documentKey), [documentKey]);
   const flow = useMemo(() => decomposeFlow(children), [children]);
@@ -160,21 +297,23 @@ export default function ConstitutionPagedFrame({
   const docDirection = explicitDirection || inferredDirection || 'rtl';
   const docTextAlign = docDirection === 'ltr' ? 'left' : 'right';
 
-  const baseTop = finiteMm(contentTopMm ?? layout.topMm, NORMAL_TOP_MM);
-  const baseBottom = finiteMm(contentBottomMm ?? layout.bottomMm, NORMAL_BOTTOM_MM);
-  const baseSide = finiteMm(contentSideMm ?? layout.sideMm, 19);
-  const defaultLeft = clamp(contentLeftMm ?? baseSide, MIN_MARGIN, MAX_MARGIN);
-  const defaultRight = clamp(contentRightMm ?? baseSide, MIN_MARGIN, MAX_MARGIN);
+  const wordMarginMm = finiteMm(paper?.bodyMarginMm,25.4);
+  const minMarginMm = wordMarginMm;
+  const defaultTop = clamp(Math.max(finiteMm(contentTopMm,wordMarginMm),wordMarginMm),minMarginMm,MAX_MARGIN);
+  const defaultBottom = clamp(Math.max(finiteMm(contentBottomMm,wordMarginMm),wordMarginMm),minMarginMm,MAX_MARGIN);
+  const requestedSide = finiteMm(contentSideMm,wordMarginMm);
+  const defaultLeft = clamp(Math.max(finiteMm(contentLeftMm,requestedSide),wordMarginMm),minMarginMm,MAX_MARGIN);
+  const defaultRight = clamp(Math.max(finiteMm(contentRightMm,requestedSide),wordMarginMm),minMarginMm,MAX_MARGIN);
   const defaultBlockGap = clamp(layout.grid?.blockGapMm ?? 3, 1, 8);
   const defaultSectionGap = clamp(layout.grid?.sectionGapMm ?? 6, 2, 14);
-  const defaultSafeBottom = clamp(Math.max(baseBottom, finiteMm(cfg?.letterhead_bottom_mm, 0)), MIN_SAFE_EDGE, MAX_SAFE_EDGE);
 
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState('');
   const [draft, setDraft] = useState({
+    topMm:defaultTop,
+    bottomMm:defaultBottom,
     leftMm:defaultLeft,
     rightMm:defaultRight,
-    safeBottomMm:defaultSafeBottom,
     blockGapMm:defaultBlockGap,
     sectionGapMm:defaultSectionGap,
     orientation:layout.orientation || PRINT_ORIENTATION.PORTRAIT,
@@ -193,17 +332,24 @@ export default function ConstitutionPagedFrame({
       const familySettings = (data || []).find((x)=>x.scope==='family' && x.scope_key===definition.family)?.settings || {};
       const documentSettings = (data || []).find((x)=>x.scope==='document' && x.scope_key===documentKey)?.settings || {};
       const merged = mergeSettings(familySettings, documentSettings);
-      const legacySide = merged.sideMm;
+      const geometryCurrent = Number(merged.gridSchemaVersion || 0) >= CAPTAIN_GEOMETRY_SCHEMA;
       setDraft({
         ...merged,
-        leftMm:clamp(merged.leftMm ?? legacySide ?? defaultLeft, MIN_MARGIN, MAX_MARGIN),
-        rightMm:clamp(merged.rightMm ?? legacySide ?? defaultRight, MIN_MARGIN, MAX_MARGIN),
-        safeBottomMm:clamp(merged.safeBottomMm ?? defaultSafeBottom, MIN_SAFE_EDGE, MAX_SAFE_EDGE),
+        topMm:clamp(geometryCurrent ? (merged.topMm ?? defaultTop) : defaultTop, minMarginMm, MAX_MARGIN),
+        bottomMm:clamp(geometryCurrent ? (merged.bottomMm ?? defaultBottom) : defaultBottom, minMarginMm, MAX_MARGIN),
+        leftMm:clamp(geometryCurrent ? (merged.leftMm ?? defaultLeft) : defaultLeft, minMarginMm, MAX_MARGIN),
+        rightMm:clamp(geometryCurrent ? (merged.rightMm ?? defaultRight) : defaultRight, minMarginMm, MAX_MARGIN),
         blockGapMm:clamp(merged.blockGapMm ?? defaultBlockGap, 1, 8),
         sectionGapMm:clamp(merged.sectionGapMm ?? defaultSectionGap, 2, 14),
-        orientation:Object.values(PRINT_ORIENTATION).includes(merged.orientation) ? merged.orientation : (layout.orientation || PRINT_ORIENTATION.PORTRAIT),
-        letterheadSource:Object.values(PRINT_LETTERHEAD_SOURCE).includes(merged.letterheadSource) ? merged.letterheadSource : (layout.letterheadSource || PRINT_LETTERHEAD_SOURCE.DIGITAL),
-        paperRotation:Object.values(PRINT_PAPER_ROTATION).includes(merged.paperRotation) ? merged.paperRotation : (layout.paperRotation || PRINT_PAPER_ROTATION.CLOCKWISE),
+        orientation:geometryCurrent && Object.values(PRINT_ORIENTATION).includes(merged.orientation)
+          ? merged.orientation
+          : (layout.orientation || PRINT_ORIENTATION.PORTRAIT),
+        letterheadSource:geometryCurrent && Object.values(PRINT_LETTERHEAD_SOURCE).includes(merged.letterheadSource)
+          ? merged.letterheadSource
+          : (layout.letterheadSource || PRINT_LETTERHEAD_SOURCE.DIGITAL),
+        paperRotation:geometryCurrent && Object.values(PRINT_PAPER_ROTATION).includes(merged.paperRotation)
+          ? merged.paperRotation
+          : (layout.paperRotation || PRINT_PAPER_ROTATION.CLOCKWISE),
         grids:merged.grids || {}, rows:merged.rows || {},
       });
     }
@@ -216,16 +362,13 @@ export default function ConstitutionPagedFrame({
       .maybeSingle();
     const labels = presentation.data?.settings?.labels || {};
     setPresentationLabels({ ...defaultLabels, ...labels });
-  }, [defaultBlockGap, defaultLabels, defaultLeft, defaultRight, defaultSafeBottom, defaultSectionGap, definition.family, documentKey, layout.letterheadSource, layout.orientation, layout.paperRotation]);
+  }, [defaultBlockGap, defaultBottom, defaultLabels, defaultLeft, defaultRight, defaultSectionGap, defaultTop, definition.family, documentKey, layout.letterheadSource, layout.orientation, layout.paperRotation, minMarginMm]);
 
   useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
-  const setMargin = useCallback((key, value) => {
-    setDraft((previous)=>({ ...previous, [key]:snap(clamp(value, MIN_MARGIN, MAX_MARGIN)) }));
-  }, []);
-  const setSafeBottom = useCallback((value) => {
-    setDraft((previous)=>({ ...previous, safeBottomMm:snap(clamp(value, MIN_SAFE_EDGE, MAX_SAFE_EDGE)) }));
-  }, []);
+  const setEdge = useCallback((key, value) => {
+    setDraft((previous)=>({ ...previous, [key]:snap(clamp(value, minMarginMm, MAX_MARGIN)) }));
+  }, [minMarginMm]);
   const setGridLayout = useCallback((key, value) => {
     setDraft((previous)=>{
       const grids = { ...(previous.grids || {}) };
@@ -249,13 +392,14 @@ export default function ConstitutionPagedFrame({
       scope,
       scope_key:scopeKey,
       settings:{
-        gridSchemaVersion:5,
+        gridSchemaVersion:CAPTAIN_GEOMETRY_SCHEMA,
         gridColumns:PRINT_GRID_COLUMNS,
         gridMajorColumns:PRINT_GRID_MAJOR_COLUMNS,
         gridRowMm:PRINT_GRID_ROW_MM,
+        topMm:draft.topMm,
+        bottomMm:draft.bottomMm,
         leftMm:draft.leftMm,
         rightMm:draft.rightMm,
-        safeBottomMm:draft.safeBottomMm,
         blockGapMm:draft.blockGapMm,
         sectionGapMm:draft.sectionGapMm,
         orientation:draft.orientation,
@@ -298,9 +442,10 @@ export default function ConstitutionPagedFrame({
 
   function resetDraft() {
     setDraft({
+      topMm:defaultTop,
+      bottomMm:defaultBottom,
       leftMm:defaultLeft,
       rightMm:defaultRight,
-      safeBottomMm:defaultSafeBottom,
       blockGapMm:defaultBlockGap,
       sectionGapMm:defaultSectionGap,
       orientation:layout.orientation || PRINT_ORIENTATION.PORTRAIT,
@@ -309,39 +454,44 @@ export default function ConstitutionPagedFrame({
       grids:{}, rows:{},
     });
     setPresentationLabels(defaultLabels);
-    setMessage('عادت إعدادات القبطان وعناوين التقرير الافتراضية في المعاينة؛ احفظ ما تريد تثبيته');
+    setMessage('عادت إعدادات Word القياسية وبروفايل الليترهيد المقاس؛ احفظ ما تريد تثبيته');
   }
 
   const orientation = draft.orientation || PRINT_ORIENTATION.PORTRAIT;
   const letterheadSource = draft.letterheadSource || PRINT_LETTERHEAD_SOURCE.DIGITAL;
   const paperRotation = draft.paperRotation || PRINT_PAPER_ROTATION.CLOCKWISE;
   const landscape = orientation === PRINT_ORIENTATION.LANDSCAPE;
-  const pageHeightMm = landscape ? 210 : 297;
-  const pageWidthMm = landscape ? 297 : 210;
-  const letterheadTop = finiteMm(cfg?.letterhead_top_mm, 47);
-  const letterheadBottom = finiteMm(cfg?.letterhead_bottom_mm, 39);
+  const pageHeightMm = landscape ? finiteMm(paper?.landscapeHeightMm,210) : finiteMm(paper?.portraitHeightMm,297);
+  const pageWidthMm = landscape ? finiteMm(paper?.landscapeWidthMm,297) : finiteMm(paper?.portraitWidthMm,210);
+  const letterheadTop = finiteMm(letterheadProfile?.portraitTopArtworkMm,34.23);
+  const letterheadBottom = finiteMm(letterheadProfile?.portraitBottomArtworkMm,19.13);
+  const headerClearanceMm = finiteMm(paper?.headerFromEdgeMm,12.7);
+  const footerClearanceMm = finiteMm(paper?.footerFromEdgeMm,12.7);
   const hasSplitLetterhead = Boolean(cfg?.header_image_path || cfg?.footer_image_path || cfg?.watermark_image_path);
   const rotatedDigitalMaster = letterheadSource === PRINT_LETTERHEAD_SOURCE.DIGITAL
     && landscape
-    && Boolean(cfg?.letterhead_image_path)
-    && !hasSplitLetterhead;
+    && Boolean(cfg?.letterhead_image_path);
   const sideReservedLetterhead = landscape && (
     letterheadSource === PRINT_LETTERHEAD_SOURCE.PREPRINTED || rotatedDigitalMaster
   );
   const topBottomReservedLetterhead = letterheadSource !== PRINT_LETTERHEAD_SOURCE.NONE && !sideReservedLetterhead;
 
-  const requestedLeft = clamp(draft.leftMm ?? defaultLeft, MIN_MARGIN, MAX_MARGIN);
-  const requestedRight = clamp(draft.rightMm ?? defaultRight, MIN_MARGIN, MAX_MARGIN);
+  const requestedTop = clamp(draft.topMm ?? defaultTop,minMarginMm,MAX_MARGIN);
+  const requestedBottom = clamp(draft.bottomMm ?? defaultBottom,minMarginMm,MAX_MARGIN);
+  const requestedLeft = clamp(draft.leftMm ?? defaultLeft,minMarginMm,MAX_MARGIN);
+  const requestedRight = clamp(draft.rightMm ?? defaultRight,minMarginMm,MAX_MARGIN);
   const physicalLeft = sideReservedLetterhead
     ? Math.max(requestedLeft, paperRotation === PRINT_PAPER_ROTATION.CLOCKWISE ? letterheadBottom : letterheadTop)
     : requestedLeft;
   const physicalRight = sideReservedLetterhead
     ? Math.max(requestedRight, paperRotation === PRINT_PAPER_ROTATION.CLOCKWISE ? letterheadTop : letterheadBottom)
     : requestedRight;
-  const top = topBottomReservedLetterhead ? Math.max(baseTop, letterheadTop) : baseTop;
-  const safeBottom = topBottomReservedLetterhead
-    ? Math.max(clamp(draft.safeBottomMm ?? defaultSafeBottom, MIN_SAFE_EDGE, MAX_SAFE_EDGE), letterheadBottom)
-    : Math.max(clamp(draft.safeBottomMm ?? baseBottom, MIN_SAFE_EDGE, MAX_SAFE_EDGE), baseBottom);
+  const top = topBottomReservedLetterhead
+    ? Math.max(requestedTop, letterheadTop + headerClearanceMm)
+    : requestedTop;
+  const bottom = topBottomReservedLetterhead
+    ? Math.max(requestedBottom, letterheadBottom + footerClearanceMm)
+    : requestedBottom;
   const grid = { ...(layout.grid || {}), blockGapMm:draft.blockGapMm, sectionGapMm:draft.sectionGapMm };
 
   useEffect(() => {
@@ -353,15 +503,19 @@ export default function ConstitutionPagedFrame({
       rightMm:physicalRight,
       requestedLeftMm:requestedLeft,
       requestedRightMm:requestedRight,
+      requestedTopMm:requestedTop,
+      requestedBottomMm:requestedBottom,
       topMm:top,
-      bottomMm:safeBottom,
-      letterheadTopMm:letterheadTop,
-      letterheadBottomMm:letterheadBottom,
-      safeBottomMm:safeBottom,
+      bottomMm:bottom,
+      wordBodyMarginMm:wordMarginMm,
+      headerFromEdgeMm:headerClearanceMm,
+      footerFromEdgeMm:footerClearanceMm,
+      letterheadTopArtworkMm:letterheadTop,
+      letterheadBottomArtworkMm:letterheadBottom,
       blockGapMm:grid.blockGapMm,
       sectionGapMm:grid.sectionGapMm,
     });
-  }, [grid.blockGapMm, grid.sectionGapMm, letterheadBottom, letterheadSource, letterheadTop, onLayoutChange, orientation, paperRotation, physicalLeft, physicalRight, requestedLeft, requestedRight, safeBottom, top]);
+  }, [bottom, footerClearanceMm, grid.blockGapMm, grid.sectionGapMm, headerClearanceMm, letterheadBottom, letterheadSource, letterheadTop, onLayoutChange, orientation, paperRotation, physicalLeft, physicalRight, requestedBottom, requestedLeft, requestedRight, requestedTop, top, wordMarginMm]);
 
   const layoutContext = useMemo(()=>({
     editing,
@@ -374,15 +528,18 @@ export default function ConstitutionPagedFrame({
   }), [editing, presentationLabels]);
 
   const renderDigitalLetterhead = letterheadSource === PRINT_LETTERHEAD_SOURCE.DIGITAL;
-  const useSplitLetterhead = renderDigitalLetterhead && hasSplitLetterhead && !rotatedDigitalMaster && (landscape || !cfg?.letterhead_image_path);
+  const useSplitLetterhead = renderDigitalLetterhead
+    && hasSplitLetterhead
+    && !rotatedDigitalMaster
+    && !cfg?.letterhead_image_path;
   const full = renderDigitalLetterhead && cfg?.letterhead_image_path && !useSplitLetterhead ? assetUrl(cfg.letterhead_image_path) : null;
   const header = useSplitLetterhead ? assetUrl(cfg?.header_image_path) : null;
   const footer = useSplitLetterhead ? assetUrl(cfg?.footer_image_path) : null;
   const watermark = useSplitLetterhead ? assetUrl(cfg?.watermark_image_path) : null;
-  const classes = printGovernanceClassName(documentKey);
+  const classes = printGovernanceClassName(documentKey,'',orientation);
   const contentStyle = {
     paddingTop:`${top}mm`,
-    paddingBottom:`${safeBottom}mm`,
+    paddingBottom:`${bottom}mm`,
     paddingLeft:`${physicalLeft}mm`,
     paddingRight:`${physicalRight}mm`,
     direction:docDirection,
@@ -392,9 +549,9 @@ export default function ConstitutionPagedFrame({
     '--print-grid-row':`${Number(grid.rowMm ?? PRINT_GRID_ROW_MM)}mm`,
     '--print-block-gap':`${Number(grid.blockGapMm ?? 3)}mm`,
     '--print-section-gap':`${Number(grid.sectionGapMm ?? 6)}mm`,
-    '--print-safe-bottom':`${safeBottom}mm`,
+    '--print-safe-bottom':`${bottom}mm`,
   };
-  const availablePx = Math.max(1, (pageHeightMm - top - safeBottom) * CSS_PX_PER_MM);
+  const availablePx = Math.max(1, (pageHeightMm - top - bottom) * CSS_PX_PER_MM);
   const presentationSignature = JSON.stringify(presentationLabels);
 
   useLayoutEffect(() => {
@@ -408,7 +565,6 @@ export default function ConstitutionPagedFrame({
     }
 
     // إذا اختلف شكل React عن DOM فلا نسمح للمتصفح أن يخترع تجزئة داخل الورقة.
-    // نضع كل كتلة في ورقة مستقلة كفشل آمن واضح حتى يتم تعريف حدودها دلاليًا.
     if (domBlocks.length !== flow.blocks.length) {
       setRenderedPages(flow.blocks.map((block,index)=>composeFlowPage(flow.root,[block],index)));
       return;
@@ -435,42 +591,113 @@ export default function ConstitutionPagedFrame({
       if (tableParts && domRows.length === tableParts.rows.length) {
         const headHeight = domHead ? outerHeight(domHead) : 0;
         const footHeight = domFoot ? outerHeight(domFoot) : 0;
+        const freshRowCapacity = Math.max(1,availablePx - headHeight);
         let rowIndex = 0;
+        let rowStartPx = 0;
         let fragmentIndex = 0;
 
-        while (rowIndex < tableParts.rows.length) {
-          const firstRowHeight = Math.max(1, outerHeight(domRows[rowIndex]));
-          if (current.length && used + headHeight + firstRowHeight > availablePx + 1) newPage();
-
-          const pageRoom = Math.max(1, availablePx - used);
+        while (rowIndex < tableParts.rows.length || rowStartPx > 0) {
+          if (current.length && used + headHeight > availablePx - 1) newPage();
+          const pageRoom = Math.max(1,availablePx - used);
           const fragmentRows = [];
           let fragmentHeight = headHeight;
 
           while (rowIndex < tableParts.rows.length) {
-            const rowHeight = Math.max(1, outerHeight(domRows[rowIndex]));
-            const isLastRow = rowIndex === tableParts.rows.length - 1;
-            const finalExtra = isLastRow ? footHeight : 0;
-            const fits = fragmentRows.length === 0
-              || fragmentHeight + rowHeight + finalExtra <= pageRoom + 1;
-            if (!fits) break;
-            fragmentRows.push(tableParts.rows[rowIndex]);
-            fragmentHeight += rowHeight;
-            rowIndex += 1;
+            const reactRow = tableParts.rows[rowIndex];
+            const domRow = domRows[rowIndex];
+            const rowHeight = Math.max(1,outerHeight(domRow));
+            const remainingHeight = Math.max(1,rowHeight - rowStartPx);
+            const roomForRow = Math.max(0,pageRoom - fragmentHeight);
+
+            if (remainingHeight <= roomForRow + 1) {
+              if (rowStartPx > 0) {
+                const finalSlice = measuredRowSlice(
+                  reactRow,
+                  domRow,
+                  rowStartPx,
+                  rowHeight,
+                  `print-row-${blockIndex}-${rowIndex}-final-${fragmentIndex}`,
+                );
+                fragmentRows.push(finalSlice || reactRow);
+              } else {
+                fragmentRows.push(reactRow);
+              }
+              fragmentHeight += remainingHeight;
+              rowIndex += 1;
+              rowStartPx = 0;
+              continue;
+            }
+
+            const mustSplit = rowStartPx > 0 || remainingHeight > freshRowCapacity + 1;
+            const maxEndPx = rowStartPx + roomForRow;
+            const breakPx = canSliceRow(reactRow,domRow)
+              ? chooseVisualLineBreak(domRow,rowStartPx,maxEndPx,rowHeight,mustSplit)
+              : null;
+
+            if (breakPx && breakPx > rowStartPx + 1) {
+              const slice = measuredRowSlice(
+                reactRow,
+                domRow,
+                rowStartPx,
+                breakPx,
+                `print-row-${blockIndex}-${rowIndex}-slice-${fragmentIndex}`,
+              );
+              if (slice) {
+                fragmentRows.push(slice);
+                fragmentHeight += breakPx - rowStartPx;
+                rowStartPx = breakPx;
+              }
+            }
+            break;
           }
 
-          const finalFragment = rowIndex >= tableParts.rows.length;
-          if (finalFragment) fragmentHeight += footHeight;
-          const fragment = tableFragment(
+          if (!fragmentRows.length) {
+            // بقي جزء لا يدخل في الفراغ الحالي ويمكن أن يعيش طبيعيًا في صفحة جديدة.
+            if (current.length || used > 0) {
+              newPage();
+              continue;
+            }
+            // فشل آمن لعنصر لا يملك حدود سطر قابلة للقياس حتى على صفحة كاملة.
+            const reactRow = tableParts.rows[rowIndex];
+            const domRow = domRows[rowIndex];
+            const rowHeight = Math.max(1,outerHeight(domRow));
+            fragmentRows.push(reactRow);
+            fragmentHeight += Math.max(1,rowHeight - rowStartPx);
+            rowIndex += 1;
+            rowStartPx = 0;
+          }
+
+          const allRowsDone = rowIndex >= tableParts.rows.length && rowStartPx === 0;
+          const footFits = !allRowsDone || footHeight <= 0 || fragmentHeight + footHeight <= pageRoom + 1;
+          const includeFoot = allRowsDone && footFits;
+          if (includeFoot) fragmentHeight += footHeight;
+
+          current.push(tableFragment(
             block,
             tableParts,
             fragmentRows,
             `print-table-${blockIndex}-${fragmentIndex}`,
-            finalFragment,
-          );
-          current.push(fragment);
+            includeFoot,
+          ));
           used += fragmentHeight;
           fragmentIndex += 1;
-          if (!finalFragment) newPage();
+
+          if (allRowsDone) {
+            if (!includeFoot && footHeight > 0) {
+              newPage();
+              const footOnly = tableFragment(
+                block,
+                tableParts,
+                [],
+                `print-table-${blockIndex}-foot-${fragmentIndex}`,
+                true,
+              );
+              current.push(footOnly);
+              used += headHeight + footHeight;
+            }
+            break;
+          }
+          newPage();
         }
         return;
       }
@@ -489,13 +716,13 @@ export default function ConstitutionPagedFrame({
 
     if (current.length || !pages.length) pages.push(current);
     setRenderedPages(pages.map((blocks,pageIndex)=>composeFlowPage(flow.root,blocks,pageIndex)));
-  }, [availablePx, flow.blocks, flow.root, pageHeightMm, physicalLeft, physicalRight, presentationSignature, safeBottom, top]);
+  }, [availablePx, flow.blocks, flow.root, pageHeightMm, physicalLeft, physicalRight, presentationSignature, bottom, top]);
 
   const pages = renderedPages || [composeFlowPage(flow.root, flow.blocks, 0)];
   const pageCount = pages.length;
   const formatPageNumber = pageNumberFormatter || ((current,total)=> docDirection === 'ltr' ? `Page ${current} of ${total}` : `صفحة ${current} من ${total}`);
 
-  function startSafeBottomDrag(event) {
+  function startBottomDrag(event) {
     if (!editing) return;
     event.preventDefault();
     event.stopPropagation();
@@ -504,7 +731,7 @@ export default function ConstitutionPagedFrame({
     if (!rect) return;
     const apply = (clientY) => {
       const fromTopMm = ((clientY - rect.top) / Math.max(1, rect.height)) * pageHeightMm;
-      setSafeBottom(pageHeightMm - fromTopMm);
+      setEdge('bottomMm',pageHeightMm - fromTopMm);
     };
     const move = (moveEvent) => apply(moveEvent.clientY);
     const up = () => {
@@ -559,16 +786,18 @@ export default function ConstitutionPagedFrame({
                 </select>
               </label>
             )}
-            <label>الهامش الأيسر <input type="range" min={MIN_MARGIN} max={MAX_MARGIN} step="0.5" value={requestedLeft} onChange={(event)=>setMargin('leftMm',event.target.value)} /><strong>{physicalLeft.toFixed(1)} مم</strong></label>
-            <label>الهامش الأيمن <input type="range" min={MIN_MARGIN} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setMargin('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم</strong></label>
-            <label>حد الذيل الآمن <input type="range" min={MIN_SAFE_EDGE} max={MAX_SAFE_EDGE} step="0.5" value={draft.safeBottomMm} onChange={(event)=>setSafeBottom(event.target.value)} /><strong>{safeBottom.toFixed(1)} مم</strong></label>
+            <label>هامش Word العلوي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedTop} onChange={(event)=>setEdge('topMm',event.target.value)} /><strong>{top.toFixed(1)} مم فعلي</strong></label>
+            <label>هامش Word السفلي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedBottom} onChange={(event)=>setEdge('bottomMm',event.target.value)} /><strong>{bottom.toFixed(1)} مم فعلي</strong></label>
+            <label>الهامش الأيسر <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedLeft} onChange={(event)=>setEdge('leftMm',event.target.value)} /><strong>{physicalLeft.toFixed(1)} مم</strong></label>
+            <label>الهامش الأيمن <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setEdge('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم</strong></label>
             <label>تباعد الكتل <input type="range" min="1" max="8" step="0.5" value={draft.blockGapMm} onChange={(event)=>setDraft((previous)=>({...previous,blockGapMm:snap(event.target.value)}))} /><strong>{Number(draft.blockGapMm).toFixed(1)} مم</strong></label>
             <label>تباعد الأقسام <input type="range" min="2" max="14" step="0.5" value={draft.sectionGapMm} onChange={(event)=>setDraft((previous)=>({...previous,sectionGapMm:snap(event.target.value)}))} /><strong>{Number(draft.sectionGapMm).toFixed(1)} مم</strong></label>
             <button type="button" onClick={()=>saveLayout('document')}>حفظ هندسة هذا المطبوع</button>
             <button type="button" onClick={()=>saveLayout('family')}>حفظ هندسة العائلة</button>
             <button type="button" onClick={followFamily}>استخدام هندسة العائلة</button>
-            <button type="button" onClick={resetDraft}>إعادة الافتراضي</button>
+            <button type="button" onClick={resetDraft}>إعادة Word القياسي</button>
             <span className="constitution-paper-mode">{landscape ? 'أفقي' : 'عمودي'} · {sourceLabel(letterheadSource)}</span>
+            <span className="constitution-paper-standard">Word 25.4 مم · Header 12.7 · Footer 12.7 · Letterhead {letterheadTop.toFixed(2)}/{letterheadBottom.toFixed(2)}</span>
           </>}
           {message && <span>{message}</span>}
         </div>
@@ -594,7 +823,7 @@ export default function ConstitutionPagedFrame({
           style={{
             width:`${pageWidthMm}mm`,
             paddingTop:`${top}mm`,
-            paddingBottom:`${safeBottom}mm`,
+            paddingBottom:`${bottom}mm`,
             paddingLeft:`${physicalLeft}mm`,
             paddingRight:`${physicalRight}mm`,
             direction:docDirection,
@@ -612,6 +841,8 @@ export default function ConstitutionPagedFrame({
           data-print-orientation={orientation}
           data-print-letterhead-source={letterheadSource}
           data-print-paper-rotation={paperRotation}
+          data-print-geometry-schema={CAPTAIN_GEOMETRY_SCHEMA}
+          data-print-line-seams="visual-line-box"
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerLeave}
@@ -632,14 +863,14 @@ export default function ConstitutionPagedFrame({
                 {watermark && <img src={watermark} className="constitution-paged-watermark print-master-watermark" alt="" />}
               </div>
               {editing && <>
-                <div className="constitution-paged-grid-overlay no-print" style={{top:`${top}mm`,right:`${physicalRight}mm`,bottom:`${safeBottom}mm`,left:`${physicalLeft}mm`}} />
+                <div className="constitution-paged-grid-overlay no-print" style={{top:`${top}mm`,right:`${physicalRight}mm`,bottom:`${bottom}mm`,left:`${physicalLeft}mm`}} />
                 <div
                   className="constitution-safe-zone-guide no-print"
-                  style={{bottom:`${safeBottom}mm`,left:`${physicalLeft}mm`,right:`${physicalRight}mm`}}
-                  onPointerDown={startSafeBottomDrag}
-                  title="اسحب لتحديد نهاية المحتوى وبداية الذيل الآمن"
+                  style={{bottom:`${bottom}mm`,left:`${physicalLeft}mm`,right:`${physicalRight}mm`}}
+                  onPointerDown={startBottomDrag}
+                  title="اسحب لتحديد نهاية المحتوى مع بقاء حدود Word والليترهيد محمية"
                 >
-                  <span>حد الذيل الآمن</span>
+                  <span>نهاية المحتوى الآمنة</span>
                 </div>
               </>}
               <main
@@ -659,7 +890,7 @@ export default function ConstitutionPagedFrame({
                 >{page}</div>
               </main>
               {showPageNumbers && pageCount > 0 && (
-                <div className="constitution-paged-number" dir={docDirection} style={{bottom:`${Math.max(2,baseBottom-5)}mm`}}>
+                <div className="constitution-paged-number" dir={docDirection} style={{bottom:`${Math.max(2,footerClearanceMm-5)}mm`}}>
                   {formatPageNumber(pageIndex+1,pageCount)}
                 </div>
               )}
@@ -679,13 +910,13 @@ export default function ConstitutionPagedFrame({
           ))}
           <style jsx global>{`
             .constitution-paged-layoutbar{position:sticky;top:0;z-index:28;max-width:297mm;margin:8px auto 0;padding:8px 10px;background:#fff;border:1px solid #c7c7c7;display:flex;gap:7px;align-items:center;flex-wrap:wrap;direction:rtl;box-shadow:0 1px 6px rgba(0,0,0,.08)}
-            .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:44px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}
+            .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:62px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}.constitution-paper-standard{color:#6b6b6d!important}
             .constitution-presentation-editor{position:sticky;top:48px;z-index:27;max-width:297mm;margin:6px auto;padding:8px 10px;background:#fff;border:1px solid #d5d5d5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;direction:rtl}.constitution-presentation-editor>strong{font-size:12px}.constitution-presentation-editor label{display:flex;align-items:center;gap:4px;font-size:10.5px;color:#555}.constitution-presentation-editor input{width:130px;font:inherit;font-size:11.5px;padding:4px 5px;border:1px solid #bbb}
             .constitution-flow-measure{position:fixed!important;z-index:-1000!important;left:-10000px!important;top:0!important;height:auto!important;min-height:0!important;box-sizing:border-box!important;visibility:hidden!important;pointer-events:none!important;background:#fff!important;font-size:9pt;line-height:1.45;overflow:visible!important}
             .constitution-paged-pages{padding:24px 14px 60px;display:flex;flex-direction:column;align-items:center;gap:20px;background:#efeaea}.constitution-paged-sheet{position:relative;background:#fff;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 6px rgba(0,0,0,.16)}.constitution-paged-sheet.dragging{cursor:grabbing;user-select:none}.constitution-paged-assets{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}.constitution-paged-full{position:absolute;object-fit:fill;display:block}.constitution-paged-header{position:absolute;top:0;right:0;object-fit:fill;display:block}.constitution-paged-footer{position:absolute;bottom:0;right:0;object-fit:fill;display:block}.constitution-paged-watermark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:60%;max-height:60%;object-fit:contain;display:block}
             .constitution-paged-content{position:relative;z-index:1;box-sizing:border-box;font-size:9pt;line-height:1.45;overflow:hidden}.constitution-paged-content>.print-constitution{width:100%;min-width:0;position:relative;z-index:2}.constitution-paged-grid-overlay{position:absolute;z-index:9;pointer-events:none;background-image:linear-gradient(to right,rgba(139,51,50,.13) 1px,transparent 1px),linear-gradient(to right,rgba(139,51,50,.045) 1px,transparent 1px),linear-gradient(to bottom,rgba(60,60,60,.055) 1px,transparent 1px);background-size:calc(100% / ${PRINT_GRID_MAJOR_COLUMNS}) 100%,calc(100% / ${PRINT_GRID_COLUMNS}) 100%,100% ${PRINT_GRID_ROW_MM}mm;border:1px dashed rgba(139,51,50,.28)}.constitution-paged-number{position:absolute;z-index:4;right:0;left:0;text-align:center;font-size:7.5pt;color:#6b6b6d;pointer-events:none}
             .constitution-safe-zone-guide{position:absolute;z-index:16;border-top:2px solid rgba(139,51,50,.82);height:12px;cursor:ns-resize;touch-action:none}.constitution-safe-zone-guide::before{content:'';position:absolute;right:0;left:0;top:-7px;height:14px;background:transparent}.constitution-safe-zone-guide span{position:absolute;right:0;bottom:4px;padding:2px 5px;background:#fff;border:1px solid rgba(139,51,50,.45);color:#8B3332;font-size:10px;line-height:1;white-space:nowrap}
-            [data-print-flow='${PRINT_FLOW_KIND.REPEATABLE_TABLE}']{break-inside:auto!important;page-break-inside:auto!important}[data-print-flow='${PRINT_FLOW_KIND.REPEATABLE_TABLE}']>tbody>tr{break-inside:avoid!important;page-break-inside:avoid!important}
+            [data-print-flow='${PRINT_FLOW_KIND.REPEATABLE_TABLE}']{break-inside:auto!important;page-break-inside:auto!important}[data-print-flow='${PRINT_FLOW_KIND.REPEATABLE_TABLE}']>tbody>tr{break-inside:avoid!important;page-break-inside:avoid!important}.print-line-slice-viewport{position:relative;width:100%;overflow:hidden;box-sizing:border-box}.print-line-slice-content{width:100%;box-sizing:border-box;transform-origin:top left}tr[data-print-row-slice='true']{break-inside:avoid!important;page-break-inside:avoid!important}
             .print-page-break-before{break-before:page!important;page-break-before:always!important}
             @media print{@page{size:A4 ${orientation};margin:0}.constitution-paged-layoutbar,.constitution-presentation-editor,.constitution-paged-grid-overlay,.constitution-safe-zone-guide,.constitution-flow-measure{display:none!important}.constitution-paged-pages{padding:0;gap:0;background:#fff;display:block}.constitution-paged-sheet{box-shadow:none;margin:0;break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}.constitution-paged-sheet:last-child{break-after:auto;page-break-after:auto}}
           `}</style>
