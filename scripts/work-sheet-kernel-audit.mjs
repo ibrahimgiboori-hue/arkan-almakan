@@ -25,9 +25,7 @@ requireText('app/dashboard/layout.js', [
   'ContextualDashboardNavigation',
 ]);
 
-if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) {
-  failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
-}
+if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
 if (exists('app/dashboard/work-sheet-kernel.css')) failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
 if (exists('components/ui/RawDashboardNavigation.module.css')) failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
 
@@ -80,7 +78,11 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'data-navigation-role={navigationRole}',
   'GRANDCHILD_NAVIGATION_EVENT',
   'renderGrandchild',
-  'appNavGrandchildPrimary',
+  'activeGrandchildTab',
+  'appNavGrandchildTabs',
+  'appNavGrandchildTab',
+  'appNavGrandchildGroupTitle',
+  'onClick={()=>go(item.href,{keepOpen:false})}',
   'appNavDismiss',
   'onClick={openNavigation}',
   'className="appContextNav"',
@@ -95,17 +97,11 @@ if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد د
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
 if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة بدأت تستعلم عن بيانات الكيانات بدل استقبال انعكاس العضو أو المسرح.');
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق تحولت إلى اختصار عمل قابل للضغط.');
-if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) {
-  failures.push('الملاحة عادت لرسم فرع المشاريع بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
-}
+if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('الملاحة عادت لرسم فرع المشاريع بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
 
 const livingCss = read('app/dashboard/living-navigation.css');
-if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) {
-  failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحة من الجسد بدل تغطية العمل.');
-}
-if (!livingCss.includes('.appNavGrandchild') || !livingCss.includes('.appNavGrandchildGroupTitle')) {
-  failures.push('قائمة الحفيد: قبطان الشكل لا يعرف رف الأداة الحالي أو مجموعاته التاريخية.');
-}
+if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحة من الجسد بدل تغطية العمل.');
+if (!livingCss.includes('.appNavGrandchildTabs') || !livingCss.includes('.appNavGrandchildGroupTitle')) failures.push('قائمة الحفيد: قبطان الشكل لا يعرف تبويبات الأداة أو مجموعاتها المنطقية.');
 
 requireText('components/ui/ConstitutionUI.js', [
   "from './WorkSheetKernel'",
@@ -135,4 +131,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: grandfather, child, and grandchild all use the same visual captain; work keeps the stage clean and history stays on demand.');
+console.log('Single visual captain audit passed: grandfather, child, and tabbed grandchild use one visual captain while the selected action alone owns the stage.');
