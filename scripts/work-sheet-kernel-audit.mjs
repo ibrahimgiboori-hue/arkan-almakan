@@ -53,6 +53,8 @@ requireText('app/dashboard/app-shell-v2.css', [
   "@media (prefers-reduced-motion: reduce)",
 ]);
 
+// دستور التجميعات الحالي يبقى موجودًا لتوافق الأعضاء التي لم نعيد تشريحها بعد.
+// لكن نسخة القبول لا تجعله مصدرًا للفرع الحي؛ المشاريع هي التجربة الوحيدة حاليًا.
 requireText('lib/navigation-shell-constitution.js', [
   'SHELL_PORTAL_GROUPS',
   "projects: Object.freeze([",
@@ -65,7 +67,9 @@ requireText('lib/navigation-shell-constitution.js', [
 requireText('components/ui/ContextualDashboardNavigation.js', [
   'filterAreasForAccess',
   'projectNavRequirement',
-  'SHELL_PORTAL_GROUPS',
+  'requestWorkSessionNavigation',
+  'data-living-branch="single"',
+  'data-living-branch-pilot="projects"',
   'onClick={openNavigation}',
   'className="appContextNav"',
 ]);
@@ -78,8 +82,10 @@ const nav = read('components/ui/ContextualDashboardNavigation.js');
 if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
 if (!nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة السياقية فقدت خيار إبقاء القائمة مفتوحة.');
 if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة الجديدة عادت للاعتماد على تجميعات كتالوج البوابات القديم.');
+if (nav.includes('SHELL_PORTAL_GROUPS')) failures.push('نسخة القبول ثبّتت تشريح البوابات القديمة داخل الفرع الحي بدل حصر التجربة بالمشاريع.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
+if (nav.includes('projectName') || nav.includes("from '@/lib/supabase'")) failures.push('القائمة بدأت تعرف هوية مشروع بيولوجي؛ الأسماء الحقيقية ملك المسرح فقط.');
 
 requireText('components/ui/ConstitutionUI.js', [
   "from './WorkSheetKernel'",
@@ -109,4 +115,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed.');
+console.log('Single visual captain audit passed: one visual captain remains, while the living-branch preview is deliberately limited to projects until other portal anatomies are approved.');
