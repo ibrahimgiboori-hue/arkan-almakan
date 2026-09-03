@@ -15,8 +15,15 @@ const requireFile = (rel) => {
 
 const anatomy = requireFile('lib/anatomical-navigation.js');
 for (const required of [
-  'implicit-consciousness-v1',
-  'implicit-consciousness-not-navigation-root',
+  'persistent-navigation-tree-v1',
+  'visible-shell-identity-not-navigation-node',
+  "defaultVisibility: 'visible'",
+  'userMayHideNavigation: true',
+  'currentBranchStaysExpanded: true',
+  'sameLevelSiblingsStayReachable: true',
+  'sameLevelNavigationRequiresBack: false',
+  "disclosureModel: 'progressive-accordion-tree'",
+  "locationTrace: 'visible-breadcrumb'",
   'return-to-user-work-perspective-when-anatomical-parent-ends',
   'anatomical-zoom-out-not-browser-history',
   'show-real-parent-label-never-generic-back-or-all',
@@ -42,19 +49,23 @@ if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*
 const nav = requireFile('components/ui/ContextualDashboardNavigation.js');
 for (const required of [
   "from '@/lib/anatomical-navigation'",
-  'data-navigation-consciousness="implicit"',
-  'USER_PERSPECTIVE.label',
+  'data-navigation-consciousness="persistent-tree"',
+  "const VISIBILITY_STORAGE_KEY = 'arkan-context-nav-visible'",
+  'const [visiblePreference, setVisiblePreference] = useState(true)',
+  'const [expandedAreaKey, setExpandedAreaKey] = useState(null)',
+  'const [expandedGroupKey, setExpandedGroupKey] = useState(null)',
+  'className="appNavTree"',
+  'className="appNavBreadcrumb"',
+  'aria-expanded={areaExpanded}',
   'anatomyAreaLabel',
   'anatomyToolLabel',
   'isMeaningfulBranch',
   'perspectiveQuickLinks',
+  '<strong>أركان المكان</strong>',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
 
-if (/>\s*أركان المكان\s*</.test(nav)) {
-  failures.push('الوعي المستتر: اسم أركان المكان عاد كعنصر مرئي داخل الملاحة اليومية.');
-}
 if (/>\s*مركز العمل\s*</.test(nav)) {
   failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
 }
@@ -66,6 +77,24 @@ if (!nav.includes('const directItem = !isMeaningfulBranch(group) ? group.items[0
 }
 if (nav.includes('router.back(')) {
   failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
+}
+if (/function\s+(?:back|dive)\s*\(/.test(nav)) {
+  failures.push('الشجرة الدائمة: لا يجوز أن تعود الملاحة إلى نموذج الشاشات المتعاقبة back/dive.');
+}
+if (/if\s*\(![^)]*pinned[^)]*\)\s*setOpen\(false\)/.test(nav)) {
+  failures.push('الشجرة الدائمة: التنقل بين الوجهات لا يجب أن يغلق القائمة المكتبية تلقائيًا.');
+}
+
+const shell = requireFile('app/dashboard/app-shell-v2.css');
+for (const required of [
+  '--app-nav-width: 248px',
+  ".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage",
+  'padding-inline-start: var(--app-nav-width)',
+  '.appNavAreaHead',
+  '.appNavGroupHead',
+  '.appNavBreadcrumb',
+]) {
+  if (!shell.includes(required)) failures.push(`جسم الملاحة: مفقود ${required}`);
 }
 
 const idle = requireFile('app/dashboard/page.js');
@@ -85,4 +114,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: product consciousness stays implicit, work center exists only as the idle body surface, visible navigation starts from portals, parent zoom-out is semantic, and single-child pseudo-levels are flattened.');
+console.log('Anatomical navigation audit passed: the desktop shell is visible by default, hiding is optional, active branches preserve sibling access, disclosure stays progressive, breadcrumbs expose location, single-child pseudo-levels stay flattened, and browser history is not used as the anatomical parent graph.');
