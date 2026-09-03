@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ACTION_SIGNAL_STATE, normalizeActionSignalSpec } from '@/lib/action-nervous-system';
 import { canTreatAsPersistentLink, normalizeInnervationLink } from '@/lib/persistent-innervation';
 import { useWorkSession } from './WorkSessionRuntime';
@@ -18,6 +18,12 @@ function persistentLinksFrom(result) {
   return input
     .map((link) => normalizeInnervationLink(link))
     .filter((link) => canTreatAsPersistentLink(link));
+}
+
+function setOptionalAttribute(node, name, value) {
+  if (!node) return;
+  if (value === null || value === undefined || value === '') node.removeAttribute(name);
+  else node.setAttribute(name, String(value));
 }
 
 export function useActionNervousSystem() {
@@ -59,17 +65,9 @@ export default function ActionNervousSystemRuntime({ children }) {
       const result = await executor();
       if (result?.error) throw result.error;
 
-      // لا نعلن النجاح لمجرد أن Promise انتهى. العضو يجب أن يؤكد نجاح الخادم صراحة.
       const confirmed = result?.serverConfirmed === true;
       if (!confirmed) {
-        setSignal({
-          phase:ACTION_SIGNAL_STATE.READY,
-          activeKey:null,
-          label:'',
-          subject:null,
-          error:null,
-          startedAt:null,
-        });
+        setSignal({ phase:ACTION_SIGNAL_STATE.READY, activeKey:null, label:'', subject:null, error:null, startedAt:null });
         return { ...result, ok:result?.ok !== false, serverConfirmed:false };
       }
 
@@ -83,8 +81,6 @@ export default function ActionNervousSystemRuntime({ children }) {
         startedAt:null,
       });
 
-      // الخاتمة تحرر جلسة المستخدم فقط. مرجع الكيان يبقى معها كي لا نساوي
-      // بين انتهاء المشهد وبين انقطاع الحقيقة التشغيلية عن بقية الجسم.
       if (result?.completion?.serverConfirmed === true) {
         workSession.complete({
           ...result.completion,
@@ -127,6 +123,25 @@ export default function ActionNervousSystemRuntime({ children }) {
       : current);
   }, []);
 
+  useEffect(() => {
+    const shell = document.querySelector('.rawDashboardShell');
+    if (!shell) return undefined;
+    shell.setAttribute('data-action-nervous-system', 'hybrid-v1');
+    shell.setAttribute('data-action-signal-state', signal.phase);
+    setOptionalAttribute(shell, 'data-action-active-key', signal.activeKey);
+    setOptionalAttribute(shell, 'data-action-entity-type', signal.subject?.entityType);
+    setOptionalAttribute(shell, 'data-action-entity-id', signal.subject?.entityId);
+    setOptionalAttribute(shell, 'data-action-stage', signal.subject?.stageKey);
+    return () => {
+      shell.removeAttribute('data-action-nervous-system');
+      shell.removeAttribute('data-action-signal-state');
+      shell.removeAttribute('data-action-active-key');
+      shell.removeAttribute('data-action-entity-type');
+      shell.removeAttribute('data-action-entity-id');
+      shell.removeAttribute('data-action-stage');
+    };
+  }, [signal]);
+
   const value = useMemo(() => Object.freeze({
     ...signal,
     run,
@@ -136,16 +151,7 @@ export default function ActionNervousSystemRuntime({ children }) {
 
   return (
     <ActionNervousSystemContext.Provider value={value}>
-      <div
-        data-action-nervous-system="hybrid-v1"
-        data-action-signal-state={signal.phase}
-        data-action-active-key={signal.activeKey || undefined}
-        data-action-entity-type={signal.subject?.entityType || undefined}
-        data-action-entity-id={signal.subject?.entityId || undefined}
-        data-action-stage={signal.subject?.stageKey || undefined}
-      >
-        {children}
-      </div>
+      {children}
     </ActionNervousSystemContext.Provider>
   );
 }
