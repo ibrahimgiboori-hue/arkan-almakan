@@ -16,6 +16,7 @@ function requireText(file, needles) {
 requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
   "import './raw-phase.css'",
+  "import './transaction-underwear.css'",
   "import './app-shell-v2.css'",
   "import './living-navigation.css'",
   'data-work-kernel="operational-notebook-v1"',
@@ -35,6 +36,17 @@ requireText('app/dashboard/raw-phase.css', [
   "[data-work-ledger='true']",
   "[data-work-dock='true']",
   'scrollbar-gutter: stable both-edges',
+]);
+
+requireText('app/dashboard/transaction-underwear.css', [
+  'TRANSACTION UNDERWEAR V1',
+  '--transaction-field-height',
+  "input[readonly]",
+  "select:disabled",
+  "[data-field-mode='generated']",
+  "[data-field-mode='linked']",
+  "[data-field-mode='calculated']",
+  "[data-work-underwear='transaction-shell-v1']",
 ]);
 
 requireText('app/dashboard/app-shell-v2.css', [
@@ -86,6 +98,8 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'appNavDismiss',
   'onClick={openNavigation}',
   'className="appContextNav"',
+  'FAST_DESKTOP_BACK_WINDOW_MS = 5000',
+  'returnToEmployeeDesktop',
 ]);
 
 if (exists('components/ui/RawDashboardNavigation.js')) failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
@@ -110,12 +124,21 @@ requireText('components/ui/ConstitutionUI.js', [
   '<WorkSection',
   '<WorkLedger',
   '<WorkDock',
+  'data-work-underwear="transaction-shell-v1"',
+  'export function WorkFormGrid',
+  'export function WorkField',
+  'export function DocumentBody',
+  'export function DocumentSection',
 ]);
 
 requireText('components/ui/RawGrid.js', [
   'data-work-ledger="true"',
   'data-work-dock="true"',
   'data-work-dock-actions="true"',
+  'data-work-underwear="transaction-grid-v1"',
+  "case 'generated'",
+  "case 'linked'",
+  "case 'calculated'",
 ]);
 
 requireText('lib/system-constitution.js', [
@@ -131,4 +154,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: grandfather, child, and tabbed grandchild use one visual captain while the selected action alone owns the stage.');
+console.log('Single visual captain audit passed: one visual captain dresses grandfather, child, grandchild and every transaction field while the selected action alone owns the stage.');
