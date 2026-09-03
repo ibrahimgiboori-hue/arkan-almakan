@@ -11,8 +11,15 @@ import {
   Section,
   Notice,
   EmptyState,
+  WorkFormGrid,
+  WorkField,
+  ActionDock,
+  StatusChip,
+  StatusDot,
+  RecordList,
+  RecordRow,
+  RecordSummary,
 } from '@/components/ui/ConstitutionUI';
-import styles from './work-center.module.css';
 
 const CLOSED = new Set(['completed','closed','cancelled']);
 const PRIORITY_AR = { normal:'عادي', high:'مرتفع', urgent:'عاجل' };
@@ -35,23 +42,38 @@ function taskHref(task) {
   return task?.source_route || '/dashboard/my-work';
 }
 
+function priorityTone(priority) {
+  if (priority === 'urgent') return 'danger';
+  if (priority === 'high') return 'warning';
+  return 'neutral';
+}
+
+function statusTone(status) {
+  if (status === 'waiting') return 'warning';
+  if (status === 'in_progress') return 'info';
+  if (status === 'new' || status === 'received') return 'info';
+  return 'neutral';
+}
+
 function TaskRows({ rows = [], empty = 'لا يوجد شيء يحتاجك هنا الآن.' }) {
-  if (!rows.length) return <div className={styles.empty}>{empty}</div>;
-  return <div className={styles.list}>
-    {rows.map((task) => <Link key={task.id} href={taskHref(task)} className={styles.item}>
-      <div className={styles.itemCopy}>
-        <strong>{task.title || 'عمل بلا عنوان'}</strong>
-        <span>{task.description || task.source_label || 'تواصل عمل'}</span>
-        <small>{STATUS_AR[task.status] || task.status || '—'}{task.projects?.name_ar ? ` · ${task.projects.name_ar}` : ''}</small>
+  if (!rows.length) return <div data-work-empty-inline="true">{empty}</div>;
+  return <RecordList label="الأعمال الحالية">
+    {rows.map((task) => <RecordRow key={task.id} href={taskHref(task)} ariaLabel={task.title || 'فتح العمل'}>
+      <div data-work-attention-record="true">
+        <StatusDot tone={priorityTone(task.priority)} />
+        <RecordSummary
+          title={task.title || 'عمل بلا عنوان'}
+          note={task.description || task.source_label || 'تواصل عمل'}
+          meta={[
+            STATUS_AR[task.status] || task.status || '—',
+            task.projects?.name_ar || null,
+          ]}
+          metrics={task.due_at ? [{ key:'due', label:'الموعد', value:dateAr(task.due_at) }] : []}
+        />
+        <StatusChip tone={priorityTone(task.priority)}>{PRIORITY_AR[task.priority] || task.priority || 'عادي'}</StatusChip>
       </div>
-      <div className={styles.itemMeta}>
-        {task.due_at ? <span>{dateAr(task.due_at)}</span> : null}
-        <span className={task.priority === 'urgent' ? styles.priorityUrgent : task.priority === 'high' ? styles.priorityHigh : ''}>
-          {PRIORITY_AR[task.priority] || task.priority || 'عادي'}
-        </span>
-      </div>
-    </Link>)}
-  </div>;
+    </RecordRow>)}
+  </RecordList>;
 }
 
 export default function Dashboard() {
@@ -85,7 +107,7 @@ export default function Dashboard() {
     ]);
 
     const errors = [tasksQ.error, notificationsQ.error, approvalsQ.error].filter(Boolean);
-    if (errors.length) setError('تعذر تحميل بعض أجزاء سطح المكتب، بينما بقيت الأجزاء المتاحة تعمل.');
+    if (errors.length) setError('تعذر تحميل بعض أجزاء لوحة المتابعة، بينما بقيت الأجزاء المتاحة تعمل.');
     setState({
       loading:false,
       tasks:tasksQ.data || [],
@@ -147,50 +169,51 @@ export default function Dashboard() {
 
   return <ConstitutionPage>
     <div
-      className={styles.desktop}
       data-idle-work-surface="true"
       data-work-center-visibility="idle-only"
       data-employee-desktop="true"
+      data-work-center="attention-dashboard"
     >
       <PageHeader
-        eyebrow="WORK CENTER"
-        title="مركز العمل"
-        description="سطح مكتبك اليومي: ما يحتاجك الآن، مهامك، مراسلاتك، قراراتك وتنبيهاتك. التاريخ الكامل يبقى في أدواته الأصلية."
+        title="لوحة المتابعة"
+        description="ما يحتاج انتباهك اليوم من أعمال وقرارات وتنبيهات؛ التاريخ الكامل يبقى في أدواته الأصلية."
       />
 
       {error ? <Notice tone="warning">{error}</Notice> : null}
       {message ? <Notice tone="success">{message}</Notice> : null}
 
       <SummaryStrip
-        label="حالة مكتب الموظف"
+        label="مؤشرات مختصرة"
         items={[
-          { key:'attention', label:'يحتاجك الآن', value:desktop.attention.length },
-          { key:'personal', label:'مهام شخصية', value:desktop.personal.length },
-          { key:'inbox', label:'الوارد إليك', value:desktop.incoming.length },
-          { key:'approvals', label:'بانتظار قرارك', value:desktop.approvals.length },
+          { key:'attention', label:'يحتاجك الآن', value:desktop.attention.length, note:'الأقرب للحركة' },
+          { key:'personal', label:'مهام شخصية', value:desktop.personal.length, note:'نشطة في مكتبك' },
+          { key:'inbox', label:'الوارد إليك', value:desktop.incoming.length, note:'من الآخرين' },
+          { key:'approvals', label:'بانتظار قرارك', value:desktop.approvals.length, note:'معاملات اعتماد' },
         ]}
       />
 
-      <Section title="مهمة شخصية سريعة" description="دوّن ما تريد تذكره أو إنجازه دون مغادرة مكتبك." boundary>
-        <form className={styles.quickTask} onSubmit={createPersonalTask}>
-          <label>
-            <span>المهمة</span>
-            <input value={taskTitle} onChange={(event)=>setTaskTitle(event.target.value)} placeholder="مثال: متابعة خطاب العميل" maxLength={240}/>
-          </label>
-          <label>
-            <span>موعد اختياري</span>
-            <input type="date" value={taskDue} onChange={(event)=>setTaskDue(event.target.value)}/>
-          </label>
-          <button type="submit" className="btn" disabled={busy || !taskTitle.trim()}>{busy ? 'جارٍ الإضافة…' : 'إضافة إلى مكتبي'}</button>
+      <Section title="مهمة شخصية سريعة" description="دوّن ما تريد متابعته دون مغادرة لوحة المتابعة." boundary>
+        <form onSubmit={createPersonalTask} data-work-quick-task="true">
+          <WorkFormGrid columns={12} label="إضافة مهمة شخصية">
+            <WorkField label="المهمة" span={8}>
+              <input value={taskTitle} onChange={(event)=>setTaskTitle(event.target.value)} placeholder="مثال: متابعة خطاب العميل" maxLength={240}/>
+            </WorkField>
+            <WorkField label="الموعد" span={4}>
+              <input type="date" value={taskDue} onChange={(event)=>setTaskDue(event.target.value)}/>
+            </WorkField>
+          </WorkFormGrid>
+          <ActionDock>
+            <button type="submit" className="btn" disabled={busy || !taskTitle.trim()}>{busy ? 'جارٍ الإضافة…' : 'إضافة إلى مكتبي'}</button>
+          </ActionDock>
         </form>
       </Section>
 
-      {state.loading ? <EmptyState title="جارٍ تجهيز مكتبك" description="يتم جمع ما يخصك من مصادر البرنامج الحالية."/> : <div className={styles.desktopGrid}>
-        <div className={styles.primaryColumn}>
+      {state.loading ? <EmptyState title="جارٍ تجهيز لوحة المتابعة" description="يتم جمع ما يخصك من مصادر البرنامج الحالية."/> : <div data-work-center-layout="attention">
+        <div data-work-center-column="primary">
           <Section
-            title="يحتاجك الآن"
+            title="أعمال تحتاج قرارك اليوم"
             description="الأقرب للتأخر أو ما وصل إليك ويحتاج حركة."
-            actions={<Link className={styles.sectionLink} href="/dashboard/my-work">فتح أعمالي</Link>}
+            actions={<Link data-work-section-link="true" href="/dashboard/my-work">فتح أعمالي</Link>}
           >
             <TaskRows rows={desktop.attention} />
           </Section>
@@ -198,7 +221,7 @@ export default function Dashboard() {
           <Section
             title="الوارد والمراسلات"
             description="الأعمال والطلبات التي أرسلها الآخرون إليك."
-            actions={<Link className={styles.sectionLink} href="/dashboard/my-work">كل الوارد</Link>}
+            actions={<Link data-work-section-link="true" href="/dashboard/my-work">كل الوارد</Link>}
           >
             <TaskRows rows={desktop.incoming} empty="لا توجد مراسلات أو أعمال واردة نشطة."/>
           </Section>
@@ -206,40 +229,41 @@ export default function Dashboard() {
           <Section
             title="مهامي الشخصية"
             description="المهام النشطة التي أنشأتها لنفسك."
-            actions={<Link className={styles.sectionLink} href="/dashboard/my-work">كل المهام</Link>}
+            actions={<Link data-work-section-link="true" href="/dashboard/my-work">كل المهام</Link>}
           >
             <TaskRows rows={desktop.personal} empty="لا توجد مهام شخصية نشطة."/>
           </Section>
         </div>
 
-        <div className={styles.sideColumn}>
+        <div data-work-center-column="side">
           <Section
             title="بانتظار قراري"
             description="معاملات وصلت إلى مرحلة تحتاج قرارك."
-            actions={<Link className={styles.sectionLink} href="/dashboard/approvals">كل الاعتمادات</Link>}
+            actions={<Link data-work-section-link="true" href="/dashboard/approvals">كل الاعتمادات</Link>}
           >
-            {desktop.approvals.length ? <div className={styles.list}>{desktop.approvals.map((row) => <Link href="/dashboard/approvals" className={styles.item} key={row.workflow_id}>
-              <div className={styles.itemCopy}>
-                <strong>{row.source_label || row.label_ar || 'معاملة اعتماد'}</strong>
-                <span>{row.origin_group_label || '—'} · {row.target_group_label || '—'}</span>
-              </div>
-              <div className={styles.itemMeta}><span>{row.workflow_no || '—'}</span></div>
-            </Link>)}</div> : <div className={styles.empty}>لا توجد معاملات بانتظار قرارك.</div>}
+            {desktop.approvals.length ? <RecordList label="الاعتمادات بانتظار القرار">{desktop.approvals.map((row) => <RecordRow href="/dashboard/approvals" key={row.workflow_id}>
+              <RecordSummary
+                title={row.source_label || row.label_ar || 'معاملة اعتماد'}
+                meta={[row.origin_group_label || '—', row.target_group_label || '—']}
+                metrics={[{ key:'workflow', label:'المعاملة', value:row.workflow_no || '—' }]}
+              />
+            </RecordRow>)}</RecordList> : <div data-work-empty-inline="true">لا توجد معاملات بانتظار قرارك.</div>}
           </Section>
 
           <Section title="التنبيهات" description="الجديد غير المقروء فقط؛ لا نعيد عرض التاريخ هنا.">
-            {desktop.notifications.length ? <div className={styles.list}>{desktop.notifications.map((notice) => {
-              const content = <><strong>{notice.title || 'تنبيه'}</strong>{notice.body ? <span>{notice.body}</span> : null}</>;
-              return notice.link
-                ? <Link key={notice.id} href={notice.link} className={styles.noticeItem}>{content}</Link>
-                : <div key={notice.id} className={styles.noticeItem}>{content}</div>;
-            })}</div> : <div className={styles.empty}>لا توجد تنبيهات جديدة.</div>}
+            {desktop.notifications.length ? <RecordList label="التنبيهات الجديدة">{desktop.notifications.map((notice) => <RecordRow key={notice.id} href={notice.link || undefined}>
+              <RecordSummary
+                title={notice.title || 'تنبيه'}
+                note={notice.body || null}
+                badge={notice.severity && notice.severity !== 'info' ? notice.severity : null}
+              />
+            </RecordRow>)}</RecordList> : <div data-work-empty-inline="true">لا توجد تنبيهات جديدة.</div>}
           </Section>
 
-          <div className={styles.statusLine}>
+          <div data-work-status-line="true">
             <span>{desktop.activeCount} عمل نشط متاح لك</span>
             <span>·</span>
-            <span>المكتب يعرض الحاضر فقط</span>
+            <span>تعرض اللوحة الحاضر فقط</span>
           </div>
         </div>
       </div>}
