@@ -39,7 +39,7 @@ if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*
 
 const living = requireFile('lib/living-navigation.js');
 for (const required of [
-  'single-living-branch-v3',
+  'single-living-branch-v4',
   "grandfatherRole:'guide-to-portals-and-guardians'",
   "childRole:'mirror-selected-biological-context'",
   "grandchildRole:'contextual-shelf-for-existing-tool-transactions'",
@@ -62,6 +62,9 @@ for (const required of [
   'grandchildTransactionOpensItselfNotItsClassification:true',
   'grandchildSelectionClosesNavigationAndOwnsStage:true',
   "semanticBack:'one-anatomical-level-never-browser-history'",
+  'RAPID_SEMANTIC_BACK_WINDOW_MS = 5000',
+  "rapidDoubleBackMeaning:'return-to-employee-desktop'",
+  'rapidDoubleBackClosesNavigation:true',
   'PROJECT_GUARDIANS',
   'PROJECT_APPROACH_REGIONS',
   'projectApproachHref',
@@ -113,6 +116,8 @@ for (const required of [
   'entryNodes.map',
   'portalApproachHref',
   'NAVIGATION_YIELD_EVENT',
+  'FAST_DESKTOP_BACK_WINDOW_MS = 5000',
+  'returnToEmployeeDesktop',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
@@ -223,8 +228,11 @@ const quoteWork = requireFile('app/dashboard/quotes/page.js');
 for (const required of [
   'data-new-quotation-operation="true"',
   'data-stage-occupancy="single-action"',
-  'title="إصدار جديد"',
-  'بدء الإصدار',
+  '— إصدار جديد',
+  'WorkFormGrid',
+  'WorkField',
+  'ActionDock',
+  'بدء ${documentLabel}',
 ]) {
   if (!quoteWork.includes(required)) failures.push(`مسرح عروض الأسعار: مفقود ${required}`);
 }
@@ -250,9 +258,12 @@ const idle = requireFile('app/dashboard/page.js');
 for (const required of [
   'data-idle-work-surface="true"',
   'data-work-center-visibility="idle-only"',
+  'data-employee-desktop="true"',
   'مركز العمل',
-  'أعمالي',
+  'fn_create_workspace_task',
+  'الوارد والمراسلات',
   'بانتظار قراري',
+  'التنبيهات',
 ]) {
   if (!idle.includes(required)) failures.push(`وضع الخمول: مفقود ${required}`);
 }
@@ -263,4 +274,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: grandfather guides, child mirrors, grandchild shelves existing transactions, and one real action or selected transaction owns the stage.');
+console.log('Anatomical navigation audit passed: grandfather guides, child mirrors, grandchild shelves existing transactions, rapid double-back returns to the employee desktop, and one transaction owns the dressed work stage.');
