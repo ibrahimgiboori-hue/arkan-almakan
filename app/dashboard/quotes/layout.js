@@ -9,6 +9,15 @@ import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { canUseCapability } from '@/lib/access-ui';
 import { publishGrandchildNavigationContext } from '@/lib/living-navigation';
 
+const QUOTE_LIST_TABS = Object.freeze([
+  Object.freeze({ key:'draft', label:'مسودات' }),
+  Object.freeze({ key:'sent', label:'مرسلة' }),
+  Object.freeze({ key:'accepted', label:'مقبولة' }),
+  Object.freeze({ key:'rejected', label:'مرفوضة' }),
+  Object.freeze({ key:'expired', label:'منتهية' }),
+  Object.freeze({ key:'converted', label:'محوّلة' }),
+]);
+
 function clientKey(value) {
   return String(value || '').trim().toLocaleLowerCase('ar-SA') || '__unknown__';
 }
@@ -17,6 +26,40 @@ function quoteDateValue(row) {
   const value = row?.quote_date || row?.created_at;
   const time = value ? new Date(value).getTime() : 0;
   return Number.isFinite(time) ? time : 0;
+}
+
+function groupsByClient(rows) {
+  const byClient = new Map();
+  rows.forEach((row) => {
+    const key = clientKey(row.client_name);
+    if (!byClient.has(key)) {
+      byClient.set(key, {
+        key,
+        label:String(row.client_name || '').trim() || 'عميل غير محدد',
+        latest:quoteDateValue(row),
+        items:[],
+      });
+    }
+    const group = byClient.get(key);
+    group.latest = Math.max(group.latest, quoteDateValue(row));
+    group.items.push({
+      id:row.id,
+      label:row.quote_no || 'عرض بلا رقم',
+      meta:row.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر',
+      href:`/dashboard/quotes/${row.id}`,
+    });
+  });
+
+  return [...byClient.values()]
+    .sort((a,b)=>b.latest-a.latest)
+    .map(({latest,...group})=>({
+      ...group,
+      items:[...group.items].sort((a,b)=>{
+        const ar=rows.find((row)=>row.id===a.id);
+        const br=rows.find((row)=>row.id===b.id);
+        return quoteDateValue(br)-quoteDateValue(ar);
+      }),
+    }));
 }
 
 export default function QuotesLayout({ children }) {
@@ -51,38 +94,15 @@ export default function QuotesLayout({ children }) {
 
   const context = useMemo(() => {
     const sorted = [...rows].sort((a,b)=>quoteDateValue(b)-quoteDateValue(a));
-    const draftItems = sorted
-      .filter((row)=>row.status === 'draft')
-      .slice(0,6)
-      .map((row)=>(
-        {
-          id:row.id,
-          label:row.quote_no || 'عرض بلا رقم',
-          meta:`${row.client_name || 'عميل غير محدد'} · ${QSTATUS_AR[row.status] || row.status}`,
-          href:`/dashboard/quotes/${row.id}`,
-        }
-      ));
-
-    const byClient = new Map();
-    sorted.forEach((row) => {
-      const key = clientKey(row.client_name);
-      if (!byClient.has(key)) {
-        byClient.set(key, {
-          key,
-          label:String(row.client_name || '').trim() || 'عميل غير محدد',
-          latest:quoteDateValue(row),
-          items:[],
-        });
-      }
-      const group = byClient.get(key);
-      group.latest = Math.max(group.latest, quoteDateValue(row));
-      group.items.push({
-        id:row.id,
-        label:row.quote_no || 'عرض بلا رقم',
-        meta:`${row.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'} · ${QSTATUS_AR[row.status] || row.status}`,
-        href:`/dashboard/quotes/${row.id}`,
-      });
-    });
+    const tabs = QUOTE_LIST_TABS.map((tab) => {
+      const tabRows = sorted.filter((row)=>row.status===tab.key);
+      return {
+        key:tab.key,
+        label:tab.label,
+        count:tabRows.length,
+        groups:groupsByClient(tabRows),
+      };
+    }).filter((tab)=>tab.count>0);
 
     return {
       level:'grandchild',
@@ -90,18 +110,13 @@ export default function QuotesLayout({ children }) {
       toolKey:'quotes',
       scopePrefix:'/dashboard/quotes',
       title:'عروض الأسعار',
-      primaryAction:{ label:'إنشاء عرض سعر', href:'/dashboard/quotes' },
-      secondaryAction:{ label:'إنشاء جدول كميات', href:'/dashboard/quotes?new=boq' },
-      priorityLabel:'قيد العمل',
-      priorityItems:draftItems,
-      historyLabel:'السجل حسب العميل',
-      classification:'client',
-      groups:[...byClient.values()]
-        .sort((a,b)=>b.latest-a.latest)
-        .map(({latest,...group})=>group),
+      classification:'status-then-client',
+      tabs,
+      defaultTabKey:currentQuote?.status || tabs[0]?.key || '',
       currentItemId:currentId,
+      currentItemTabKey:currentQuote?.status || '',
     };
-  }, [currentId, rows]);
+  }, [currentId, currentQuote, rows]);
 
   useEffect(() => {
     publishGrandchildNavigationContext(context);
