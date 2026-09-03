@@ -19,6 +19,7 @@ requireText('app/dashboard/layout.js', [
   "import './transaction-underwear.css'",
   "import './app-shell-v2.css'",
   "import './living-navigation.css'",
+  "import './navigation-comfort-v1.css'",
   'data-work-kernel="operational-notebook-v1"',
   'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
@@ -58,6 +59,12 @@ requireText('app/dashboard/app-shell-v2.css', [
   "@media (prefers-reduced-motion: reduce)",
 ]);
 
+requireText('app/dashboard/navigation-comfort-v1.css', [
+  'NAVIGATION COMFORT V1',
+  '.appNavAccountMenu',
+  '.appNavAccountMenuBody',
+]);
+
 requireText('lib/navigation-shell-constitution.js', [
   'SHELL_PORTAL_GROUPS',
   "projects: Object.freeze([",
@@ -94,8 +101,11 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'appNavGrandchildTabs',
   'appNavGrandchildTab',
   'appNavGrandchildGroupTitle',
-  'onClick={()=>go(item.href,{keepOpen:false})}',
+  'onClick={()=>go(item.href)}',
+  'setOpen(true)',
   'appNavDismiss',
+  'appNavAccountMenu',
+  'تسجيل الخروج',
   'onClick={openNavigation}',
   'className="appContextNav"',
   'FAST_DESKTOP_BACK_WINDOW_MS = 5000',
@@ -112,6 +122,9 @@ if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاح
 if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة بدأت تستعلم عن بيانات الكيانات بدل استقبال انعكاس العضو أو المسرح.');
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق تحولت إلى اختصار عمل قابل للضغط.');
 if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('الملاحة عادت لرسم فرع المشاريع بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
+if (nav.includes('NAVIGATION_YIELD_EVENT') || /function\s+yieldToWork\s*\(/.test(nav)) failures.push('الملاحة: عاد أمر الإخفاء التلقائي عند عبور عتبة العمل.');
+if (!/function\s+go\s*\([^)]*\)\s*\{[\s\S]{0,500}?setOpen\(true\);/.test(nav)) failures.push('الملاحة: اختيار العمل أو الحفيد يجب أن يبقي القائمة موجودة حتى يخفيها المستخدم.');
+if (!/<details[^>]+className="appNavAccountMenu"[\s\S]{0,300}?تسجيل الخروج/.test(nav)) failures.push('الملاحة: تسجيل الخروج يجب أن يبقى خلف خطوة الحساب الآمنة.');
 
 const livingCss = read('app/dashboard/living-navigation.css');
 if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحة من الجسد بدل تغطية العمل.');
@@ -154,4 +167,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: one visual captain dresses grandfather, child, grandchild and every transaction field while the selected action alone owns the stage.');
+console.log('Single visual captain audit passed: one visual captain dresses navigation and transactions, navigation stays until manual dismissal, protected account actions stay out of the work path, and the selected action alone owns the stage.');
