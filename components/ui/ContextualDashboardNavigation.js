@@ -12,6 +12,7 @@ import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
 import { anatomyAreaLabel } from '@/lib/anatomical-navigation';
 import {
   NAVIGATION_MIRROR_EVENT,
+  GRANDCHILD_NAVIGATION_EVENT,
   PROJECT_APPROACH_REGIONS,
   normalizeProjectCare,
   normalizeProjectRegion,
@@ -43,6 +44,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const [open, setOpen] = useState(false);
   const [expandedAreaKey, setExpandedAreaKey] = useState(null);
   const [mirrorSubject, setMirrorSubject] = useState(null);
+  const [grandchildContext, setGrandchildContext] = useState(null);
+  const [expandedGrandchildGroup, setExpandedGrandchildGroup] = useState('');
 
   const accessibleAreas = useMemo(
     () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
@@ -110,6 +113,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }, [currentAreaKey, currentGenericGroup, me, pathname]);
 
   const mirrorMode = Boolean(currentAreaKey && (guardianKey || currentGenericGroup));
+  const grandchildMode = Boolean(
+    grandchildContext?.scopePrefix && String(pathname || '').startsWith(grandchildContext.scopePrefix)
+  );
 
   useEffect(() => {
     if (currentAreaKey) setExpandedAreaKey(currentAreaKey);
@@ -125,9 +131,24 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       if (!detail?.portalKey || detail.portalKey !== currentAreaKey) return;
       setMirrorSubject(detail);
     }
+    function grandchildNavigation(event) {
+      const detail = event?.detail && typeof event.detail === 'object' ? event.detail : null;
+      if (!detail?.scopePrefix || !detail?.title) return;
+      setGrandchildContext(detail);
+    }
     window.addEventListener(NAVIGATION_MIRROR_EVENT, mirrorContext);
-    return () => window.removeEventListener(NAVIGATION_MIRROR_EVENT, mirrorContext);
+    window.addEventListener(GRANDCHILD_NAVIGATION_EVENT, grandchildNavigation);
+    return () => {
+      window.removeEventListener(NAVIGATION_MIRROR_EVENT, mirrorContext);
+      window.removeEventListener(GRANDCHILD_NAVIGATION_EVENT, grandchildNavigation);
+    };
   }, [currentAreaKey]);
+
+  useEffect(() => {
+    if (!grandchildMode || !grandchildContext?.currentItemId) return;
+    const activeGroup = (grandchildContext.groups || []).find((group)=>(group.items || []).some((item)=>item.id===grandchildContext.currentItemId));
+    if (activeGroup) setExpandedGrandchildGroup(activeGroup.key);
+  }, [grandchildContext, grandchildMode]);
 
   useEffect(() => {
     function keydown(event) {
@@ -162,7 +183,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     if (!href) return;
     const accepted = requestWorkSessionNavigation(href, { replace:options.replace === true });
     if (!accepted) return;
-    setOpen(true);
+    setOpen(options.keepOpen !== false);
     if (options.replace) router.replace(href);
     else router.push(href);
   }
@@ -252,6 +273,73 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     go(backTarget.href);
   }
 
+  function renderGrandchild() {
+    if (!grandchildContext) return null;
+    const primary = grandchildContext.primaryAction;
+    const secondary = grandchildContext.secondaryAction;
+    const priorityItems = grandchildContext.priorityItems || [];
+    const groups = grandchildContext.groups || [];
+
+    return <div className="appNavGrandchild" data-navigation-role="grandchild" data-tool-key={grandchildContext.toolKey || ''}>
+      <div className="appNavGrandchildTitle">{grandchildContext.title}</div>
+
+      {primary ? <button
+        type="button"
+        className="appNavGrandchildPrimary"
+        data-current={pathname === primary.href ? 'true' : 'false'}
+        onClick={()=>go(primary.href,{keepOpen:false})}
+      >{primary.label}</button> : null}
+
+      {secondary ? <button
+        type="button"
+        className="appNavGrandchildSecondary"
+        onClick={()=>go(secondary.href,{keepOpen:false})}
+      >{secondary.label}</button> : null}
+
+      {priorityItems.length ? <div className="appNavGrandchildSection">
+        <div className="appNavGrandchildSectionTitle">{grandchildContext.priorityLabel || 'قيد العمل'}</div>
+        <div className="appNavGrandchildItems">
+          {priorityItems.map((item)=><button
+            type="button"
+            key={item.id || item.href}
+            className="appNavGrandchildItem"
+            data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
+            onClick={()=>go(item.href,{keepOpen:false})}
+          >
+            <span>{item.label}</span>
+            {item.meta ? <small>{item.meta}</small> : null}
+          </button>)}
+        </div>
+      </div> : null}
+
+      <div className="appNavGrandchildSection appNavGrandchildHistory">
+        <div className="appNavGrandchildSectionTitle">{grandchildContext.historyLabel || 'السجل'}</div>
+        <div className="appNavGrandchildGroups">
+          {groups.map((group)=>{
+            const expanded = expandedGrandchildGroup === group.key;
+            return <div className="appNavGrandchildGroup" key={group.key} data-expanded={expanded ? 'true':'false'}>
+              <button type="button" className="appNavGrandchildGroupTitle" onClick={()=>setExpandedGrandchildGroup(expanded ? '' : group.key)}>
+                <span>{group.label}</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
+              </button>
+              {expanded ? <div className="appNavGrandchildItems">
+                {(group.items || []).map((item)=><button
+                  type="button"
+                  key={item.id || item.href}
+                  className="appNavGrandchildItem"
+                  data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
+                  onClick={()=>go(item.href,{keepOpen:false})}
+                >
+                  <span>{item.label}</span>
+                  {item.meta ? <small>{item.meta}</small> : null}
+                </button>)}
+              </div> : null}
+            </div>;
+          })}
+        </div>
+      </div>
+    </div>;
+  }
+
   function renderMirror() {
     if (!currentArea) return null;
     const guardian = projectGuardianNodes.find((item) => item.guardianKey === guardianKey) || null;
@@ -318,6 +406,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     </div>;
   }
 
+  const navigationRole = grandchildMode ? 'grandchild' : (mirrorMode ? 'mirror' : 'guide');
+
   return <>
     <button
       ref={edgeRef}
@@ -345,7 +435,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       data-navigation-consciousness="implicit"
       data-living-branch="single"
       data-living-branch-scope="all-portals"
-      data-navigation-role={mirrorMode ? 'mirror' : 'guide'}
+      data-navigation-role={navigationRole}
       aria-label="التنقل في مساحة العمل"
       aria-hidden={!open}
     >
@@ -364,7 +454,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
         </div>
 
         <div className="appNavPanel" data-anatomy-level="living-branch">
-          {mirrorMode ? renderMirror() : renderGuide()}
+          {grandchildMode ? renderGrandchild() : (mirrorMode ? renderMirror() : renderGuide())}
 
           <div className="appNavBottomActions">
             <button type="button" onClick={onSignOut}>خروج</button>
