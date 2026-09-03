@@ -62,8 +62,12 @@ const sessionConstitution = requireText('lib/work-session-constitution.js', [
   'replace-active-route-organ-with-clean-completion-surface',
   'no-form-no-old-record-list-no-session-actions-after-release',
   'past-transactions-live-in-register-search-reports-not-under-active-work',
+  'dirty-exists-only-when-an-organ-declares-real-unsaved-progress',
+  'anatomical-navigation-must-not-discard-declared-unsaved-progress-silently',
+  'discarding-may-lose-unsaved-progress-and-must-say-so-explicitly',
   'bodyMustNotInferCompletionFromButtonClick',
   'bodyMustNotInferCompletionFromToast',
+  'bodyMustNotInferDirtyFromOrdinaryBrowsing',
   'bodyMustNotOwnBusinessTransition',
   'WORK_COMPLETION_KIND',
   'WORK_SESSION_STATE',
@@ -83,18 +87,29 @@ if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRunti
 const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
   "from '@/lib/work-session-constitution'",
   "BEGIN: 'arkan:work-session-begin'",
+  "DIRTY: 'arkan:work-session-dirty'",
+  "NAVIGATE: 'arkan:work-session-navigate'",
   'arkan:work-session-completed',
   'serverConfirmed !== true',
   'emitWorkSessionCompletion',
+  'emitWorkSessionDirty',
+  'requestWorkSessionNavigation',
   'data-work-session-state',
+  'data-work-session-dirty',
   'CompletedSurface',
+  'UnsavedNavigationGuard',
   'WORK_SESSION_STATE.IDLE',
+  'WORK_SESSION_STATE.DIRTY',
   'const [started, setStarted] = useState(false)',
+  'const [dirty, setDirty] = useState(false)',
   'setStarted(true)',
   'setCompletion(null)',
+  'beforeunload',
+  'حفظ مسودة والمتابعة',
+  'تجاهل والمتابعة',
 ]);
 if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل لا تُخزن محليًا ولا تعيش بعد تغيير المسار.');
-if (!/completion\s*\?\s*<CompletedSurface[\s\S]{0,180}:\s*children/.test(sessionRuntime)) {
+if (!/completion\s*\?\s*<CompletedSurface[\s\S]{0,220}:\s*<>/.test(sessionRuntime)) {
   failures.push('WorkSessionRuntime: الخاتمة يجب أن تستبدل مشهد العمل المنتهي بدل إبقاء العضو والقوائم تحته.');
 }
 
@@ -102,6 +117,7 @@ const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
   "import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime'",
   "'./app-body-v3.css'",
+  "'./living-navigation.css'",
   '<WorkSurfaceRuntime>',
   '</WorkSurfaceRuntime>',
   '<WorkSessionRuntime>',
@@ -133,6 +149,13 @@ if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i
 if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodyCss)) {
   failures.push('app-body-v3.css: الجسد الجديد يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
 }
+
+requireText('app/dashboard/living-navigation.css', [
+  '.appNavBackArrow',
+  '.appNavHonorary',
+  '.appUnsavedNavigationGuard',
+  '.appUnsavedNavigationActions',
+]);
 
 requireText('components/ui/ConstitutionUI.js', [
   "import { useWorkSurface } from './WorkSurfaceRuntime'",
@@ -198,14 +221,22 @@ requireText('lib/access-ui.js', [
 const projects = requireText('app/dashboard/projects/page.js', [
   'useDashboardSession',
   'canUseCapability',
+  'projectCaretakerState',
+  'normalizeProjectCare',
+  'projectApproachHref',
   'RecordList',
   'RecordRow',
   'RecordSummary',
-  'SummaryStrip',
   'FilterSurface',
 ]);
 if (/projects-redesign\.module\.css|projectCard|projectGrid/.test(projects)) failures.push('/dashboard/projects: سجل المشاريع لا يجوز أن يعود إلى بطاقات Dashboard محلية.');
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(projects)) failures.push('/dashboard/projects: الصفحة أعادت اختراع حقيقة صلاحيات العرض بدل DashboardSession.');
+
+requireText('app/dashboard/projects/[id]/anatomy/page.js', [
+  'ProjectAnatomyStage',
+  'useDashboardSession',
+  "select('id,project_no,name_ar,city,stage,status,supply_scope,our_role,commencement_date,duration_days')",
+]);
 
 const quotes = requireText('app/dashboard/quotes/page.js', [
   'ConstitutionPage',
@@ -240,4 +271,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion, and controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs, protects declared unsaved progress, enforces zero-residue completion, and keeps biological navigation separate from direct work.');
