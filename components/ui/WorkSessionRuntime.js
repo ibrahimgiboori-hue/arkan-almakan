@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { WORK_COMPLETION_KIND } from '@/lib/work-surface-constitution';
+import { WORK_COMPLETION_KIND, WORK_SESSION_STATE } from '@/lib/work-session-constitution';
 
 export const WORK_SESSION_EVENT = Object.freeze({
   COMPLETE: 'arkan:work-session-completed',
@@ -80,7 +80,7 @@ function CompletedSurface({ completion, onAction }) {
   return (
     <section
       className="appCompletedSurface"
-      data-work-session-state="released"
+      data-work-session-state={WORK_SESSION_STATE.RELEASED}
       data-completion-kind={completion.kind}
       aria-live="polite"
       aria-label="خاتمة جلسة العمل"
@@ -139,7 +139,7 @@ export default function WorkSessionRuntime({ children }) {
   }, [complete, reset]);
 
   const value = useMemo(() => Object.freeze({
-    state: completion ? 'released' : 'working',
+    state: completion ? WORK_SESSION_STATE.RELEASED : WORK_SESSION_STATE.WORKING,
     completion,
     complete,
     reset,
