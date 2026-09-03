@@ -26,6 +26,7 @@ export function ConstitutionPage({ children, className = '', mode }) {
       data-page-mode={resolvedMode}
       data-page-portal={surface?.portalKey || undefined}
       data-page-tool={surface?.toolKey || undefined}
+      data-work-underwear="transaction-shell-v1"
     >
       {children}
     </WorkSheet>
@@ -83,6 +84,69 @@ export function SummaryStrip({ items = [], label = 'الملخص' }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/*
+ * الملابس الداخلية الموحدة للمعاملة: الصفحة تحدد معنى الحقل فقط، لا هندسته.
+ * mode يفرق الوظيفة دون كسر اللغة البصرية: editable/read-only/generated/linked/calculated.
+ */
+export function WorkFormGrid({ children, className = '', columns = 12, label }) {
+  return (
+    <div
+      className={cx(styles.workFormGrid, className)}
+      data-work-form-grid="true"
+      data-work-form-columns={columns}
+      aria-label={label}
+      style={{ '--work-form-columns':String(columns) }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function WorkField({
+  label,
+  children,
+  value,
+  hint,
+  mode = 'editable',
+  span = 3,
+  className = '',
+  dir,
+}) {
+  const renderedValue = value === null || value === undefined || value === '' ? '—' : value;
+  const body = children || <output className={styles.workFieldValue}>{renderedValue}</output>;
+  return (
+    <label
+      className={cx(styles.workField, className)}
+      data-work-field="true"
+      data-field-mode={mode}
+      data-field-editable={mode === 'editable' ? 'true' : 'false'}
+      style={{ '--work-field-span':String(span) }}
+      dir={dir}
+    >
+      {label ? <span className={styles.workFieldLabel}>{label}</span> : null}
+      <span className={styles.workFieldControl}>{body}</span>
+      {hint ? <small className={styles.workFieldHint}>{hint}</small> : null}
+    </label>
+  );
+}
+
+/* جسم مستندي/تقريري من نفس العائلة؛ لا ينشئ Canvas أو Shell ثانيًا. */
+export function DocumentBody({ children, className = '', label = 'محتوى المستند' }) {
+  return <div className={cx(styles.documentBody, className)} data-document-body="true" aria-label={label}>{children}</div>;
+}
+
+export function DocumentSection({ title, children, actions, className = '' }) {
+  return (
+    <section className={cx(styles.documentSection, className)} data-document-section="true">
+      {(title || actions) ? <header>
+        {title ? <h2>{title}</h2> : <span />}
+        {actions ? <div className={styles.actions}>{actions}</div> : null}
+      </header> : null}
+      <div className={styles.documentSectionBody}>{children}</div>
+    </section>
   );
 }
 
