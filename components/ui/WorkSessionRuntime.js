@@ -6,6 +6,7 @@ import { WORK_COMPLETION_KIND, WORK_SESSION_STATE } from '@/lib/work-session-con
 import { normalizeInnervationSubject } from '@/lib/persistent-innervation';
 
 export const WORK_SESSION_EVENT = Object.freeze({
+  BEGIN: 'arkan:work-session-begin',
   COMPLETE: 'arkan:work-session-completed',
   RESET: 'arkan:work-session-reset',
 });
@@ -32,8 +33,6 @@ function normalizeAction(action) {
 }
 
 function normalizeCompletion(detail = {}) {
-  // الخاتمة لا تعتمد على Toast أو الضغط على زر. العضو يعلنها فقط بعد أن
-  // يؤكد الخادم أن الأثر الحقيقي للإجراء تم بنجاح.
   if (detail?.serverConfirmed !== true) return null;
 
   const kind = Object.values(WORK_COMPLETION_KIND).includes(detail.kind)
@@ -64,6 +63,12 @@ export function useWorkSession() {
   const value = useContext(WorkSessionContext);
   if (!value) throw new Error('useWorkSession must be used inside WorkSessionRuntime');
   return value;
+}
+
+export function emitWorkSessionBegin(detail = {}) {
+  if (typeof window === 'undefined') return false;
+  window.dispatchEvent(new CustomEvent(WORK_SESSION_EVENT.BEGIN, { detail }));
+  return true;
 }
 
 export function emitWorkSessionCompletion(detail) {
@@ -117,39 +122,72 @@ function CompletedSurface({ completion, onAction }) {
 export default function WorkSessionRuntime({ children }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [sessionSubject, setSessionSubject] = useState(null);
+  const [started, setStarted] = useState(false);
   const [completion, setCompletion] = useState(null);
+
+  const begin = useCallback((detail = {}) => {
+    setCompletion(null);
+    setSessionSubject(normalizeInnervationSubject(detail.subject || detail || {}));
+    setStarted(true);
+    return true;
+  }, []);
 
   const complete = useCallback((detail) => {
     const next = normalizeCompletion(detail);
     if (!next) return false;
+    setSessionSubject(next.subject || null);
+    setStarted(false);
     setCompletion(next);
     return true;
   }, []);
 
-  const reset = useCallback(() => setCompletion(null), []);
-
-  // المسار الجديد = جلسة عمل جديدة. لا نحمل خاتمة الصفحة السابقة معنا.
-  useEffect(() => {
+  const reset = useCallback(() => {
+    setStarted(false);
+    setSessionSubject(null);
     setCompletion(null);
-  }, [pathname]);
+  }, []);
+
+  // المسار الجديد يعيد الجلسة إلى IDLE؛ مجرد دخول منطقة العمل ليس WORKING.
+  useEffect(() => {
+    reset();
+  }, [pathname, reset]);
 
   useEffect(() => {
+    function onBegin(event) { begin(event?.detail || {}); }
     function onComplete(event) { complete(event?.detail || {}); }
     function onReset() { reset(); }
+    window.addEventListener(WORK_SESSION_EVENT.BEGIN, onBegin);
     window.addEventListener(WORK_SESSION_EVENT.COMPLETE, onComplete);
     window.addEventListener(WORK_SESSION_EVENT.RESET, onReset);
     return () => {
+      window.removeEventListener(WORK_SESSION_EVENT.BEGIN, onBegin);
       window.removeEventListener(WORK_SESSION_EVENT.COMPLETE, onComplete);
       window.removeEventListener(WORK_SESSION_EVENT.RESET, onReset);
     };
-  }, [complete, reset]);
+  }, [begin, complete, reset]);
+
+  const state = completion
+    ? WORK_SESSION_STATE.RELEASED
+    : started
+      ? WORK_SESSION_STATE.WORKING
+      : WORK_SESSION_STATE.IDLE;
+
+  useEffect(() => {
+    const shell = document.querySelector('.rawDashboardShell');
+    if (!shell) return undefined;
+    shell.setAttribute('data-work-session-state', state);
+    return () => shell.removeAttribute('data-work-session-state');
+  }, [state]);
 
   const value = useMemo(() => Object.freeze({
-    state: completion ? WORK_SESSION_STATE.RELEASED : WORK_SESSION_STATE.WORKING,
+    state,
+    subject:sessionSubject,
     completion,
+    begin,
     complete,
     reset,
-  }), [complete, completion, reset]);
+  }), [begin, complete, completion, reset, sessionSubject, state]);
 
   function act(action) {
     if (!action) return;
