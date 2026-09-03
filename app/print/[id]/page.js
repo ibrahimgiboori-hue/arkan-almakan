@@ -7,6 +7,7 @@ import { EN_TITLES } from '@/lib/doc-titles';
 import { tafqit } from '@/lib/tafqit';
 import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
+import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import PartiesPrint from '@/components/PartiesPrint';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
@@ -35,7 +36,6 @@ export default function PrintDoc() {
   const [doc, setDoc] = useState(null);
   const [tpl, setTpl] = useState(null);
   const [cfg, setCfg] = useState(null);
-  const [bg, setBg] = useState(true);
   const [stamp, setStamp] = useState(true);
   const [bank, setBank] = useState(false);
   const [blankForm, setBlankForm] = useState(false);
@@ -75,11 +75,11 @@ export default function PrintDoc() {
 
   const stampUrl = !blankForm && stamp ? pub(cfg.stamp_image_path) : null;
 
-  const requestedTop = Number(doc.margin_top_mm ?? tpl?.margin_top_mm ?? cfg.letterhead_top_mm ?? 0);
-  const requestedBottom = Number(doc.margin_bottom_mm ?? tpl?.margin_bottom_mm ?? cfg.letterhead_bottom_mm ?? 0);
-  const mTop = Math.max(requestedTop, Number(cfg.letterhead_top_mm || 0));
-  const mBot = Math.max(requestedBottom, Number(cfg.letterhead_bottom_mm || 0));
-  const mSide = doc.margin_side_mm ?? tpl?.margin_side_mm ?? cfg.letterhead_side_mm;
+  // هوامش المستند/القالب هي طلب إضافي فقط. القبطان وحده يضيف حجز الليترهيد الفيزيائي
+  // بحسب مصدره واتجاه الورقة، فلا تعيد الصفحة حساب مناطق الأمان.
+  const mTop = doc.margin_top_mm ?? tpl?.margin_top_mm;
+  const mBot = doc.margin_bottom_mm ?? tpl?.margin_bottom_mm;
+  const mSide = doc.margin_side_mm ?? tpl?.margin_side_mm;
   const stampMm = doc.stamp_size_mm ?? cfg.stamp_size_mm ?? 30;
 
   const title = blankForm
@@ -125,9 +125,6 @@ export default function PrintDoc() {
     <>
       <div className="toolbar no-print">
         <div className="tb-group">
-          <button className={bg ? 'on' : ''} onClick={()=>setBg(!bg)}>
-            {bg ? 'الترويسة ظاهرة' : 'للطباعة على ورق الترويسة'}
-          </button>
           <button className={stamp ? 'on' : ''} onClick={()=>setStamp(!stamp)} disabled={blankForm}>
             {blankForm ? 'الختم لا يظهر في النموذج الفارغ' : stamp ? 'الختم ظاهر' : 'الختم مخفي'}
           </button>
@@ -166,9 +163,7 @@ export default function PrintDoc() {
           <span className="tb-warn">
             {blankForm
               ? 'نموذج ورقي فارغ — نفس القالب ونفس قواعد الطباعة'
-              : !cfg.letterhead_image_path
-                ? 'لم تُرفع صورة الترويسة بعد'
-                : `الهوامش الآمنة ${mTop}/${mBot}/${mSide} مم`}
+              : 'اتجاه الورقة ومصدر الليترهيد ومناطق الأمان تُضبط من القبطان للطباعة'}
           </span>
           <button className="primary" onClick={()=>window.print()}>
             {blankForm ? 'طباعة النموذج الفارغ' : 'طباعة أو حفظ PDF'}
@@ -179,7 +174,6 @@ export default function PrintDoc() {
       <ConstitutionPrintFrame
         documentKey="generic_document"
         cfg={cfg}
-        showLetterhead={bg}
         contentTopMm={mTop}
         contentBottomMm={mBot}
         contentSideMm={mSide}
@@ -187,7 +181,7 @@ export default function PrintDoc() {
       >
         <div className="sheet governed-document-sheet">
           {!hasLetterHead && (
-            <div className="title-block">
+            <div className="title-block" data-print-keep-with-next="true">
               <h1>{title}</h1>
               {titleEn && <div className="title-en">{titleEn}</div>}
               <span className="title-rule" />
@@ -238,7 +232,7 @@ export default function PrintDoc() {
 
               if (isMoneyBlock) {
                 return (
-                  <table className="amounts" key={s.id}>
+                  <table className="amounts" key={s.id} data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
                     <thead><tr><th>{s.title || 'الحساب'}</th><th className="num">القيمة <Riyal /></th></tr></thead>
                     <tbody>
                       {fields.map((f) => (
@@ -296,7 +290,7 @@ export default function PrintDoc() {
               const columns = s.columns || [];
               const spanTotal = columns.reduce((sum, column) => sum + Number(column.span || 1), 0) || 1;
               return (
-                <table className="amounts" key={s.id}>
+                <table className="amounts" key={s.id} data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
                   <colgroup>
                     <col style={{width:'7mm'}} />
                     {columns.map((column) => (
@@ -391,7 +385,7 @@ export default function PrintDoc() {
           })}
 
           {!custom && moneyRows.length > 0 && (
-            <table className="amounts">
+            <table className="amounts" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
               <thead><tr><th>البيان</th><th className="num">المبلغ <Riyal /></th></tr></thead>
               <tbody>{moneyRows.map(([k,val]) => <tr key={k}><td>{k}</td><td className="num">{val}</td></tr>)}</tbody>
             </table>
