@@ -29,9 +29,22 @@ const runtime = requireText('components/ui/WorkThresholdRuntime.js', [
   'data-work-posture',
   'WorkThresholdMarker',
   'previousZoneRef',
+  'NAVIGATION_YIELD_EVENT',
+  'dispatchEvent(new CustomEvent(NAVIGATION_YIELD_EVENT',
   '210',
 ]);
 if (/setTimeout\([^,]+,\s*(?:[3-9]\d\d|\d{4,})\)/.test(runtime)) failures.push('WorkThresholdRuntime: نبضة العتبة أطول من اللازم.');
+
+const navigation = requireText('components/ui/ContextualDashboardNavigation.js', [
+  "const NAVIGATION_YIELD_EVENT = 'arkan:navigation-yield-to-work'",
+  'function yieldToWork()',
+  'setOpen(false)',
+  'function openNavigation()',
+  'setOpen(true)',
+]);
+if (/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,240}?isCompactNavigationViewport\(\)/.test(navigation)) {
+  failures.push('Work threshold navigation: القائمة يجب أن تتنحى عند العمل الحقيقي على سطح المكتب والجوال، لا الجوال فقط.');
+}
 
 const sessionConstitution = requireText('lib/work-session-constitution.js', [
   "IDLE: 'idle'",
@@ -74,4 +87,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Work threshold audit passed: anatomy yields to a quiet work-zone posture, sessions start explicitly, and released work keeps its zone context.');
+console.log('Work threshold audit passed: anatomy yields to a quiet work-zone posture, navigation yields only at real work, explicit recall remains available, sessions start explicitly, and released work keeps its zone context.');
