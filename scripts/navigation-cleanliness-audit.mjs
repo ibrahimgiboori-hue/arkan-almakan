@@ -86,6 +86,9 @@ if (!dashboardLayout.includes("'./app-shell-v2.css'") || !dashboardLayout.includ
 if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(livingCss) || !exists(shellConstitution) || !exists(portalLivingModel)) failures.push('الجسد الجديد: ملفات الملاحة الحية أو نموذج تغطية البوابات أو الأنماط غير موجودة.');
 if (dashboardLayout.includes('RawDashboardNavigation')) failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
 if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك القشرة الموحدة فقط.');
+for (const required of ['data-employee-desktop="true"','fn_create_workspace_task','fn_my_approval_inbox','workspace_tasks','notifications','الوارد والمراسلات','بانتظار قراري']) {
+  if (!dashboardHome.includes(required)) failures.push(`سطح مكتب الموظف: مفقود ${required}.`);
+}
 
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
@@ -109,6 +112,9 @@ if (exists(contextualNavigation)) {
     'onClick={()=>go(item.href,{keepOpen:false})}',
     'onClick={openNavigation}',
     'appNavDismiss',
+    'FAST_DESKTOP_BACK_WINDOW_MS = 5000',
+    'returnToEmployeeDesktop',
+    "router.push('/dashboard')",
   ]) {
     if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
   }
@@ -170,7 +176,7 @@ if (exists('app/dashboard/quotes/layout.js')) {
 }
 if (exists('app/dashboard/quotes/page.js')) {
   const quoteStage = read('app/dashboard/quotes/page.js');
-  if (!quoteStage.includes('data-stage-occupancy="single-action"') || !quoteStage.includes('title="إصدار جديد"')) failures.push('عروض الأسعار: أول دخول يجب أن يكون لإجراء إصدار جديد واحد فقط.');
+  if (!quoteStage.includes('data-stage-occupancy="single-action"') || !quoteStage.includes('— إصدار جديد') || !quoteStage.includes('WorkFormGrid') || !quoteStage.includes('WorkField')) failures.push('عروض الأسعار: أول دخول يجب أن يكون لإجراء إصدار جديد واحد فقط داخل الملابس الداخلية الموحدة.');
   if (quoteStage.includes('<table>') || quoteStage.includes('العمل الجاري') || quoteStage.includes('السجل')) failures.push('عروض الأسعار: المعاملات الموجودة لا يجوز أن تظهر كقائمة داخل المسرح.');
 }
 
@@ -214,4 +220,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: one engine spans every portal; the grandchild shelf holds existing transactions while one real action or selected transaction owns the stage.');
+console.log('Navigation cleanliness audit passed: the employee desktop owns idle work, two rapid semantic backs return there, and one engine spans portals through the grandchild shelf into one-subject work surfaces.');
