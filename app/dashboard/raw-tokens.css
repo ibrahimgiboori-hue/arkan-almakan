@@ -1,10 +1,12 @@
-/* RAW UI TOKENS — the only dashboard visual source. */
-:root {
+/* RAW UI TOKENS — the only dashboard visual source.
+   Theme presets change these tokens centrally; pages must not invent parallel palettes. */
+:root,
+html[data-app-theme='sand'] {
   --raw-bg: #f3f0e9;
   --raw-paper: #fbfaf7;
   --raw-paper-strong: #ffffff;
-  --raw-ink: #11110f;
-  --raw-muted: #66645f;
+  --raw-ink: #171612;
+  --raw-muted: #68645d;
   --raw-border: #d8d3c8;
   --raw-border-soft: #e8e4dc;
 
@@ -12,9 +14,9 @@
   --raw-wine-dark: #5f1e24;
   --raw-green: #126548;
   --raw-blue: #165f9f;
-  --raw-red: #a12b29;
-  --raw-amber: #8a6d1d;
-  --raw-on-accent: #fff;
+  --raw-red: #9a312f;
+  --raw-amber: #80661f;
+  --raw-on-accent: #ffffff;
 
   --raw-radius: 10px;
   --raw-radius-sm: 7px;
@@ -25,11 +27,10 @@
   --raw-gap: 10px;
   --raw-page-pad: 26px;
 
-  /* Compatibility aliases: old page classes now inherit the raw skin instead
-     of creating a second visual system. */
+  /* Compatibility aliases: old page classes inherit the same central skin. */
   --maroon: var(--raw-wine);
   --maroon-dark: var(--raw-wine-dark);
-  --maroon-light: #b88d90;
+  --maroon-light: color-mix(in srgb, var(--raw-wine) 52%, var(--raw-paper));
   --rose-wash: color-mix(in srgb, var(--raw-wine) 5%, var(--raw-paper));
   --paper: var(--raw-bg);
   --card: var(--raw-paper);
@@ -40,6 +41,57 @@
   --ok: var(--raw-green);
   --warn: var(--raw-amber);
   --bad: var(--raw-red);
+}
+
+html[data-app-theme='stone'] {
+  --raw-bg: #f2f1ed;
+  --raw-paper: #fbfaf8;
+  --raw-paper-strong: #ffffff;
+  --raw-ink: #1d1c1a;
+  --raw-muted: #696762;
+  --raw-border: #d6d4cf;
+  --raw-border-soft: #e7e5e0;
+  --raw-wine: #50575a;
+  --raw-wine-dark: #3f4649;
+  --raw-green: #2f6754;
+  --raw-blue: #45657a;
+  --raw-red: #8b4140;
+  --raw-amber: #7d692e;
+  --raw-on-accent: #ffffff;
+}
+
+html[data-app-theme='olive'] {
+  --raw-bg: #f1f1e9;
+  --raw-paper: #fbfbf6;
+  --raw-paper-strong: #ffffff;
+  --raw-ink: #1b201b;
+  --raw-muted: #65695f;
+  --raw-border: #d4d6ca;
+  --raw-border-soft: #e5e7dd;
+  --raw-wine: #4f6352;
+  --raw-wine-dark: #3e5041;
+  --raw-green: #35634a;
+  --raw-blue: #4a6673;
+  --raw-red: #8d423f;
+  --raw-amber: #76672c;
+  --raw-on-accent: #ffffff;
+}
+
+html[data-app-theme='mist'] {
+  --raw-bg: #f0f3f4;
+  --raw-paper: #fafcfc;
+  --raw-paper-strong: #ffffff;
+  --raw-ink: #172126;
+  --raw-muted: #667178;
+  --raw-border: #d3dadd;
+  --raw-border-soft: #e3e9eb;
+  --raw-wine: #3e5e6f;
+  --raw-wine-dark: #304d5c;
+  --raw-green: #2f6653;
+  --raw-blue: #3e6680;
+  --raw-red: #8d4544;
+  --raw-amber: #78672d;
+  --raw-on-accent: #ffffff;
 }
 
 html[data-system-constitution='v2'] .page {
