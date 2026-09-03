@@ -1,9 +1,10 @@
 /*
   APPLICATION BODY V3 — work-first shell around preserved route organs.
   ------------------------------------------------------------------
-  This layer owns only the body around existing routes: available canvas,
-  pinned-navigation reservation and the compatibility bridge that keeps old
-  route shells functional while they are moved gradually into the work kernel.
+  This layer owns only the body around existing routes: available canvas and
+  the compatibility bridge that keeps old route shells functional while they
+  are moved gradually into the work kernel. Navigation geometry belongs to the
+  shared app shell, not to the route body.
 
   It does not own business logic, route permissions, document printing or the
   internal state of any page. Existing route content is mounted once and kept
@@ -12,7 +13,6 @@
 
 @media screen {
   .rawDashboardShell {
-    --app-body-nav-width: min(232px, 82vw);
     --app-body-inline: clamp(12px, 1.45vw, 22px);
     --app-body-top: clamp(8px, 1vw, 14px);
     --app-body-bottom: 56px;
@@ -26,8 +26,6 @@
     width: 100%;
     min-width: 0;
     min-height: 100dvh;
-    padding-inline-end: 0;
-    transition: padding-inline-end 170ms cubic-bezier(.2,.72,.28,1);
   }
 
   .rawDashboardContent {
@@ -224,26 +222,6 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* Temporary navigation overlays the work. Pinning is an explicit user act,
-     so only the pinned desktop state reserves body space instead of covering
-     the current work. */
-  .rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage {
-    padding-inline-end: var(--app-body-nav-width);
-  }
-
-  .rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='false']) .appBodyStage {
-    padding-inline-end: 0;
-  }
-
-  .appContextNav[data-open='true'][data-pinned='true'] {
-    box-shadow: none;
-    border-inline-start: 1px solid var(--raw-border-soft, #e8e4dc);
-  }
-
-  .appContextNav[data-open='true'][data-pinned='false'] {
-    border-inline-start: 0;
-  }
-
   /* Wide ledgers may scroll inside their own operational surface. The body
      itself never becomes a second horizontal canvas. */
   [data-organ-host='route-content'] [data-work-ledger='true'],
@@ -255,10 +233,6 @@
 }
 
 @media screen and (max-width: 900px), screen and (hover: none), screen and (pointer: coarse) {
-  .appBodyStage {
-    padding-inline-end: 0 !important;
-  }
-
   .rawDashboardContent > .workSheetMount {
     padding-inline: 10px !important;
     padding-top: 8px !important;
@@ -272,18 +246,9 @@
     width: 100%;
     padding: 72px 18px 64px;
   }
-
-  .appContextNav[data-open='true'][data-pinned='true'] {
-    box-shadow: -7px 0 22px rgba(46, 39, 31, .055);
-    border-inline-start: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .appBodyStage {
-    transition: none !important;
-  }
-
   .appCompletedSurface,
   .appBodyStage[data-work-threshold-entry='true'] .appWorkThresholdLine,
   .appBodyStage[data-work-threshold-entry='true'] .workSheetMount {
