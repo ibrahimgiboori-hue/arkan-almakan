@@ -40,6 +40,7 @@ if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*
 const living = requireFile('lib/living-navigation.js');
 for (const required of [
   'single-living-branch-v4',
+  "navigationPersistenceRevision:'manual-dismiss-v1'",
   "grandfatherRole:'guide-to-portals-and-guardians'",
   "childRole:'mirror-selected-biological-context'",
   "grandchildRole:'contextual-shelf-for-existing-tool-transactions'",
@@ -48,9 +49,10 @@ for (const required of [
   'stageLeadsAfterGuardianOrGroupSelection:true',
   'selectedBiologicalIdentityMayMirrorAsNonInteractiveContext:true',
   'directWorkChildrenAreHonoraryInNavigation:true',
-  'navigationYieldsOnlyAtRealWorkThreshold:true',
-  'desktopNavigationYieldsWhenWorkThresholdIsCrossed:true',
-  'workZoneReopenRequiresExplicitUserInvocation:true',
+  'navigationMayRemainPresentAcrossRealWorkThreshold:true',
+  'desktopNavigationPersistsWhenWorkThresholdIsCrossed:true',
+  'workZoneNavigationDismissRequiresExplicitUserInvocation:true',
+  'workNavigationPersistsUntilUserDismissesOrReturnsToDesktop:true',
   'desktopNavigationReservesSpaceInsteadOfCoveringStage:true',
   'sameBehaviorEngineAcrossAllPortals:true',
   'workFirstHistoryOnDemand:true',
@@ -60,7 +62,7 @@ for (const required of [
   'grandchildClassificationIsToolSpecific:true',
   'grandchildClassificationLabelsMustBeShortProfessional:true',
   'grandchildTransactionOpensItselfNotItsClassification:true',
-  'grandchildSelectionClosesNavigationAndOwnsStage:true',
+  'grandchildSelectionKeepsNavigationAndOwnsStage:true',
   "semanticBack:'one-anatomical-level-never-browser-history'",
   'RAPID_SEMANTIC_BACK_WINDOW_MS = 5000',
   "rapidDoubleBackMeaning:'return-to-employee-desktop'",
@@ -104,9 +106,11 @@ for (const required of [
   'appNavGrandchildTabs',
   'appNavGrandchildTab',
   'appNavGrandchildGroupTitle',
-  'onClick={()=>go(item.href,{keepOpen:false})}',
+  'onClick={()=>go(item.href)}',
   'appNavBackArrow',
   'appNavDismiss',
+  'appNavAccountMenu',
+  'تسجيل الخروج',
   'requestWorkSessionNavigation',
   'appNavHonoraryList',
   'appNavHonorary',
@@ -115,7 +119,6 @@ for (const required of [
   'entryNodesByArea',
   'entryNodes.map',
   'portalApproachHref',
-  'NAVIGATION_YIELD_EVENT',
   'FAST_DESKTOP_BACK_WINDOW_MS = 5000',
   'returnToEmployeeDesktop',
 ]) {
@@ -131,8 +134,14 @@ if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة 
 if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('الملاحة التشريحية: عاد مسار رسم خاص بالمشاريع بدل محرك عقد الدخول العام.');
 if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
 if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
-if (!/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,300}?setOpen\(false\);[\s\S]{0,100}?\}/.test(nav)) {
-  failures.push('عتبة العمل: القائمة يجب أن تتنحى تلقائيًا عند الوصول إلى إجراء/إدخال حقيقي.');
+if (nav.includes('NAVIGATION_YIELD_EVENT') || /function\s+yieldToWork\s*\(/.test(nav)) {
+  failures.push('راحة الملاحة: لا يجوز إخفاء القائمة تلقائيًا عند عبور عتبة العمل؛ الإخفاء قرار المستخدم.');
+}
+if (!/function\s+go\s*\([^)]*\)\s*\{[\s\S]{0,500}?setOpen\(true\);/.test(nav)) {
+  failures.push('راحة الملاحة: التنقل داخل الفرع يجب أن يبقي القائمة مفتوحة حتى يختار المستخدم «إخفاء».');
+}
+if (!/<details[^>]+className="appNavAccountMenu"[\s\S]{0,300}?تسجيل الخروج/.test(nav)) {
+  failures.push('سلامة الخروج: تسجيل الخروج يجب أن يكون خلف خطوة «الحساب» لا زرًا مباشرًا في مسار التنقل.');
 }
 
 const projectStage = requireFile('components/ui/ProjectAnatomyStage.js');
@@ -274,4 +283,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: grandfather guides, child mirrors, grandchild shelves existing transactions, rapid double-back returns to the employee desktop, and one transaction owns the dressed work stage.');
+console.log('Anatomical navigation audit passed: navigation stays available until manual dismissal, sign out is protected behind account, rapid double-back returns to the employee desktop, and one transaction owns the dressed work stage.');
