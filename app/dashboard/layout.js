@@ -13,6 +13,7 @@ import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
 import './raw-tokens.css';
 import './raw-phase.css';
+import './transaction-underwear.css';
 import './app-shell-v2.css';
 import './app-body-v3.css';
 import './living-navigation.css';
