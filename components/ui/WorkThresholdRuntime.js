@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { isWorkZoneContext, resolveWorkThreshold, WORK_POSTURE } from '@/lib/work-threshold-constitution';
 
 const WorkThresholdContext = createContext(null);
@@ -29,7 +29,9 @@ export function WorkThresholdMarker() {
 
 export default function WorkThresholdRuntime({ children }) {
   const pathname = usePathname();
-  const context = useMemo(() => resolveWorkThreshold(pathname), [pathname]);
+  const searchParams = useSearchParams();
+  const queryKey = searchParams?.toString() || '';
+  const context = useMemo(() => resolveWorkThreshold(pathname, searchParams), [pathname, queryKey, searchParams]);
   const previousZoneRef = useRef(null);
 
   useEffect(() => {
