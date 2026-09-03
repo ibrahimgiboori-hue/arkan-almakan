@@ -3,7 +3,6 @@
 import { Children, Fragment, cloneElement, isValidElement } from 'react';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
-import { getPrintLayoutPolicy } from '@/lib/print-governance';
 
 function mergeClassName(base, extra) {
   return [base, extra].filter(Boolean).join(' ').trim();
@@ -20,7 +19,7 @@ function flattenRenderedBlocks(nodes) {
 /**
  * القبطان يستقبل تيار المحتوى الحقيقي لا غلافًا صناعيًا حوله.
  * الرحلات المركبة التي تنتج عدة كتل تُفك قبل القياس حتى تبقى حدود React وDOM متطابقة.
- * هندسة الورقة، مصدر الليترهيد، الاتجاه، مناطق الأمان والتقسيم كلها ملك ConstitutionPagedFrame.
+ * هندسة الورقة، Word baseline، الليترهيد، الاتجاه، مناطق الأمان والتقسيم كلها ملك ConstitutionPagedFrame وحده.
  */
 function expandCaptainFlowBlocks(nodes) {
   return Children.toArray(nodes).flatMap((node) => {
@@ -53,7 +52,6 @@ export default function ConstitutionPrintFrame({
   contentRightMm,
   ...rest
 }) {
-  const layout = getPrintLayoutPolicy(documentKey);
   const childArray = Children.toArray(children);
   const flowChildren = childArray.length === 1 && isValidElement(childArray[0])
     ? cloneElement(childArray[0], {
@@ -72,9 +70,9 @@ export default function ConstitutionPrintFrame({
       signatureSizeMm={signatureSizeMm}
       stampStyle={stampStyle}
       signatureStyle={signatureStyle}
-      contentTopMm={contentTopMm ?? layout.topMm}
-      contentBottomMm={contentBottomMm ?? layout.bottomMm}
-      contentSideMm={contentSideMm ?? layout.sideMm}
+      contentTopMm={contentTopMm}
+      contentBottomMm={contentBottomMm}
+      contentSideMm={contentSideMm}
       contentLeftMm={contentLeftMm}
       contentRightMm={contentRightMm}
       showPageNumbers={false}
