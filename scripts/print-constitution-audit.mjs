@@ -33,9 +33,6 @@ function forbidTokens(relative,tokens){
 const printFiles=walk(printRoot).filter((file)=>/\.(?:js|jsx|ts|tsx|css)$/.test(file));
 const printComponentFiles=walk(printComponentsRoot).filter((file)=>/\.(?:js|jsx|ts|tsx)$/.test(file));
 
-// ---------------------------------------------------------------------------
-// إحلال وإلغاء: الملفات والمحركات المتقاعدة لا يجوز أن تعود.
-// ---------------------------------------------------------------------------
 for(const retired of [
   'app/print/print-system.css',
   'app/print/employees/emp-report.css',
@@ -70,7 +67,6 @@ for(const file of [...printFiles,...printComponentFiles]){
   }
 }
 
-// هندسة الورقة لا تأتي من الصفحات أو ملفات CSS المحلية.
 for(const file of printFiles){
   const relative=rel(file);
   const text=fs.readFileSync(file,'utf8');
@@ -81,7 +77,6 @@ for(const file of printFiles){
   if(/\.print-page\s*\{/i.test(text))violations.push(`${relative}: إعادة تعريف هندسة .print-page`);
 }
 
-// لا يوجد استثناء لقراءة أصول الختم والتوقيع مباشرة من صفحات /print.
 for(const file of printFiles.filter((file)=>/\.(?:js|jsx|ts|tsx)$/.test(file))){
   const relative=rel(file);
   const text=fs.readFileSync(file,'utf8');
@@ -89,9 +84,6 @@ for(const file of printFiles.filter((file)=>/\.(?:js|jsx|ts|tsx)$/.test(file))){
   if(/\bsignature_image_path\b/.test(text))violations.push(`${relative}: التوقيع يجب أن يمر عبر PrintMark/PrintMarks`);
 }
 
-// ---------------------------------------------------------------------------
-// الدستور المركزي: جميع مسارات /print الحالية GOVERNED ولا توجد حالة هجرة.
-// ---------------------------------------------------------------------------
 const governance=requireTokens('lib/print-governance.js',[
   "PRINT_GOVERNANCE_VERSION = '3.2'",
   "GOVERNED: 'governed'",
@@ -152,9 +144,6 @@ const office=requireTokens('app/print/print-office-model.css',[
 ]);
 if(/(^|\n)\.sheet\b/.test(office))violations.push('print-office-model.css: selector .sheet غير المحكوم عاد');
 
-// ---------------------------------------------------------------------------
-// القبطان الواحد والـwrapper: لا جسر هوامش من المستندات إلى الورقة.
-// ---------------------------------------------------------------------------
 const wrapper=requireTokens('components/print/ConstitutionPrintFrame.js',[
   'ConstitutionPagedFrame',
   'expandCaptainFlowBlocks',
@@ -186,17 +175,15 @@ for(const forbidden of ['cfg?.letterhead_top_mm','cfg?.letterhead_bottom_mm','sa
   if(paged.includes(forbidden))violations.push(`ConstitutionPagedFrame.js: بقايا محرك/هندسة قديمة (${forbidden})`);
 }
 
-// ---------------------------------------------------------------------------
-// المطبوعة لا تقسم نفسها رأسيًا؛ الجداول الطويلة تسلم نفسها للقبطان.
-// ---------------------------------------------------------------------------
 const governedRoutes={
   'app/print/operating-budget/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
   'app/print/payroll/[id]/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
   'app/print/expenses/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
   'app/print/employees/page.js':['ConstitutionPrintFrame','data-print-flow="repeatable-table"'],
   'app/print/timesheet/page.js':['ConstitutionPrintFrame','data-print-flow="repeatable-table"'],
+  'app/print/timesheet/blank/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
   'app/print/board/page.js':['ConstitutionPrintFrame','data-print-flow="repeatable-table"'],
-  'app/print/quote/[id]/page.js':['ConstitutionPagedFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
+  'app/print/quote/[id]/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
   'app/print/[id]/page.js':['ConstitutionPrintFrame','PRINT_FLOW_KIND.REPEATABLE_TABLE','PrintMark'],
 };
 for(const [relative,tokens] of Object.entries(governedRoutes))requireTokens(relative,tokens);
@@ -214,16 +201,19 @@ if(!quoteCss.includes('Quotation content profile'))violations.push('quote-print.
 const quoteFlow=forbidTokens('app/print/quote/[id]/quote-flow.css',['.quote-document-page','@media print']);
 if(!quoteFlow.includes('.quote-document-flow'))violations.push('quote-flow.css: مسار المحتوى الحالي غير مثبت');
 
-// claims aliases must remain routed to one governed family; the primary claim page owns the content.
 const claims=read('app/print/claims/[id]/page.js');
 if(!claims.includes('ConstitutionPrintFrame'))violations.push('claims: المستخلص خارج القبطان');
 if(!claims.includes('PRINT_FLOW_KIND.REPEATABLE_TABLE'))violations.push('claims: جدول المستخلص ليس repeatable flow');
 
-// ---------------------------------------------------------------------------
-// العرض والتحرير المركزيان لا يتغيران مع تنظيف الهندسة.
-// ---------------------------------------------------------------------------
 requireTokens('components/print/PrintPresentationContext.js',['PrintPresentationProvider','PrintColumnLabel','labels']);
-requireTokens('components/print/PagedTableGridEditor.js',['data-print-table-boundary','collectColumnSegments','boundary-map-v2']);
+requireTokens('components/print/PagedTableGridEditor.js',[
+  'logicalColumnCount',
+  'addTableOuterBoundary',
+  'paged-grid-boundary',
+  'paged-table-row-boundary',
+  '.constitution-flow-measure table',
+  'BoundaryBoxEditor',
+]);
 requireTokens('components/print/PrintMarks.js',['PrintMark','print-master-stamp','print-master-signature']);
 requireTokens('components/print/PrintTextAlignmentEditor.js',['PRINT_TEXT_ALIGNMENT_OPTIONS','data-print-text-align']);
 requireTokens('components/print/PrintGovernanceBoundary.js',['resolvePrintDocument','PrintTextAlignmentEditor','print-unregistered']);
