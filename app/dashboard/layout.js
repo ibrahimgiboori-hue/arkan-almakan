@@ -20,6 +20,7 @@ import './living-navigation.css';
 import './body-resuscitation.css';
 import './arkan-skin-v1.css';
 import './arkan-field-geometry-v1.css';
+import './navigation-comfort-v1.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
