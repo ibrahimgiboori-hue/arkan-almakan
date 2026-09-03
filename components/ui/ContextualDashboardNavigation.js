@@ -15,6 +15,14 @@ import {
   PORTAL_EXISTING_DESTINATION_CAPABILITIES,
 } from '@/lib/portal-section-constitution';
 import { SHELL_PORTAL_GROUPS } from '@/lib/navigation-shell-constitution';
+import {
+  USER_PERSPECTIVE,
+  anatomyAreaLabel,
+  anatomyGroupLabel,
+  anatomyToolLabel,
+  isMeaningfulBranch,
+  perspectiveQuickLinks,
+} from '@/lib/anatomical-navigation';
 
 const PIN_STORAGE_KEY = 'arkan-context-nav-pinned';
 
@@ -25,16 +33,6 @@ function uniqueByHref(items = []) {
     seen.add(item.href);
     return true;
   });
-}
-
-function cleanPortalLabel(value = '') {
-  return String(value).replace(/^بوابة\s+/, '').trim();
-}
-
-function cleanToolLabel(item) {
-  if (item?.sectionKey === 'disciplinary') return 'الإجراءات التأديبية';
-  if (item?.sectionKey === 'performance') return 'فترة التجربة';
-  return item?.label || 'أداة';
 }
 
 function isActionOnlyRoute(href = '') {
@@ -90,7 +88,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           if (required.length) return required.some((key) => capabilityKeys.has(key));
           return true;
         })
-        .map((item) => ({ ...item, label:cleanToolLabel(item) }));
+        .map((item) => ({ ...item, label:anatomyToolLabel(area.key, item) }));
       return [area.key, tools];
     }));
   }, [accessibleAreas, me]);
@@ -99,14 +97,14 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     const tools = toolsByArea[area.key] || [];
     const configured = SHELL_PORTAL_GROUPS[area.key] || [];
     if (!configured.length) {
-      return [area.key, tools.length ? [{ key:'general', label:cleanPortalLabel(area.label), items:tools }] : []];
+      return [area.key, tools.length ? [{ key:'general', label:'الأدوات', items:tools }] : []];
     }
 
     const itemByHref = new Map(tools.map((item) => [item.href, item]));
     const groups = configured
       .map((group) => ({
         key:group.key,
-        label:group.label,
+        label:anatomyGroupLabel(area.key, group),
         items:(group.hrefs || []).map((href) => itemByHref.get(href)).filter(Boolean),
       }))
       .filter((group) => group.items.length > 0);
@@ -177,7 +175,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       return { type:'project' };
     }
     if (currentAreaIsAccessible) {
-      if (currentAreaGroup) return { type:'areaGroup', areaKey:currentAreaKey, groupKey:currentAreaGroup.key };
+      if (currentAreaGroup && isMeaningfulBranch(currentAreaGroup)) {
+        return { type:'areaGroup', areaKey:currentAreaKey, groupKey:currentAreaGroup.key };
+      }
       return { type:'area', areaKey:currentAreaKey };
     }
     return { type:'root' };
@@ -226,7 +226,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
   const panelValid = panel.type === 'root'
     || (panel.type === 'area' && Boolean(activeArea))
-    || (panel.type === 'areaGroup' && Boolean(activeArea && activeAreaGroup))
+    || (panel.type === 'areaGroup' && Boolean(activeArea && activeAreaGroup && isMeaningfulBranch(activeAreaGroup)))
     || (panel.type === 'project' && Boolean(projectId && projectGroups.length))
     || (panel.type === 'projectGroup' && Boolean(projectId && activeProjectGroupPanel));
 
@@ -286,11 +286,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     });
   }
 
-  const quickLinks = [
-    { label:'مركز العمل', href:'/dashboard' },
-    { label:'أعمالي', href:'/dashboard/my-work' },
-    ...(me?.access?.approvals ? [{ label:'اعتماداتي', href:'/dashboard/my-work/approvals' }] : []),
-  ];
+  const quickLinks = perspectiveQuickLinks({ approvals:me?.access?.approvals === true });
 
   return <>
     <button
@@ -318,28 +314,28 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       data-open={open ? 'true' : 'false'}
       data-pinned={pinned ? 'true' : 'false'}
       data-panel-valid={panelValid ? 'true' : 'false'}
-      aria-label="التنقل في أركان المكان"
+      data-navigation-consciousness="implicit"
+      aria-label="التنقل في مساحة العمل"
       aria-hidden={!open}
     >
       {open ? <>
-        <div className="appNavTopLine">
-          <span>أركان المكان</span>
+        <div className="appNavTopLine" data-consciousness-visibility="implicit">
           <button type="button" onClick={togglePinned}>{pinned ? 'تحرير' : 'إبقاء'}</button>
         </div>
 
         <div key={panelId(panel)} className="appNavPanel" data-motion={motionDirection}>
           {panel.type === 'root' && <>
-            <div className="appNavList appNavQuickList">
+            <div className="appNavList appNavQuickList" data-anatomy-level="perspective">
               {quickLinks.map((item) => (
                 <button key={item.href} type="button" className="appNavRow" data-active={pathname === item.href ? 'true' : 'false'} onClick={() => go(item.href)}>
                   <span>{item.label}</span>
                 </button>
               ))}
             </div>
-            <div className="appNavList appNavPortalList">
+            <div className="appNavList appNavPortalList" data-anatomy-level="system">
               {accessibleAreas.map((area) => (
                 <button key={area.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaKey === area.key ? 'true' : 'false'} onClick={() => dive({ type:'area', areaKey:area.key })}>
-                  <span>{cleanPortalLabel(area.label)}</span>
+                  <span>{anatomyAreaLabel(area)}</span>
                   <small>{(groupsByArea[area.key] || []).length}</small>
                 </button>
               ))}
@@ -347,22 +343,32 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           </>}
 
           {panel.type === 'area' && activeArea && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>الكل</button>
-            <div className="appNavPanelHead"><strong>{cleanPortalLabel(activeArea.label)}</strong></div>
-            <div className="appNavList">
-              {activeAreaGroups.map((group) => (
-                <button key={group.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaGroup?.key === group.key ? 'true' : 'false'} onClick={() => dive({ type:'areaGroup', areaKey:activeArea.key, groupKey:group.key })}>
-                  <span>{group.label}</span>
-                  <small>{group.items.length}</small>
-                </button>
-              ))}
+            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>{USER_PERSPECTIVE.label}</button>
+            <div className="appNavPanelHead"><strong>{anatomyAreaLabel(activeArea)}</strong></div>
+            <div className="appNavList" data-anatomy-level="region">
+              {activeAreaGroups.map((group) => {
+                const directItem = !isMeaningfulBranch(group) ? group.items[0] : null;
+                if (directItem) {
+                  return (
+                    <button key={group.key} type="button" className="appNavRow" data-active={currentGlobalTool?.href === directItem.href ? 'true' : 'false'} onClick={() => go(directItem.href)}>
+                      <span>{directItem.label}</span>
+                    </button>
+                  );
+                }
+                return (
+                  <button key={group.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaGroup?.key === group.key ? 'true' : 'false'} onClick={() => dive({ type:'areaGroup', areaKey:activeArea.key, groupKey:group.key })}>
+                    <span>{group.label}</span>
+                    <small>{group.items.length}</small>
+                  </button>
+                );
+              })}
             </div>
           </>}
 
           {panel.type === 'areaGroup' && activeArea && activeAreaGroup && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:activeArea.key })}>{cleanPortalLabel(activeArea.label)}</button>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:activeArea.key })}>{anatomyAreaLabel(activeArea)}</button>
             <div className="appNavPanelHead"><strong>{activeAreaGroup.label}</strong></div>
-            <div className="appNavList">
+            <div className="appNavList" data-anatomy-level="function">
               {activeAreaGroup.items.map((item) => (
                 <button key={item.href} type="button" className="appNavRow" data-active={currentGlobalTool?.href === item.href ? 'true' : 'false'} onClick={() => go(item.href)}>
                   <span>{item.label}</span>
@@ -372,9 +378,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           </>}
 
           {panel.type === 'project' && projectId && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:'projects' })}>المشاريع</button>
-            <div className="appNavPanelHead"><strong>المشروع الحالي</strong></div>
-            <div className="appNavList">
+            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:'projects' })}>{anatomyAreaLabel('projects')}</button>
+            <div className="appNavList" data-anatomy-level="region">
               {projectGroups.map((group) => (
                 <button key={group.key} type="button" className="appNavRow appNavRowParent" data-active={currentProjectGroup?.key === group.key ? 'true' : 'false'} onClick={() => dive({ type:'projectGroup', groupKey:group.key })}>
                   <span>{group.label}</span>
@@ -387,7 +392,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           {panel.type === 'projectGroup' && projectId && activeProjectGroupPanel && <>
             <button type="button" className="appNavBack" onClick={() => back({ type:'project' })}>المشروع</button>
             <div className="appNavPanelHead"><strong>{activeProjectGroupPanel.label}</strong></div>
-            <div className="appNavList">
+            <div className="appNavList" data-anatomy-level="function">
               {activeProjectGroupPanel.items.map((item) => (
                 <button key={item.key} type="button" className="appNavRow" data-active={currentProjectTool?.key === item.key ? 'true' : 'false'} onClick={() => go(item.href)}>
                   <span>{item.label}</span>
