@@ -51,13 +51,13 @@ if (!/function\s+go\s*\([^)]*\)\s*\{[\s\S]{0,500}?setOpen\(true\);/.test(navigat
   failures.push('Work threshold navigation: الملاحة يجب أن تبقى متاحة حتى يخفيها المستخدم صراحة.');
 }
 
-const living = requireText('lib/living-navigation.js', [
+requireText('lib/living-navigation.js', [
   "navigationPersistenceRevision:'manual-dismiss-v1'",
   'desktopNavigationPersistsWhenWorkThresholdIsCrossed:true',
   'workZoneNavigationDismissRequiresExplicitUserInvocation:true',
 ]);
 
-const sessionConstitution = requireText('lib/work-session-constitution.js', [
+requireText('lib/work-session-constitution.js', [
   "IDLE: 'idle'",
   'being-in-a-work-zone-does-not-mean-a-work-session-has-started',
   'new-route-resets-session-to-idle-not-working',
@@ -70,7 +70,7 @@ const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
 ]);
 if (!sessionRuntime.includes('setStarted(true)')) failures.push('WorkSessionRuntime: الجلسة لا تملك بداية صريحة.');
 
-const nerve = requireText('components/ui/ActionNervousSystemRuntime.js', [
+requireText('components/ui/ActionNervousSystemRuntime.js', [
   'workSession.begin({ subject:spec.subject || null })',
   'workSession.complete',
 ]);
@@ -79,18 +79,21 @@ const layout = requireText('app/dashboard/layout.js', [
   "import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime'",
   '<WorkThresholdRuntime>',
   '<WorkThresholdMarker />',
+  "'./arkan-dashboard-geometry-v2.css'",
+  'data-geometry-owner="arkan-dashboard-v2"',
 ]);
 if (layout.indexOf('<WorkThresholdRuntime>') > layout.indexOf('<WorkSessionRuntime>')) {
   failures.push('dashboard layout: عتبة العمل يجب أن تحيط بجلسة العمل حتى تبقى المنطقة بعد تحرير الجلسة.');
 }
 
-const body = requireText('app/dashboard/app-body-v3.css', [
-  ".rawDashboardShell[data-work-posture='work-zone']",
+const geometry = requireText('app/dashboard/arkan-dashboard-geometry-v2.css', [
   '.appWorkThresholdLine',
-  '@keyframes appWorkThresholdArrive',
-  "[data-work-session-state='working']",
+  '.appWorkThresholdZone',
+  '.appWorkThresholdFunction',
+  '.appCompletedSurface',
 ]);
-if (/animation[^;]*[5-9]\d\dms|animation[^;]*\d+s/.test(body)) failures.push('app-body-v3.css: حركة عتبة العمل يجب أن تبقى قصيرة وهادئة.');
+if (/animation[^;]*[5-9]\d\dms|animation[^;]*\d+s/.test(geometry)) failures.push('هندسة القبطان: أي حركة تخص عتبة العمل يجب أن تبقى قصيرة وهادئة.');
+if (fs.existsSync(path.join(root, 'app/dashboard/app-body-v3.css'))) failures.push('app-body-v3.css: هندسة قديمة ممنوعة بعد توحيد القبطان.');
 
 if (failures.length) {
   console.error('\nWork threshold audit failed:\n');
@@ -98,4 +101,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Work threshold audit passed: anatomy enters a quiet work-zone posture without dismissing navigation, navigation stays until the user hides it, sessions start explicitly, and released work keeps its zone context.');
+console.log('Work threshold audit passed: the unified geometry captain renders the quiet work-zone context without dismissing navigation, sessions start explicitly, and released work keeps its zone context.');
