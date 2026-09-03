@@ -109,9 +109,11 @@ if (exists(contextualNavigation)) {
     'appNavGrandchildTabs',
     'appNavGrandchildTab',
     'appNavGrandchildGroupTitle',
-    'onClick={()=>go(item.href,{keepOpen:false})}',
+    'onClick={()=>go(item.href)}',
     'onClick={openNavigation}',
     'appNavDismiss',
+    'appNavAccountMenu',
+    'تسجيل الخروج',
     'FAST_DESKTOP_BACK_WINDOW_MS = 5000',
     'returnToEmployeeDesktop',
     "router.push('/dashboard')",
@@ -122,6 +124,9 @@ if (exists(contextualNavigation)) {
   if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة لا يجوز أن تتحول إلى مصدر بيانات موازٍ؛ هوية الابن والحفيد تأتي من العضو أو المسرح.');
   if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
   if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
+  if (nav.includes('NAVIGATION_YIELD_EVENT') || /function\s+yieldToWork\s*\(/.test(nav)) failures.push('راحة الملاحة: القائمة عادت للإخفاء التلقائي عند دخول العمل.');
+  if (!/function\s+go\s*\([^)]*\)\s*\{[\s\S]{0,500}?setOpen\(true\);/.test(nav)) failures.push('راحة الملاحة: التنقل يجب أن يحافظ على القائمة مفتوحة حتى الإخفاء اليدوي.');
+  if (!/<details[^>]+className="appNavAccountMenu"[\s\S]{0,300}?تسجيل الخروج/.test(nav)) failures.push('سلامة الخروج: تسجيل الخروج يجب أن يكون خلف «الحساب».');
   if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق: العنصر الشرفي غير القابل للضغط عاد كاختصار عمل داخل القائمة.');
   if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('القائمة الموحدة: ما زال فرع المشاريع يُرسم بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
 }
@@ -164,7 +169,7 @@ if (exists(livingCss)) {
 }
 
 const livingNavigation = read('lib/living-navigation.js');
-for (const required of ['GRANDCHILD_NAVIGATION_EVENT','grandchildContainsExistingTransactionsOnly:true','grandchildNeverListsTransactionsOnStage:true','grandchildClassificationIsToolSpecific:true','grandchildSelectionClosesNavigationAndOwnsStage:true']) {
+for (const required of ['GRANDCHILD_NAVIGATION_EVENT',"navigationPersistenceRevision:'manual-dismiss-v1'",'desktopNavigationPersistsWhenWorkThresholdIsCrossed:true','grandchildContainsExistingTransactionsOnly:true','grandchildNeverListsTransactionsOnStage:true','grandchildClassificationIsToolSpecific:true','grandchildSelectionKeepsNavigationAndOwnsStage:true']) {
   if (!livingNavigation.includes(required)) failures.push(`قائمة الحفيد: مفقود من DNA ${required}.`);
 }
 
@@ -220,4 +225,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: the employee desktop owns idle work, two rapid semantic backs return there, and one engine spans portals through the grandchild shelf into one-subject work surfaces.');
+console.log('Navigation cleanliness audit passed: the employee desktop owns idle work, navigation persists until manual dismissal, sign out is protected, and one engine spans portals through the grandchild shelf into one-subject work surfaces.');
