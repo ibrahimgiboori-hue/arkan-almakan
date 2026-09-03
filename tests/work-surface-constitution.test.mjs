@@ -42,11 +42,15 @@ test('shared ledger owns semantic cells and keyboard movement', () => {
   assert.match(grid, /case 'multiline'/);
 });
 
-test('representative registers consume the core instead of rebuilding dashboard UI and access checks', () => {
+test('representative routes consume the canonical UI core instead of rebuilding dashboard UI and access checks', () => {
   assert.match(projects, /RecordList/);
   assert.match(projects, /RecordSummary/);
   assert.doesNotMatch(projects, /projectCard|projectGrid|v_my_capabilities|fn_is_primary_user|is_system_admin/);
-  assert.match(quotes, /ContextActions/);
-  assert.match(quotes, /TableFrame/);
+
+  // Guard ownership, not one historical component choice. A legitimate operation may
+  // use ActionDock, ContextActions, TableFrame, WorkField, or another primitive from
+  // the same ConstitutionUI family according to its capacity and operational need.
+  assert.match(quotes, /from '@\/components\/ui\/ConstitutionUI'/);
+  assert.match(quotes, /ConstitutionPage/);
   assert.doesNotMatch(quotes, /className=["']page-head["']|v_my_capabilities|fn_is_primary_user|is_system_admin/);
 });
