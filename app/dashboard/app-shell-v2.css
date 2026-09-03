@@ -4,6 +4,7 @@
     --raw-nav-context-height: 0px;
     --raw-nav-gap: 0px;
     --raw-nav-pad-block: 0px;
+    --app-nav-width: 248px;
   }
 
   .rawDashboardContent,
@@ -35,6 +36,17 @@
     text-decoration: underline;
   }
 
+  .appBodyStage {
+    box-sizing: border-box;
+    transition: padding-inline-start 170ms cubic-bezier(.2,.72,.28,1);
+  }
+
+  @media (min-width: 901px) and (hover: hover) and (pointer: fine) {
+    .rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage {
+      padding-inline-start: var(--app-nav-width);
+    }
+  }
+
   .appNavHotZone {
     position: fixed;
     top: 0;
@@ -60,7 +72,7 @@
     height: 38px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--raw-wine) 30%, transparent);
-    opacity: .28;
+    opacity: .32;
     transform: translateY(-50%);
     transition: opacity 110ms ease, height 110ms ease;
   }
@@ -68,7 +80,12 @@
   .appNavHotZone:hover > span,
   .appNavHotZone:focus-visible > span {
     height: 44px;
-    opacity: .66;
+    opacity: .7;
+  }
+
+  .rawDashboardShell:has(.appContextNav[data-open='true']) .appNavHotZone {
+    pointer-events: none;
+    opacity: 0;
   }
 
   .appContextNav {
@@ -78,13 +95,15 @@
     bottom: 0;
     left: auto;
     z-index: 240;
-    width: min(232px, 82vw);
+    width: min(var(--app-nav-width), 86vw);
     box-sizing: border-box;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
+    border-inline-end: 0;
+    border-inline-start: 1px solid var(--raw-border-soft, #e8e4dc);
     background: color-mix(in srgb, var(--raw-paper, #fff) 99%, var(--raw-bg, #f7f5f1));
     color: var(--raw-ink, #2f2924);
-    box-shadow: -7px 0 22px rgba(46, 39, 31, .055);
+    box-shadow: -7px 0 22px rgba(46, 39, 31, .045);
     transform: translate3d(100%, 0, 0);
     visibility: hidden;
     will-change: transform;
@@ -103,23 +122,23 @@
   }
 
   .appNavTopLine {
-    min-height: 40px;
+    min-height: 48px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 12px 12px 3px;
+    padding: 10px 13px 7px;
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 72%, transparent);
     color: var(--raw-muted, #756d64);
-    font-size: 11px;
   }
 
-  .appNavTopLine > span {
-    font-weight: 720;
-    letter-spacing: .01em;
+  .appNavTopLine strong {
+    color: var(--raw-ink, #2f2924);
+    font-size: 13px;
+    font-weight: 780;
   }
 
   .appNavTopLine button,
-  .appNavBack,
   .appNavBottomActions button {
     min-height: 0 !important;
     margin: 0 !important;
@@ -139,7 +158,6 @@
   }
 
   .appNavTopLine button:hover,
-  .appNavBack:hover,
   .appNavBottomActions button:hover {
     color: var(--raw-ink, #2f2924) !important;
   }
@@ -148,116 +166,195 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 5px 10px 16px;
+    padding: 8px 10px 16px;
     scrollbar-width: thin;
-    animation-duration: 110ms;
-    animation-timing-function: cubic-bezier(.2,.7,.28,1);
-    animation-fill-mode: both;
   }
 
-  .appNavPanel[data-motion='forward'] {
-    animation-name: appNavForward;
+  .appNavBreadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 5px;
+    margin: 0 2px 9px;
+    padding: 0 2px 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 72%, transparent);
+    color: var(--raw-muted, #756d64);
+    font-size: 10.5px;
+    line-height: 1.45;
   }
 
-  .appNavPanel[data-motion='back'] {
-    animation-name: appNavBackwards;
+  .appNavBreadcrumb span {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
   }
 
-  @keyframes appNavForward {
-    from { opacity: .78; transform: translateX(-3px); }
-    to { opacity: 1; transform: translateX(0); }
+  .appNavBreadcrumb span:not(:last-child)::after {
+    content: '‹';
+    margin-inline-start: 5px;
+    color: color-mix(in srgb, var(--raw-muted, #756d64) 58%, transparent);
   }
 
-  @keyframes appNavBackwards {
-    from { opacity: .78; transform: translateX(3px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  .appNavBack {
-    display: inline-block;
-    margin: 1px 4px 7px !important;
-    font-size: 10.5px !important;
-    font-weight: 650;
-    text-align: right;
-  }
-
-  .appNavPanelHead {
-    padding: 0 4px 9px;
-  }
-
-  .appNavPanelHead strong {
+  .appNavBreadcrumb span[data-current='true'] {
     color: var(--raw-ink, #2f2924);
-    font-size: 14.5px;
-    font-weight: 760;
-    line-height: 1.35;
+    font-weight: 720;
   }
 
-  .appNavList {
+  .appNavList,
+  .appNavTree,
+  .appNavAreaBody,
+  .appNavGroupItems {
     display: grid;
-    gap: 0;
+    gap: 1px;
   }
 
   .appNavQuickList {
-    margin-bottom: 8px;
+    margin-bottom: 9px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 72%, transparent);
   }
 
-  .appNavPortalList {
-    margin-top: 2px;
+  .appNavTree {
+    gap: 2px;
   }
 
+  .appNavArea {
+    min-width: 0;
+  }
+
+  .appNavArea + .appNavArea {
+    border-top: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 45%, transparent);
+  }
+
+  .appNavAreaHead,
+  .appNavGroupHead,
   .appNavRow {
     width: 100%;
-    min-height: 33px !important;
     box-sizing: border-box;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
     align-items: center;
-    padding: 5px 6px !important;
+    gap: 7px;
+    margin: 0 !important;
     border: 0 !important;
-    border-radius: 6px !important;
-    background: transparent !important;
-    color: var(--raw-ink, #2f2924) !important;
     box-shadow: none !important;
     font-family: inherit;
     text-align: right;
     cursor: pointer;
+  }
+
+  .appNavAreaHead {
+    min-height: 38px !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 7px 5px !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-size: 13.25px !important;
+    font-weight: 735;
     transition: background-color 90ms ease, color 90ms ease;
   }
 
+  .appNavArea[data-active='true'] > .appNavAreaHead {
+    color: var(--raw-wine, #7b2434) !important;
+  }
+
+  .appNavAreaHead:hover,
+  .appNavGroupHead:hover,
   .appNavRow:hover {
     background: color-mix(in srgb, var(--raw-wine) 3.5%, transparent) !important;
   }
 
-  .appNavRow[data-active='true'] {
+  .appNavAreaHead small,
+  .appNavGroupHead small {
+    color: var(--raw-muted, #756d64);
+    font-size: 11px !important;
+    font-weight: 500;
+  }
+
+  .appNavAreaBody {
+    margin: 0 8px 7px 0;
+    padding: 0 7px 1px 0;
+    border-inline-start: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 78%, transparent);
+  }
+
+  .appNavGroup {
+    min-width: 0;
+  }
+
+  .appNavGroupHead {
+    min-height: 32px !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 5px 6px !important;
+    border-radius: 5px !important;
     background: transparent !important;
+    color: var(--raw-muted, #756d64) !important;
+    font-size: 12.25px !important;
+    font-weight: 680;
+    transition: background-color 90ms ease, color 90ms ease;
+  }
+
+  .appNavGroup[data-active='true'] > .appNavGroupHead {
+    color: var(--raw-ink, #2f2924) !important;
+    font-weight: 760;
+  }
+
+  .appNavGroupItems {
+    margin: 0 7px 3px 0;
+    padding-inline-start: 5px;
+  }
+
+  .appNavRow {
+    min-height: 31px !important;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 5px 6px !important;
+    border-radius: 5px !important;
+    background: transparent !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-size: 12.5px !important;
+    font-weight: 520;
+    transition: background-color 90ms ease, color 90ms ease;
+  }
+
+  .appNavRow[data-active='true'] {
+    background: color-mix(in srgb, var(--raw-wine) 5%, transparent) !important;
     color: var(--raw-wine, #7b2434) !important;
     font-weight: 760;
   }
 
-  .appNavRow > span {
+  .appNavRow > span,
+  .appNavAreaHead > span,
+  .appNavGroupHead > span {
     min-width: 0;
     overflow: hidden;
-    font-size: 13.25px;
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .appNavRow > small {
-    color: var(--raw-muted, #756d64);
-    font-size: 9.5px !important;
-    font-weight: 550;
-    line-height: 1;
+  .appNavNestedRow {
+    padding-inline-start: 8px !important;
   }
 
-  .appNavRowParent {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .appNavProjectContext {
+    display: grid;
+    gap: 1px;
+    margin: 3px 0 7px;
+    padding: 5px 5px 6px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--raw-wine) 2.3%, transparent);
+  }
+
+  .appNavContextLabel {
+    padding: 3px 6px 5px;
+    color: var(--raw-muted, #756d64);
+    font-size: 10px;
+    font-weight: 720;
   }
 
   .appNavBottomActions {
     margin-top: 18px;
-    padding: 4px 6px 0;
+    padding: 7px 6px 0;
+    border-top: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 72%, transparent);
   }
 
   .appNavBottomActions button {
@@ -270,6 +367,10 @@
   }
 
   @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    .appBodyStage {
+      padding-inline-start: 0 !important;
+    }
+
     .appNavHotZone {
       display: none;
     }
@@ -296,20 +397,25 @@
       cursor: pointer;
     }
 
+    .rawDashboardShell:has(.appContextNav[data-open='true']) .appNavTouchTrigger {
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .appContextNav {
-      width: min(232px, 82vw);
+      width: min(260px, 86vw);
+      box-shadow: -10px 0 30px rgba(46, 39, 31, .12);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .appContextNav,
+    .appBodyStage,
+    .appNavAreaHead,
+    .appNavGroupHead,
     .appNavRow,
     .appNavHotZone > span {
       transition: none !important;
-    }
-
-    .appNavPanel {
-      animation: none !important;
     }
   }
 }
