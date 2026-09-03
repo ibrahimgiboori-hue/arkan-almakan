@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import {
   AREAS,
   PROJECT_NAV_GROUPS,
@@ -14,14 +13,12 @@ import {
   PORTAL_EXISTING_DESTINATION_CAPABILITIES,
   PORTAL_SECTION_ITEMS,
 } from '@/lib/portal-section-constitution';
-import { SHELL_PORTAL_GROUPS } from '@/lib/navigation-shell-constitution';
 import { anatomyAreaLabel, anatomyToolLabel } from '@/lib/anatomical-navigation';
 import {
   PROJECT_APPROACH_REGIONS,
   PROJECT_GUARDIANS,
   normalizeProjectCare,
   normalizeProjectRegion,
-  portalApproachHref,
   projectApproachHref,
   projectRegionForItemKey,
 } from '@/lib/living-navigation';
@@ -56,7 +53,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [pinReady, setPinReady] = useState(false);
-  const [projectName, setProjectName] = useState('');
 
   const accessibleAreas = useMemo(
     () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
@@ -93,41 +89,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     }));
   }, [accessibleAreas, me]);
 
-  const groupsByArea = useMemo(() => Object.fromEntries(accessibleAreas.map((area) => {
-    if (area.key === 'projects') return [area.key, []];
-    const tools = toolsByArea[area.key] || [];
-    const itemByHref = new Map(tools.map((item) => [item.href, item]));
-    const configured = SHELL_PORTAL_GROUPS[area.key] || [];
-    const groups = configured
-      .map((group) => ({
-        key:group.key,
-        label:group.label,
-        items:(group.hrefs || []).map((href) => itemByHref.get(href)).filter(Boolean),
-      }))
-      .filter((group) => group.items.length > 0);
-    const assigned = new Set(configured.flatMap((group) => group.hrefs || []));
-    const extras = tools.filter((item) => !assigned.has(item.href));
-    if (extras.length) groups.push({ key:'more', label:'المزيد', items:extras });
-    return [area.key, groups];
-  })), [accessibleAreas, toolsByArea]);
-
-  const currentGlobalTool = useMemo(() => {
-    const tools = toolsByArea[currentAreaKey] || [];
-    return tools
-      .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
-      .sort((a, b) => b.href.length - a.href.length)[0] || null;
-  }, [currentAreaKey, pathname, toolsByArea]);
-
-  const currentPortalGroup = useMemo(() => {
-    if (!currentAreaKey || currentAreaKey === 'projects') return null;
-    const groups = groupsByArea[currentAreaKey] || [];
-    const requested = workspaceMatch?.[1] === currentAreaKey ? searchParams.get('group') : '';
-    const explicit = groups.find((group) => group.key === requested);
-    if (explicit) return explicit;
-    if (!currentGlobalTool) return null;
-    return groups.find((group) => group.items.some((item) => item.href === currentGlobalTool.href)) || null;
-  }, [currentAreaKey, currentGlobalTool, groupsByArea, searchParams, workspaceMatch]);
-
   const projectTools = useMemo(() => {
     if (!projectId) return [];
     const projectCaps = (me?.capabilities || []).filter((cap) =>
@@ -157,23 +118,13 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const currentProjectRegionKey = isProjectAnatomy ? requestedRegion : (inferredRegion || requestedRegion);
   const currentProjectRegion = projectRegions.find((region) => region.key === currentProjectRegionKey) || null;
   const currentCare = normalizeProjectCare(searchParams.get('care'));
-  const guardianKey = pathname.startsWith('/dashboard/quotes') ? 'quotes' : (currentAreaKey === 'projects' && (pathname.startsWith('/dashboard/projects') || projectId) ? currentCare : '');
+  const guardianKey = pathname.startsWith('/dashboard/quotes')
+    ? 'quotes'
+    : (currentAreaKey === 'projects' && (pathname.startsWith('/dashboard/projects') || projectId) ? currentCare : '');
 
   const availableProjectGuardians = useMemo(() => PROJECT_GUARDIANS.filter((guardian) =>
     guardian.entityKind === 'project' || (toolsByArea.projects || []).some((item) => item.href === guardian.href)
   ), [toolsByArea]);
-
-  useEffect(() => {
-    let alive = true;
-    if (!projectId) {
-      setProjectName('');
-      return undefined;
-    }
-    supabase.from('projects').select('name_ar').eq('id', projectId).maybeSingle().then(({ data }) => {
-      if (alive) setProjectName(data?.name_ar || 'المشروع');
-    });
-    return () => { alive = false; };
-  }, [projectId]);
 
   useEffect(() => {
     let saved = false;
@@ -245,7 +196,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     if (projectId) {
       if (isProjectAnatomy) {
         if (currentProjectRegion) {
-          return { href:projectApproachHref(projectId,{ care:currentCare }), label:projectName || 'بطاقة المشروع' };
+          return { href:projectApproachHref(projectId,{ care:currentCare }), label:'بطاقة المشروع' };
         }
         const guardian = availableProjectGuardians.find((item) => item.key === currentCare);
         return { href:`/dashboard/projects?care=${encodeURIComponent(currentCare)}`, label:guardian?.label || 'المشاريع' };
@@ -253,20 +204,14 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       if (currentProjectRegion) {
         return { href:projectApproachHref(projectId,{ care:currentCare, region:currentProjectRegion.key }), label:currentProjectRegion.label };
       }
-      return { href:projectApproachHref(projectId,{ care:currentCare }), label:projectName || 'بطاقة المشروع' };
+      return { href:projectApproachHref(projectId,{ care:currentCare }), label:'بطاقة المشروع' };
     }
     if (currentAreaKey === 'projects') {
-      if (pathname === '/dashboard/workspace/projects') return { href:'/dashboard', label:'وضع الخمول' };
+      if (pathname === '/dashboard/workspace/projects') return { href:'/dashboard', label:'البوابات' };
       return { href:'/dashboard/workspace/projects', label:'المشاريع' };
     }
-    if (currentGlobalTool && currentPortalGroup) {
-      return { href:portalApproachHref(currentAreaKey,currentPortalGroup.key), label:currentPortalGroup.label };
-    }
-    if (workspaceMatch?.[1] === currentAreaKey && currentPortalGroup) {
-      return { href:portalApproachHref(currentAreaKey), label:anatomyAreaLabel(currentAreaKey) };
-    }
-    return { href:'/dashboard', label:'وضع الخمول' };
-  }, [availableProjectGuardians, currentAreaKey, currentCare, currentGlobalTool, currentPortalGroup, currentProjectRegion, isProjectAnatomy, pathname, projectId, projectName, workspaceMatch]);
+    return { href:'/dashboard', label:'البوابات' };
+  }, [availableProjectGuardians, currentAreaKey, currentCare, currentProjectRegion, isProjectAnatomy, pathname, projectId]);
 
   return <>
     <button
@@ -295,6 +240,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       data-pinned={pinned ? 'true' : 'false'}
       data-navigation-consciousness="implicit"
       data-living-branch="single"
+      data-living-branch-pilot="projects"
       aria-label="التنقل في مساحة العمل"
       aria-hidden={!open}
     >
@@ -316,13 +262,12 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           <div className="appNavList appNavPortalList">
             {accessibleAreas.map((area) => {
               const areaActive=currentAreaKey===area.key;
-              const groups=groupsByArea[area.key]||[];
-              return <div key={area.key} className="appNavBranch" data-expanded={areaActive?'true':'false'}>
+              return <div key={area.key} className="appNavBranch" data-expanded={areaActive&&area.key==='projects'?'true':'false'}>
                 <button
                   type="button"
                   className="appNavRow appNavRowParent"
                   data-active={areaActive?'true':'false'}
-                  onClick={()=>go(area.key==='projects'?'/dashboard/workspace/projects':portalApproachHref(area.key),{keepOpen:true})}
+                  onClick={()=>go(area.key==='projects'?'/dashboard/workspace/projects':area.href,{keepOpen:area.key==='projects'})}
                 >
                   <span>{anatomyAreaLabel(area)}</span>
                 </button>
@@ -335,7 +280,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
                         <span>{guardian.label}</span>
                       </button>
                       {active&&projectId ? <div className="appNavProjectContext">
-                        <div className="appNavSubject" title={projectName}>{projectName||'المشروع'}</div>
                         <button type="button" className="appNavRow appNavRowNested appNavProjectCardRow" data-active={isProjectAnatomy&&!currentProjectRegion?'true':'false'} onClick={()=>go(projectApproachHref(projectId,{care:currentCare}),{keepOpen:true})}>
                           <span>بطاقة المشروع</span>
                         </button>
@@ -350,20 +294,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
                             </div> : null}
                           </div>;
                         })}
-                      </div> : null}
-                    </div>;
-                  })}
-                </div> : null}
-
-                {areaActive && area.key!=='projects' ? <div className="appNavChildren" data-branch-kind="portal-groups">
-                  {groups.map((group)=>{
-                    const selected=currentPortalGroup?.key===group.key;
-                    return <div key={group.key} className="appNavBranch appNavBranchNested" data-expanded={selected?'true':'false'}>
-                      <button type="button" className="appNavRow appNavRowNested" data-active={selected?'true':'false'} onClick={()=>go(portalApproachHref(area.key,group.key),{keepOpen:true})}>
-                        <span>{group.label}</span>
-                      </button>
-                      {selected ? <div className="appNavHonoraryList" aria-label={`مسارات ${group.label}`}>
-                        {group.items.map((item)=><span key={item.href} className="appNavHonorary" data-current={currentGlobalTool?.href===item.href?'true':'false'}>{item.label}</span>)}
                       </div> : null}
                     </div>;
                   })}
