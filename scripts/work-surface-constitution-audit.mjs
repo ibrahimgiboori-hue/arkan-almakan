@@ -35,14 +35,31 @@ const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
 if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل لا تُخزن محليًا ولا تعيش بعد تغيير المسار.');
 if (!/completion\s*\?\s*<CompletedSurface[\s\S]{0,220}:\s*<>/.test(sessionRuntime)) failures.push('WorkSessionRuntime: الخاتمة يجب أن تستبدل مشهد العمل المنتهي بدل إبقاء العضو والقوائم تحته.');
 
-const layout = requireText('app/dashboard/layout.js', ["import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'","import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime'","'./app-body-v3.css'","'./living-navigation.css'",'<WorkSurfaceRuntime>','</WorkSurfaceRuntime>','<WorkSessionRuntime>','</WorkSessionRuntime>','data-work-kernel="operational-notebook-v1"','className="appBodyStage"','data-application-body="work-first-v3"','data-organ-host="route-content"','data-organ-preservation="in-place"']);
+const layout = requireText('app/dashboard/layout.js', [
+  "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
+  "import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime'",
+  "'./arkan-dashboard-geometry-v2.css'",
+  '<WorkSurfaceRuntime>','</WorkSurfaceRuntime>','<WorkSessionRuntime>','</WorkSessionRuntime>',
+  'data-work-kernel="operational-notebook-v1"','className="appBodyStage"','data-application-body="work-first-v3"','data-organ-host="route-content"','data-organ-preservation="in-place"','data-geometry-owner="arkan-dashboard-v2"',
+]);
 if ((layout.match(/\{children\}/g) || []).length !== 1) failures.push('app/dashboard/layout.js: محتوى المسار يجب أن يركب مرة واحدة فقط داخل الجسد الجديد؛ ممنوع نسخ العضو أو عرضه في سطح موازٍ.');
 
-const bodyCss = requireText('app/dashboard/app-body-v3.css', ['APPLICATION BODY V3',"[data-organ-host='route-content']",".appContextNav[data-open='true'][data-pinned='true']",'padding-inline-end: var(--app-body-nav-width)','content: none !important','.appCompletedSurface','.appCompletedActions','data-work-session-state']);
-if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodyCss)) failures.push('app-body-v3.css: الجسد الجديد يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
-if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodyCss)) failures.push('app-body-v3.css: الجسد الجديد يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
+const geometry = requireText('app/dashboard/arkan-dashboard-geometry-v2.css', [
+  'ARKAN DASHBOARD GEOMETRY V2',
+  "[data-organ-host='route-content']",
+  ".rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage",
+  '.appCompletedSurface','.appCompletedActions','.appNavBackArrow','.appNavHonorary','.appNavGrandchildTabs','.appNavGrandchildTab','.appUnsavedNavigationGuard','.appUnsavedNavigationActions',
+  "[data-work-form-grid='true'] [data-work-field='true']",
+  "[data-field-mode='generated']","[data-field-mode='linked']","[data-field-mode='calculated']",
+]);
+if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(geometry)) failures.push('القبطان الموحد يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات.');
+if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(geometry)) failures.push('القبطان الموحد يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
 
-requireText('app/dashboard/living-navigation.css', ['.appNavBackArrow','.appNavHonorary','.appNavGrandchildTabs','.appNavGrandchildTab','.appUnsavedNavigationGuard','.appUnsavedNavigationActions']);
+const forbiddenGeometry = [
+  'app/dashboard/raw-phase.css','app/dashboard/transaction-underwear.css','app/dashboard/app-shell-v2.css','app/dashboard/app-body-v3.css','app/dashboard/living-navigation.css','app/dashboard/body-resuscitation.css','app/dashboard/legacy-structure-bridge-v1.css','app/dashboard/navigation-comfort-v1.css','app/dashboard/arkan-field-geometry-v1.css','app/dashboard/arkan-workspace-geometry-v1.css',
+];
+for (const file of forbiddenGeometry) if (exists(file)) failures.push(`${file}: هندسة قديمة ممنوعة بعد توحيد القبطان.`);
+
 requireText('components/ui/ConstitutionUI.js', ["import { useWorkSurface } from './WorkSurfaceRuntime'",'const resolvedMode = surface?.mode || mode ||','data-page-portal','data-work-section-style','boundary = false','export function WorkFormGrid','export function WorkField','data-field-mode={mode}','export function DocumentBody','export function DocumentSection','export function ContextActions','secondary-overflow','export function ViewOptions','export function RecordList','export function RecordRow','export function RecordSummary','export function InlineStatus']);
 requireText('lib/record-selection.js', ['normalizeRecordSelection','selectionQueryValue','appendSelectionToUrl','filterBySelection','selectionState']);
 requireText('components/ui/RawGrid.js', ['data-cell-type','data-grid-field','data-keyboard-policy="enter-tab-native"','data-selection-surface','data-record-selected','selection = null','visibleKeys',"case 'money'","case 'multiline'","case 'generated'","case 'linked'","case 'calculated'",'data-work-underwear="transaction-grid-v1"']);
@@ -76,4 +93,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves organs, transaction underwear gives every field one family, and one real action or selected transaction owns the stage.');
+console.log('Program-driven work surface audit passed: one unified dashboard geometry preserves organs, gives every field one family, and one real action or selected transaction owns the stage.');
