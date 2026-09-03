@@ -76,12 +76,14 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة. نسخة القبول تفعّل الفرع الحي للمشاريع فقط.
+// 5) الجسد الجديد هو القشرة الوحيدة، ومحرك الفرع الحي يعمل على كل البوابات.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
 const contextualShellCss = 'app/dashboard/app-shell-v2.css';
+const livingCss = 'app/dashboard/living-navigation.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
+const portalLivingModel = 'lib/portal-living-navigation.js';
 const approachStage = 'app/dashboard/workspace/[portal]/page.js';
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
@@ -89,11 +91,11 @@ if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
 if (!dashboardLayout.includes('data-navigation-shell="contextual-slide-v2"')) {
   failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
 }
-if (!dashboardLayout.includes("'./app-shell-v2.css'")) {
-  failures.push('app/dashboard/layout.js: أنماط الجسد الجديد app-shell-v2.css غير مربوطة.');
+if (!dashboardLayout.includes("'./app-shell-v2.css'") || !dashboardLayout.includes("'./living-navigation.css'")) {
+  failures.push('app/dashboard/layout.js: أنماط الجسد والملاحة الحية غير مربوطة بالكامل.');
 }
-if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(shellConstitution)) {
-  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور التجميعات أو الأنماط غير موجودة.');
+if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(livingCss) || !exists(shellConstitution) || !exists(portalLivingModel)) {
+  failures.push('الجسد الجديد: ملفات الملاحة الحية أو نموذج تغطية البوابات أو الأنماط غير موجودة.');
 }
 if (dashboardLayout.includes('RawDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
@@ -103,33 +105,86 @@ if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardH
 }
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
-  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'requestWorkSessionNavigation', 'data-living-branch="single"', 'data-living-branch-pilot="projects"', 'onClick={openNavigation}']) {
+  for (const required of [
+    'filterAreasForAccess',
+    'projectNavRequirement',
+    'livingPortalGroups',
+    'portalApproachHref',
+    'requestWorkSessionNavigation',
+    'data-living-branch="single"',
+    'data-living-branch-scope="all-portals"',
+    'data-navigation-role={mirrorMode',
+    'onClick={openNavigation}',
+    'appNavDismiss',
+  ]) {
     if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
   }
   if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
-  if (nav.includes('SHELL_PORTAL_GROUPS')) failures.push('نسخة القبول: لا تثبت تجميعات بقية البوابات داخل الفرع الحي قبل اعتماد تشريحها.');
-  if (nav.includes('projectName') || nav.includes("from '@/lib/supabase'")) failures.push('الأبناء البيولوجيون: القائمة لا يجوز أن تستعلم عن اسم المشروع أو تعرضه.');
+  if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة لا يجوز أن تتحول إلى مصدر بيانات موازٍ؛ هوية الابن تأتي انعكاسًا من المسرح.');
   if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
   if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) {
     failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
   }
+  if (/<button[^>]+className="appNavHonorary"/.test(nav)) {
+    failures.push('مرآة السياق: العنصر الشرفي غير القابل للضغط عاد كاختصار عمل داخل القائمة.');
+  }
 }
-// نبقي دستور Shell القديم موجودًا كمصدر توافق للأعضاء الحالية، لكن لا نجعله تشريحًا معتمدًا للبوابات الأخرى بعد.
-if (exists(shellConstitution) && !read(shellConstitution).includes('SHELL_PORTAL_GROUPS')) {
-  failures.push('الجسد الجديد: دستور تجميعات الملاحة الحالي غير مكتمل.');
+
+if (exists(shellConstitution)) {
+  const shell = read(shellConstitution);
+  for (const required of [
+    'SHELL_PORTAL_GROUPS',
+    "workforce: Object.freeze([",
+    "finance: Object.freeze([",
+    "documents: Object.freeze([",
+    "admin: Object.freeze([",
+    "portalSectionHref('workforce','planning')",
+    "'/dashboard/operating-budget'",
+  ]) {
+    if (!shell.includes(required)) failures.push(`تغطية البوابات: مفقود ${required}.`);
+  }
 }
+
+if (exists(portalLivingModel)) {
+  const model = read(portalLivingModel);
+  for (const required of [
+    'accessiblePortalTools',
+    'livingPortalGroups',
+    'activePortalGroup',
+    'activePortalTool',
+    'portalCoverageReport',
+    'generatedCoverageFallback:true',
+  ]) {
+    if (!model.includes(required)) failures.push(`نموذج الملاحة العام: مفقود ${required}.`);
+  }
+}
+
 if (!exists(approachStage)) {
   failures.push('مسرح الاقتراب: app/dashboard/workspace/[portal]/page.js مفقود.');
 } else {
   const stage = read(approachStage);
-  for (const required of ['data-navigation-stage="approach"', 'data-living-branch-pilot="projects"', "portal==='projects'", 'router.replace(area.href)']) {
-    if (!stage.includes(required)) failures.push(`مسرح الاقتراب: مفقود ${required}.`);
-  }
-  if (/SHELL_PORTAL_GROUPS|PROJECT_GUARDIANS|PORTAL_SECTION_ITEMS|requestWorkSessionNavigation/.test(stage)) {
-    failures.push('مسرح الاقتراب: يعيد خيارات قابلة للضغط موجودة في القائمة أو يثبت تشريح بوابات غير معتمد.');
+  for (const required of [
+    'livingPortalGroups',
+    'requestWorkSessionNavigation',
+    'data-navigation-stage="portal-group"',
+    'data-stage-leadership="stage"',
+    'data-living-branch-scope="all-portals"',
+    'group.items.map',
+  ]) {
+    if (!stage.includes(required)) failures.push(`مسرح الاقتراب العام: مفقود ${required}.`);
   }
   if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(stage)) {
     failures.push('مسرح الاقتراب: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
+  }
+}
+
+if (exists(livingCss)) {
+  const css = read(livingCss);
+  if (!css.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) {
+    failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحتها بدل تغطية المسرح.');
+  }
+  if (!css.includes('.appNavMirrorPortal') || !css.includes('.appNavMirrorSubject')) {
+    failures.push('مرآة السياق: أنماط تبادل القيادة بين القائمة والمسرح مفقودة.');
   }
 }
 
@@ -201,4 +256,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: the projects-only living branch stays clean, biological identities remain off-menu, stage does not duplicate clickable navigation, and legacy portal anatomy is not silently promoted.');
+console.log('Navigation cleanliness audit passed: one living behavior engine spans every portal, desktop navigation persists without covering the stage, stage-led choices mirror back as non-interactive context, and legacy business journeys remain intact.');
