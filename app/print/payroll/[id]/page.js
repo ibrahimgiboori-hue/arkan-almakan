@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PrintColumnLabel } from '@/components/print/PrintPresentationContext';
 import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
 
@@ -48,18 +49,9 @@ export default function PayrollPrintPage(){
     ]);
     const firstError=runQ.error||linesQ.error||empQ.error||cfgQ.error||guardQ.error;
     if(firstError){if(alive){setError(firstError.message);setLoading(false);}return;}
-    if(alive){
-      setRun(runQ.data||null);
-      setLines(linesQ.data||[]);
-      setEmployees(empQ.data||[]);
-      setCfg(cfgQ.data||null);
-      setGuard(guardQ.data||null);
-    }
+    if(alive){setRun(runQ.data||null);setLines(linesQ.data||[]);setEmployees(empQ.data||[]);setCfg(cfgQ.data||null);setGuard(guardQ.data||null);}
     const executionRef=guardQ.data?.execution_ref;
-    if(executionRef){
-      const detailQ=await supabase.rpc('fn_approval_get',{p_workflow_id:executionRef});
-      if(alive&&!detailQ.error)setApproval(detailQ.data||null);
-    }
+    if(executionRef){const detailQ=await supabase.rpc('fn_approval_get',{p_workflow_id:executionRef});if(alive&&!detailQ.error)setApproval(detailQ.data||null);}
     if(alive)setLoading(false);
   })();return()=>{alive=false;};},[id]);
 
@@ -75,21 +67,12 @@ export default function PayrollPrintPage(){
   const steps=selectionMode?[]:(approval?.steps||[]);
 
   return <>
-    <div className="print-toolbar no-print">
-      <div className="group">
-        <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
-        <button onClick={()=>window.close()}>إغلاق</button>
-      </div>
-      <span className="note">مسير الرواتب · {String(run.run_month).slice(0,7)} · {selectionMode?`${printLines.length} موظف محدد`:printState.label}</span>
-    </div>
+    <div className="print-toolbar no-print"><div className="group"><button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button><button onClick={()=>window.close()}>إغلاق</button></div><span className="note">مسير الرواتب · {String(run.run_month).slice(0,7)} · {selectionMode?`${printLines.length} موظف محدد`:printState.label}</span></div>
 
     <ConstitutionPrintFrame documentKey="payroll_run" cfg={cfg} direction="rtl">
       <div className="print-document">
         <header className="print-document-head" data-print-keep-with-next="true">
-          <div>
-            <h1 className="print-document-title">{selectionMode?'مسير الرواتب — المحدد':'مسير الرواتب'}</h1>
-            <div className="print-document-subtitle">أركان المكان · نسخة صادرة من محرك الطباعة المركزي</div>
-          </div>
+          <div><h1 className="print-document-title">{selectionMode?'مسير الرواتب — المحدد':'مسير الرواتب'}</h1><div className="print-document-subtitle">أركان المكان · نسخة صادرة من محرك الطباعة المركزي</div></div>
           <div className={`print-document-state print-state-${printState.key}`}>{printState.label}</div>
         </header>
 
@@ -101,21 +84,27 @@ export default function PayrollPrintPage(){
         </section>
 
         <table className="print-data-table" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
-          <colgroup>
-            <col style={{width:'4%'}}/><col style={{width:'18%'}}/>
-            {Array.from({length:9}).map((_,i)=><col key={i} style={{width:`${78/9}%`}}/>)}
-          </colgroup>
-          <thead><tr><th>#</th><th className="text">الموظف</th><th>الأساسي</th><th>السكن</th><th>النقل</th><th>بدلات أخرى</th><th>إضافي</th><th>عمولة</th><th>الإجمالي</th><th>الخصومات</th><th>الصافي</th></tr></thead>
+          <colgroup><col style={{width:'4%'}}/><col style={{width:'18%'}}/>{Array.from({length:9}).map((_,i)=><col key={i} style={{width:`${78/9}%`}}/>)}</colgroup>
+          <thead><tr>
+            <th>#</th>
+            <th className="text"><PrintColumnLabel field="employee" fallback="الموظف" /></th>
+            <th><PrintColumnLabel field="basic_salary" fallback="الأساسي" /></th>
+            <th><PrintColumnLabel field="housing_allowance" fallback="السكن" /></th>
+            <th><PrintColumnLabel field="transport_allowance" fallback="النقل" /></th>
+            <th><PrintColumnLabel field="other_allowance" fallback="بدلات أخرى" /></th>
+            <th><PrintColumnLabel field="overtime_amount" fallback="إضافي" /></th>
+            <th><PrintColumnLabel field="commission_amount" fallback="عمولة" /></th>
+            <th><PrintColumnLabel field="gross_pay" fallback="الإجمالي" /></th>
+            <th><PrintColumnLabel field="total_deductions" fallback="الخصومات" /></th>
+            <th><PrintColumnLabel field="net_pay" fallback="الصافي" /></th>
+          </tr></thead>
           <tbody>{printLines.map((r,i)=>{const e=empMap.get(r.employee_id);return <tr key={r.id} data-print-row><td>{i+1}</td><td className="text">{e?.employee_no?`${e.employee_no} — `:''}{e?.full_name_ar||'—'}</td><td className="num">{money(r.basic_salary)}</td><td className="num">{money(r.housing_allowance)}</td><td className="num">{money(r.transport_allowance)}</td><td className="num">{money(r.other_allowance)}</td><td className="num">{money(r.overtime_amount)}</td><td className="num">{money(r.commission_amount)}</td><td className="num">{money(r.gross_pay)}</td><td className="num">{money(r.total_deductions)}</td><td className="num">{money(r.net_pay)}</td></tr>})}</tbody>
-          <tfoot><tr><th colSpan="8">الإجمالي</th><th className="num">{money(totals.gross)}</th><th className="num">{money(totals.ded)}</th><th className="num">{money(totals.net)}</th></tr></tfoot>
+          <tfoot><tr data-print-row-role="total" data-print-row-atomic="true"><th colSpan="8">الإجمالي</th><th className="num">{money(totals.gross)}</th><th className="num">{money(totals.ded)}</th><th className="num">{money(totals.net)}</th></tr></tfoot>
         </table>
 
         {selectionMode
           ? <section className="print-approval-block"><h2 className="print-approval-title">ملاحظة النطاق</h2><div className="print-document-subtitle">هذه الطباعة تمثل السجلات المحددة فقط. التحديد وحده لا يعني إنشاء أو اعتماد معاملة مالية.</div></section>
-          : <section className="print-approval-block">
-              <h2 className="print-approval-title">مسار الاعتماد</h2>
-              {steps.length?<div className="print-approval-list">{steps.map((s)=><div className="print-approval-step" key={s.id}><strong>الخطوة {s.step_order}: {s.target_group_label||'الجهة المختصة'}</strong><span>{STEP_STATUS[s.status]||s.status}</span>{s.decision_comment?<small>{s.decision_comment}</small>:null}</div>)}</div>:<div className="print-document-subtitle">لم تبدأ دورة الاعتماد بعد.</div>}
-            </section>}
+          : <section className="print-approval-block"><h2 className="print-approval-title">مسار الاعتماد</h2>{steps.length?<div className="print-approval-list">{steps.map((s)=><div className="print-approval-step" key={s.id}><strong>الخطوة {s.step_order}: {s.target_group_label||'الجهة المختصة'}</strong><span>{STEP_STATUS[s.status]||s.status}</span>{s.decision_comment?<small>{s.decision_comment}</small>:null}</div>)}</div>:<div className="print-document-subtitle">لم تبدأ دورة الاعتماد بعد.</div>}</section>}
         <footer className="print-document-footer">{selectionMode?'النطاق المطبوع مأخوذ من التحديد الصريح في دفتر الرواتب.':'حالة الاعتماد ورقم المعاملة مأخوذان مباشرة من سجل المعاملة المركزي.'}</footer>
       </div>
     </ConstitutionPrintFrame>
