@@ -37,8 +37,8 @@ export function PageHeader({ title, description, actions, eyebrow, children }) {
   const headerActions = actions || children;
   return (
     <WorkSheetHeader className={styles.pageHeader} data-page-header="true" data-work-header-density="compact">
-      <div className={styles.pageHeaderCopy}>
-        {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
+      <div className={styles.pageHeaderCopy} data-page-header-copy="true">
+        {eyebrow ? <div className={styles.eyebrow} data-page-eyebrow="true">{eyebrow}</div> : null}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
       </div>
@@ -59,15 +59,15 @@ export function Section({ title, description, actions, children, className = '',
       data-work-section-style={boundary ? 'boundary' : 'flow'}
     >
       {(title || description || actions) ? (
-        <header className={styles.sectionHeader}>
-          <div>
+        <header className={styles.sectionHeader} data-work-section-header="true">
+          <div data-work-section-copy="true">
             {title ? <h2 data-section-title="true">{title}</h2> : null}
             {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className={styles.actions} data-entry-ignore="true" data-action-placement="at-origin">{actions}</div> : null}
         </header>
       ) : null}
-      <div className={styles.sectionBody}>{children}</div>
+      <div className={styles.sectionBody} data-work-section-body="true">{children}</div>
     </WorkSection>
   );
 }
@@ -77,7 +77,7 @@ export function SummaryStrip({ items = [], label = 'الملخص' }) {
   return (
     <div className={styles.summaryStrip} aria-label={label} data-work-summary="true">
       {items.map((item, index) => (
-        <div className={styles.summaryItem} key={item.key || item.label || index}>
+        <div className={styles.summaryItem} data-work-summary-item="true" key={item.key || item.label || index}>
           <strong>{item.value}</strong>
           <span>{item.label}</span>
           {item.note ? <small>{item.note}</small> : null}
@@ -85,6 +85,16 @@ export function SummaryStrip({ items = [], label = 'الملخص' }) {
       ))}
     </div>
   );
+}
+
+/* حالة تشغيلية مشتركة؛ اللون معنى، والهندسة يملكها القبطان المركزي. */
+export function StatusChip({ children, tone = 'neutral', className = '' }) {
+  if (children === null || children === undefined || children === '') return null;
+  return <span className={className} data-status-chip="true" data-status-tone={tone}>{children}</span>;
+}
+
+export function StatusDot({ tone = 'neutral', className = '' }) {
+  return <span className={className} data-status-dot="true" data-status-tone={tone} aria-hidden="true" />;
 }
 
 /*
@@ -187,22 +197,22 @@ export function EntrySurface({ title, description, actions, children, className 
       style={{ scrollMarginTop: '112px' }}
     >
       {(title || description || actions) ? (
-        <header className={styles.sectionHeader}>
-          <div>
+        <header className={styles.sectionHeader} data-work-section-header="true">
+          <div data-work-section-copy="true">
             {title ? <h2 data-section-title="true">{title}</h2> : null}
             {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className={styles.actions} data-action-placement="at-origin">{actions}</div> : null}
         </header>
       ) : null}
-      <div className={styles.sectionBody}>{children}</div>
+      <div className={styles.sectionBody} data-work-section-body="true">{children}</div>
     </WorkSection>
   );
 }
 
 export function Notice({ children, tone = 'neutral', actions }) {
   return (
-    <div className={cx(styles.notice, styles[`notice_${tone}`])} role={tone === 'error' ? 'alert' : undefined} data-inline-feedback="true">
+    <div className={cx(styles.notice, styles[`notice_${tone}`])} role={tone === 'error' ? 'alert' : undefined} data-inline-feedback="true" data-status-tone={tone}>
       <div>{children}</div>
       {actions ? <div className={styles.actions}>{actions}</div> : null}
     </div>
@@ -217,6 +227,7 @@ export function InlineStatus({ children, tone = 'neutral', live = false }) {
       role={tone === 'error' ? 'alert' : undefined}
       aria-live={live ? 'polite' : undefined}
       data-work-inline-status="true"
+      data-status-tone={tone}
     >
       {children}
     </span>
@@ -265,8 +276,8 @@ export function RecordRow({ children, onOpen, href, className = '', actions, sel
       ? { type:'button', onClick:onOpen }
       : {};
   return (
-    <div className={cx(styles.recordRowShell, selected && styles.recordRowSelected, className)} role="listitem" data-record-row="true">
-      <Tag className={styles.recordRowMain} aria-label={ariaLabel} {...interactiveProps}>{children}</Tag>
+    <div className={cx(styles.recordRowShell, selected && styles.recordRowSelected, className)} role="listitem" data-record-row="true" data-selected={selected ? 'true' : undefined}>
+      <Tag className={styles.recordRowMain} data-record-row-main="true" aria-label={ariaLabel} {...interactiveProps}>{children}</Tag>
       {actions ? <div className={styles.recordRowActions} data-record-actions="true">{actions}</div> : null}
     </div>
   );
@@ -277,19 +288,19 @@ export function RecordSummary({ kicker, title, badge, meta = [], metrics = [], p
   const safeProgress = progress == null ? null : Math.max(0, Math.min(100, Number(progress) || 0));
   return (
     <div className={styles.recordSummary} data-record-summary="true">
-      <div className={styles.recordIdentity}>
-        <div className={styles.recordTitleLine}>
-          <span className={styles.recordTitle}>{title}</span>
-          {badge ? <span className={styles.recordBadge}>{badge}</span> : null}
+      <div className={styles.recordIdentity} data-record-identity="true">
+        <div className={styles.recordTitleLine} data-record-title-line="true">
+          <span className={styles.recordTitle} data-record-title="true">{title}</span>
+          {badge ? <span className={styles.recordBadge} data-record-badge="true">{badge}</span> : null}
         </div>
-        {kicker ? <span className={styles.recordKicker}>{kicker}</span> : null}
-        {meta.length ? <div className={styles.recordMeta}>{meta.filter(Boolean).map((value,index)=><span key={`${value}-${index}`}>{value}</span>)}</div> : null}
-        {note ? <small className={styles.recordNote}>{note}</small> : null}
+        {kicker ? <span className={styles.recordKicker} data-record-kicker="true">{kicker}</span> : null}
+        {meta.length ? <div className={styles.recordMeta} data-record-meta="true">{meta.filter(Boolean).map((value,index)=><span key={`${value}-${index}`}>{value}</span>)}</div> : null}
+        {note ? <small className={styles.recordNote} data-record-note="true">{note}</small> : null}
       </div>
       {(metrics.length || safeProgress != null) ? (
-        <div className={styles.recordMeasures}>
+        <div className={styles.recordMeasures} data-record-measures="true">
           {metrics.filter((item)=>item && item.value !== undefined).map((item,index)=><span key={item.key || item.label || index}><small>{item.label}</small><strong>{item.value}</strong></span>)}
-          {safeProgress != null ? <span className={styles.recordProgress}><small>الإنجاز</small><strong>{safeProgress.toFixed(0)}%</strong><i aria-hidden="true"><b style={{width:`${safeProgress}%`}} /></i></span> : null}
+          {safeProgress != null ? <span className={styles.recordProgress} data-record-progress="true"><small>الإنجاز</small><strong>{safeProgress.toFixed(0)}%</strong><i aria-hidden="true"><b style={{width:`${safeProgress}%`}} /></i></span> : null}
         </div>
       ) : null}
     </div>
