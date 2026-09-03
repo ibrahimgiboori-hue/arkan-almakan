@@ -6,9 +6,9 @@ import { AREAS } from '@/lib/app-constitution';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import {
   PORTAL_EXISTING_DESTINATION_CAPABILITIES,
-  PORTAL_MANAGEMENT_SECTIONS,
   PORTAL_SECTION_ITEMS,
 } from '@/lib/portal-section-constitution';
+import { SHELL_PORTAL_GROUPS } from '@/lib/navigation-shell-constitution';
 import { PROJECT_GUARDIANS, portalApproachHref } from '@/lib/living-navigation';
 import { requestWorkSessionNavigation } from '@/components/ui/WorkSessionRuntime';
 import styles from './approach.module.css';
@@ -45,10 +45,16 @@ export default function PortalApproachStage(){
   const groups=useMemo(()=>{
     if(!area||portal==='projects')return[];
     const byHref=new Map(tools.map((item)=>[item.href,item]));
-    return (PORTAL_MANAGEMENT_SECTIONS[portal]||[]).map((group)=>({
-      ...group,
+    const configured=SHELL_PORTAL_GROUPS[portal]||[];
+    const result=configured.map((group)=>({
+      key:group.key,
+      label:group.label,
       items:(group.hrefs||[]).map((href)=>byHref.get(href)).filter(Boolean),
     })).filter((group)=>group.items.length);
+    const assigned=new Set(configured.flatMap((group)=>group.hrefs||[]));
+    const extras=tools.filter((item)=>!assigned.has(item.href));
+    if(extras.length)result.push({key:'more',label:'المزيد',items:extras});
+    return result;
   },[area,portal,tools]);
 
   if(!area){
@@ -66,7 +72,9 @@ export default function PortalApproachStage(){
     : selected?selected.label:String(area.label||'').replace(/^بوابة\s+/,'');
   const description=portal==='projects'
     ? 'اختر الحاضنة الحالية. أسماء المشاريع الحقيقية لا تعيش في القائمة؛ ستظهر هنا بحسب حالتها.'
-    : selected?.description||'اختر المسار الذي تريد الاقتراب منه. الاختيار التالي ينتقل إلى مساحة العمل المناسبة.';
+    : selected
+      ? 'هذه المسارات تظهر هنا كخيارات فعلية؛ القائمة تحتفظ بها كتوضيح للسياق فقط.'
+      : 'اختر المسار الذي تريد الاقتراب منه. القائمة تعرض فرعًا حيًا واحدًا، والمسرح يستلم الاختيار التالي.';
 
   function openChoice(choice){
     const href=portal==='projects'
@@ -91,10 +99,7 @@ export default function PortalApproachStage(){
         onClick={()=>openChoice(choice)}
         role="listitem"
       >
-        <span>
-          <strong>{choice.label}</strong>
-          {portal!=='projects'&&!selected&&choice.description?<small>{choice.description}</small>:null}
-        </span>
+        <span><strong>{choice.label}</strong></span>
         <span className={styles.choiceMark} aria-hidden="true">‹</span>
       </button>):<div className={styles.empty}>لا توجد مسارات متاحة ضمن صلاحياتك الحالية.</div>}
     </div>
