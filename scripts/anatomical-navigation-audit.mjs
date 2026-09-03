@@ -39,7 +39,10 @@ if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*
 
 const living = requireFile('lib/living-navigation.js');
 for (const required of [
-  'single-living-branch-v2',
+  'single-living-branch-v3',
+  "grandfatherRole:'guide-to-portals-and-guardians'",
+  "childRole:'mirror-selected-biological-context'",
+  "grandchildRole:'contextual-shelf-for-existing-tool-transactions'",
   'oneExpandedSiblingPerLevel:true',
   'navigationLeadsUntilMeaningfulStage:true',
   'stageLeadsAfterGuardianOrGroupSelection:true',
@@ -48,14 +51,16 @@ for (const required of [
   'navigationYieldsOnlyAtRealWorkThreshold:true',
   'desktopNavigationYieldsWhenWorkThresholdIsCrossed:true',
   'workZoneReopenRequiresExplicitUserInvocation:true',
-  'reopenedWorkNavigationPersistsUntilUserDismisses:true',
   'desktopNavigationReservesSpaceInsteadOfCoveringStage:true',
   'sameBehaviorEngineAcrossAllPortals:true',
   'workFirstHistoryOnDemand:true',
-  "grandchildListRole:'serve-current-tool-not-global-navigation'",
-  'grandchildPrimaryActionComesFirst:true',
-  'grandchildHistoryGroupingIsToolSpecific:true',
-  'grandchildHistoricalItemOpensItselfNotItsClassification:true',
+  "workStageOccupancy:'one-real-action-or-one-selected-transaction-only'",
+  'grandchildContainsExistingTransactionsOnly:true',
+  'grandchildNeverListsTransactionsOnStage:true',
+  'grandchildClassificationIsToolSpecific:true',
+  'grandchildClassificationLabelsMustBeShortProfessional:true',
+  'grandchildTransactionOpensItselfNotItsClassification:true',
+  'grandchildSelectionClosesNavigationAndOwnsStage:true',
   "semanticBack:'one-anatomical-level-never-browser-history'",
   'PROJECT_GUARDIANS',
   'PROJECT_APPROACH_REGIONS',
@@ -92,8 +97,11 @@ for (const required of [
   'data-navigation-role={navigationRole}',
   'GRANDCHILD_NAVIGATION_EVENT',
   'renderGrandchild',
-  'appNavGrandchildPrimary',
+  'activeGrandchildTab',
+  'appNavGrandchildTabs',
+  'appNavGrandchildTab',
   'appNavGrandchildGroupTitle',
+  'onClick={()=>go(item.href,{keepOpen:false})}',
   'appNavBackArrow',
   'appNavDismiss',
   'requestWorkSessionNavigation',
@@ -113,16 +121,13 @@ if (/>\s*أركان المكان\s*</.test(nav)) failures.push('الوعي ال�
 if (/>\s*مركز العمل\s*</.test(nav)) failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
 if (/>\s*الكل\s*</.test(nav)) failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل الأب التشريحي الحقيقي.');
 if (nav.includes('router.back(')) failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
-if (nav.includes("from '@/lib/supabase'")) failures.push('مرآة السياق: القائمة لا تستعلم عن الكيان البيولوجي أو الحفيد؛ تستقبل بياناته من العضو فقط.');
+if (nav.includes("from '@/lib/supabase'")) failures.push('القائمة لا تستعلم عن الكيان البيولوجي أو معاملات الحفيد؛ تستقبل بياناتها من العضو أو المسرح.');
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق: العنصر الشرفي لا يجوز أن يصبح زر عمل.');
 if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('الملاحة التشريحية: عاد مسار رسم خاص بالمشاريع بدل محرك عقد الدخول العام.');
 if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
 if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
-if (!/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,360}?setOpen\(false\);[\s\S]{0,120}?\}/.test(nav)) {
-  failures.push('عتبة العمل: القائمة يجب أن تتنحى تلقائيًا عند الوصول إلى إجراء/إدخال حقيقي، ثم لا تعود إلا باستدعاء المستخدم.');
-}
-if (/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,240}?isCompactNavigationViewport\(\)/.test(nav)) {
-  failures.push('عتبة العمل: إخفاء القائمة عند بدء العمل الحقيقي يجب أن يشمل سطح المكتب أيضًا، لا الجوال فقط.');
+if (!/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,300}?setOpen\(false\);[\s\S]{0,100}?\}/.test(nav)) {
+  failures.push('عتبة العمل: القائمة يجب أن تتنحى تلقائيًا عند الوصول إلى إجراء/إدخال حقيقي.');
 }
 
 const projectStage = requireFile('components/ui/ProjectAnatomyStage.js');
@@ -203,18 +208,28 @@ if (!thresholdRuntime.includes('useSearchParams') || !thresholdRuntime.includes(
 const quoteBoundary = requireFile('app/dashboard/quotes/layout.js');
 for (const required of [
   'publishGrandchildNavigationContext',
-  "classification:'client'",
-  "historyLabel:'السجل حسب العميل'",
-  "primaryAction:{ label:'إنشاء عرض سعر'",
+  'QUOTE_LIST_TABS',
+  "classification:'status-then-client'",
+  'tabs,',
+  'groupsByClient',
+  'currentItemTabKey',
+  'data-selected-quote-actions="true"',
+  'data-action-consequence="destructive"',
 ]) {
   if (!quoteBoundary.includes(required)) failures.push(`قائمة الحفيد لعروض الأسعار: مفقود ${required}`);
 }
+
 const quoteWork = requireFile('app/dashboard/quotes/page.js');
-if (quoteWork.includes('<table>') || quoteWork.includes('title="السجل"')) {
-  failures.push('عروض الأسعار: السجل التاريخي عاد ليحتل مسرح العمل بدل قائمة الحفيد.');
+for (const required of [
+  'data-new-quotation-operation="true"',
+  'data-stage-occupancy="single-action"',
+  'title="إصدار جديد"',
+  'بدء الإصدار',
+]) {
+  if (!quoteWork.includes(required)) failures.push(`مسرح عروض الأسعار: مفقود ${required}`);
 }
-if (!quoteWork.includes('data-current-work-only="true"') || !quoteWork.includes('العمل الجاري')) {
-  failures.push('عروض الأسعار: المسرح يجب أن يقدّم العمل الجاري والجديد قبل التاريخ.');
+if (quoteWork.includes('<table>') || quoteWork.includes('العمل الجاري') || quoteWork.includes('السجل')) {
+  failures.push('عروض الأسعار: أي قائمة معاملات داخل المسرح تخالف قاعدة «المعاملة المختارة وحدها تأكل الجو».');
 }
 
 const css = requireFile('app/dashboard/living-navigation.css');
@@ -224,7 +239,8 @@ for (const required of [
   '.appNavMirrorSubject',
   '.appNavHonoraryListNested',
   '.appNavGrandchild',
-  '.appNavGrandchildPrimary',
+  '.appNavGrandchildTabs',
+  '.appNavGrandchildTab',
   '.appNavGrandchildGroupTitle',
 ]) {
   if (!css.includes(required)) failures.push(`سلوك الجسد المرئي: مفقود ${required}`);
@@ -247,4 +263,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: grandfather guides, child mirrors, grandchild serves the current tool with work first and history on demand, and real work keeps the stage clean.');
+console.log('Anatomical navigation audit passed: grandfather guides, child mirrors, grandchild shelves existing transactions, and one real action or selected transaction owns the stage.');
