@@ -27,7 +27,6 @@ import {
 } from '@/lib/portal-living-navigation';
 import { requestWorkSessionNavigation } from '@/components/ui/WorkSessionRuntime';
 
-const NAVIGATION_YIELD_EVENT = 'arkan:navigation-yield-to-work';
 const FAST_DESKTOP_BACK_WINDOW_MS = 5000;
 
 function isCompactNavigationViewport() {
@@ -184,15 +183,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       if (navRef.current?.contains(event.target) || edgeRef.current?.contains(event.target)) return;
       setOpen(false);
     }
-    function yieldToWork() {
-      setOpen(false);
-    }
     window.addEventListener('keydown', keydown);
-    window.addEventListener(NAVIGATION_YIELD_EVENT, yieldToWork);
     document.addEventListener('pointerdown', outsidePointer);
     return () => {
       window.removeEventListener('keydown', keydown);
-      window.removeEventListener(NAVIGATION_YIELD_EVENT, yieldToWork);
       document.removeEventListener('pointerdown', outsidePointer);
     };
   }, [open]);
@@ -367,7 +361,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
                 key={item.id || item.href}
                 className="appNavGrandchildItem"
                 data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
-                onClick={()=>go(item.href,{keepOpen:false})}
+                onClick={()=>go(item.href)}
               >
                 <span>{item.label}</span>
                 {item.meta ? <small>{item.meta}</small> : null}
@@ -496,7 +490,12 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           {grandchildMode ? renderGrandchild() : (mirrorMode ? renderMirror() : renderGuide())}
 
           <div className="appNavBottomActions">
-            <button type="button" onClick={onSignOut}>خروج</button>
+            <details className="appNavAccountMenu">
+              <summary>الحساب</summary>
+              <div className="appNavAccountMenuBody">
+                <button type="button" onClick={onSignOut}>تسجيل الخروج</button>
+              </div>
+            </details>
           </div>
         </div>
       </> : null}
