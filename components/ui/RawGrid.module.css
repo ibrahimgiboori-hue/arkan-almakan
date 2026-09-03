@@ -54,25 +54,60 @@
 .badgeMuted { color: var(--raw-muted); }
 
 .field {
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  min-height: 40px;
   padding: 8px 7px;
   border: 1px solid var(--raw-border);
   border-radius: var(--raw-radius-sm);
   background: var(--raw-paper);
   color: inherit;
   font: inherit;
+  line-height: 1.45;
   outline: 0;
 }
 .field:focus {
   border-color: var(--raw-wine);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--raw-wine) 8%, transparent);
 }
+.field:disabled {
+  opacity: 1;
+  cursor: default;
+  background: color-mix(in srgb, var(--raw-border-soft) 42%, var(--raw-paper));
+  border-color: var(--raw-border-soft);
+  color: var(--raw-ink);
+  -webkit-text-fill-color: var(--raw-ink);
+}
 .fieldSaved {
   background: color-mix(in srgb, var(--raw-wine) 5%, var(--raw-paper));
   border-color: color-mix(in srgb, var(--raw-wine) 25%, var(--raw-border));
 }
-.fieldMuted { opacity: .45; }
+.fieldReadOnly {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--raw-border-soft) 42%, var(--raw-paper));
+  border-color: var(--raw-border-soft);
+  font-variant-numeric: tabular-nums;
+}
+.fieldReadOnly[data-field-mode='generated'],
+.fieldReadOnly[data-field-mode='calculated'] { font-weight: 760; }
+.fieldReadOnly[data-field-mode='linked'] { border-inline-start: 2px solid color-mix(in srgb, var(--raw-wine) 48%, var(--raw-border)); }
+.fieldMuted {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 8px 7px;
+  border: 1px solid var(--raw-border-soft);
+  border-radius: var(--raw-radius-sm);
+  background: color-mix(in srgb, var(--raw-border-soft) 42%, var(--raw-paper));
+  color: var(--raw-muted);
+}
 
 .actionCell { text-align: center; white-space: nowrap; }
 .actionButton {
