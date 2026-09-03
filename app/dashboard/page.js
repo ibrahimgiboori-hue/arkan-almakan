@@ -175,7 +175,7 @@ export default function Dashboard() {
       data-work-center="attention-dashboard"
     >
       <PageHeader
-        title="لوحة المتابعة"
+        title="مركز العمل"
         description="ما يحتاج انتباهك اليوم من أعمال وقرارات وتنبيهات؛ التاريخ الكامل يبقى في أدواته الأصلية."
       />
 

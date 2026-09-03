@@ -49,6 +49,7 @@ const geometry = requireText('app/dashboard/arkan-dashboard-geometry-v2.css', [
   "[data-organ-host='route-content']",
   ".rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage",
   '.appCompletedSurface','.appCompletedActions','.appNavBackArrow','.appNavHonorary','.appNavGrandchildTabs','.appNavGrandchildTab','.appUnsavedNavigationGuard','.appUnsavedNavigationActions',
+  "[data-record-statuses='true']",
   "[data-work-form-grid='true'] [data-work-field='true']",
   "[data-field-mode='generated']","[data-field-mode='linked']","[data-field-mode='calculated']",
 ]);
@@ -86,6 +87,11 @@ if (/p_source_table:'payroll_runs'.*fn_submit_transaction_source/s.test(payroll)
 
 const budget = requireText('app/dashboard/operating-budget/page.js', ['selectedStatementIds','WorkSelectionDock','printSelectedStatement','طباعة المحدد']);
 if (/submitSelectedStatement|approveSelectedStatement/i.test(budget)) failures.push('ميزانية التشغيل: التقرير المشتق لا ينشئ معاملة جماعية بلا مصدر تشغيلي صريح.');
+
+const portalApprovals = requireText('app/dashboard/workspace/[portal]/approvals/page.js', [
+  'RecordList','RecordRow','RecordSummary','StatusChip','ConstitutionDialog','data-record-statuses="true"',
+]);
+if (/\.module\.css|window\.prompt/.test(portalApprovals)) failures.push('اعتمادات البوابة: يجب أن تستهلك primitives والحوار الموحدين دون هندسة صفحة أو نافذة متصفح موازية.');
 
 if (failures.length) {
   console.error('\nProgram-driven work surface audit failed:\n');

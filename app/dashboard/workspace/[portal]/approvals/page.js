@@ -3,8 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ConstitutionPage, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
-import styles from './portal-work-center.module.css';
+import {
+  ActionDock,
+  ConstitutionPage,
+  EmptyState,
+  Notice,
+  RecordList,
+  RecordRow,
+  RecordSummary,
+  Section,
+  StatusChip,
+  WorkField,
+  WorkFormGrid,
+} from '@/components/ui/ConstitutionUI';
+import ConstitutionDialog from '@/components/ui/ConstitutionDialog';
 
 const PORTALS=Object.freeze({
   projects:'المشاريع',workforce:'الموارد البشرية',finance:'المالية',documents:'المستندات',admin:'الإدارة',
@@ -18,6 +30,13 @@ function flagFor(view){
   return view==='portal'?'is_portal':view==='sent'?'is_sent':view==='archive'?'is_archive':view==='cc'?'is_cc':'is_mine';
 }
 function displayOwner(row){return row.target_user_name||row.target_label||'الجهة المختصة';}
+function statusTone(status){
+  if(['approved','completed','closed'].includes(status))return 'success';
+  if(['rejected','cancelled'].includes(status))return 'danger';
+  if(['returned','waiting'].includes(status))return 'warning';
+  if(['pending','new','received','in_progress'].includes(status))return 'info';
+  return 'neutral';
+}
 
 export default function PortalWorkCenterPage(){
   const {portal}=useParams();
@@ -78,19 +97,22 @@ export default function PortalWorkCenterPage(){
     setBusy(false);
   }
 
-  async function taskAction(row,action){
+  async function taskAction(row,action,actionNote=null){
     if(!row?.task_id)return;
-    let actionNote=null;
-    if(action==='wait'){
-      actionNote=window.prompt('اكتب سبب الانتظار أو التعليق:');
-      if(actionNote===null)return;
+    const preparedNote=typeof actionNote==='string'?actionNote.trim():null;
+    if(action==='wait'&&!preparedNote){
+      setError('اكتب سبب الانتظار أو التعليق قبل تنفيذ الإجراء.');
+      return;
     }
     setBusy(true);setError('');setMessage('');
     const {error:rpcError}=await supabase.rpc('fn_workspace_task_action',{
-      p_task_id:row.task_id,p_action:action,p_note:actionNote||null,p_progress:null,
+      p_task_id:row.task_id,p_action:action,p_note:preparedNote||null,p_progress:null,
     });
     if(rpcError)setError(rpcError.message||'تعذر تنفيذ التكليف.');
-    else{setMessage(action==='receive'?'تم استلام التكليف وأصبح مسندًا لك.':'تم تحديث التكليف.');await load();}
+    else{
+      setMessage(action==='receive'?'تم استلام التكليف وأصبح مسندًا لك.':'تم تحديث التكليف.');
+      setComposer(null);setNote('');await load();
+    }
     setBusy(false);
   }
 
@@ -113,47 +135,64 @@ export default function PortalWorkCenterPage(){
     ...(primary?[['cc','CC الإدارة',counts.cc]]:[]),
   ];
 
+  const dialogTitle=!composer?'':composer.kind==='approve'?'اعتماد المعاملة':composer.kind==='return'?'إرجاع للتعديل':composer.kind==='reject'?'رفض المعاملة':composer.kind==='wait'?'تعليق التكليف مؤقتًا':'استفسار عن المعاملة';
+  const noteRequired=Boolean(composer&&['return','reject','wait'].includes(composer.kind));
+
   return <ConstitutionPage>
     {error?<Notice tone="warning">{error}</Notice>:null}
     {message?<Notice tone="success">{message}</Notice>:null}
     <Section title={`مركز الإجراءات والاعتمادات — ${PORTALS[portalKey]}`} description={primary?'المستخدم الرئيسي يرى الحركة الحية والأرشيف كاملًا كنسخة CC؛ التنفيذ يبقى محكومًا بالمسند إليه والصلاحية.':'الوارد لك، الوارد للبوابة، الصادر منك، وأرشيف الإجراءات التي اتخذتها.'}>
-      <div className={styles.tabs} role="tablist">
-        {tabs.map(([key,label,count])=><button key={key} type="button" role="tab" aria-selected={view===key} className={view===key?styles.tabActive:styles.tab} onClick={()=>setView(key)}>{label} · {count}</button>)}
+      <div className="tabs" role="tablist" aria-label="نطاق المعاملات">
+        {tabs.map(([key,label,count])=><button key={key} type="button" role="tab" aria-selected={view===key} onClick={()=>setView(key)}>{label} · {count}</button>)}
       </div>
-      {visible.length===0?<div className={styles.empty}>لا توجد معاملات مطابقة لهذا العرض.</div>:<div className={styles.list}>
-        {visible.map(row=><div className={styles.row} key={`${row.item_kind}-${row.item_id}`}>
-          <div className={`${styles.cell} ${styles.transaction}`}><strong>{row.title||'معاملة'}</strong><small>{row.reference_no||(row.item_kind==='task'?'تكليف إجرائي':'—')}</small></div>
-          <div className={`${styles.cell} ${styles.action}`}>{row.action_label||'إجراء'}</div>
-          <div className={`${styles.cell} ${styles.owner}`}><span>{displayOwner(row)}</span>{row.is_cc&&!row.can_act&&primary?<small><span className={styles.cc}>CC للمتابعة</span></small>:null}</div>
-          <div className={`${styles.cell} ${styles.status}`}>{STATUS[row.status]||row.status||'—'}</div>
-          <div className={`${styles.cell} ${styles.note}`} title={row.note||''}>{row.note||'لا توجد ملاحظة مسجلة'}</div>
-          <div className={styles.actions} data-entry-ignore="true">
+      {visible.length===0?<EmptyState title="لا توجد معاملات مطابقة لهذا العرض" description="غيّر نطاق العرض أو عد لاحقًا عند وصول معاملة جديدة."/>:<RecordList label="المعاملات والإجراءات">
+        {visible.map(row=><RecordRow
+          key={`${row.item_kind}-${row.item_id}`}
+          actions={<>
             {row.item_kind==='approval'&&row.can_act&&row.status==='pending'?<>
-              <button className={styles.primary} type="button" onClick={()=>{setComposer({kind:'approve',row});setNote('');}}>اعتماد</button>
-              <button type="button" onClick={()=>{setComposer({kind:'return',row});setNote('');}}>إرجاع</button>
-              <button type="button" onClick={()=>{setComposer({kind:'reject',row});setNote('');}}>رفض</button>
+              <button className="btn" type="button" onClick={()=>{setComposer({kind:'approve',row});setNote('');}}>اعتماد</button>
+              <button className="btn ghost" type="button" onClick={()=>{setComposer({kind:'return',row});setNote('');}}>إرجاع</button>
+              <button className="btn ghost" type="button" onClick={()=>{setComposer({kind:'reject',row});setNote('');}}>رفض</button>
             </>:null}
-            {row.item_kind==='approval'?<button type="button" onClick={()=>{setComposer({kind:'inquiry',row});setNote('');}}>استفسار</button>:null}
-            {row.item_kind==='task'&&row.can_act&&row.status==='new'?<button className={styles.primary} type="button" onClick={()=>taskAction(row,'receive')} disabled={busy}>استلام</button>:null}
-            {row.item_kind==='task'&&row.can_act&&['new','received','waiting'].includes(row.status)&&!row.is_portal?<button type="button" onClick={()=>taskAction(row,'start')} disabled={busy}>بدء</button>:null}
-            {row.item_kind==='task'&&row.can_act&&['received','in_progress'].includes(row.status)?<button type="button" onClick={()=>taskAction(row,'wait')} disabled={busy}>انتظار</button>:null}
-            {row.item_kind==='task'&&row.can_act&&['received','in_progress','waiting'].includes(row.status)?<button className={styles.primary} type="button" onClick={()=>taskAction(row,'complete')} disabled={busy}>إكمال</button>:null}
+            {row.item_kind==='approval'?<button className="btn ghost" type="button" onClick={()=>{setComposer({kind:'inquiry',row});setNote('');}}>استفسار</button>:null}
+            {row.item_kind==='task'&&row.can_act&&row.status==='new'?<button className="btn" type="button" onClick={()=>taskAction(row,'receive')} disabled={busy}>استلام</button>:null}
+            {row.item_kind==='task'&&row.can_act&&['new','received','waiting'].includes(row.status)&&!row.is_portal?<button className="btn ghost" type="button" onClick={()=>taskAction(row,'start')} disabled={busy}>بدء</button>:null}
+            {row.item_kind==='task'&&row.can_act&&['received','in_progress'].includes(row.status)?<button className="btn ghost" type="button" onClick={()=>{setComposer({kind:'wait',row});setNote('');}} disabled={busy}>انتظار</button>:null}
+            {row.item_kind==='task'&&row.can_act&&['received','in_progress','waiting'].includes(row.status)?<button className="btn" type="button" onClick={()=>taskAction(row,'complete')} disabled={busy}>إكمال</button>:null}
+          </>}
+        >
+          <RecordSummary
+            title={row.title||'معاملة'}
+            kicker={row.reference_no||(row.item_kind==='task'?'تكليف إجرائي':'—')}
+            meta={[row.action_label||'إجراء',displayOwner(row)]}
+            note={row.note||'لا توجد ملاحظة مسجلة'}
+          />
+          <div data-record-statuses="true">
+            <StatusChip tone={statusTone(row.status)}>{STATUS[row.status]||row.status||'—'}</StatusChip>
+            {row.is_cc&&!row.can_act&&primary?<StatusChip>CC للمتابعة</StatusChip>:null}
           </div>
-        </div>)}
-      </div>}
+        </RecordRow>)}
+      </RecordList>}
     </Section>
 
-    {composer?<div className={styles.overlay} role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setComposer(null);}}>
-      <div className={styles.dialog} role="dialog" aria-modal="true">
-        <h3>{composer.kind==='approve'?'اعتماد المعاملة':composer.kind==='return'?'إرجاع للتعديل':composer.kind==='reject'?'رفض المعاملة':'استفسار عن المعاملة'}</h3>
-        <p>{composer.row.title}</p>
-        <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={composer.kind==='approve'?'ملاحظة اختيارية…':'اكتب الملاحظة أو السبب…'} autoFocus/>
-        {error?<div className={`${styles.message} ${styles.error}`}>{error}</div>:null}
-        <div className={styles.dialogActions}>
-          <button type="button" onClick={()=>setComposer(null)} disabled={busy}>إلغاء</button>
-          <button type="button" className={styles.primary} disabled={busy} onClick={()=>composer.kind==='inquiry'?sendInquiry(composer.row):decide(composer.row,composer.kind)}>{busy?'جارٍ التنفيذ…':'تنفيذ'}</button>
-        </div>
-      </div>
-    </div>:null}
+    <ConstitutionDialog
+      open={Boolean(composer)}
+      title={dialogTitle}
+      description={composer?.row?.title||''}
+      onClose={()=>{if(!busy){setComposer(null);setNote('');setError('');}}}
+      size="compact"
+      showBack={false}
+    >
+      <WorkFormGrid columns={12} label="ملاحظة الإجراء">
+        <WorkField label={noteRequired?'السبب':'الملاحظة'} span={12} hint={noteRequired?'هذا البيان مطلوب لإكمال الإجراء.':'يمكن ترك الملاحظة فارغة.'}>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={noteRequired?'اكتب السبب…':'ملاحظة اختيارية…'} autoFocus/>
+        </WorkField>
+      </WorkFormGrid>
+      {error?<Notice tone="error">{error}</Notice>:null}
+      <ActionDock>
+        <button type="button" className="btn ghost" onClick={()=>{setComposer(null);setNote('');setError('');}} disabled={busy}>إلغاء</button>
+        <button type="button" className="btn" disabled={busy||noteRequired&&!note.trim()} onClick={()=>composer.kind==='inquiry'?sendInquiry(composer.row):composer.kind==='wait'?taskAction(composer.row,'wait',note):decide(composer.row,composer.kind)}>{busy?'جارٍ التنفيذ…':'تنفيذ'}</button>
+      </ActionDock>
+    </ConstitutionDialog>
   </ConstitutionPage>;
 }

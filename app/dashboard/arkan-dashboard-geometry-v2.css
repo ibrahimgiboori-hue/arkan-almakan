@@ -367,6 +367,7 @@
   .rawDashboardContent [data-record-progress='true'] i { display:block !important; width:92px !important; height:3px !important; margin-top:3px !important; overflow:hidden !important; border-radius:999px !important; background:var(--arkan-rule-soft) !important; }
   .rawDashboardContent [data-record-progress='true'] i b { display:block !important; height:100% !important; border-radius:999px !important; background:var(--raw-wine) !important; }
   .rawDashboardContent [data-record-actions='true'] { display:flex !important; align-items:center !important; gap:5px !important; padding-inline:6px !important; }
+  .rawDashboardContent [data-record-statuses='true'] { display:flex !important; align-items:center !important; justify-content:flex-end !important; gap:5px !important; flex-wrap:wrap !important; }
 
   /* Status language imported from the paid UI Lab as a shared primitive, not a local widget. */
   .rawDashboardContent [data-status-chip='true'] {
