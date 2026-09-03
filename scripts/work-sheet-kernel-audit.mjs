@@ -77,7 +77,10 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'requestWorkSessionNavigation',
   'data-living-branch="single"',
   'data-living-branch-scope="all-portals"',
-  'data-navigation-role={mirrorMode',
+  'data-navigation-role={navigationRole}',
+  'GRANDCHILD_NAVIGATION_EVENT',
+  'renderGrandchild',
+  'appNavGrandchildPrimary',
   'appNavDismiss',
   'onClick={openNavigation}',
   'className="appContextNav"',
@@ -90,7 +93,7 @@ if (nav.includes('router.back(')) failures.push('الملاحة السياقية
 if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة الجديدة عادت للاعتماد على تجميعات كتالوج البوابات القديم.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
-if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة بدأت تستعلم عن بيانات الكيانات بدل استقبال انعكاس المسرح.');
+if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة بدأت تستعلم عن بيانات الكيانات بدل استقبال انعكاس العضو أو المسرح.');
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق تحولت إلى اختصار عمل قابل للضغط.');
 if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) {
   failures.push('الملاحة عادت لرسم فرع المشاريع بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
@@ -99,6 +102,9 @@ if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)
 const livingCss = read('app/dashboard/living-navigation.css');
 if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) {
   failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحة من الجسد بدل تغطية العمل.');
+}
+if (!livingCss.includes('.appNavGrandchild') || !livingCss.includes('.appNavGrandchildGroupTitle')) {
+  failures.push('قائمة الحفيد: قبطان الشكل لا يعرف رف الأداة الحالي أو مجموعاته التاريخية.');
 }
 
 requireText('components/ui/ConstitutionUI.js', [
@@ -129,4 +135,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: one visual captain and one entry-node behavior engine span every portal; the stage/list leadership handoff is shared, and desktop navigation persists without creating a second canvas.');
+console.log('Single visual captain audit passed: grandfather, child, and grandchild all use the same visual captain; work keeps the stage clean and history stays on demand.');
