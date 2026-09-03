@@ -27,9 +27,6 @@ for (const required of [
   "visibility:'idle-body-only'",
   'navigationAccess:false',
   "label:'البوابات'",
-  "'/dashboard/projects': 'سجل المشاريع'",
-  "'/dashboard/employees': 'سجل الموظفين'",
-  'isMeaningfulBranch',
   'perspectiveQuickLinks',
 ]) {
   if (!anatomy.includes(required)) failures.push(`التشريح: مفقود ${required}`);
@@ -39,15 +36,35 @@ if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*
   failures.push('مركز العمل: العدسات الشخصية لا يجوز أن تعود كروابط داخل القائمة.');
 }
 
+const living = requireFile('lib/living-navigation.js');
+for (const required of [
+  'single-living-branch-v1',
+  'oneExpandedSiblingPerLevel:true',
+  'biologicalEntitiesLiveOnStageOnly:true',
+  "biologicalChildFirstSurface:'identity-card-before-work-navigation'",
+  'directWorkChildrenAreHonoraryInNavigation:true',
+  'workChildrenAreClickableOnStage:true',
+  "semanticBack:'one-anatomical-level-never-browser-history'",
+  'PROJECT_GUARDIANS',
+  'PROJECT_APPROACH_REGIONS',
+  'projectApproachHref',
+  'portalApproachHref',
+]) {
+  if (!living.includes(required)) failures.push(`الفرع الحي: مفقود ${required}`);
+}
+
 const nav = requireFile('components/ui/ContextualDashboardNavigation.js');
 for (const required of [
   "from '@/lib/anatomical-navigation'",
+  "from '@/lib/living-navigation'",
   'data-navigation-consciousness="implicit"',
-  'USER_PERSPECTIVE.label',
-  'anatomyAreaLabel',
-  'anatomyToolLabel',
-  'isMeaningfulBranch',
-  'perspectiveQuickLinks',
+  'data-living-branch="single"',
+  'appNavBackArrow',
+  'requestWorkSessionNavigation',
+  'appNavHonoraryList',
+  'appNavHonorary',
+  'projectApproachHref',
+  'portalApproachHref',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
@@ -59,13 +76,40 @@ if (/>\s*مركز العمل\s*</.test(nav)) {
   failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
 }
 if (/>\s*الكل\s*</.test(nav)) {
-  failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل اسم الأب أو منظور المستخدم.');
-}
-if (!nav.includes('const directItem = !isMeaningfulBranch(group) ? group.items[0] : null')) {
-  failures.push('التشريح: المجموعة ذات الابن الواحد يجب أن تُسطّح بدل اختراع مستوى ملاحة وهمي.');
+  failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل الأب التشريحي الحقيقي.');
 }
 if (nav.includes('router.back(')) {
   failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
+}
+if (!/availableProjectGuardians\.map[\s\S]*projectId[\s\S]*appNavProjectContext/.test(nav)) {
+  failures.push('الأبناء البيولوجيون: بعد اختيار المشروع يجب أن يظهر سياقه دون تحويل قائمة الحاضنة إلى قائمة أسماء مشاريع.');
+}
+if (!/<span[^>]+className="appNavHonorary"/.test(nav)) {
+  failures.push('العمل المباشر: العناصر الشرفية داخل القائمة يجب أن تكون نصًا غير قابل للضغط.');
+}
+if (/<button[^>]+className="appNavHonorary"/.test(nav)) {
+  failures.push('العمل المباشر: العنصر الشرفي لا يجوز أن يصبح اختصارًا قابلًا للضغط للعمل.');
+}
+
+const projectStage = requireFile('components/ui/ProjectAnatomyStage.js');
+for (const required of [
+  'data-biological-card="project"',
+  'بطاقة المشروع',
+  'data-navigation-stage="project-region"',
+  'projectNavigationHref',
+  'requestWorkSessionNavigation',
+]) {
+  if (!projectStage.includes(required)) failures.push(`مسرح المشروع: مفقود ${required}`);
+}
+
+const portalStage = requireFile('app/dashboard/workspace/[portal]/page.js');
+for (const required of [
+  'data-navigation-stage="approach"',
+  'PROJECT_GUARDIANS',
+  'requestWorkSessionNavigation',
+  'حاضنات الحالة',
+]) {
+  if (!portalStage.includes(required)) failures.push(`مسرح الملاحة: مفقود ${required}`);
 }
 
 const idle = requireFile('app/dashboard/page.js');
@@ -85,4 +129,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: product consciousness stays implicit, work center exists only as the idle body surface, visible navigation starts from portals, parent zoom-out is semantic, and single-child pseudo-levels are flattened.');
+console.log('Anatomical navigation audit passed: implicit consciousness stays hidden, the work center remains idle-only, one living branch owns navigation, biological children live on the stage, direct work stays honorary in the menu, and semantic back never depends on browser history.');
