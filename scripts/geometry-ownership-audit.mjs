@@ -19,6 +19,7 @@ const RETIRED_GEOMETRY_NAMES = [
   'navigation-comfort-v1.css',
   'legacy-structure-bridge-v1.css',
   'approach.module.css',
+  'work-center.module.css',
 ];
 
 function walk(relative, files = []) {
