@@ -23,11 +23,20 @@ for (const required of [
   'child-must-add-meaning-and-must-not-repeat-parent-label',
   'do-not-invent-a-navigation-level-for-a-single-child',
   "label: 'مركز العمل'",
+  'workCenterMustNotAppearInNavigation',
+  "visibility:'idle-body-only'",
+  'navigationAccess:false',
+  "label:'البوابات'",
   "'/dashboard/projects': 'سجل المشاريع'",
   "'/dashboard/employees': 'سجل الموظفين'",
   'isMeaningfulBranch',
+  'perspectiveQuickLinks',
 ]) {
   if (!anatomy.includes(required)) failures.push(`التشريح: مفقود ${required}`);
+}
+
+if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*;?\s*\}/s.test(anatomy)) {
+  failures.push('مركز العمل: العدسات الشخصية لا يجوز أن تعود كروابط داخل القائمة.');
 }
 
 const nav = requireFile('components/ui/ContextualDashboardNavigation.js');
@@ -46,6 +55,9 @@ for (const required of [
 if (/>\s*أركان المكان\s*</.test(nav)) {
   failures.push('الوعي المستتر: اسم أركان المكان عاد كعنصر مرئي داخل الملاحة اليومية.');
 }
+if (/>\s*مركز العمل\s*</.test(nav)) {
+  failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
+}
 if (/>\s*الكل\s*</.test(nav)) {
   failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل اسم الأب أو منظور المستخدم.');
 }
@@ -56,10 +68,21 @@ if (nav.includes('router.back(')) {
   failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
 }
 
+const idle = requireFile('app/dashboard/page.js');
+for (const required of [
+  'data-idle-work-surface="true"',
+  'data-work-center-visibility="idle-only"',
+  'مركز العمل',
+  'أعمالي',
+  'بانتظار قراري',
+]) {
+  if (!idle.includes(required)) failures.push(`وضع الخمول: مفقود ${required}`);
+}
+
 if (failures.length) {
   console.error('\nAnatomical navigation audit failed:\n');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: product consciousness stays implicit, visible hierarchy starts from the user perspective, parent zoom-out is semantic, and single-child pseudo-levels are flattened.');
+console.log('Anatomical navigation audit passed: product consciousness stays implicit, work center exists only as the idle body surface, visible navigation starts from portals, parent zoom-out is semantic, and single-child pseudo-levels are flattened.');
