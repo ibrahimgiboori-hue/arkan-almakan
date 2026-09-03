@@ -1,12 +1,18 @@
 import './globals.css';
-import { IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { Alexandria, Readex_Pro } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
 
-const plex = IBM_Plex_Sans_Arabic({
+const alexandria = Alexandria({
   subsets: ['arabic', 'latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-plex',
+  weight: ['500', '600', '700'],
+  variable: '--font-alexandria',
+});
+
+const readex = Readex_Pro({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-readex',
 });
 
 export const metadata = {
@@ -21,10 +27,10 @@ export default function RootLayout({ children }) {
       dir="rtl"
       data-system-constitution="v2"
       data-system-version={SYSTEM_VERSION}
-      className={plex.variable}
+      className={`${alexandria.variable} ${readex.variable}`}
       style={{
-        '--font-display': 'var(--font-plex)',
-        '--font-body': 'var(--font-plex)',
+        '--font-display': 'var(--font-alexandria)',
+        '--font-body': 'var(--font-readex)',
       }}
     >
       <body>
