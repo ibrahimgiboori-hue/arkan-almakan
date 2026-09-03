@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import {
   PRINT_GRID_COLUMNS,
   PRINT_GRID_ROW_MM,
   majorGuideTracks,
   moveTrackBoundary,
+  nearestGuide,
   resolveStoredTracks,
   serializeTracks,
   tracksToSpans,
@@ -13,7 +14,9 @@ import {
 import BoundaryBoxEditor from '@/components/print/BoundaryBoxEditor';
 
 const MM_TO_CSS_PX = 96 / 25.4;
+const MIN_BOX_SPAN = 2;
 const px = (value) => Number.parseFloat(value) || 0;
+const clamp = (value,min,max) => Math.min(max,Math.max(min,Number(value)));
 
 function measuredWeights(elements,width){
   if(!elements.length)return [];
@@ -73,7 +76,6 @@ function ensureColgroup(table,count){
 function measuredColumnWeights(table,cols,count){
   const colWidths=cols.map((col)=>col.getBoundingClientRect().width);
   if(colWidths.every((width)=>width>0))return measuredWeights(cols,table.getBoundingClientRect().width);
-
   for(const row of table.rows||[]){
     if([...row.cells].some((cell)=>Number(cell.rowSpan||1)>1))continue;
     const total=[...row.cells].reduce((sum,cell)=>sum+Math.max(1,Number(cell.colSpan||1)),0);
@@ -142,7 +144,7 @@ function visibleBottomBoundary(row){
   });
 }
 
-function rowStructuralIdentity(row,table){
+function rowStructuralIdentity(row){
   if(row.dataset.printRowName)return row.dataset.printRowName;
   if(row.dataset.printGridName)return row.dataset.printGridName;
   if(row.dataset.printRowRole)return `role:${row.dataset.printRowRole}`;
@@ -179,7 +181,6 @@ function addTableRowHeight({table,row,key,stored,setRowHeight}){
   handle.style.left=`${tableRect.left-anchorRect.left}px`;
   handle.style.width=`${tableRect.width}px`;
   anchor.appendChild(handle);
-
   const down=(event)=>{
     event.preventDefault();event.stopPropagation();
     const startY=event.clientY;
@@ -198,6 +199,86 @@ function addTableRowHeight({table,row,key,stored,setRowHeight}){
     event.preventDefault();event.stopPropagation();
     applyTableRowHeight(row,null);
     setRowHeight(key,null);
+  };
+  handle.addEventListener('pointerdown',down);
+  handle.addEventListener('dblclick',dbl);
+  return()=>{handle.removeEventListener('pointerdown',down);handle.removeEventListener('dblclick',dbl);handle.remove();};
+}
+
+function readBox(value,defaults){
+  if(value&&typeof value==='object'&&value.type==='boundary-box'){
+    const storedColumns=Math.max(1,Number(value.columns)||PRINT_GRID_COLUMNS);
+    return {
+      start:clamp(Math.round(Number(value.start)/storedColumns*PRINT_GRID_COLUMNS),0,PRINT_GRID_COLUMNS-MIN_BOX_SPAN),
+      end:clamp(Math.round(Number(value.end)/storedColumns*PRINT_GRID_COLUMNS),MIN_BOX_SPAN,PRINT_GRID_COLUMNS),
+    };
+  }
+  return defaults;
+}
+
+function serializeBox(start,end){
+  return {version:2,type:'boundary-box',columns:PRINT_GRID_COLUMNS,start:Math.round(start),end:Math.round(end)};
+}
+
+function applyTableBox(table,start,end){
+  const safeStart=clamp(start,0,PRINT_GRID_COLUMNS-MIN_BOX_SPAN);
+  const safeEnd=clamp(end,safeStart+MIN_BOX_SPAN,PRINT_GRID_COLUMNS);
+  table.style.boxSizing='border-box';
+  table.style.maxWidth='none';
+  table.style.width=`${((safeEnd-safeStart)/PRINT_GRID_COLUMNS)*100}%`;
+  table.style.marginLeft=`${(safeStart/PRINT_GRID_COLUMNS)*100}%`;
+  table.style.marginRight='0';
+}
+
+function clearTableBox(table){
+  ['box-sizing','max-width','width','margin-left','margin-right'].forEach((property)=>table.style.removeProperty(property));
+}
+
+function addTableOuterBoundary({table,side,key,stored,defaults,setGridLayout}){
+  const parent=table.parentElement;
+  if(!parent)return()=>{};
+  if(window.getComputedStyle(parent).position==='static')parent.style.position='relative';
+  const handle=document.createElement('span');
+  handle.className=`paged-table-outer-boundary paged-table-outer-${side} no-print`;
+  handle.title=side==='left'?'اسحب الحد الخارجي الأيسر داخل مساحة المحتوى الآمنة':'اسحب الحد الخارجي الأيمن داخل مساحة المحتوى الآمنة';
+  parent.appendChild(handle);
+  const positionHandle=()=>{
+    const parentRect=parent.getBoundingClientRect();
+    const tableRect=table.getBoundingClientRect();
+    handle.style.top=`${tableRect.top-parentRect.top}px`;
+    handle.style.height=`${tableRect.height}px`;
+    handle.style.left=`${(side==='left'?tableRect.left:tableRect.right)-parentRect.left-9}px`;
+  };
+  positionHandle();
+  const down=(event)=>{
+    event.preventDefault();event.stopPropagation();
+    const parentRect=parent.getBoundingClientRect();
+    const trackWidth=(parentRect.width||1)/PRINT_GRID_COLUMNS;
+    const initial=readBox(stored,defaults);
+    const startX=event.clientX;
+    const guides=majorGuideTracks();
+    const move=(moveEvent)=>{
+      const delta=Math.round((moveEvent.clientX-startX)/trackWidth);
+      let start=initial.start;
+      let end=initial.end;
+      if(side==='left'){
+        const desired=clamp(initial.start+delta,0,end-MIN_BOX_SPAN);
+        start=clamp(nearestGuide(desired,guides),0,end-MIN_BOX_SPAN);
+      }else{
+        const desired=clamp(initial.end+delta,start+MIN_BOX_SPAN,PRINT_GRID_COLUMNS);
+        end=clamp(nearestGuide(desired,guides),start+MIN_BOX_SPAN,PRINT_GRID_COLUMNS);
+      }
+      applyTableBox(table,start,end);
+      positionHandle();
+      setGridLayout(key,serializeBox(start,end));
+    };
+    const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+  };
+  const dbl=(event)=>{
+    event.preventDefault();event.stopPropagation();
+    clearTableBox(table);
+    setGridLayout(key,null);
   };
   handle.addEventListener('pointerdown',down);
   handle.addEventListener('dblclick',dbl);
@@ -235,68 +316,82 @@ function addHeight({block,key,stored,setRowHeight}){
 }
 
 export default function PagedTableGridEditor({editing,gridLayouts,rowHeights,setGridLayout,setRowHeight,documentKey,pageCount}){
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     const cleanup=[];
-    const tables=[...document.querySelectorAll('.constitution-paged-pages .print-constitution table')];
+    const tables=[...document.querySelectorAll('.constitution-paged-pages .print-constitution table,.constitution-flow-measure table')];
 
     tables.forEach((table)=>{
       if(table.dataset.printBoundaryLocked==='true')return;
-      const count=logicalColumnCount(table);
-      if(count<2)return;
-      const ensured=ensureColgroup(table,count);
-      if(!ensured)return;
-      const {cg,cols,created}=ensured;
-      const key=`${documentKey}:${tableIdentity(table)}:columns:${count}`;
-      const defaults=measuredColumnWeights(table,cols,count);
-      const tracks=resolveStoredTracks(gridLayouts?.[key],defaults,count);
-      applyTable(table,cols,tracks);
+      const measuring=Boolean(table.closest('.constitution-flow-measure'));
+      const tableName=tableIdentity(table);
+      const parent=table.parentElement;
+      if(parent){
+        const parentRect=parent.getBoundingClientRect();
+        const tableRect=table.getBoundingClientRect();
+        if(parentRect.width>0){
+          const defaults={
+            start:clamp(Math.round(((tableRect.left-parentRect.left)/parentRect.width)*PRINT_GRID_COLUMNS),0,PRINT_GRID_COLUMNS-MIN_BOX_SPAN),
+            end:clamp(Math.round(((tableRect.right-parentRect.left)/parentRect.width)*PRINT_GRID_COLUMNS),MIN_BOX_SPAN,PRINT_GRID_COLUMNS),
+          };
+          if(defaults.end<=defaults.start)defaults.end=Math.min(PRINT_GRID_COLUMNS,defaults.start+MIN_BOX_SPAN);
+          const boxKey=`${documentKey}:${tableName}:outer-box`;
+          const storedBox=gridLayouts?.[boxKey];
+          if(storedBox?.type==='boundary-box'){
+            const box=readBox(storedBox,defaults);
+            applyTableBox(table,box.start,box.end);
+          }
+          if(editing&&!measuring&&table.dataset.printOuterBoundaryLocked!=='true'){
+            cleanup.push(addTableOuterBoundary({table,side:'left',key:boxKey,stored:storedBox,defaults,setGridLayout}));
+            cleanup.push(addTableOuterBoundary({table,side:'right',key:boxKey,stored:storedBox,defaults,setGridLayout}));
+          }
+        }
+      }
 
-      if(editing){
-        const isLtr=window.getComputedStyle(table).direction==='ltr';
-        const width=table.getBoundingClientRect().width;
-        [...table.rows].forEach((row)=>{
-          if([...row.cells].some((cell)=>Number(cell.rowSpan||1)>1))return;
-          let cursor=0;
-          [...row.cells].forEach((cell)=>{
-            cursor+=Math.max(1,Number(cell.colSpan||1));
-            if(cursor>=count)return;
-            cleanup.push(addBoundary({
-              host:cell,
-              isLtr,
-              index:cursor-1,
-              tracks,
-              count,
-              width,
-              apply:(next)=>applyTable(table,cols,next),
-              key,
-              defaults,
-              setGridLayout,
-            }));
-          });
-        });
+      const count=logicalColumnCount(table);
+      if(count>=2){
+        const ensured=ensureColgroup(table,count);
+        if(ensured){
+          const {cg,cols,created}=ensured;
+          const key=`${documentKey}:${tableName}:columns:${count}`;
+          const defaults=measuredColumnWeights(table,cols,count);
+          const tracks=resolveStoredTracks(gridLayouts?.[key],defaults,count);
+          applyTable(table,cols,tracks);
+          if(editing&&!measuring){
+            const isLtr=window.getComputedStyle(table).direction==='ltr';
+            const width=table.getBoundingClientRect().width;
+            [...table.rows].forEach((row)=>{
+              if([...row.cells].some((cell)=>Number(cell.rowSpan||1)>1))return;
+              let cursor=0;
+              [...row.cells].forEach((cell)=>{
+                cursor+=Math.max(1,Number(cell.colSpan||1));
+                if(cursor>=count)return;
+                cleanup.push(addBoundary({host:cell,isLtr,index:cursor-1,tracks,count,width,apply:(next)=>applyTable(table,cols,next),key,defaults,setGridLayout}));
+              });
+            });
+          }
+          if(created)cleanup.push(()=>cg.remove());
+        }
       }
 
       [...table.rows].forEach((row)=>{
-        const rowName=rowStructuralIdentity(row,table);
-        const rowKey=`${documentKey}:${tableIdentity(table)}:row:${rowName}:height`;
+        const rowKey=`${documentKey}:${tableName}:row:${rowStructuralIdentity(row)}:height`;
         if(rowHeights?.[rowKey])applyTableRowHeight(row,Number(rowHeights[rowKey]));
         else applyTableRowHeight(row,null);
-        if(editing&&visibleBottomBoundary(row)&&row.dataset.printRowBoundaryLocked!=='true'){
+        if(editing&&!measuring&&visibleBottomBoundary(row)&&row.dataset.printRowBoundaryLocked!=='true'){
           cleanup.push(addTableRowHeight({table,row,key:rowKey,stored:rowHeights?.[rowKey],setRowHeight}));
         }
       });
-
-      if(created)cleanup.push(()=>cg.remove());
     });
 
-    [...document.querySelectorAll('.constitution-paged-pages .print-constitution [data-print-grid-row],.constitution-paged-pages .print-constitution .q-meta,.constitution-paged-pages .print-constitution .q-foot')].forEach((row)=>{
+    [...document.querySelectorAll('.constitution-paged-pages .print-constitution [data-print-grid-row],.constitution-paged-pages .print-constitution .q-meta,.constitution-paged-pages .print-constitution .q-foot,.constitution-flow-measure [data-print-grid-row],.constitution-flow-measure .q-meta,.constitution-flow-measure .q-foot')].forEach((row)=>{
+      const measuring=Boolean(row.closest('.constitution-flow-measure'));
       const cells=[...row.children].filter((child)=>!child.classList.contains('no-print'));
       if(cells.length<2)return;
       const key=`${documentKey}:${gridIdentity(row)}:cells:${cells.length}`;
       const defaults=measuredWeights(cells,row.getBoundingClientRect().width);
       const tracks=resolveStoredTracks(gridLayouts?.[key],defaults,cells.length);
       applyGrid(row,cells,tracks);
-      if(editing){
+      if(editing&&!measuring){
         const isLtr=window.getComputedStyle(row).direction==='ltr';
         cells.forEach((cell,index)=>{
           if(index<cells.length-1)cleanup.push(addBoundary({host:cell,isLtr,index,tracks,count:cells.length,width:row.getBoundingClientRect().width,apply:(next)=>applyGrid(row,cells,next),key,defaults,setGridLayout}));
@@ -304,19 +399,20 @@ export default function PagedTableGridEditor({editing,gridLayouts,rowHeights,set
       }
     });
 
-    [...document.querySelectorAll('.constitution-paged-pages .print-constitution [data-print-resizable-block],.constitution-paged-pages .print-constitution .q-meta,.constitution-paged-pages .print-constitution .q-intro,.constitution-paged-pages .print-constitution .q-block.pay,.constitution-paged-pages .print-constitution .q-block.terms,.constitution-paged-pages .print-constitution .q-foot,.constitution-paged-pages .print-constitution .q-sum')].forEach((block,index)=>{
+    [...document.querySelectorAll('.constitution-paged-pages .print-constitution [data-print-resizable-block],.constitution-paged-pages .print-constitution .q-meta,.constitution-paged-pages .print-constitution .q-intro,.constitution-paged-pages .print-constitution .q-block.pay,.constitution-paged-pages .print-constitution .q-block.terms,.constitution-paged-pages .print-constitution .q-foot,.constitution-paged-pages .print-constitution .q-sum,.constitution-flow-measure [data-print-resizable-block],.constitution-flow-measure .q-meta,.constitution-flow-measure .q-intro,.constitution-flow-measure .q-block.pay,.constitution-flow-measure .q-block.terms,.constitution-flow-measure .q-foot,.constitution-flow-measure .q-sum')].forEach((block,index)=>{
+      const measuring=Boolean(block.closest('.constitution-flow-measure'));
       const name=block.dataset.printGridName||classIdentity(block)||`block-${index}`;
       const key=`${documentKey}:${name}:height`;
       if(rowHeights?.[key])block.style.minHeight=`${Number(rowHeights[key])*PRINT_GRID_ROW_MM}mm`;
       else block.style.removeProperty('min-height');
-      if(editing)cleanup.push(addHeight({block,key,stored:rowHeights?.[key],setRowHeight}));
+      if(editing&&!measuring)cleanup.push(addHeight({block,key,stored:rowHeights?.[key],setRowHeight}));
     });
 
     return()=>cleanup.forEach((fn)=>fn());
   },[documentKey,editing,gridLayouts,pageCount,rowHeights,setGridLayout,setRowHeight]);
 
   return <>
-    <BoundaryBoxEditor editing={editing} gridLayouts={gridLayouts} rowHeights={rowHeights} setGridLayout={setGridLayout} setRowHeight={setRowHeight} documentKey={documentKey} rootSelector=".constitution-paged-pages .print-constitution" refreshKey={pageCount}/>
+    <BoundaryBoxEditor editing={editing} gridLayouts={gridLayouts} rowHeights={rowHeights} setGridLayout={setGridLayout} setRowHeight={setRowHeight} documentKey={documentKey} rootSelector=".constitution-paged-pages .print-constitution,.constitution-flow-measure" refreshKey={pageCount}/>
     <style jsx global>{`
       .paged-grid-boundary{position:absolute;top:-3px;bottom:-3px;width:18px;z-index:45;cursor:col-resize;background:transparent;touch-action:none}
       .paged-grid-boundary.ltr{right:-9px}.paged-grid-boundary.rtl{left:-9px}
@@ -325,10 +421,13 @@ export default function PagedTableGridEditor({editing,gridLayouts,rowHeights,set
       .paged-table-row-boundary{position:absolute;bottom:-8px;height:16px;z-index:44;cursor:row-resize;background:transparent;touch-action:none}
       .paged-table-row-boundary::after{content:'';position:absolute;left:0;right:0;top:7px;border-top:1px dashed rgba(139,51,50,.68)}
       .paged-table-row-boundary:hover::after,.paged-table-row-boundary:active::after{border-top:3px solid rgba(139,51,50,1)}
+      .paged-table-outer-boundary{position:absolute;width:18px;z-index:46;cursor:col-resize;background:transparent;touch-action:none}
+      .paged-table-outer-boundary::after{content:'';position:absolute;top:0;bottom:0;left:8.5px;border-left:1px dashed rgba(139,51,50,.72)}
+      .paged-table-outer-boundary:hover::after,.paged-table-outer-boundary:active::after{border-left:3px solid rgba(139,51,50,1)}
       .paged-grid-height{position:absolute;right:0;left:0;bottom:-7px;height:14px;z-index:34;cursor:row-resize;touch-action:none}
       .paged-grid-height::after{content:'';position:absolute;right:0;left:0;top:6px;border-top:1px dashed rgba(139,51,50,.45)}
       .paged-grid-height:hover::after{border-top:2px solid rgba(139,51,50,.9)}
-      @media print{.paged-grid-boundary,.paged-table-row-boundary,.paged-grid-height{display:none!important}}
+      @media print{.paged-grid-boundary,.paged-table-row-boundary,.paged-table-outer-boundary,.paged-grid-height{display:none!important}}
     `}</style>
   </>;
 }
