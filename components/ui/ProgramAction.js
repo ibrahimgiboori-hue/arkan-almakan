@@ -8,6 +8,7 @@ import {
   WORK_ACTION_SCOPE,
   defineWorkAction,
 } from '@/lib/work-surface-constitution';
+import { useActionNervousSystem } from './ActionNervousSystemRuntime';
 
 function cx(...values) {
   return values.filter(Boolean).join(' ');
@@ -20,11 +21,14 @@ export default function ProgramAction({
   disabled = false,
   selectionCount = 0,
   onClick,
+  execute = null,
+  onResult = null,
   type = 'button',
   title,
   ...rest
 }) {
   const session = useDashboardSession();
+  const nervousSystem = useActionNervousSystem();
   const input = action || {};
   const spec = defineWorkAction({
     ...input,
@@ -43,15 +47,28 @@ export default function ProgramAction({
   const selectionRequired = spec.actionScope === WORK_ACTION_SCOPE.SELECTION;
   const selectionReady = !selectionRequired || Number(selectionCount || 0) >= spec.minSelection;
   const selectionActionAllowed = !selectionRequired || spec.selectionActionAllowed !== false;
-  const actionEnabled = allowed && !disabled && selectionReady && selectionActionAllowed;
+  const acting = nervousSystem.isActing(spec.key);
+  const actionEnabled = allowed && !disabled && !acting && selectionReady && selectionActionAllowed;
   const label = children || spec.label;
 
-  function handleClick(event) {
+  async function handleClick(event) {
     if (!actionEnabled) {
       event.preventDefault();
       return;
     }
+
+    // الوضع القديم يبقى كما هو تمامًا حتى يختار العضو الاتصال بالعصب المركزي.
+    if (typeof execute !== 'function') {
+      onClick?.(event, spec);
+      return;
+    }
+
     onClick?.(event, spec);
+    const result = await nervousSystem.run(
+      { key:spec.key, label:spec.label },
+      () => execute(spec),
+    );
+    onResult?.(result, spec);
   }
 
   return (
@@ -60,6 +77,7 @@ export default function ProgramAction({
       type={type}
       className={cx(className)}
       disabled={!actionEnabled}
+      aria-busy={acting ? 'true' : undefined}
       onClick={handleClick}
       title={title || spec.label}
       data-program-action="true"
@@ -70,6 +88,8 @@ export default function ProgramAction({
       data-action-placement={spec.placement || WORK_ACTION_PLACEMENT.ORIGIN}
       data-action-capability={spec.capability || undefined}
       data-action-consequential={consequential ? 'true' : 'false'}
+      data-action-nervous-system={typeof execute === 'function' ? 'connected' : 'legacy-pass-through'}
+      data-action-signal={acting ? 'acting' : 'ready'}
       data-selection-required={selectionRequired ? 'true' : undefined}
       data-selection-count={selectionRequired ? Number(selectionCount || 0) : undefined}
       data-selection-profile={selectionRequired ? spec.selectionProfile : undefined}
