@@ -45,7 +45,10 @@ for (const required of [
   'stageLeadsAfterGuardianOrGroupSelection:true',
   'selectedBiologicalIdentityMayMirrorAsNonInteractiveContext:true',
   'directWorkChildrenAreHonoraryInNavigation:true',
-  'desktopNavigationPersistsUntilUserDismisses:true',
+  'navigationYieldsOnlyAtRealWorkThreshold:true',
+  'desktopNavigationYieldsWhenWorkThresholdIsCrossed:true',
+  'workZoneReopenRequiresExplicitUserInvocation:true',
+  'reopenedWorkNavigationPersistsUntilUserDismisses:true',
   'desktopNavigationReservesSpaceInsteadOfCoveringStage:true',
   'sameBehaviorEngineAcrossAllPortals:true',
   "semanticBack:'one-anatomical-level-never-browser-history'",
@@ -91,6 +94,7 @@ for (const required of [
   'entryNodesByArea',
   'entryNodes.map',
   'portalApproachHref',
+  'NAVIGATION_YIELD_EVENT',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
@@ -104,6 +108,12 @@ if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة 
 if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('الملاحة التشريحية: عاد مسار رسم خاص بالمشاريع بدل محرك عقد الدخول العام.');
 if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
 if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
+if (!/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,360}?setOpen\(false\);[\s\S]{0,120}?\}/.test(nav)) {
+  failures.push('عتبة العمل: القائمة يجب أن تتنحى تلقائيًا عند الوصول إلى إجراء/إدخال حقيقي، ثم لا تعود إلا باستدعاء المستخدم.');
+}
+if (/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,240}?isCompactNavigationViewport\(\)/.test(nav)) {
+  failures.push('عتبة العمل: إخفاء القائمة عند بدء العمل الحقيقي يجب أن يشمل سطح المكتب أيضًا، لا الجوال فقط.');
+}
 
 const projectStage = requireFile('components/ui/ProjectAnatomyStage.js');
 for (const required of [
@@ -205,4 +215,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: one entry-node behavior engine spans all portals; the list leads early, the stage leads late, selected context mirrors back without becoming a shortcut, and idle remains a state rather than a destination.');
+console.log('Anatomical navigation audit passed: one entry-node behavior engine spans all portals; the list leads early, the stage leads late, real work makes navigation yield, explicit recall remains available, and idle remains a state rather than a destination.');
