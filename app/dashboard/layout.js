@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/lib/action-context';
+import { applyUiTheme, DEFAULT_UI_THEME, UI_THEME_EVENT } from '@/lib/ui-theme';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import './raw-tokens.css';
@@ -27,7 +28,7 @@ export default function DashboardLayout({ children }) {
         return;
       }
 
-      const [userQ, capsQ, primaryQ, actionQ] = await Promise.all([
+      const [userQ, capsQ, primaryQ, actionQ, themeQ] = await Promise.all([
         supabase
           .from('app_users')
           .select('employee_id,role,is_active,is_system_admin,must_change_password')
@@ -36,9 +37,11 @@ export default function DashboardLayout({ children }) {
         supabase.from('v_my_capabilities').select('capability_key,module_key,scope_type,scope_key,source_key'),
         supabase.rpc('fn_is_primary_user'),
         supabase.rpc('fn_my_action_context'),
+        supabase.from('app_settings').select('ui_theme_preset').eq('id',1).maybeSingle(),
       ]);
 
       if (!alive) return;
+      applyUiTheme(themeQ.error ? DEFAULT_UI_THEME : themeQ.data?.ui_theme_preset);
 
       if (userQ.error) {
         setState({ ready:true, allowed:false, message:'تعذر التحقق من الحساب.', me:null });
@@ -92,6 +95,20 @@ export default function DashboardLayout({ children }) {
 
     return () => { alive = false; };
   }, [router]);
+
+  useEffect(() => {
+    function refreshTheme(event) {
+      const supplied = event?.detail?.theme;
+      if (supplied) {
+        applyUiTheme(supplied);
+        return;
+      }
+      supabase.from('app_settings').select('ui_theme_preset').eq('id',1).maybeSingle()
+        .then(({ data }) => applyUiTheme(data?.ui_theme_preset || DEFAULT_UI_THEME));
+    }
+    window.addEventListener(UI_THEME_EVENT, refreshTheme);
+    return () => window.removeEventListener(UI_THEME_EVENT, refreshTheme);
+  }, []);
 
   useEffect(() => {
     async function refreshActionContext(event) {
