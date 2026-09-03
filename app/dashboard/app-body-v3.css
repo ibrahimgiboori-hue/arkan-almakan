@@ -74,6 +74,104 @@
     min-width: 0 !important;
   }
 
+  /* Zero-residue completion surface: when an operation explicitly confirms
+     completion, the active route organ is released from the visual scene.
+     History remains in registers/search/reports, never stacked below this note. */
+  .appCompletedSurface {
+    box-sizing: border-box;
+    width: min(100%, 660px);
+    min-height: 100dvh;
+    margin: 0 auto;
+    padding: clamp(74px, 14vh, 150px) clamp(4px, 1vw, 12px) 84px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    color: var(--raw-ink, #2f2924);
+    background: transparent;
+    animation: appCompletionArrive 150ms cubic-bezier(.2,.72,.28,1) both;
+  }
+
+  .appCompletedMark {
+    margin: 0 0 8px;
+    color: var(--raw-green, #47705b);
+    font-size: 11px;
+    font-weight: 820;
+    letter-spacing: .04em;
+  }
+
+  .appCompletedSurface h1 {
+    margin: 0 !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-size: clamp(23px, 2vw, 29px) !important;
+    font-weight: 820 !important;
+    line-height: 1.3 !important;
+  }
+
+  .appCompletedSurface p {
+    max-width: 62ch;
+    margin: 9px 0 0 !important;
+    color: var(--raw-muted, #756d64) !important;
+    font-size: 14.5px !important;
+    line-height: 1.75 !important;
+  }
+
+  .appCompletedMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 13px;
+    color: var(--raw-muted, #756d64);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .appCompletedMeta span + span::before {
+    content: '·';
+    margin-inline-end: 14px;
+    color: var(--raw-border, #d8d3c8);
+  }
+
+  .appCompletedActions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px 16px;
+    margin-top: 24px;
+  }
+
+  .appCompletedActions button {
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 2px 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--raw-muted, #756d64) !important;
+    font-family: inherit;
+    font-size: 12.5px !important;
+    font-weight: 680 !important;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+
+  .appCompletedActions button:first-child {
+    color: var(--raw-wine, #7b2434) !important;
+    font-weight: 790 !important;
+  }
+
+  .appCompletedActions button:hover,
+  .appCompletedActions button:focus-visible {
+    color: var(--raw-ink, #2f2924) !important;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  @keyframes appCompletionArrive {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* Temporary navigation overlays the work. Pinning is an explicit user act,
      so only the pinned desktop state reserves body space instead of covering
      the current work. */
@@ -114,6 +212,11 @@
     padding-top: 8px !important;
   }
 
+  .appCompletedSurface {
+    width: 100%;
+    padding: 72px 18px 64px;
+  }
+
   .appContextNav[data-open='true'][data-pinned='true'] {
     box-shadow: -7px 0 22px rgba(46, 39, 31, .055);
     border-inline-start: 0;
@@ -123,5 +226,9 @@
 @media (prefers-reduced-motion: reduce) {
   .appBodyStage {
     transition: none !important;
+  }
+
+  .appCompletedSurface {
+    animation: none !important;
   }
 }
