@@ -48,7 +48,6 @@ for (const required of [
   'PROJECT_GUARDIANS',
   'PROJECT_APPROACH_REGIONS',
   'projectApproachHref',
-  'portalApproachHref',
 ]) {
   if (!living.includes(required)) failures.push(`الفرع الحي: مفقود ${required}`);
 }
@@ -59,12 +58,12 @@ for (const required of [
   "from '@/lib/living-navigation'",
   'data-navigation-consciousness="implicit"',
   'data-living-branch="single"',
+  'data-living-branch-pilot="projects"',
   'appNavBackArrow',
   'requestWorkSessionNavigation',
   'appNavHonoraryList',
   'appNavHonorary',
   'projectApproachHref',
-  'portalApproachHref',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
@@ -81,14 +80,26 @@ if (/>\s*الكل\s*</.test(nav)) {
 if (nav.includes('router.back(')) {
   failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
 }
+if (nav.includes('projectName') || /from\(['"]projects['"]\)/.test(nav) || nav.includes("from '@/lib/supabase'")) {
+  failures.push('الأبناء البيولوجيون: القائمة لا يجوز أن تعرف اسم المشروع أو تستعلم عنه؛ هوية الابن تعيش في المسرح فقط.');
+}
 if (!/availableProjectGuardians\.map[\s\S]*projectId[\s\S]*appNavProjectContext/.test(nav)) {
-  failures.push('الأبناء البيولوجيون: بعد اختيار المشروع يجب أن يظهر سياقه دون تحويل قائمة الحاضنة إلى قائمة أسماء مشاريع.');
+  failures.push('الأبناء البيولوجيون: بعد اختيار مشروع يبقى سياقه الهيكلي ظاهرًا دون إدخال اسم الابن في القائمة.');
 }
 if (!/<span[^>]+className="appNavHonorary"/.test(nav)) {
   failures.push('العمل المباشر: العناصر الشرفية داخل القائمة يجب أن تكون نصًا غير قابل للضغط.');
 }
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) {
   failures.push('العمل المباشر: العنصر الشرفي لا يجوز أن يصبح اختصارًا قابلًا للضغط للعمل.');
+}
+if (nav.includes('SHELL_PORTAL_GROUPS') || nav.includes('portalApproachHref(')) {
+  failures.push('نسخة القبول: لا يجوز تثبيت تشريح الموارد البشرية/المالية/المستندات القديم داخل الفرع الحي قبل اعتماده؛ التجربة الحالية للمشاريع فقط.');
+}
+if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) {
+  failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
+}
+if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) {
+  failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
 }
 
 const projectStage = requireFile('components/ui/ProjectAnatomyStage.js');
@@ -105,11 +116,50 @@ for (const required of [
 const portalStage = requireFile('app/dashboard/workspace/[portal]/page.js');
 for (const required of [
   'data-navigation-stage="approach"',
-  'PROJECT_GUARDIANS',
-  'requestWorkSessionNavigation',
-  'حاضنات الحالة',
+  'data-living-branch-pilot="projects"',
+  "portal==='projects'",
+  'router.replace(area.href)',
+  'المساحة الكبيرة لا تكرر عناصر الملاحة',
 ]) {
   if (!portalStage.includes(required)) failures.push(`مسرح الملاحة: مفقود ${required}`);
+}
+if (/PROJECT_GUARDIANS|SHELL_PORTAL_GROUPS|PORTAL_SECTION_ITEMS|requestWorkSessionNavigation/.test(portalStage)) {
+  failures.push('مسرح الاقتراب: لا يجوز أن يكرر الحاضنات أو يثبت تشريح البوابات الأخرى؛ القابل للضغط يبقى في القائمة.');
+}
+
+const projectList = requireFile('app/dashboard/projects/page.js');
+for (const required of [
+  'data-navigation-stage="biological-children"',
+  'projectCaretakerState',
+  'projectApproachHref(project.id,{care})',
+]) {
+  if (!projectList.includes(required)) failures.push(`مسرح الأبناء البيولوجيين: مفقود ${required}`);
+}
+
+const projectsLogic = requireFile('lib/projects.js');
+for (const required of [
+  'declaredComplete',
+  "return outstanding ? 'closing' : 'closed'",
+]) {
+  if (!projectsLogic.includes(required)) failures.push(`حاضنة المشروع: مفقود ${required}`);
+}
+if (/project\?\.status\s*===\s*['"]closed['"]\)\s*return\s*['"]closed['"]/.test(projectsLogic)) {
+  failures.push('حاضنة المشروع: status=closed لا يجوز أن يتجاوز الالتزامات المفتوحة.');
+}
+
+const threshold = requireFile('lib/work-threshold-constitution.js');
+for (const required of [
+  "stageLeafRule: 'every-choice-presented-as-the-last-navigation-layer-must-resolve-to-a-work-zone'",
+  'PROJECT_PATH_FUNCTIONS',
+  'PROJECT_VIEW_FUNCTIONS',
+  'projectWorkContext(pathname, searchParams)',
+  'region',
+]) {
+  if (!threshold.includes(required)) failures.push(`عتبة العمل: مفقود ${required}`);
+}
+const thresholdRuntime = requireFile('components/ui/WorkThresholdRuntime.js');
+if (!thresholdRuntime.includes('useSearchParams') || !thresholdRuntime.includes('resolveWorkThreshold(pathname, searchParams)')) {
+  failures.push('عتبة العمل: يجب أن تقرأ query context حتى تعبر وظائف المشروع المبنية على view= العتبة فعلًا.');
 }
 
 const idle = requireFile('app/dashboard/page.js');
@@ -129,4 +179,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: implicit consciousness stays hidden, the work center remains idle-only, one living branch owns navigation, biological children live on the stage, direct work stays honorary in the menu, and semantic back never depends on browser history.');
+console.log('Anatomical navigation audit passed: the projects pilot owns one living branch, biological identities stay on stage, clickable navigation is not duplicated on stage, every project leaf crosses the work threshold, closing is conservative, and idle remains a state rather than a destination.');
