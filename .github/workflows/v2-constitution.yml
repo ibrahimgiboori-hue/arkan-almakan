@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - v2-system-constitution
+      - living-navigation-stage
   pull_request:
 
 jobs:
@@ -18,17 +19,19 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Install
-        # The repository does not yet track package-lock.json. Use npm install until
-        # dependency locking is adopted deliberately, then switch this gate to npm ci.
         run: npm install --no-audit --no-fund
+      - name: Capture dependency lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
       - name: Constitution audit
         run: npm run v2:audit
       - name: Tests
         run: npm test
       - name: Production build
-        # Build-only placeholders let Next/Supabase instantiate the browser client
-        # during prerender without exposing or depending on production credentials.
-        # No CI page should perform authenticated/live data I/O at build time.
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://ci-build.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-key
