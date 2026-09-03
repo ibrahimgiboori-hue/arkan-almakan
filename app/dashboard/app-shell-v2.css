@@ -1,3 +1,10 @@
+/*
+  STATUS: LIVE — STRUCTURAL SHELL, NOT VISUAL SKIN.
+  This V2 layer still owns the contextual navigation shell, its opening geometry,
+  responsive trigger and shell-level alert placement. It is loaded beneath the
+  approved Arkan skin and must not be removed merely because the name is old.
+  Phase 3 should compare it visually against the current skin before consolidation.
+*/
 @media screen {
   .rawDashboardShell {
     --raw-nav-primary-height: 0px;
