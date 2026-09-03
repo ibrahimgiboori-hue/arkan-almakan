@@ -49,6 +49,10 @@ requireText('app/dashboard/app-shell-v2.css', [
   '.appContextNav',
   ".appContextNav[data-open='true']",
   '.appNavTopLine',
+  '.appNavTree',
+  '.appNavAreaHead',
+  '.appNavGroupHead',
+  '.appNavBreadcrumb',
   '.appNavBottomActions',
   "@media (prefers-reduced-motion: reduce)",
 ]);
@@ -68,15 +72,19 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'SHELL_PORTAL_GROUPS',
   'onClick={openNavigation}',
   'className="appContextNav"',
+  "const VISIBILITY_STORAGE_KEY = 'arkan-context-nav-visible'",
+  'const [visiblePreference, setVisiblePreference] = useState(true)',
+  'data-navigation-consciousness="persistent-tree"',
 ]);
 
 if (exists('components/ui/RawDashboardNavigation.js')) {
-  failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
+  failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى الملاحة الموحدة.');
 }
 
 const nav = read('components/ui/ContextualDashboardNavigation.js');
 if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
-if (!nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة السياقية فقدت خيار إبقاء القائمة مفتوحة.');
+if (/function\s+(?:back|dive)\s*\(/.test(nav)) failures.push('الملاحة الموحدة عادت إلى نموذج الشاشات المتعاقبة بدل الشجرة الدائمة.');
+if (nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة الموحدة أعادت مفهوم التثبيت القديم بدل تفضيل الظهور الاختياري.');
 if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة الجديدة عادت للاعتماد على تجميعات كتالوج البوابات القديم.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
