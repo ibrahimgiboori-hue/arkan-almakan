@@ -46,18 +46,18 @@ if (!areasMatch) {
   }
 }
 
-// 3) بوابة المشاريع تحتفظ بترتيب وظائفها التشغيلي الداخلي.
+// 3) وظائف المشروع الداخلية تبقى مرتبة ومعروفة حتى لو تغير طريق الوصول إليها.
 const dailyIndex = constitution.indexOf("key: 'daily'");
 const entryIndex = constitution.indexOf("key: 'entry'");
 const readIndex = constitution.indexOf("key: 'read'");
 if (!(dailyIndex >= 0 && entryIndex > dailyIndex && readIndex > entryIndex)) {
-  failures.push('PROJECT_NAV_GROUPS: الترتيب الدستوري يجب أن يبقى العمل اليومي ← التسجيل والإدارة ← المتابعة.');
+  failures.push('PROJECT_NAV_GROUPS: الترتيب الدستوري الداخلي يجب أن يبقى العمل اليومي ← التسجيل والإدارة ← المتابعة.');
 }
 if (constitution.includes("key: 'quote-register'")) {
   failures.push('PROJECT_NAV_GROUPS: سجل عروض الأسعار العام مكرر داخل المشروع؛ يجب أن يبقى له مدخل عام واحد فقط.');
 }
 
-// 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد: المشروع + المقاول + تاريخ الإسناد سياق واحد.
+// 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد.
 const projectLabor = read('app/dashboard/projects/[id]/operations/labor/page.js');
 if (!projectLabor.includes('fn_quick_add_workers') || !projectLabor.includes('data-canonical-labor-create-form')) {
   failures.push('عمالة المشروع: يجب أن تبقى شاشة المشروع هي مسار إنشاء العمالة وإسنادها الموحد.');
@@ -76,7 +76,7 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. الفرع الحي يقرأ تجميعاته من Shell نفسه.
+// 5) الجسد الجديد هو القشرة الوحيدة. نسخة القبول تفعّل الفرع الحي للمشاريع فقط.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
@@ -93,34 +93,40 @@ if (!dashboardLayout.includes("'./app-shell-v2.css'")) {
   failures.push('app/dashboard/layout.js: أنماط الجسد الجديد app-shell-v2.css غير مربوطة.');
 }
 if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(shellConstitution)) {
-  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور تجميعاتها أو أنماطها غير موجودة.');
+  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور التجميعات أو الأنماط غير موجودة.');
 }
 if (dashboardLayout.includes('RawDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
 }
 if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) {
-  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك قشرة التنقل الموحدة فقط.');
+  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك القشرة الموحدة فقط.');
 }
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
-  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'SHELL_PORTAL_GROUPS', 'requestWorkSessionNavigation', 'data-living-branch="single"', 'onClick={openNavigation}']) {
+  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'requestWorkSessionNavigation', 'data-living-branch="single"', 'data-living-branch-pilot="projects"', 'onClick={openNavigation}']) {
     if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
   }
   if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
+  if (nav.includes('SHELL_PORTAL_GROUPS')) failures.push('نسخة القبول: لا تثبت تجميعات بقية البوابات داخل الفرع الحي قبل اعتماد تشريحها.');
+  if (nav.includes('projectName') || nav.includes("from '@/lib/supabase'")) failures.push('الأبناء البيولوجيون: القائمة لا يجوز أن تستعلم عن اسم المشروع أو تعرضه.');
   if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
   if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) {
     failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
   }
 }
+// نبقي دستور Shell القديم موجودًا كمصدر توافق للأعضاء الحالية، لكن لا نجعله تشريحًا معتمدًا للبوابات الأخرى بعد.
 if (exists(shellConstitution) && !read(shellConstitution).includes('SHELL_PORTAL_GROUPS')) {
-  failures.push('الجسد الجديد: دستور تجميعات الملاحة المستقل غير مكتمل.');
+  failures.push('الجسد الجديد: دستور تجميعات الملاحة الحالي غير مكتمل.');
 }
 if (!exists(approachStage)) {
   failures.push('مسرح الاقتراب: app/dashboard/workspace/[portal]/page.js مفقود.');
 } else {
   const stage = read(approachStage);
-  for (const required of ['data-navigation-stage="approach"', 'SHELL_PORTAL_GROUPS', 'requestWorkSessionNavigation']) {
+  for (const required of ['data-navigation-stage="approach"', 'data-living-branch-pilot="projects"', "portal==='projects'", 'router.replace(area.href)']) {
     if (!stage.includes(required)) failures.push(`مسرح الاقتراب: مفقود ${required}.`);
+  }
+  if (/SHELL_PORTAL_GROUPS|PROJECT_GUARDIANS|PORTAL_SECTION_ITEMS|requestWorkSessionNavigation/.test(stage)) {
+    failures.push('مسرح الاقتراب: يعيد خيارات قابلة للضغط موجودة في القائمة أو يثبت تشريح بوابات غير معتمد.');
   }
   if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(stage)) {
     failures.push('مسرح الاقتراب: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
@@ -195,4 +201,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed.');
+console.log('Navigation cleanliness audit passed: the projects-only living branch stays clean, biological identities remain off-menu, stage does not duplicate clickable navigation, and legacy portal anatomy is not silently promoted.');
