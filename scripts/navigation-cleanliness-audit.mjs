@@ -115,14 +115,17 @@ if (exists(contextualNavigation)) {
     'requestWorkSessionNavigation',
     'data-living-branch="single"',
     'data-living-branch-scope="all-portals"',
-    'data-navigation-role={mirrorMode',
+    'data-navigation-role={navigationRole}',
+    'GRANDCHILD_NAVIGATION_EVENT',
+    'renderGrandchild',
+    'appNavGrandchildPrimary',
     'onClick={openNavigation}',
     'appNavDismiss',
   ]) {
     if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
   }
   if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
-  if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة لا يجوز أن تتحول إلى مصدر بيانات موازٍ؛ هوية الابن تأتي انعكاسًا من المسرح.');
+  if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة لا يجوز أن تتحول إلى مصدر بيانات موازٍ؛ هوية الابن والحفيد تأتي من العضو أو المسرح.');
   if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
   if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) {
     failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
@@ -192,6 +195,21 @@ if (exists(livingCss)) {
   }
   if (!css.includes('.appNavMirrorPortal') || !css.includes('.appNavMirrorSubject')) {
     failures.push('مرآة السياق: أنماط تبادل القيادة بين القائمة والمسرح مفقودة.');
+  }
+  if (!css.includes('.appNavGrandchild') || !css.includes('.appNavGrandchildGroupTitle')) {
+    failures.push('قائمة الحفيد: أنماط العمل أولاً والسجل عند الطلب مفقودة.');
+  }
+}
+
+// قائمة الحفيد لا تسرق بيانات الأداة من القشرة؛ العضو نفسه ينشر رفه التاريخي.
+const livingNavigation = read('lib/living-navigation.js');
+if (!livingNavigation.includes('GRANDCHILD_NAVIGATION_EVENT') || !livingNavigation.includes('workFirstHistoryOnDemand:true')) {
+  failures.push('قائمة الحفيد: عقد العمل أولاً/السجل عند الطلب مفقود من DNA.');
+}
+if (exists('app/dashboard/quotes/layout.js')) {
+  const quoteBoundary = read('app/dashboard/quotes/layout.js');
+  for (const required of ['publishGrandchildNavigationContext', "classification:'client'", "historyLabel:'السجل حسب العميل'"]) {
+    if (!quoteBoundary.includes(required)) failures.push(`عروض الأسعار: قائمة الحفيد مفقود منها ${required}.`);
   }
 }
 
@@ -263,4 +281,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: one entry-node behavior engine spans every portal, desktop navigation persists without covering the stage, stage-led choices mirror back as non-interactive context, and legacy business journeys remain intact.');
+console.log('Navigation cleanliness audit passed: one entry-node engine spans every portal; grandchild lists serve the current tool with work first and history on demand, while legacy business journeys remain intact.');
