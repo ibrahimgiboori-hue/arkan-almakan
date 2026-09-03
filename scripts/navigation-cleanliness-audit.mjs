@@ -75,16 +75,35 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
-const contextualShellCss = 'app/dashboard/app-shell-v2.css';
-const livingCss = 'app/dashboard/living-navigation.css';
+const geometryCss = 'app/dashboard/arkan-dashboard-geometry-v2.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
 const portalLivingModel = 'lib/portal-living-navigation.js';
 const approachStage = 'app/dashboard/workspace/[portal]/page.js';
+
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
 if (!dashboardLayout.includes('data-navigation-shell="contextual-slide-v2"')) failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
-if (!dashboardLayout.includes("'./app-shell-v2.css'") || !dashboardLayout.includes("'./living-navigation.css'")) failures.push('app/dashboard/layout.js: أنماط الجسد والملاحة الحية غير مربوطة بالكامل.');
-if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(livingCss) || !exists(shellConstitution) || !exists(portalLivingModel)) failures.push('الجسد الجديد: ملفات الملاحة الحية أو نموذج تغطية البوابات أو الأنماط غير موجودة.');
+if (!dashboardLayout.includes("'./arkan-dashboard-geometry-v2.css'")) failures.push('app/dashboard/layout.js: القبطان الهندسي الموحد غير مربوط.');
+if (!dashboardLayout.includes('data-geometry-owner="arkan-dashboard-v2"')) failures.push('app/dashboard/layout.js: ملكية الهندسة الموحدة غير معلنة على مسرح العمل.');
+if (!exists(contextualNavigation) || !exists(geometryCss) || !exists(shellConstitution) || !exists(portalLivingModel)) failures.push('الجسد الجديد: الملاحة أو القبطان الهندسي أو نموذج تغطية البوابات مفقود.');
 if (dashboardLayout.includes('RawDashboardNavigation')) failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
+
+const forbiddenGeometry = [
+  'app/dashboard/raw-phase.css',
+  'app/dashboard/transaction-underwear.css',
+  'app/dashboard/app-shell-v2.css',
+  'app/dashboard/app-body-v3.css',
+  'app/dashboard/living-navigation.css',
+  'app/dashboard/body-resuscitation.css',
+  'app/dashboard/legacy-structure-bridge-v1.css',
+  'app/dashboard/navigation-comfort-v1.css',
+  'app/dashboard/arkan-field-geometry-v1.css',
+  'app/dashboard/arkan-workspace-geometry-v1.css',
+];
+for (const file of forbiddenGeometry) {
+  if (exists(file)) failures.push(`${file}: هندسة قديمة/انتقالية ممنوعة؛ الملكية للقبطان arkan-dashboard-geometry-v2 فقط.`);
+  if (dashboardLayout.includes(path.basename(file))) failures.push(`app/dashboard/layout.js: عاد تحميل ${path.basename(file)} رغم توحيد الهندسة.`);
+}
+
 if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك القشرة الموحدة فقط.');
 for (const required of ['data-employee-desktop="true"','fn_create_workspace_task','fn_my_approval_inbox','workspace_tasks','notifications','الوارد والمراسلات','بانتظار قراري']) {
   if (!dashboardHome.includes(required)) failures.push(`سطح مكتب الموظف: مفقود ${required}.`);
@@ -161,11 +180,12 @@ if (!exists(approachStage)) {
   if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(stage)) failures.push('مسرح الاقتراب: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
 }
 
-if (exists(livingCss)) {
-  const css = read(livingCss);
-  if (!css.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحتها بدل تغطية المسرح.');
-  if (!css.includes('.appNavMirrorPortal') || !css.includes('.appNavMirrorSubject')) failures.push('مرآة السياق: أنماط تبادل القيادة بين القائمة والمسرح مفقودة.');
-  if (!css.includes('.appNavGrandchildTabs') || !css.includes('.appNavGrandchildTab') || !css.includes('.appNavGrandchildGroupTitle')) failures.push('قائمة الحفيد: أنماط التبويبات والتجميع المنطقي مفقودة.');
+if (exists(geometryCss)) {
+  const css = read(geometryCss);
+  if (!css.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage") && !css.includes(".rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage")) failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحتها داخل القبطان الموحد.');
+  if (!css.includes('.appNavMirrorPortal') || !css.includes('.appNavMirrorSubjectTitle')) failures.push('مرآة السياق: هندستها يجب أن تكون داخل القبطان الموحد.');
+  if (!css.includes('.appNavGrandchildTabs') || !css.includes('.appNavGrandchildTab') || !css.includes('.appNavGrandchildGroupTitle')) failures.push('قائمة الحفيد: هندستها يجب أن تكون داخل القبطان الموحد.');
+  if (!css.includes("[data-work-form-grid='true'] [data-work-field='true']")) failures.push('هندسة الحقول: قانون العنوان / الحقل يجب أن يكون داخل القبطان الموحد.');
 }
 
 const livingNavigation = read('lib/living-navigation.js');
@@ -225,4 +245,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: the employee desktop owns idle work, navigation persists until manual dismissal, sign out is protected, and one engine spans portals through the grandchild shelf into one-subject work surfaces.');
+console.log('Navigation cleanliness audit passed: one geometry captain owns the dashboard, navigation persists until manual dismissal, sign out is protected, and legacy geometry cannot return.');
