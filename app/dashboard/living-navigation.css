@@ -212,7 +212,32 @@
   }
 }
 
+/* على سطح المكتب القائمة جزء من الجسد: تستدعى فتفسح لها المساحة بدل أن تغطي المسرح. */
+@media screen and (min-width: 901px) and (hover: hover) and (pointer: fine) {
+  .appBodyStage {
+    transition: padding-right 170ms cubic-bezier(.2,.72,.28,1) !important;
+  }
+
+  .rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage {
+    padding-left: 0 !important;
+    padding-right: var(--app-body-nav-width) !important;
+    padding-inline-end: 0 !important;
+  }
+
+  .appContextNav[data-open='true'][data-living-branch='single'] {
+    border-left: 1px solid var(--raw-border-soft, #e8e4dc) !important;
+    border-inline-start: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
 @media screen and (max-width: 900px), screen and (hover: none), screen and (pointer: coarse) {
+  .appBodyStage,
+  .rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage {
+    padding-right: 0 !important;
+    padding-inline-end: 0 !important;
+  }
+
   .appContextNav[data-living-branch='single'] {
     width: min(244px, 86vw);
   }
@@ -225,5 +250,11 @@
 
   .appUnsavedNavigationActions {
     gap: 8px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appBodyStage {
+    transition: none !important;
   }
 }
