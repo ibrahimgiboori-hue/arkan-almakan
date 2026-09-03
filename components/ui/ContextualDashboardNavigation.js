@@ -361,7 +361,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
                 key={item.id || item.href}
                 className="appNavGrandchildItem"
                 data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
-                onClick={()=>go(item.href,{keepOpen:false})}
+                onClick={()=>go(item.href)}
               >
                 <span>{item.label}</span>
                 {item.meta ? <small>{item.meta}</small> : null}
