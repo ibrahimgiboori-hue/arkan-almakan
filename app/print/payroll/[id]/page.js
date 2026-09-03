@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
-import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
 
 const n=(v)=>Number(v||0);
@@ -35,7 +35,6 @@ export default function PayrollPrintPage(){
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const empMap=useMemo(()=>new Map(employees.map(e=>[e.id,e])),[employees]);
-  const layout=useMemo(()=>getPrintLayoutPolicy('payroll_run'),[]);
 
   useEffect(()=>{let alive=true;(async()=>{
     if(!id)return;
@@ -72,10 +71,8 @@ export default function PayrollPrintPage(){
   if(selectionMode&&!printLines.length)return <main style={{padding:30,direction:'rtl'}}>لا توجد صفوف من هذا المسير تطابق التحديد المطلوب.</main>;
 
   const totals=printLines.reduce((a,r)=>({gross:a.gross+n(r.gross_pay),ded:a.ded+n(r.total_deductions),net:a.net+n(r.net_pay)}),{gross:0,ded:0,net:0});
-  const pages=paginateRows(printLines,layout.pagination);
   const printState=selectionMode?{key:'draft',label:'نطاق محدد للطباعة'}:stateOf(run,guard);
   const steps=selectionMode?[]:(approval?.steps||[]);
-  let rowOffset=0;
 
   return <>
     <div className="print-toolbar no-print">
@@ -86,58 +83,41 @@ export default function PayrollPrintPage(){
       <span className="note">مسير الرواتب · {String(run.run_month).slice(0,7)} · {selectionMode?`${printLines.length} موظف محدد`:printState.label}</span>
     </div>
 
-    <ConstitutionPagedFrame
-      documentKey="payroll_run"
-      cfg={cfg}
-      showLetterhead={true}
-      direction="rtl"
-      contentTopMm={layout.topMm}
-      contentBottomMm={layout.bottomMm}
-      contentSideMm={layout.sideMm}
-    >
-      {pages.map((pageRows,pageIndex)=>{
-        const start=rowOffset;
-        rowOffset+=pageRows.length;
-        const isFirst=pageIndex===0;
-        const isFinal=pageIndex===pages.length-1;
-        return <div className="print-document" key={`payroll-page-${pageIndex}`}>
-          {isFirst&&<>
-            <header className="print-document-head">
-              <div>
-                <h1 className="print-document-title">{selectionMode?'مسير الرواتب — المحدد':'مسير الرواتب'}</h1>
-                <div className="print-document-subtitle">أركان المكان · نسخة صادرة من محرك الطباعة المركزي</div>
-              </div>
-              <div className={`print-document-state print-state-${printState.key}`}>{printState.label}</div>
-            </header>
-            <section className="print-meta-grid">
-              <div className="print-meta-item"><span>الشهر</span><strong>{String(run.run_month).slice(0,7)}</strong></div>
-              <div className="print-meta-item"><span>نطاق الطباعة</span><strong>{selectionMode?'الموظفون المحددون فقط':'المسير كاملًا'}</strong></div>
-              <div className="print-meta-item"><span>الحالة التشغيلية</span><strong>{selectionMode?'اختيار من دفتر الرواتب':STATUS[run.status]||run.status}</strong></div>
-              <div className="print-meta-item"><span>عدد الموظفين</span><strong>{printLines.length}</strong></div>
-            </section>
-          </>}
+    <ConstitutionPrintFrame documentKey="payroll_run" cfg={cfg} direction="rtl">
+      <div className="print-document">
+        <header className="print-document-head" data-print-keep-with-next="true">
+          <div>
+            <h1 className="print-document-title">{selectionMode?'مسير الرواتب — المحدد':'مسير الرواتب'}</h1>
+            <div className="print-document-subtitle">أركان المكان · نسخة صادرة من محرك الطباعة المركزي</div>
+          </div>
+          <div className={`print-document-state print-state-${printState.key}`}>{printState.label}</div>
+        </header>
 
-          <table className="print-data-table">
-            <colgroup>
-              <col style={{width:'4%'}}/><col style={{width:'18%'}}/>
-              {Array.from({length:9}).map((_,i)=><col key={i} style={{width:`${78/9}%`}}/>)}
-            </colgroup>
-            <thead><tr><th>#</th><th className="text">الموظف</th><th>الأساسي</th><th>السكن</th><th>النقل</th><th>بدلات أخرى</th><th>إضافي</th><th>عمولة</th><th>الإجمالي</th><th>الخصومات</th><th>الصافي</th></tr></thead>
-            <tbody>{pageRows.map((r,i)=>{const e=empMap.get(r.employee_id);return <tr key={r.id} data-print-row><td>{start+i+1}</td><td className="text">{e?.employee_no?`${e.employee_no} — `:''}{e?.full_name_ar||'—'}</td><td className="num">{money(r.basic_salary)}</td><td className="num">{money(r.housing_allowance)}</td><td className="num">{money(r.transport_allowance)}</td><td className="num">{money(r.other_allowance)}</td><td className="num">{money(r.overtime_amount)}</td><td className="num">{money(r.commission_amount)}</td><td className="num">{money(r.gross_pay)}</td><td className="num">{money(r.total_deductions)}</td><td className="num">{money(r.net_pay)}</td></tr>})}</tbody>
-            {isFinal&&<tfoot><tr><th colSpan="8">الإجمالي</th><th className="num">{money(totals.gross)}</th><th className="num">{money(totals.ded)}</th><th className="num">{money(totals.net)}</th></tr></tfoot>}
-          </table>
+        <section className="print-meta-grid">
+          <div className="print-meta-item"><span>الشهر</span><strong>{String(run.run_month).slice(0,7)}</strong></div>
+          <div className="print-meta-item"><span>نطاق الطباعة</span><strong>{selectionMode?'الموظفون المحددون فقط':'المسير كاملًا'}</strong></div>
+          <div className="print-meta-item"><span>الحالة التشغيلية</span><strong>{selectionMode?'اختيار من دفتر الرواتب':STATUS[run.status]||run.status}</strong></div>
+          <div className="print-meta-item"><span>عدد الموظفين</span><strong>{printLines.length}</strong></div>
+        </section>
 
-          {isFinal&&<>
-            {selectionMode
-              ? <section className="print-approval-block"><h2 className="print-approval-title">ملاحظة النطاق</h2><div className="print-document-subtitle">هذه الطباعة تمثل السجلات المحددة فقط. التحديد وحده لا يعني إنشاء أو اعتماد معاملة مالية.</div></section>
-              : <section className="print-approval-block">
-                  <h2 className="print-approval-title">مسار الاعتماد</h2>
-                  {steps.length?<div className="print-approval-list">{steps.map((s)=><div className="print-approval-step" key={s.id}><strong>الخطوة {s.step_order}: {s.target_group_label||'الجهة المختصة'}</strong><span>{STEP_STATUS[s.status]||s.status}</span>{s.decision_comment?<small>{s.decision_comment}</small>:null}</div>)}</div>:<div className="print-document-subtitle">لم تبدأ دورة الاعتماد بعد.</div>}
-                </section>}
-            <footer className="print-document-footer">{selectionMode?'النطاق المطبوع مأخوذ من التحديد الصريح في دفتر الرواتب.':'حالة الاعتماد ورقم المعاملة مأخوذان مباشرة من سجل المعاملة المركزي.'}</footer>
-          </>}
-        </div>;
-      })}
-    </ConstitutionPagedFrame>
+        <table className="print-data-table" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
+          <colgroup>
+            <col style={{width:'4%'}}/><col style={{width:'18%'}}/>
+            {Array.from({length:9}).map((_,i)=><col key={i} style={{width:`${78/9}%`}}/>)}
+          </colgroup>
+          <thead><tr><th>#</th><th className="text">الموظف</th><th>الأساسي</th><th>السكن</th><th>النقل</th><th>بدلات أخرى</th><th>إضافي</th><th>عمولة</th><th>الإجمالي</th><th>الخصومات</th><th>الصافي</th></tr></thead>
+          <tbody>{printLines.map((r,i)=>{const e=empMap.get(r.employee_id);return <tr key={r.id} data-print-row><td>{i+1}</td><td className="text">{e?.employee_no?`${e.employee_no} — `:''}{e?.full_name_ar||'—'}</td><td className="num">{money(r.basic_salary)}</td><td className="num">{money(r.housing_allowance)}</td><td className="num">{money(r.transport_allowance)}</td><td className="num">{money(r.other_allowance)}</td><td className="num">{money(r.overtime_amount)}</td><td className="num">{money(r.commission_amount)}</td><td className="num">{money(r.gross_pay)}</td><td className="num">{money(r.total_deductions)}</td><td className="num">{money(r.net_pay)}</td></tr>})}</tbody>
+          <tfoot><tr><th colSpan="8">الإجمالي</th><th className="num">{money(totals.gross)}</th><th className="num">{money(totals.ded)}</th><th className="num">{money(totals.net)}</th></tr></tfoot>
+        </table>
+
+        {selectionMode
+          ? <section className="print-approval-block"><h2 className="print-approval-title">ملاحظة النطاق</h2><div className="print-document-subtitle">هذه الطباعة تمثل السجلات المحددة فقط. التحديد وحده لا يعني إنشاء أو اعتماد معاملة مالية.</div></section>
+          : <section className="print-approval-block">
+              <h2 className="print-approval-title">مسار الاعتماد</h2>
+              {steps.length?<div className="print-approval-list">{steps.map((s)=><div className="print-approval-step" key={s.id}><strong>الخطوة {s.step_order}: {s.target_group_label||'الجهة المختصة'}</strong><span>{STEP_STATUS[s.status]||s.status}</span>{s.decision_comment?<small>{s.decision_comment}</small>:null}</div>)}</div>:<div className="print-document-subtitle">لم تبدأ دورة الاعتماد بعد.</div>}
+            </section>}
+        <footer className="print-document-footer">{selectionMode?'النطاق المطبوع مأخوذ من التحديد الصريح في دفتر الرواتب.':'حالة الاعتماد ورقم المعاملة مأخوذان مباشرة من سجل المعاملة المركزي.'}</footer>
+      </div>
+    </ConstitutionPrintFrame>
   </>;
 }
