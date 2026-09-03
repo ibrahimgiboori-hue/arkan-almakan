@@ -50,6 +50,7 @@ export default function ProgramAction({
   const acting = nervousSystem.isActing(spec.key);
   const actionEnabled = allowed && !disabled && !acting && selectionReady && selectionActionAllowed;
   const label = children || spec.label;
+  const subject = spec.subject || spec.innervationSubject || null;
 
   async function handleClick(event) {
     if (!actionEnabled) {
@@ -65,7 +66,7 @@ export default function ProgramAction({
 
     onClick?.(event, spec);
     const result = await nervousSystem.run(
-      { key:spec.key, label:spec.label },
+      { key:spec.key, label:spec.label, subject },
       () => execute(spec),
     );
     onResult?.(result, spec);
@@ -90,6 +91,9 @@ export default function ProgramAction({
       data-action-consequential={consequential ? 'true' : 'false'}
       data-action-nervous-system={typeof execute === 'function' ? 'connected' : 'legacy-pass-through'}
       data-action-signal={acting ? 'acting' : 'ready'}
+      data-action-entity-type={subject?.entityType || subject?.type || undefined}
+      data-action-entity-id={subject?.entityId || subject?.id || undefined}
+      data-action-stage={subject?.stageKey || subject?.stage || undefined}
       data-selection-required={selectionRequired ? 'true' : undefined}
       data-selection-count={selectionRequired ? Number(selectionCount || 0) : undefined}
       data-selection-profile={selectionRequired ? spec.selectionProfile : undefined}
