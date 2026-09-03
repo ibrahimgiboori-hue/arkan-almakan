@@ -17,6 +17,7 @@ export default function PortalApproachStage(){
   const groups=area?livingPortalGroups(portal,session):[];
   const groupKey=searchParams.get('group')||'';
   const group=groups.find((item)=>item.key===groupKey)||null;
+  const geometryOwner=portal==='workforce'&&group?.key==='recruitment'?'arkan-workspace-v1':undefined;
 
   useEffect(()=>{
     if(!area||!groupKey||!group){
@@ -42,27 +43,29 @@ export default function PortalApproachStage(){
     data-stage-leadership="stage"
     data-portal={portal}
     data-portal-group={group.key}
+    data-geometry-owner={geometryOwner}
     data-living-branch-scope="all-portals"
   >
-    <header className={styles.head}>
-      <div className={styles.eyebrow}>{area.label}</div>
-      <h1>{group.label}</h1>
-      <p>من هنا تقود المساحة الكبيرة الاختيار، بينما تتحول القائمة إلى مرآة هادئة للمجموعة وما تحتويه.</p>
+    <header className={styles.head} data-workspace-head="true">
+      <div className={styles.eyebrow} data-workspace-eyebrow="true">{area.label}</div>
+      <h1 data-workspace-title="true">{group.label}</h1>
+      <p data-workspace-description="true">من هنا تقود المساحة الكبيرة الاختيار، بينما تتحول القائمة إلى مرآة هادئة للمجموعة وما تحتويه.</p>
     </header>
 
-    <div className={styles.choices} role="list" aria-label={group.label}>
+    <div className={styles.choices} data-workspace-choices="true" role="list" aria-label={group.label}>
       {group.items.map((item)=><button
         key={item.href}
         type="button"
         className={styles.choice}
+        data-workspace-choice="true"
         onClick={()=>go(item.href)}
         role="listitem"
       >
-        <span>
+        <span data-workspace-choice-copy="true">
           <strong>{item.label}</strong>
           {item.description?<small>{item.description}</small>:null}
         </span>
-        <span className={styles.choiceMark} aria-hidden="true">‹</span>
+        <span className={styles.choiceMark} data-workspace-choice-mark="true" aria-hidden="true">‹</span>
       </button>)}
     </div>
   </section>;
