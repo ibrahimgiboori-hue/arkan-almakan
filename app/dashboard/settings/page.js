@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { SYSTEM } from '@/lib/system-constitution';
+import { applyUiTheme, normalizeUiTheme, UI_THEME_EVENT, UI_THEME_PRESETS } from '@/lib/ui-theme';
 
 const ASSETS = [
   { col: 'header_image_path', label: 'شريط الرأس',
@@ -66,7 +67,25 @@ export default function Settings() {
     else { setMsg('تم الحفظ'); load(); }
   }
 
+  async function saveTheme(value) {
+    const theme = normalizeUiTheme(value);
+    setErr(''); setMsg(''); setBusy('ui_theme_preset');
+    const { error } = await supabase.from('app_settings')
+      .update({ ui_theme_preset:theme }).eq('id',1);
+    setBusy('');
+    if (error) {
+      setErr('تعذّر حفظ مظهر البرنامج: ' + error.message);
+      return;
+    }
+    setS((current) => ({ ...current, ui_theme_preset:theme }));
+    applyUiTheme(theme);
+    window.dispatchEvent(new CustomEvent(UI_THEME_EVENT, { detail:{ theme } }));
+    setMsg('تم تطبيق مظهر البرنامج');
+  }
+
   if (!s) return <div className="empty">جارٍ التحميل…</div>;
+
+  const activeTheme = normalizeUiTheme(s.ui_theme_preset);
 
   return (
     <>
@@ -81,17 +100,62 @@ export default function Settings() {
       {msg && <div className="msg ok" style={{marginBottom:14}}>{msg}</div>}
 
       <div className="section" style={{marginTop:0}}>
+        <header><h2>مظهر البرنامج</h2></header>
+        <div style={{padding:18}}>
+          <div style={{fontSize:13.5,lineHeight:1.7,color:'var(--ink-soft)',marginBottom:12}}>
+            تنسيقات هادئة للجسد الجديد. كل تنسيق يضبط الخلفيات والنصوص والحواف والعناصر النشطة وحالات النظام كوحدة واحدة، مع الحفاظ على تباين مريح للقراءة.
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
+            {UI_THEME_PRESETS.map((theme) => {
+              const active = activeTheme === theme.key;
+              return (
+                <button
+                  key={theme.key}
+                  type="button"
+                  onClick={() => saveTheme(theme.key)}
+                  disabled={busy === 'ui_theme_preset'}
+                  aria-pressed={active}
+                  style={{
+                    textAlign:'right',
+                    padding:'12px',
+                    border:active ? '1.5px solid var(--raw-wine)' : '1px solid var(--hair-strong)',
+                    borderRadius:8,
+                    background:'var(--card)',
+                    color:'var(--ink)',
+                    boxShadow:'none',
+                    cursor:'pointer',
+                  }}
+                >
+                  <div style={{display:'flex',gap:5,marginBottom:9}} aria-hidden="true">
+                    {theme.preview.map((color) => (
+                      <span key={color} style={{width:23,height:23,borderRadius:5,background:color,border:'1px solid rgba(0,0,0,.09)'}} />
+                    ))}
+                  </div>
+                  <div style={{fontSize:13.5,fontWeight:750,marginBottom:3}}>{theme.label}</div>
+                  <div style={{fontSize:11.5,lineHeight:1.55,color:'var(--ink-soft)'}}>{theme.description}</div>
+                  {active ? <div style={{marginTop:7,fontSize:10.5,fontWeight:750,color:'var(--raw-wine)'}}>مطبق الآن</div> : null}
+                </button>
+              );
+            })}
+          </div>
+          <div className="hint" style={{marginTop:10}}>
+            لا توجد ألوان حرة في هذا المستوى عمدًا؛ التنسيقات محكومة لتجنب التباين الضعيف والألوان الصارخة المجهدة للعين.
+          </div>
+        </div>
+      </div>
+
+      <div className="section" style={{marginTop:22}}>
         <header><h2>أصول الهوية البصرية</h2></header>
         <div style={{padding:18,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:18}}>
           {ASSETS.map((a) => (
             <div key={a.col}>
               <div style={{fontSize:13.5,marginBottom:6}}>{a.label}</div>
-              <div style={{border:'1px solid var(--hair)',background:'#FBF7F7',height:150,
+              <div style={{border:'1px solid var(--hair)',background:'var(--card)',height:150,
                            display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}>
                 {s[a.col]
                   ? <img src={url(s[a.col])} alt={a.label}
                          style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}} />
-                  : <span style={{fontSize:12.5,color:'var(--maroon-light)'}}>لم تُرفع بعد</span>}
+                  : <span style={{fontSize:12.5,color:'var(--ink-soft)'}}>لم تُرفع بعد</span>}
               </div>
               <input type="file" accept="image/png,image/jpeg,image/webp"
                      onChange={(e)=>upload(a.col, e.target.files?.[0])}
@@ -125,7 +189,7 @@ export default function Settings() {
                      onChange={(e)=>setS({...s,[k]:Number(e.target.value)})}
                      onMouseUp={(e)=>saveField(k, Number(e.target.value))}
                      onTouchEnd={(e)=>saveField(k, Number(e.target.value))}
-                     style={{width:'100%',accentColor:'#8B3332'}} />
+                     style={{width:'100%',accentColor:'var(--raw-wine)'}} />
             </div>
           ))}
           <div className="hint">
@@ -198,7 +262,7 @@ export default function Settings() {
       </div>
 
       <div className="section">
-        <header><h2>ألوان الهوية</h2></header>
+        <header><h2>ألوان الهوية في المستندات</h2></header>
         <div style={{padding:18,display:'flex',gap:26,flexWrap:'wrap'}}>
           {[['العنابي الأساسي', s.color_primary],['العنابي الغامق', s.color_primary_dark],
             ['العنابي الفاتح', s.color_primary_light],['رمادي النص', s.color_text]].map(([n,c]) => (
