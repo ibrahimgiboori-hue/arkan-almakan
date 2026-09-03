@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { WORK_COMPLETION_KIND, WORK_SESSION_STATE } from '@/lib/work-session-constitution';
+import { normalizeInnervationSubject } from '@/lib/persistent-innervation';
 
 export const WORK_SESSION_EVENT = Object.freeze({
   COMPLETE: 'arkan:work-session-completed',
@@ -44,6 +45,7 @@ function normalizeCompletion(detail = {}) {
   const destination = String(detail.destination || '').trim();
   const primaryAction = normalizeAction(detail.primaryAction);
   const secondaryAction = normalizeAction(detail.secondaryAction);
+  const subject = normalizeInnervationSubject(detail.subject || {});
 
   return Object.freeze({
     kind,
@@ -51,6 +53,7 @@ function normalizeCompletion(detail = {}) {
     message,
     reference,
     destination,
+    subject,
     primaryAction,
     secondaryAction,
     completedAt: detail.completedAt || new Date().toISOString(),
@@ -82,6 +85,9 @@ function CompletedSurface({ completion, onAction }) {
       className="appCompletedSurface"
       data-work-session-state={WORK_SESSION_STATE.RELEASED}
       data-completion-kind={completion.kind}
+      data-completed-entity-type={completion.subject?.entityType || undefined}
+      data-completed-entity-id={completion.subject?.entityId || undefined}
+      data-completed-stage={completion.subject?.stageKey || undefined}
       aria-live="polite"
       aria-label="خاتمة جلسة العمل"
     >
