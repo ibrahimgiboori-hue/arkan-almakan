@@ -29,22 +29,33 @@ const runtime = requireText('components/ui/WorkThresholdRuntime.js', [
   'data-work-posture',
   'WorkThresholdMarker',
   'previousZoneRef',
-  'NAVIGATION_YIELD_EVENT',
-  'dispatchEvent(new CustomEvent(NAVIGATION_YIELD_EVENT',
   '210',
 ]);
+if (runtime.includes('NAVIGATION_YIELD_EVENT') || runtime.includes("dispatchEvent(new CustomEvent('arkan:navigation-yield-to-work'")) {
+  failures.push('WorkThresholdRuntime: عتبة العمل لا يجوز أن تُصدر أمرًا لإخفاء الملاحة؛ العتبة تغيّر وضع العمل فقط.');
+}
 if (/setTimeout\([^,]+,\s*(?:[3-9]\d\d|\d{4,})\)/.test(runtime)) failures.push('WorkThresholdRuntime: نبضة العتبة أطول من اللازم.');
 
 const navigation = requireText('components/ui/ContextualDashboardNavigation.js', [
-  "const NAVIGATION_YIELD_EVENT = 'arkan:navigation-yield-to-work'",
-  'function yieldToWork()',
-  'setOpen(false)',
   'function openNavigation()',
+  'function go(href, options = {})',
   'setOpen(true)',
+  'appNavDismiss',
+  'appNavAccountMenu',
+  'تسجيل الخروج',
 ]);
-if (/function\s+yieldToWork\s*\(\)\s*\{[\s\S]{0,240}?isCompactNavigationViewport\(\)/.test(navigation)) {
-  failures.push('Work threshold navigation: القائمة يجب أن تتنحى عند العمل الحقيقي على سطح المكتب والجوال، لا الجوال فقط.');
+if (navigation.includes('NAVIGATION_YIELD_EVENT') || /function\s+yieldToWork\s*\(/.test(navigation)) {
+  failures.push('Work threshold navigation: القائمة عادت للاختفاء تلقائيًا عند دخول العمل.');
 }
+if (!/function\s+go\s*\([^)]*\)\s*\{[\s\S]{0,500}?setOpen\(true\);/.test(navigation)) {
+  failures.push('Work threshold navigation: الملاحة يجب أن تبقى متاحة حتى يخفيها المستخدم صراحة.');
+}
+
+const living = requireText('lib/living-navigation.js', [
+  "navigationPersistenceRevision:'manual-dismiss-v1'",
+  'desktopNavigationPersistsWhenWorkThresholdIsCrossed:true',
+  'workZoneNavigationDismissRequiresExplicitUserInvocation:true',
+]);
 
 const sessionConstitution = requireText('lib/work-session-constitution.js', [
   "IDLE: 'idle'",
@@ -87,4 +98,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Work threshold audit passed: anatomy yields to a quiet work-zone posture, navigation yields only at real work, explicit recall remains available, sessions start explicitly, and released work keeps its zone context.');
+console.log('Work threshold audit passed: anatomy enters a quiet work-zone posture without dismissing navigation, navigation stays until the user hides it, sessions start explicitly, and released work keeps its zone context.');
