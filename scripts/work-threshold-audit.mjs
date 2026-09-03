@@ -36,15 +36,25 @@ if (/setTimeout\([^,]+,\s*(?:[3-9]\d\d|\d{4,})\)/.test(runtime)) failures.push('
 const sessionConstitution = requireText('lib/work-session-constitution.js', [
   "IDLE: 'idle'",
   'being-in-a-work-zone-does-not-mean-a-work-session-has-started',
-  'new-route-resets-session-to-idle-not-working',
+  'live-work-must-be-resolved-before-route-release',
+  'navigation-cannot-silently-abandon-dirty-work',
+  'draft-preserves-editable-work-state-without-creating-business-effect',
 ]);
 const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
   "BEGIN: 'arkan:work-session-begin'",
+  "DIRTY: 'arkan:work-session-dirty'",
+  "NAVIGATE: 'arkan:work-session-navigate'",
   'const [started, setStarted] = useState(false)',
+  'const [pendingWork, setPendingWork] = useState(null)',
   'WORK_SESSION_STATE.IDLE',
   'data-work-session-state',
+  'data-work-dirty',
+  'beforeunload',
+  'حفظ كمسودة والانتقال',
+  'تجاهل التغييرات والانتقال',
 ]);
 if (!sessionRuntime.includes('setStarted(true)')) failures.push('WorkSessionRuntime: الجلسة لا تملك بداية صريحة.');
+if (!sessionRuntime.includes('pendingWork?.dirty')) failures.push('WorkSessionRuntime: بوابة المغادرة لا تتحقق من العمل غير المحفوظ.');
 
 const nerve = requireText('components/ui/ActionNervousSystemRuntime.js', [
   'workSession.begin({ subject:spec.subject || null })',
@@ -74,4 +84,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Work threshold audit passed: anatomy yields to a quiet work-zone posture, sessions start explicitly, and released work keeps its zone context.');
+console.log('Work threshold audit passed: entering a place does not start a transaction, live work cannot be abandoned silently, drafts remain non-consequential, and released work keeps its zone context.');
