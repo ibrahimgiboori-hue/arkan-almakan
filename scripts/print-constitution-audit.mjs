@@ -63,13 +63,19 @@ for (const file of candidates) {
   }
 }
 
-// إحلال وإلغاء: بعد اعتماد قانون المصدر الصريح لليترهيد والتدفق المقاس،
-// لا يجوز أن تبقى واجهة showLetterhead أو autoPaginate القديمة في أي جزء من القبطان.
+// إحلال وإلغاء: لا تعود واجهات أو محركات الطباعة التي حل محلها القبطان الواحد.
 for (const file of captainSources) {
   const rel = path.normalize(path.relative(root,file));
   const text = fs.readFileSync(file,'utf8');
   if (/\bshowLetterhead\b/.test(text)) violations.push(`${rel}: واجهة showLetterhead القديمة لم تُلغ بعد الإحلال بـ letterheadSource`);
   if (/\bautoPaginate\b/.test(text)) violations.push(`${rel}: محرك autoPaginate القديم لم يُلغ بعد الإحلال بحدود التدفق المقاسة`);
+}
+for (const retired of [
+  'components/print/PrintFrame.js',
+  'lib/quote-pagination.mjs',
+  'tests/quote-pagination.test.mjs',
+]) {
+  if (fs.existsSync(path.join(root,retired))) violations.push(`${retired}: ملف طباعة متقاعد عاد بعد الإحلال`);
 }
 
 const layoutPath = path.join(printRoot, 'layout.js');
@@ -100,7 +106,17 @@ if (!fs.existsSync(officeModelPath)) {
 }
 
 const governance = requireText('lib/print-governance.js', [
-  "PRINT_GOVERNANCE_VERSION = '3.0'",
+  "PRINT_GOVERNANCE_VERSION = '3.1'",
+  'PRINT_WORD_STANDARD',
+  "bodyMarginMm:25.4",
+  "headerFromEdgeMm:12.7",
+  "footerFromEdgeMm:12.7",
+  'ARKAN_LETTERHEAD_PROFILE',
+  "portraitTopArtworkMm:34.23",
+  "portraitBottomArtworkMm:19.13",
+  'PRINT_LINE_FLOW_POLICY',
+  "owner:'ConstitutionPagedFrame'",
+  "measurementUnit:'visual-line-box'",
   'PRINT_LETTERHEAD_SOURCE',
   "DIGITAL: 'digital'",
   "PREPRINTED: 'preprinted'",
@@ -118,6 +134,9 @@ const governance = requireText('lib/print-governance.js', [
 if (!governance.includes("letterheadSource:PRINT_LETTERHEAD_SOURCE.DIGITAL")) {
   violations.push('lib/print-governance.js: مصدر الليترهيد الافتراضي لتقرير ميزانية التشغيل غير مثبت مركزيًا');
 }
+if (/\bsideMm\s*:/.test(governance)) {
+  violations.push('lib/print-governance.js: sideMm القديمة عادت كبديل لهامش Word القياسي');
+}
 
 const frame = requireText('components/print/ConstitutionPrintFrame.js', [
   'ConstitutionPagedFrame',
@@ -125,14 +144,19 @@ const frame = requireText('components/print/ConstitutionPrintFrame.js', [
   'cloneElement(childArray[0]',
   'className:mergeClassName(childArray[0].props.className, className)',
   '{flowChildren}',
-  'contentTopMm={contentTopMm ?? layout.topMm}',
-  'contentBottomMm={contentBottomMm ?? layout.bottomMm}',
+  'contentTopMm={contentTopMm}',
+  'contentBottomMm={contentBottomMm}',
+  'contentSideMm={contentSideMm}',
 ], violations);
+if (frame.includes('getPrintLayoutPolicy')) {
+  violations.push('ConstitutionPrintFrame.js: الغلاف لا يجوز أن يملك هندسة موازية للقبطان');
+}
 if (frame.includes('<div className={className}>{children}</div>')) {
   violations.push('ConstitutionPrintFrame.js: الغلاف الزائد يعيد المستند كله ككتلة واحدة ويمنح المتصفح حق كسر الصفحة');
 }
 
 const paged = requireText('components/print/ConstitutionPagedFrame.js', [
+  'CAPTAIN_GEOMETRY_SCHEMA = 6',
   'PRINT_LETTERHEAD_SOURCE',
   'PRINT_PAPER_ROTATION',
   'PRINT_FLOW_BOUNDARY',
@@ -141,17 +165,38 @@ const paged = requireText('components/print/ConstitutionPagedFrame.js', [
   'data-print-letterhead-source',
   'data-print-paper-rotation',
   'data-print-physical-letterhead-reservation',
+  'data-print-geometry-schema',
+  'data-print-line-seams="visual-line-box"',
   "table.props?.['data-print-flow'] !== PRINT_FLOW_KIND.REPEATABLE_TABLE",
   "querySelectorAll(':scope > tbody > tr')",
   'tableFragment(',
+  'measuredLineBands(',
+  'visualLineSeams(',
+  'chooseVisualLineBreak(',
+  'measuredRowSlice(',
+  "gridSchemaVersion:CAPTAIN_GEOMETRY_SCHEMA",
+  'geometryCurrent = Number(merged.gridSchemaVersion || 0) >= CAPTAIN_GEOMETRY_SCHEMA',
+  'letterheadTop + headerClearanceMm',
+  'letterheadBottom + footerClearanceMm',
   'physicalLeft',
   'physicalRight',
   'sideReservedLetterhead',
   'rotatedDigitalMaster',
+  'printGovernanceClassName(documentKey,\'\',orientation)',
   'حفظ عناوين هذا التقرير',
-  'اتجاه الطباعة',
+  'Word 25.4 مم',
+  'إعادة Word القياسي',
   'ورق مطبوع مسبقًا',
 ], violations);
+for (const retired of [
+  'cfg?.letterhead_top_mm',
+  'cfg?.letterhead_bottom_mm',
+  'safeBottomMm',
+  'NORMAL_TOP_MM',
+  'NORMAL_BOTTOM_MM',
+]) {
+  if (paged.includes(retired)) violations.push(`ConstitutionPagedFrame.js: بقايا هندسة قديمة بعد إحلال Word baseline (${retired})`);
+}
 if (/setFlowPagination|samePagination/.test(paged)) {
   violations.push('ConstitutionPagedFrame.js: بقايا محرك تقسيم الكتل القديم ما زالت موجودة');
 }
@@ -266,9 +311,9 @@ if (!fs.existsSync(boundaryPath) || !fs.readFileSync(boundaryPath, 'utf8').inclu
 
 if (violations.length) {
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('القانون الحالي: الاتجاه مستقل عن مصدر الليترهيد، الورق المطبوع يحجز هويته دون رسمها، وحدود التدفق المقاسة تملك تقسيم المحتوى. أي API قديم بعد الإحلال يعد بقايا يجب حذفها.\n');
+  console.error('القانون الحالي: قبطان واحد، هندسة Word A4 بالمليمتر، ليترهيد مقاس مستقل عن الهيدر والفوتر، واتجاه الورقة مستقل عن مصدر الهوية، وصفوف الجداول تنقسم فقط على line seams مرئية للقبطان وغير مرئية للقارئ. أي API أو رقم هندسي متقاعد بعد الإحلال يعد بقايا يجب حذفها.\n');
   for (const item of violations) console.error(`- ${item}`);
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked; captain v3 physical paper modes, measured flow boundaries, editable report presentation, Word + Excel model and manual text alignment active).`);
+console.log(`Print constitution audit passed (${candidates.length} print source files checked; one captain owns Word-standard physical geometry, measured Arkan letterhead reservation, visual-line seams, editable report presentation, Word + Excel model and manual text alignment).`);
