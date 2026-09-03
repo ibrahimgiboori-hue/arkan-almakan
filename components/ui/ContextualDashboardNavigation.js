@@ -12,13 +12,10 @@ import {
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
 import {
   PORTAL_SECTION_ITEMS,
-  PORTAL_MANAGEMENT_SECTIONS,
   PORTAL_EXISTING_DESTINATION_CAPABILITIES,
 } from '@/lib/portal-section-constitution';
-import GlobalSearch from './GlobalSearch';
+import { SHELL_PORTAL_GROUPS } from '@/lib/navigation-shell-constitution';
 
-const OPEN_INTENT_MS = 620;
-const CLOSE_GRACE_MS = 520;
 const PIN_STORAGE_KEY = 'arkan-context-nav-pinned';
 
 function uniqueByHref(items = []) {
@@ -56,8 +53,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const openTimerRef = useRef(null);
-  const closeTimerRef = useRef(null);
   const lastPathRef = useRef(null);
   const navRef = useRef(null);
   const edgeRef = useRef(null);
@@ -102,9 +97,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
   const groupsByArea = useMemo(() => Object.fromEntries(accessibleAreas.map((area) => {
     const tools = toolsByArea[area.key] || [];
-    const configured = PORTAL_MANAGEMENT_SECTIONS[area.key] || [];
+    const configured = SHELL_PORTAL_GROUPS[area.key] || [];
     if (!configured.length) {
-      return [area.key, tools.length ? [{ key:'general', label:'أدوات البوابة', items:tools }] : []];
+      return [area.key, tools.length ? [{ key:'general', label:cleanPortalLabel(area.label), items:tools }] : []];
     }
 
     const itemByHref = new Map(tools.map((item) => [item.href, item]));
@@ -118,7 +113,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
     const assigned = new Set(configured.flatMap((group) => group.hrefs || []));
     const extras = tools.filter((item) => !assigned.has(item.href));
-    if (extras.length) groups.push({ key:'general', label:'أدوات أخرى', items:extras });
+    if (extras.length) groups.push({ key:'more', label:'المزيد', items:extras });
     return [area.key, groups];
   })), [accessibleAreas, toolsByArea]);
 
@@ -192,15 +187,13 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     if (saved) setPanel(contextPanel);
     lastPathRef.current = pathname;
     setPinReady(true);
-  // The first contextual panel is intentionally captured from the route at mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!pinReady) return undefined;
-    document.body.classList.toggle('appNavPinned', pinned);
     try { window.localStorage.setItem(PIN_STORAGE_KEY, String(pinned)); } catch (_) {}
-    return () => document.body.classList.remove('appNavPinned');
+    return undefined;
   }, [pinReady, pinned]);
 
   useEffect(() => {
@@ -219,8 +212,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   useEffect(() => {
     function keydown(event) {
       if (event.key !== 'Escape' || !open) return;
-      setPinned(false);
       setOpen(false);
+      if (pinned) setPinned(false);
     }
     function outsidePointer(event) {
       if (!open || pinned) return;
@@ -235,40 +228,10 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     };
   }, [open, pinned]);
 
-  useEffect(() => () => {
-    window.clearTimeout(openTimerRef.current);
-    window.clearTimeout(closeTimerRef.current);
-  }, []);
-
-  function clearTimers() {
-    window.clearTimeout(openTimerRef.current);
-    window.clearTimeout(closeTimerRef.current);
-  }
-
-  function openFromIntent() {
-    clearTimers();
-    openTimerRef.current = window.setTimeout(() => {
-      setPanel(contextPanel);
-      setMotionDirection('forward');
-      setOpen(true);
-    }, OPEN_INTENT_MS);
-  }
-
-  function openImmediately() {
-    clearTimers();
+  function openNavigation() {
     setPanel(contextPanel);
     setMotionDirection('forward');
     setOpen(true);
-  }
-
-  function keepOpen() {
-    window.clearTimeout(closeTimerRef.current);
-  }
-
-  function closeWithGrace() {
-    window.clearTimeout(openTimerRef.current);
-    if (pinned) return;
-    closeTimerRef.current = window.setTimeout(() => setOpen(false), CLOSE_GRACE_MS);
   }
 
   function dive(nextPanel) {
@@ -290,10 +253,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   function togglePinned() {
     setPinned((value) => {
       const next = !value;
-      if (next) {
-        setOpen(true);
-        setPanel(contextPanel);
-      }
+      setOpen(true);
+      if (next) setPanel(contextPanel);
       return next;
     });
   }
@@ -323,9 +284,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       aria-label="فتح قائمة البرنامج"
       aria-expanded={open}
       aria-controls="arkan-context-navigation"
-      onPointerEnter={openFromIntent}
-      onPointerLeave={() => window.clearTimeout(openTimerRef.current)}
-      onClick={openImmediately}
+      onClick={openNavigation}
     ><span aria-hidden="true" /></button>
 
     <button
@@ -333,7 +292,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       className="appNavTouchTrigger"
       aria-expanded={open}
       aria-controls="arkan-context-navigation"
-      onClick={openImmediately}
+      onClick={openNavigation}
     >القائمة</button>
 
     <aside
@@ -344,33 +303,23 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       data-pinned={pinned ? 'true' : 'false'}
       aria-label="التنقل في أركان المكان"
       aria-hidden={!open}
-      onPointerEnter={keepOpen}
-      onPointerLeave={closeWithGrace}
     >
       {open ? <>
-        <header className="appNavHeader">
-          <div className="appNavIdentity">
-            <strong>أركان المكان</strong>
-          </div>
-          <button type="button" className="appNavPin" onClick={togglePinned}>
-            {pinned ? 'إلغاء التثبيت' : 'إبقاء مفتوحة'}
-          </button>
-        </header>
-
-        <div className="appNavSearch"><GlobalSearch /></div>
+        <div className="appNavTopLine">
+          <span>أركان المكان</span>
+          <button type="button" onClick={togglePinned}>{pinned ? 'تحرير' : 'إبقاء'}</button>
+        </div>
 
         <div key={panelId(panel)} className="appNavPanel" data-motion={motionDirection}>
           {panel.type === 'root' && <>
-            <div className="appNavSectionLabel">العمل</div>
-            <div className="appNavList">
+            <div className="appNavList appNavQuickList">
               {quickLinks.map((item) => (
                 <button key={item.href} type="button" className="appNavRow" data-active={pathname === item.href ? 'true' : 'false'} onClick={() => go(item.href)}>
                   <span>{item.label}</span>
                 </button>
               ))}
             </div>
-            <div className="appNavSectionLabel">البوابات</div>
-            <div className="appNavList">
+            <div className="appNavList appNavPortalList">
               {accessibleAreas.map((area) => (
                 <button key={area.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaKey === area.key ? 'true' : 'false'} onClick={() => dive({ type:'area', areaKey:area.key })}>
                   <span>{cleanPortalLabel(area.label)}</span>
@@ -381,7 +330,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           </>}
 
           {panel.type === 'area' && activeArea && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>البوابات</button>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>الكل</button>
             <div className="appNavPanelHead"><strong>{cleanPortalLabel(activeArea.label)}</strong></div>
             <div className="appNavList">
               {activeAreaGroups.map((group) => (
@@ -406,7 +355,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           </>}
 
           {panel.type === 'project' && projectId && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:'projects' })}>بوابة المشاريع</button>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:'projects' })}>المشاريع</button>
             <div className="appNavPanelHead"><strong>المشروع الحالي</strong></div>
             <div className="appNavList">
               {projectGroups.map((group) => (
@@ -419,7 +368,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
           </>}
 
           {panel.type === 'projectGroup' && projectId && activeProjectGroupPanel && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'project' })}>المشروع الحالي</button>
+            <button type="button" className="appNavBack" onClick={() => back({ type:'project' })}>المشروع</button>
             <div className="appNavPanelHead"><strong>{activeProjectGroupPanel.label}</strong></div>
             <div className="appNavList">
               {activeProjectGroupPanel.items.map((item) => (
@@ -429,12 +378,11 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
               ))}
             </div>
           </>}
-        </div>
 
-        <footer className="appNavFooter">
-          <button type="button" onClick={() => go('/dashboard')}>مركز العمل</button>
-          <button type="button" onClick={onSignOut}>خروج</button>
-        </footer>
+          <div className="appNavBottomActions">
+            <button type="button" onClick={onSignOut}>خروج</button>
+          </div>
+        </div>
       </> : null}
     </aside>
   </>;
