@@ -167,17 +167,21 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     ? projectGroups.find((group) => group.key === currentProjectTool.groupKey) || null
     : null;
 
+  const currentAreaIsAccessible = Boolean(
+    currentAreaKey && accessibleAreas.some((area) => area.key === currentAreaKey)
+  );
+
   const contextPanel = useMemo(() => {
-    if (projectId) {
+    if (projectId && projectTools.length > 0) {
       if (currentProjectGroup) return { type:'projectGroup', groupKey:currentProjectGroup.key };
       return { type:'project' };
     }
-    if (currentAreaKey) {
+    if (currentAreaIsAccessible) {
       if (currentAreaGroup) return { type:'areaGroup', areaKey:currentAreaKey, groupKey:currentAreaGroup.key };
       return { type:'area', areaKey:currentAreaKey };
     }
     return { type:'root' };
-  }, [currentAreaGroup, currentAreaKey, currentProjectGroup, projectId]);
+  }, [currentAreaGroup, currentAreaIsAccessible, currentAreaKey, currentProjectGroup, projectId, projectTools.length]);
 
   useEffect(() => {
     let saved = false;
@@ -208,6 +212,29 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     }
     lastPathRef.current = pathname;
   }, [contextPanel, pathname, pinReady, pinned]);
+
+  const activeArea = panel.areaKey
+    ? accessibleAreas.find((area) => area.key === panel.areaKey) || null
+    : null;
+  const activeAreaGroups = activeArea ? groupsByArea[activeArea.key] || [] : [];
+  const activeAreaGroup = panel.type === 'areaGroup'
+    ? activeAreaGroups.find((group) => group.key === panel.groupKey) || null
+    : null;
+  const activeProjectGroupPanel = panel.type === 'projectGroup'
+    ? projectGroups.find((group) => group.key === panel.groupKey) || null
+    : null;
+
+  const panelValid = panel.type === 'root'
+    || (panel.type === 'area' && Boolean(activeArea))
+    || (panel.type === 'areaGroup' && Boolean(activeArea && activeAreaGroup))
+    || (panel.type === 'project' && Boolean(projectId && projectGroups.length))
+    || (panel.type === 'projectGroup' && Boolean(projectId && activeProjectGroupPanel));
+
+  useEffect(() => {
+    if (!open || panelValid) return;
+    setMotionDirection('back');
+    setPanel({ type:'root' });
+  }, [open, panelValid]);
 
   useEffect(() => {
     function keydown(event) {
@@ -259,17 +286,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     });
   }
 
-  const activeArea = panel.areaKey
-    ? accessibleAreas.find((area) => area.key === panel.areaKey) || null
-    : null;
-  const activeAreaGroups = activeArea ? groupsByArea[activeArea.key] || [] : [];
-  const activeAreaGroup = panel.type === 'areaGroup'
-    ? activeAreaGroups.find((group) => group.key === panel.groupKey) || null
-    : null;
-  const activeProjectGroupPanel = panel.type === 'projectGroup'
-    ? projectGroups.find((group) => group.key === panel.groupKey) || null
-    : null;
-
   const quickLinks = [
     { label:'مركز العمل', href:'/dashboard' },
     { label:'أعمالي', href:'/dashboard/my-work' },
@@ -301,6 +317,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       className="appContextNav"
       data-open={open ? 'true' : 'false'}
       data-pinned={pinned ? 'true' : 'false'}
+      data-panel-valid={panelValid ? 'true' : 'false'}
       aria-label="التنقل في أركان المكان"
       aria-hidden={!open}
     >
