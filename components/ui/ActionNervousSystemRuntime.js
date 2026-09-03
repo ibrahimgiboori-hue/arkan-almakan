@@ -51,6 +51,9 @@ export default function ActionNervousSystemRuntime({ children }) {
       return { ok:false, duplicate:true, error:'الإجراء قيد التنفيذ بالفعل.' };
     }
 
+    // الاتصال بالعصب المركزي يعني أن المستخدم بدأ فعلًا إجراءً؛ هنا فقط
+    // تتحول جلسة العمل من IDLE إلى WORKING. مجرد دخول منطقة العمل لا يفعل ذلك.
+    workSession.begin({ subject:spec.subject || null });
     activeKeysRef.current.add(spec.key);
     setSignal({
       phase:ACTION_SIGNAL_STATE.ACTING,
