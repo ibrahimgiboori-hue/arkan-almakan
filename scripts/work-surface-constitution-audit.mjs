@@ -55,6 +55,7 @@ if (/export\s+const\s+AREAS\s*=/.test(constitution)) failures.push('work-surface
 const sessionConstitution = requireText('lib/work-session-constitution.js', [
   'zero-residue-work-session-v1',
   'user-work-session-not-page',
+  'being-in-a-work-zone-does-not-mean-a-work-session-has-started',
   'a-procedural-session-must-end-with-an-explicit-terminal-action',
   'server-confirmed-effect-only',
   'action-server-commit-audit-completion-surface-release',
@@ -81,12 +82,15 @@ if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRunti
 
 const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
   "from '@/lib/work-session-constitution'",
+  "BEGIN: 'arkan:work-session-begin'",
   'arkan:work-session-completed',
   'serverConfirmed !== true',
   'emitWorkSessionCompletion',
   'data-work-session-state',
   'CompletedSurface',
-  "state: completion ? WORK_SESSION_STATE.RELEASED : WORK_SESSION_STATE.WORKING",
+  'WORK_SESSION_STATE.IDLE',
+  'const [started, setStarted] = useState(false)',
+  'setStarted(true)',
   'setCompletion(null)',
 ]);
 if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل لا تُخزن محليًا ولا تعيش بعد تغيير المسار.');
