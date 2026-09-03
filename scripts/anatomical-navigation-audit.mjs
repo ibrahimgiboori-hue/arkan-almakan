@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const failures = [];
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+const exists = (rel) => fs.existsSync(path.join(root, rel));
 const requireFile = (rel) => {
   const absolute = path.join(root, rel);
   if (!fs.existsSync(absolute)) {
@@ -38,93 +39,97 @@ if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*
 
 const living = requireFile('lib/living-navigation.js');
 for (const required of [
-  'single-living-branch-v1',
+  'single-living-branch-v2',
   'oneExpandedSiblingPerLevel:true',
-  'biologicalEntitiesLiveOnStageOnly:true',
-  "biologicalChildFirstSurface:'identity-card-before-work-navigation'",
+  'navigationLeadsUntilMeaningfulStage:true',
+  'stageLeadsAfterGuardianOrGroupSelection:true',
+  'selectedBiologicalIdentityMayMirrorAsNonInteractiveContext:true',
   'directWorkChildrenAreHonoraryInNavigation:true',
-  'workChildrenAreClickableOnStage:true',
+  'desktopNavigationPersistsUntilUserDismisses:true',
+  'desktopNavigationReservesSpaceInsteadOfCoveringStage:true',
+  'sameBehaviorEngineAcrossAllPortals:true',
   "semanticBack:'one-anatomical-level-never-browser-history'",
   'PROJECT_GUARDIANS',
   'PROJECT_APPROACH_REGIONS',
   'projectApproachHref',
+  'publishNavigationMirrorContext',
 ]) {
   if (!living.includes(required)) failures.push(`الفرع الحي: مفقود ${required}`);
+}
+
+const portalModel = requireFile('lib/portal-living-navigation.js');
+for (const required of [
+  'SHELL_PORTAL_GROUPS',
+  'accessiblePortalTools',
+  'livingPortalGroups',
+  'activePortalGroup',
+  'activePortalTool',
+  'portalCoverageReport',
+  'generatedCoverageFallback:true',
+]) {
+  if (!portalModel.includes(required)) failures.push(`تعميم البوابات: مفقود ${required}`);
 }
 
 const nav = requireFile('components/ui/ContextualDashboardNavigation.js');
 for (const required of [
   "from '@/lib/anatomical-navigation'",
   "from '@/lib/living-navigation'",
+  "from '@/lib/portal-living-navigation'",
   'data-navigation-consciousness="implicit"',
   'data-living-branch="single"',
-  'data-living-branch-pilot="projects"',
+  'data-living-branch-scope="all-portals"',
+  'data-navigation-role={mirrorMode',
   'appNavBackArrow',
+  'appNavDismiss',
   'requestWorkSessionNavigation',
   'appNavHonoraryList',
   'appNavHonorary',
-  'projectApproachHref',
+  'mirrorSubject?.subjectLabel',
+  'livingPortalGroups',
+  'portalApproachHref',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
 
-if (/>\s*أركان المكان\s*</.test(nav)) {
-  failures.push('الوعي المستتر: اسم أركان المكان عاد كعنصر مرئي داخل الملاحة اليومية.');
-}
-if (/>\s*مركز العمل\s*</.test(nav)) {
-  failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
-}
-if (/>\s*الكل\s*</.test(nav)) {
-  failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل الأب التشريحي الحقيقي.');
-}
-if (nav.includes('router.back(')) {
-  failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
-}
-if (nav.includes('projectName') || /from\(['"]projects['"]\)/.test(nav) || nav.includes("from '@/lib/supabase'")) {
-  failures.push('الأبناء البيولوجيون: القائمة لا يجوز أن تعرف اسم المشروع أو تستعلم عنه؛ هوية الابن تعيش في المسرح فقط.');
-}
-if (!/availableProjectGuardians\.map[\s\S]*projectId[\s\S]*appNavProjectContext/.test(nav)) {
-  failures.push('الأبناء البيولوجيون: بعد اختيار مشروع يبقى سياقه الهيكلي ظاهرًا دون إدخال اسم الابن في القائمة.');
-}
-if (!/<span[^>]+className="appNavHonorary"/.test(nav)) {
-  failures.push('العمل المباشر: العناصر الشرفية داخل القائمة يجب أن تكون نصًا غير قابل للضغط.');
-}
-if (/<button[^>]+className="appNavHonorary"/.test(nav)) {
-  failures.push('العمل المباشر: العنصر الشرفي لا يجوز أن يصبح اختصارًا قابلًا للضغط للعمل.');
-}
-if (nav.includes('SHELL_PORTAL_GROUPS') || nav.includes('portalApproachHref(')) {
-  failures.push('نسخة القبول: لا يجوز تثبيت تشريح الموارد البشرية/المالية/المستندات القديم داخل الفرع الحي قبل اعتماده؛ التجربة الحالية للمشاريع فقط.');
-}
-if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) {
-  failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
-}
-if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) {
-  failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
-}
+if (/>\s*أركان المكان\s*</.test(nav)) failures.push('الوعي المستتر: اسم أركان المكان عاد كعنصر مرئي داخل الملاحة اليومية.');
+if (/>\s*مركز العمل\s*</.test(nav)) failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
+if (/>\s*الكل\s*</.test(nav)) failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل الأب التشريحي الحقيقي.');
+if (nav.includes('router.back(')) failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
+if (nav.includes("from '@/lib/supabase'")) failures.push('مرآة السياق: القائمة لا تستعلم عن الكيان البيولوجي؛ تستقبل هويته من المسرح فقط.');
+if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق: العنصر الشرفي لا يجوز أن يصبح زر عمل.');
+if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
+if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
 
 const projectStage = requireFile('components/ui/ProjectAnatomyStage.js');
 for (const required of [
   'data-biological-card="project"',
-  'بطاقة المشروع',
+  'data-stage-leadership="stage"',
+  'availableRegions.map',
+  'projectApproachHref',
+  'publishNavigationMirrorContext',
   'data-navigation-stage="project-region"',
   'projectNavigationHref',
   'requestWorkSessionNavigation',
 ]) {
   if (!projectStage.includes(required)) failures.push(`مسرح المشروع: مفقود ${required}`);
 }
+if (projectStage.includes('التنقل داخل المشروع يتم من القائمة')) {
+  failures.push('مسرح المشروع: عاد السلوك القديم الذي يجعل القائمة تقود بعد اختيار المشروع.');
+}
 
 const portalStage = requireFile('app/dashboard/workspace/[portal]/page.js');
 for (const required of [
-  'data-navigation-stage="approach"',
-  'data-living-branch-pilot="projects"',
-  "portal==='projects'",
-  'router.replace(area.href)',
-  'المساحة الكبيرة لا تكرر عناصر الملاحة',
+  'livingPortalGroups',
+  'requestWorkSessionNavigation',
+  'data-navigation-stage="portal-group"',
+  'data-stage-leadership="stage"',
+  'data-living-branch-scope="all-portals"',
+  'group.items.map',
 ]) {
-  if (!portalStage.includes(required)) failures.push(`مسرح الملاحة: مفقود ${required}`);
+  if (!portalStage.includes(required)) failures.push(`مسرح البوابات: مفقود ${required}`);
 }
-if (/PROJECT_GUARDIANS|SHELL_PORTAL_GROUPS|PORTAL_SECTION_ITEMS|requestWorkSessionNavigation/.test(portalStage)) {
-  failures.push('مسرح الاقتراب: لا يجوز أن يكرر الحاضنات أو يثبت تشريح البوابات الأخرى؛ القابل للضغط يبقى في القائمة.');
+if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(portalStage)) {
+  failures.push('مسرح البوابات: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
 }
 
 const projectList = requireFile('app/dashboard/projects/page.js');
@@ -137,10 +142,7 @@ for (const required of [
 }
 
 const projectsLogic = requireFile('lib/projects.js');
-for (const required of [
-  'declaredComplete',
-  "return outstanding ? 'closing' : 'closed'",
-]) {
+for (const required of ['declaredComplete', "return outstanding ? 'closing' : 'closed'"]) {
   if (!projectsLogic.includes(required)) failures.push(`حاضنة المشروع: مفقود ${required}`);
 }
 if (/project\?\.status\s*===\s*['"]closed['"]\)\s*return\s*['"]closed['"]/.test(projectsLogic)) {
@@ -162,6 +164,16 @@ if (!thresholdRuntime.includes('useSearchParams') || !thresholdRuntime.includes(
   failures.push('عتبة العمل: يجب أن تقرأ query context حتى تعبر وظائف المشروع المبنية على view= العتبة فعلًا.');
 }
 
+const css = requireFile('app/dashboard/living-navigation.css');
+for (const required of [
+  ".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage",
+  '.appNavMirrorPortal',
+  '.appNavMirrorSubject',
+  '.appNavHonoraryListNested',
+]) {
+  if (!css.includes(required)) failures.push(`سلوك الجسد المرئي: مفقود ${required}`);
+}
+
 const idle = requireFile('app/dashboard/page.js');
 for (const required of [
   'data-idle-work-surface="true"',
@@ -179,4 +191,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: the projects pilot owns one living branch, biological identities stay on stage, clickable navigation is not duplicated on stage, every project leaf crosses the work threshold, closing is conservative, and idle remains a state rather than a destination.');
+console.log('Anatomical navigation audit passed: one living behavior engine spans all portals; the list leads early, the stage leads late, selected context mirrors back without becoming a shortcut, and idle remains a state rather than a destination.');
