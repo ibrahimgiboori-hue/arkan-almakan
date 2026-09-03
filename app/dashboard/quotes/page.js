@@ -82,19 +82,19 @@ export default function Quotes() {
 
       <Section title="بيانات الإصدار" boundary>
         <WorkFormGrid label="بيانات المستند الجديد">
-          <WorkField label="النوع /" span={4}>
+          <WorkField label="النوع" span={4}>
             <select value={kind} onChange={(event)=>setKind(event.target.value)} aria-label="نوع المستند الجديد">
               <option value="quotation">عرض سعر</option>
               <option value="boq">جدول كميات</option>
             </select>
           </WorkField>
-          <WorkField label="اللغة /" span={4}>
+          <WorkField label="اللغة" span={4}>
             <select value={language} onChange={(event)=>setLanguage(event.target.value)} aria-label="لغة المستند الجديد">
               <option value="ar">العربية</option>
               <option value="en">English</option>
             </select>
           </WorkField>
-          <WorkField label="رقم المستند /" mode="generated" span={4} value="يُولد عند بدء الإصدار" />
+          <WorkField label="رقم المستند" mode="generated" span={4} value="يُولد عند بدء الإصدار" />
         </WorkFormGrid>
       </Section>
 
