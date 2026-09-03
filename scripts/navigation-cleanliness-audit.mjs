@@ -23,13 +23,11 @@ function walk(relative, files = []) {
   return files;
 }
 
-// 1) الرجوع التشغيلي لا يعتمد على تاريخ المتصفح.
 for (const file of [...walk('app/dashboard'), ...walk('components')]) {
   const text = read(file);
   if (/\brouter\.back\s*\(/.test(text)) failures.push(`${file}: يستخدم router.back() بدل الرجوع الهرمي المحدد.`);
 }
 
-// 2) الدستور المرئي لا يحتوي أدوات إنشاء ولا رابطًا ظاهرًا مكررًا.
 const constitution = read('lib/app-constitution.js');
 const areasMatch = constitution.match(/export const AREAS = Object\.freeze\(\[([\s\S]*?)\n\]\);/);
 if (!areasMatch) {
@@ -46,7 +44,6 @@ if (!areasMatch) {
   }
 }
 
-// 3) وظائف المشروع الداخلية تبقى مرتبة ومعروفة حتى لو تغير طريق الوصول إليها.
 const dailyIndex = constitution.indexOf("key: 'daily'");
 const entryIndex = constitution.indexOf("key: 'entry'");
 const readIndex = constitution.indexOf("key: 'read'");
@@ -57,7 +54,6 @@ if (constitution.includes("key: 'quote-register'")) {
   failures.push('PROJECT_NAV_GROUPS: سجل عروض الأسعار العام مكرر داخل المشروع؛ يجب أن يبقى له مدخل عام واحد فقط.');
 }
 
-// 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد.
 const projectLabor = read('app/dashboard/projects/[id]/operations/labor/page.js');
 if (!projectLabor.includes('fn_quick_add_workers') || !projectLabor.includes('data-canonical-labor-create-form')) {
   failures.push('عمالة المشروع: يجب أن تبقى شاشة المشروع هي مسار إنشاء العمالة وإسنادها الموحد.');
@@ -76,7 +72,6 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة، ومحرك الفرع الحي واحد لكل البوابات.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
@@ -85,24 +80,13 @@ const livingCss = 'app/dashboard/living-navigation.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
 const portalLivingModel = 'lib/portal-living-navigation.js';
 const approachStage = 'app/dashboard/workspace/[portal]/page.js';
-if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
-  failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
-}
-if (!dashboardLayout.includes('data-navigation-shell="contextual-slide-v2"')) {
-  failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
-}
-if (!dashboardLayout.includes("'./app-shell-v2.css'") || !dashboardLayout.includes("'./living-navigation.css'")) {
-  failures.push('app/dashboard/layout.js: أنماط الجسد والملاحة الحية غير مربوطة بالكامل.');
-}
-if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(livingCss) || !exists(shellConstitution) || !exists(portalLivingModel)) {
-  failures.push('الجسد الجديد: ملفات الملاحة الحية أو نموذج تغطية البوابات أو الأنماط غير موجودة.');
-}
-if (dashboardLayout.includes('RawDashboardNavigation')) {
-  failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
-}
-if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) {
-  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك القشرة الموحدة فقط.');
-}
+if (!dashboardLayout.includes('ContextualDashboardNavigation')) failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
+if (!dashboardLayout.includes('data-navigation-shell="contextual-slide-v2"')) failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
+if (!dashboardLayout.includes("'./app-shell-v2.css'") || !dashboardLayout.includes("'./living-navigation.css'")) failures.push('app/dashboard/layout.js: أنماط الجسد والملاحة الحية غير مربوطة بالكامل.');
+if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(livingCss) || !exists(shellConstitution) || !exists(portalLivingModel)) failures.push('الجسد الجديد: ملفات الملاحة الحية أو نموذج تغطية البوابات أو الأنماط غير موجودة.');
+if (dashboardLayout.includes('RawDashboardNavigation')) failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
+if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك القشرة الموحدة فقط.');
+
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
   for (const required of [
@@ -118,7 +102,11 @@ if (exists(contextualNavigation)) {
     'data-navigation-role={navigationRole}',
     'GRANDCHILD_NAVIGATION_EVENT',
     'renderGrandchild',
-    'appNavGrandchildPrimary',
+    'activeGrandchildTab',
+    'appNavGrandchildTabs',
+    'appNavGrandchildTab',
+    'appNavGrandchildGroupTitle',
+    'onClick={()=>go(item.href,{keepOpen:false})}',
     'onClick={openNavigation}',
     'appNavDismiss',
   ]) {
@@ -127,15 +115,9 @@ if (exists(contextualNavigation)) {
   if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
   if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة لا يجوز أن تتحول إلى مصدر بيانات موازٍ؛ هوية الابن والحفيد تأتي من العضو أو المسرح.');
   if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
-  if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) {
-    failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
-  }
-  if (/<button[^>]+className="appNavHonorary"/.test(nav)) {
-    failures.push('مرآة السياق: العنصر الشرفي غير القابل للضغط عاد كاختصار عمل داخل القائمة.');
-  }
-  if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) {
-    failures.push('القائمة الموحدة: ما زال فرع المشاريع يُرسم بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
-  }
+  if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
+  if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق: العنصر الشرفي غير القابل للضغط عاد كاختصار عمل داخل القائمة.');
+  if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('القائمة الموحدة: ما زال فرع المشاريع يُرسم بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
 }
 
 if (exists(shellConstitution)) {
@@ -148,23 +130,12 @@ if (exists(shellConstitution)) {
     "admin: Object.freeze([",
     "portalSectionHref('workforce','planning')",
     "'/dashboard/operating-budget'",
-  ]) {
-    if (!shell.includes(required)) failures.push(`تغطية البوابات: مفقود ${required}.`);
-  }
+  ]) if (!shell.includes(required)) failures.push(`تغطية البوابات: مفقود ${required}.`);
 }
 
 if (exists(portalLivingModel)) {
   const model = read(portalLivingModel);
-  for (const required of [
-    'LIVING_PORTALS',
-    'accessiblePortalTools',
-    'livingPortalGroups',
-    'portalEntryNodes',
-    'activePortalGroup',
-    'activePortalTool',
-    'portalCoverageReport',
-    'generatedCoverageFallback:true',
-  ]) {
+  for (const required of ['LIVING_PORTALS','accessiblePortalTools','livingPortalGroups','portalEntryNodes','activePortalGroup','activePortalTool','portalCoverageReport','generatedCoverageFallback:true']) {
     if (!model.includes(required)) failures.push(`نموذج الملاحة العام: مفقود ${required}.`);
   }
 }
@@ -173,56 +144,39 @@ if (!exists(approachStage)) {
   failures.push('مسرح الاقتراب: app/dashboard/workspace/[portal]/page.js مفقود.');
 } else {
   const stage = read(approachStage);
-  for (const required of [
-    'livingPortalGroups',
-    'requestWorkSessionNavigation',
-    'data-navigation-stage="portal-group"',
-    'data-stage-leadership="stage"',
-    'data-living-branch-scope="all-portals"',
-    'group.items.map',
-  ]) {
+  for (const required of ['livingPortalGroups','requestWorkSessionNavigation','data-navigation-stage="portal-group"','data-stage-leadership="stage"','data-living-branch-scope="all-portals"','group.items.map']) {
     if (!stage.includes(required)) failures.push(`مسرح الاقتراب العام: مفقود ${required}.`);
   }
-  if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(stage)) {
-    failures.push('مسرح الاقتراب: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
-  }
+  if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(stage)) failures.push('مسرح الاقتراب: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
 }
 
 if (exists(livingCss)) {
   const css = read(livingCss);
-  if (!css.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) {
-    failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحتها بدل تغطية المسرح.');
-  }
-  if (!css.includes('.appNavMirrorPortal') || !css.includes('.appNavMirrorSubject')) {
-    failures.push('مرآة السياق: أنماط تبادل القيادة بين القائمة والمسرح مفقودة.');
-  }
-  if (!css.includes('.appNavGrandchild') || !css.includes('.appNavGrandchildGroupTitle')) {
-    failures.push('قائمة الحفيد: أنماط العمل أولاً والسجل عند الطلب مفقودة.');
-  }
+  if (!css.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحتها بدل تغطية المسرح.');
+  if (!css.includes('.appNavMirrorPortal') || !css.includes('.appNavMirrorSubject')) failures.push('مرآة السياق: أنماط تبادل القيادة بين القائمة والمسرح مفقودة.');
+  if (!css.includes('.appNavGrandchildTabs') || !css.includes('.appNavGrandchildTab') || !css.includes('.appNavGrandchildGroupTitle')) failures.push('قائمة الحفيد: أنماط التبويبات والتجميع المنطقي مفقودة.');
 }
 
-// قائمة الحفيد لا تسرق بيانات الأداة من القشرة؛ العضو نفسه ينشر رفه التاريخي.
 const livingNavigation = read('lib/living-navigation.js');
-if (!livingNavigation.includes('GRANDCHILD_NAVIGATION_EVENT') || !livingNavigation.includes('workFirstHistoryOnDemand:true')) {
-  failures.push('قائمة الحفيد: عقد العمل أولاً/السجل عند الطلب مفقود من DNA.');
+for (const required of ['GRANDCHILD_NAVIGATION_EVENT','grandchildContainsExistingTransactionsOnly:true','grandchildNeverListsTransactionsOnStage:true','grandchildClassificationIsToolSpecific:true','grandchildSelectionClosesNavigationAndOwnsStage:true']) {
+  if (!livingNavigation.includes(required)) failures.push(`قائمة الحفيد: مفقود من DNA ${required}.`);
 }
+
 if (exists('app/dashboard/quotes/layout.js')) {
   const quoteBoundary = read('app/dashboard/quotes/layout.js');
-  for (const required of ['publishGrandchildNavigationContext', "classification:'client'", "historyLabel:'السجل حسب العميل'"]) {
+  for (const required of ['publishGrandchildNavigationContext','QUOTE_LIST_TABS',"classification:'status-then-client'",'groupsByClient','currentItemTabKey']) {
     if (!quoteBoundary.includes(required)) failures.push(`عروض الأسعار: قائمة الحفيد مفقود منها ${required}.`);
   }
 }
+if (exists('app/dashboard/quotes/page.js')) {
+  const quoteStage = read('app/dashboard/quotes/page.js');
+  if (!quoteStage.includes('data-stage-occupancy="single-action"') || !quoteStage.includes('title="إصدار جديد"')) failures.push('عروض الأسعار: أول دخول يجب أن يكون لإجراء إصدار جديد واحد فقط.');
+  if (quoteStage.includes('<table>') || quoteStage.includes('العمل الجاري') || quoteStage.includes('السجل')) failures.push('عروض الأسعار: المعاملات الموجودة لا يجوز أن تظهر كقائمة داخل المسرح.');
+}
 
-// 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
-if (/documents:\s*[^\n]*system\.approvals\.view/.test(dashboardLayout)) {
-  failures.push('صلاحيات البوابات: system.approvals.view لا يجوز أن تفتح بوابة المستندات.');
-}
-if (/admin:\s*[^\n]*module_key\s*===\s*['"]system['"]/.test(dashboardLayout)) {
-  failures.push('صلاحيات البوابات: module system لا يجوز أن يفتح بوابة الإدارة كاملة.');
-}
-if (!/documents:\s*fullAdmin\s*\|\|\s*capabilities\.some\(\(item\)\s*=>\s*item\.module_key\s*===\s*['"]documents['"]\)/.test(dashboardLayout)) {
-  failures.push('صلاحيات البوابات: بوابة المستندات يجب أن تعتمد على صلاحيات documents الأصلية فقط.');
-}
+if (/documents:\s*[^\n]*system\.approvals\.view/.test(dashboardLayout)) failures.push('صلاحيات البوابات: system.approvals.view لا يجوز أن تفتح بوابة المستندات.');
+if (/admin:\s*[^\n]*module_key\s*===\s*['"]system['"]/.test(dashboardLayout)) failures.push('صلاحيات البوابات: module system لا يجوز أن يفتح بوابة الإدارة كاملة.');
+if (!/documents:\s*fullAdmin\s*\|\|\s*capabilities\.some\(\(item\)\s*=>\s*item\.module_key\s*===\s*['"]documents['"]\)/.test(dashboardLayout)) failures.push('صلاحيات البوابات: بوابة المستندات يجب أن تعتمد على صلاحيات documents الأصلية فقط.');
 
 const deadPlatformFiles = [
   'app/dashboard/workspace/page.js',
@@ -233,47 +187,26 @@ const deadPlatformFiles = [
   'lib/work-platform-constitution.js',
   'lib/program-links.js',
 ];
-for (const file of deadPlatformFiles) {
-  if (exists(file)) failures.push(`${file}: بقايا منصة الأعمال القديمة يجب حذفها، لا تعطيلها.`);
-}
+for (const file of deadPlatformFiles) if (exists(file)) failures.push(`${file}: بقايا منصة الأعمال القديمة يجب حذفها، لا تعطيلها.`);
 
 for (const file of [...walk('app/dashboard'), ...walk('components'), ...walk('lib')]) {
   const text = read(file);
-  if (/\bWorkPlatformPage\b|\bWORK_PLATFORM_[A-Z0-9_]+\b/.test(text)) {
-    failures.push(`${file}: يعيد منطق منصة الأعمال القديمة خارج الملاحة الموحدة.`);
-  }
+  if (/\bWorkPlatformPage\b|\bWORK_PLATFORM_[A-Z0-9_]+\b/.test(text)) failures.push(`${file}: يعيد منطق منصة الأعمال القديمة خارج الملاحة الموحدة.`);
 }
 
-// 7) التوجيه العام لا يصنع سطح عمل ثانياً داخل مصدر المعاملة.
 const guidance = read('components/approval/ApprovalGuidanceRow.js');
-for (const forbidden of ['طلب إجراء', 'استفسار عن المعاملة', 'فتح أعمالي']) {
-  if (guidance.includes(forbidden)) failures.push(`ApprovalGuidanceRow: أعاد إجراء «${forbidden}» إلى شاشة المصدر.`);
-}
+for (const forbidden of ['طلب إجراء', 'استفسار عن المعاملة', 'فتح أعمالي']) if (guidance.includes(forbidden)) failures.push(`ApprovalGuidanceRow: أعاد إجراء «${forbidden}» إلى شاشة المصدر.`);
 
-// 8) المسار القديم للاعتمادات يبقى تحويل توافق فقط إلى المسار الوحيد.
 const legacyApprovals = read('app/dashboard/my-work/approvals/page.js');
-if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) {
-  failures.push('المسار القديم my-work/approvals لا يتحول إلى /dashboard/approvals.');
-}
+if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) failures.push('المسار القديم my-work/approvals لا يتحول إلى /dashboard/approvals.');
 
-// 9) المعاملة ذات الرحلة الأصلية تملك أفعالها من أ إلى ي؛ الصناديق العامة مجرد مداخل إليها.
 const claimsJourney = read('components/ProjClaims.js');
 const approvalsInbox = read('app/dashboard/approvals/page.js');
-if (!claimsJourney.includes('fn_claim_collect_to_treasury')) {
-  failures.push('رحلة المستخلص: التحصيل يجب أن يُنفذ من نفس رحلة المستخلص ويُرحّل للخزينة من الخلف.');
-}
-if (/p_to\s*:\s*['"]collected['"]/.test(claimsJourney)) {
-  failures.push('رحلة المستخلص: عاد مسار تغيير الحالة إلى collected مباشرة بدل محرك الخزينة الواحد.');
-}
-if (!claimsJourney.includes('fn_approval_decide') || !claimsJourney.includes('record_claim_client_submission')) {
-  failures.push('رحلة المستخلص: الاعتماد الداخلي والتقديم للعميل يجب أن يبقيا داخل نفس الرحلة.');
-}
-if (!approvalsInbox.includes("transaction_type==='progress_claim'") || !approvalsInbox.includes('view=claims&claim=')) {
-  failures.push('صندوق الاعتمادات: المستخلص يجب أن يعيد المستخدم إلى رحلته الأصلية بدل إنشاء قرار موازٍ.');
-}
-if (!/if\(!selectedId\|\|isClaim\)return/.test(approvalsInbox)) {
-  failures.push('صندوق الاعتمادات: لا يجوز تنفيذ قرار progress_claim من سطح الاعتمادات العام.');
-}
+if (!claimsJourney.includes('fn_claim_collect_to_treasury')) failures.push('رحلة المستخلص: التحصيل يجب أن يُنفذ من نفس رحلة المستخلص ويُرحّل للخزينة من الخلف.');
+if (/p_to\s*:\s*['"]collected['"]/.test(claimsJourney)) failures.push('رحلة المستخلص: عاد مسار تغيير الحالة إلى collected مباشرة بدل محرك الخزينة الواحد.');
+if (!claimsJourney.includes('fn_approval_decide') || !claimsJourney.includes('record_claim_client_submission')) failures.push('رحلة المستخلص: الاعتماد الداخلي والتقديم للعميل يجب أن يبقيا داخل نفس الرحلة.');
+if (!approvalsInbox.includes("transaction_type==='progress_claim'") || !approvalsInbox.includes('view=claims&claim=')) failures.push('صندوق الاعتمادات: المستخلص يجب أن يعيد المستخدم إلى رحلته الأصلية بدل إنشاء قرار موازٍ.');
+if (!/if\(!selectedId\|\|isClaim\)return/.test(approvalsInbox)) failures.push('صندوق الاعتمادات: لا يجوز تنفيذ قرار progress_claim من سطح الاعتمادات العام.');
 
 if (failures.length) {
   console.error('\nNavigation cleanliness audit failed:\n');
@@ -281,4 +214,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed: one entry-node engine spans every portal; grandchild lists serve the current tool with work first and history on demand, while legacy business journeys remain intact.');
+console.log('Navigation cleanliness audit passed: one engine spans every portal; the grandchild shelf holds existing transactions while one real action or selected transaction owns the stage.');
