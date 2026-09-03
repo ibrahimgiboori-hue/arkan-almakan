@@ -1,0 +1,229 @@
+@media screen {
+  .rawDashboardShell {
+    --app-body-nav-width: min(244px, 84vw);
+  }
+
+  .appContextNav[data-living-branch='single'] {
+    width: min(244px, 84vw);
+  }
+
+  .appContextNav[data-living-branch='single'] .appNavTopLine {
+    min-height: 42px;
+    padding: 10px 11px 3px;
+  }
+
+  .appNavBackArrow {
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    color: var(--raw-muted, #756d64) !important;
+    box-shadow: none !important;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .appNavBackArrow span {
+    display: block;
+    transform: translateY(-1px);
+    font-size: 18px;
+    font-weight: 430;
+    line-height: 1;
+  }
+
+  .appNavBackArrow:hover,
+  .appNavBackArrow:focus-visible {
+    background: color-mix(in srgb, var(--raw-wine, #7b2434) 5%, transparent) !important;
+    color: var(--raw-ink, #2f2924) !important;
+  }
+
+  .appContextNav[data-living-branch='single'] .appNavPanel {
+    padding-top: 3px;
+  }
+
+  .appNavBranch {
+    min-width: 0;
+  }
+
+  .appNavChildren {
+    margin: 0 0 5px;
+    padding-inline-start: 11px;
+    border-inline-start: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 82%, transparent);
+  }
+
+  .appNavBranchNested > .appNavRow,
+  .appNavProjectContext > .appNavRow {
+    min-height: 30px !important;
+    padding-block: 4px !important;
+  }
+
+  .appNavRowNested > span {
+    font-size: 12.35px !important;
+    font-weight: 650;
+  }
+
+  .appNavBranchDeep {
+    min-width: 0;
+  }
+
+  .appNavProjectContext {
+    margin: 2px 0 5px;
+    padding-inline-start: 9px;
+  }
+
+  .appNavSubject {
+    max-width: 100%;
+    margin: 5px 5px 5px 0;
+    padding: 0;
+    overflow: hidden;
+    color: var(--raw-muted, #756d64);
+    font-size: 10.5px;
+    font-weight: 720;
+    line-height: 1.45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .appNavProjectCardRow > span {
+    font-weight: 720 !important;
+  }
+
+  .appNavRegionRow[data-active='true'] > span,
+  .appNavProjectCardRow[data-active='true'] > span {
+    color: var(--raw-wine, #7b2434);
+  }
+
+  .appNavHonoraryList {
+    display: grid;
+    gap: 0;
+    margin: 1px 0 6px;
+    padding: 2px 5px 3px 0;
+  }
+
+  .appNavHonorary {
+    min-width: 0;
+    padding: 3px 0;
+    overflow: hidden;
+    color: color-mix(in srgb, var(--raw-muted, #756d64) 88%, var(--raw-ink, #2f2924));
+    font-size: 10.7px;
+    font-weight: 520;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: default;
+    user-select: text;
+  }
+
+  .appNavHonorary[data-current='true'] {
+    color: var(--raw-ink, #2f2924);
+    font-weight: 720;
+  }
+
+  .appNavHonorary[data-current='true']::before {
+    content: '·';
+    margin-inline-end: 5px;
+    color: var(--raw-wine, #7b2434);
+  }
+
+  /* غير قابل للضغط هنا يعني أن الدخول يتم من المسرح؛ لا نستخدم مظهر disabled. */
+  .appNavHonorary[aria-disabled='true'],
+  .appNavHonorary[data-current='false'] {
+    opacity: 1;
+  }
+
+  .appUnsavedNavigationGuard {
+    position: sticky;
+    top: 0;
+    z-index: 54;
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px 24px;
+    padding: 10px var(--app-body-inline, 18px);
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-wine, #7b2434) 18%, var(--raw-border-soft, #e8e4dc));
+    background: color-mix(in srgb, var(--raw-paper, #fff) 94%, #fff3c4);
+    color: var(--raw-ink, #2f2924);
+  }
+
+  .appUnsavedNavigationCopy {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  .appUnsavedNavigationCopy strong {
+    font-size: 12.5px;
+    font-weight: 790;
+    line-height: 1.4;
+  }
+
+  .appUnsavedNavigationCopy span {
+    color: var(--raw-muted, #756d64);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .appUnsavedNavigationError {
+    color: var(--raw-wine, #7b2434) !important;
+    font-weight: 680;
+  }
+
+  .appUnsavedNavigationActions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .appUnsavedNavigationActions button {
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 2px 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-family: inherit;
+    font-size: 11.5px !important;
+    font-weight: 720 !important;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .appUnsavedNavigationActions button:hover,
+  .appUnsavedNavigationActions button:focus-visible {
+    color: var(--raw-wine, #7b2434) !important;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .appUnsavedNavigationActions .appUnsavedDiscard {
+    color: var(--raw-muted, #756d64) !important;
+    font-weight: 620 !important;
+  }
+}
+
+@media screen and (max-width: 900px), screen and (hover: none), screen and (pointer: coarse) {
+  .appContextNav[data-living-branch='single'] {
+    width: min(244px, 86vw);
+  }
+
+  .appUnsavedNavigationGuard {
+    position: relative;
+    display: grid;
+    padding: 11px 12px;
+  }
+
+  .appUnsavedNavigationActions {
+    gap: 8px 12px;
+  }
+}
