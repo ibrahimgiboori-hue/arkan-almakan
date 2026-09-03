@@ -17,6 +17,7 @@ requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
   "import './raw-phase.css'",
   "import './app-shell-v2.css'",
+  "import './living-navigation.css'",
   'data-work-kernel="operational-notebook-v1"',
   'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
@@ -27,14 +28,8 @@ requireText('app/dashboard/layout.js', [
 if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) {
   failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
 }
-
-if (exists('app/dashboard/work-sheet-kernel.css')) {
-  failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
-}
-
-if (exists('components/ui/RawDashboardNavigation.module.css')) {
-  failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
-}
+if (exists('app/dashboard/work-sheet-kernel.css')) failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
+if (exists('components/ui/RawDashboardNavigation.module.css')) failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
 
 requireText('app/dashboard/raw-phase.css', [
   '.rawDashboardContent > .workSheetMount',
@@ -53,8 +48,6 @@ requireText('app/dashboard/app-shell-v2.css', [
   "@media (prefers-reduced-motion: reduce)",
 ]);
 
-// دستور التجميعات الحالي يبقى موجودًا لتوافق الأعضاء التي لم نعيد تشريحها بعد.
-// لكن نسخة القبول لا تجعله مصدرًا للفرع الحي؛ المشاريع هي التجربة الوحيدة حاليًا.
 requireText('lib/navigation-shell-constitution.js', [
   'SHELL_PORTAL_GROUPS',
   "projects: Object.freeze([",
@@ -64,28 +57,42 @@ requireText('lib/navigation-shell-constitution.js', [
   "admin: Object.freeze([",
 ]);
 
+requireText('lib/portal-living-navigation.js', [
+  'accessiblePortalTools',
+  'livingPortalGroups',
+  'activePortalGroup',
+  'activePortalTool',
+  'portalCoverageReport',
+]);
+
 requireText('components/ui/ContextualDashboardNavigation.js', [
   'filterAreasForAccess',
   'projectNavRequirement',
+  'livingPortalGroups',
+  'portalApproachHref',
   'requestWorkSessionNavigation',
   'data-living-branch="single"',
-  'data-living-branch-pilot="projects"',
+  'data-living-branch-scope="all-portals"',
+  'data-navigation-role={mirrorMode',
+  'appNavDismiss',
   'onClick={openNavigation}',
   'className="appContextNav"',
 ]);
 
-if (exists('components/ui/RawDashboardNavigation.js')) {
-  failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
-}
+if (exists('components/ui/RawDashboardNavigation.js')) failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
 
 const nav = read('components/ui/ContextualDashboardNavigation.js');
 if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
-if (!nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة السياقية فقدت خيار إبقاء القائمة مفتوحة.');
 if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة الجديدة عادت للاعتماد على تجميعات كتالوج البوابات القديم.');
-if (nav.includes('SHELL_PORTAL_GROUPS')) failures.push('نسخة القبول ثبّتت تشريح البوابات القديمة داخل الفرع الحي بدل حصر التجربة بالمشاريع.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
-if (nav.includes('projectName') || nav.includes("from '@/lib/supabase'")) failures.push('القائمة بدأت تعرف هوية مشروع بيولوجي؛ الأسماء الحقيقية ملك المسرح فقط.');
+if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة بدأت تستعلم عن بيانات الكيانات بدل استقبال انعكاس المسرح.');
+if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق تحولت إلى اختصار عمل قابل للضغط.');
+
+const livingCss = read('app/dashboard/living-navigation.css');
+if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) {
+  failures.push('سطح المكتب: القائمة المفتوحة يجب أن تحجز مساحة من الجسد بدل تغطية العمل.');
+}
 
 requireText('components/ui/ConstitutionUI.js', [
   "from './WorkSheetKernel'",
@@ -115,4 +122,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: one visual captain remains, while the living-branch preview is deliberately limited to projects until other portal anatomies are approved.');
+console.log('Single visual captain audit passed: one visual captain spans every portal, the stage/list leadership handoff is shared, and desktop navigation persists without creating a second canvas.');
