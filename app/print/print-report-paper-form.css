@@ -1,15 +1,14 @@
 /* ============================================================
    تقرير متابعة الأعمال — وضوح النموذج الورقي
-   العنوان شيء، ومكان التعبئة شيء آخر.
+   محتوى فقط، ومحكوم بالكامل داخل جذر الطباعة.
    ============================================================ */
 
-/* السطر الرقمي: كل خانة مقسومة بوضوح إلى عنوان ثم مساحة تعبئة/قيمة. */
-.print-doc-generic_document .report-item-summary{
+.print-route-root .print-doc-generic_document .report-item-summary{
   border:.32mm solid #8B3332;
   border-bottom:none;
   align-items:stretch;
 }
-.print-doc-generic_document .report-metric{
+.print-route-root .print-doc-generic_document .report-metric{
   padding:0!important;
   gap:0!important;
   justify-content:stretch!important;
@@ -18,10 +17,8 @@
   border-left:.24mm solid #CDBABA!important;
   box-sizing:border-box;
 }
-.print-doc-generic_document .report-metric:last-child{
-  border-left:none!important;
-}
-.print-doc-generic_document .report-metric-label{
+.print-route-root .print-doc-generic_document .report-metric:last-child{border-left:none!important}
+.print-route-root .print-doc-generic_document .report-metric-label{
   display:flex!important;
   align-items:center;
   justify-content:center;
@@ -35,7 +32,7 @@
   background:rgba(139,51,50,.035);
   box-sizing:border-box;
 }
-.print-doc-generic_document .report-metric-value{
+.print-route-root .print-doc-generic_document .report-metric-value{
   display:flex!important;
   align-items:center;
   justify-content:center;
@@ -45,34 +42,24 @@
   background:#fff;
   box-sizing:border-box;
 }
-.print-doc-generic_document .report-metric-item .report-metric-value{
-  justify-content:flex-start;
-  text-align:right;
-}
-.print-doc-generic_document .report-metric-money .report-metric-value,
-.print-doc-generic_document .report-metric-po .report-metric-value{
-  justify-content:center;
-  text-align:center!important;
-}
+.print-route-root .print-doc-generic_document .report-metric-item .report-metric-value{justify-content:flex-start;text-align:right}
+.print-route-root .print-doc-generic_document .report-metric-money .report-metric-value,
+.print-route-root .print-doc-generic_document .report-metric-po .report-metric-value{justify-content:center;text-align:center!important}
 
-/* في النموذج الفارغ يكون مكان الكتابة ظاهرًا بحد سفلي مستقل، لا ملتصقًا بالعنوان. */
-.blank-form-mode .report-metric-value .blank-write-line,
-.print-doc-generic_document .report-metric-value .blank-write-line{
+.print-route-root .print-doc-generic_document.blank-form-mode .report-metric-value .blank-write-line,
+.print-route-root .print-doc-generic_document .report-metric-value .blank-write-line{
   width:88%;
   min-width:0;
   margin:0 auto;
   border-bottom:.25mm solid #9B8A8A!important;
 }
-.blank-form-mode .report-metric-item .report-metric-value .blank-write-line{
-  width:94%;
-}
+.print-route-root .print-doc-generic_document.blank-form-mode .report-metric-item .report-metric-value .blank-write-line{width:94%}
 
-/* أسطر المتابعة: كل بيان صف مستقل كامل، بعنوان مستقل وتفاصيل مستقلة. */
-.print-doc-generic_document .report-operational-lines{
+.print-route-root .print-doc-generic_document .report-operational-lines{
   border:.32mm solid #8B3332!important;
   border-top:.32mm solid #8B3332!important;
 }
-.print-doc-generic_document .report-operational-row{
+.print-route-root .print-doc-generic_document .report-operational-row{
   display:grid!important;
   grid-template-columns:32mm minmax(0,1fr)!important;
   min-height:10mm;
@@ -80,10 +67,8 @@
   page-break-inside:avoid;
   background:#fff;
 }
-.print-doc-generic_document .report-operational-row + .report-operational-row{
-  border-top:.24mm solid #CDBABA!important;
-}
-.print-doc-generic_document .report-operational-label{
+.print-route-root .print-doc-generic_document .report-operational-row+.report-operational-row{border-top:.24mm solid #CDBABA!important}
+.print-route-root .print-doc-generic_document .report-operational-label{
   display:flex;
   align-items:center;
   padding:1.3mm 1.7mm!important;
@@ -92,24 +77,22 @@
   color:#7E2F2F!important;
   box-sizing:border-box;
 }
-.print-doc-generic_document .report-operational-value{
+.print-route-root .print-doc-generic_document .report-operational-value{
   display:flex;
   align-items:center;
   min-height:10mm;
   padding:1.3mm 1.8mm!important;
   box-sizing:border-box;
 }
-.blank-form-mode .report-operational-label .blank-write-line{
+.print-route-root .print-doc-generic_document.blank-form-mode .report-operational-label .blank-write-line{
   width:92%;
   border-bottom:.25mm solid #9B8A8A!important;
 }
-.blank-form-mode .report-operational-value .blank-writing-lines{
-  width:100%;
-}
+.print-route-root .print-doc-generic_document.blank-form-mode .report-operational-value .blank-writing-lines{width:100%}
 
 @media print{
-  .print-doc-generic_document .report-metric,
-  .print-doc-generic_document .report-operational-row{
+  .print-route-root .print-doc-generic_document .report-metric,
+  .print-route-root .print-doc-generic_document .report-operational-row{
     break-inside:avoid!important;
     page-break-inside:avoid!important;
   }
