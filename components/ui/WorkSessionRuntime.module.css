@@ -1,0 +1,99 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, #111 42%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: min(560px, 100%);
+  padding: 26px;
+  background: var(--raw-paper, #fffdf8);
+  color: var(--raw-ink, #1f1b17);
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 22%, transparent);
+}
+
+.kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--raw-muted, #756d64);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: clamp(21px, 2.5vw, 28px);
+  line-height: 1.45;
+}
+
+.description {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--raw-muted, #756d64);
+}
+
+.error {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  border-inline-start: 3px solid currentColor;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 24px;
+}
+
+.actions button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.actions button:hover:not(:disabled),
+.actions button:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.actions button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.actions button:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
+.discard {
+  margin-inline-start: auto;
+}
+
+@media (max-width: 560px) {
+  .dialog {
+    padding: 20px;
+  }
+
+  .actions {
+    display: grid;
+  }
+
+  .discard {
+    margin-inline-start: 0;
+  }
+}
