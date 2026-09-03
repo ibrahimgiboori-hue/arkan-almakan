@@ -48,6 +48,57 @@
     padding: var(--app-body-top) var(--app-body-inline) var(--app-body-bottom) !important;
   }
 
+  /* WORK THRESHOLD — crossing from anatomy into an operational zone changes
+     the body's posture once, without introducing an interstitial screen. */
+  .rawDashboardShell[data-work-posture='work-zone'] .rawDashboardContent {
+    background: color-mix(in srgb, var(--raw-bg) 97.5%, var(--raw-paper)) !important;
+  }
+
+  .appWorkThresholdLine {
+    box-sizing: border-box;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 7px var(--app-body-inline) 6px;
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-border-soft) 82%, transparent);
+    color: var(--raw-muted);
+    background: transparent;
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+
+  .appWorkThresholdZone {
+    font-weight: 740;
+    color: var(--raw-muted);
+  }
+
+  .appWorkThresholdFunction {
+    color: var(--raw-ink);
+    font-weight: 680;
+  }
+
+  .appWorkThresholdFunction::before {
+    content: '·';
+    margin-inline-end: 8px;
+    color: var(--raw-border);
+  }
+
+  .rawDashboardShell[data-work-posture='work-zone'][data-work-session-state='working'] .appWorkThresholdLine {
+    border-bottom-color: color-mix(in srgb, var(--raw-wine) 16%, var(--raw-border-soft));
+  }
+
+  .appBodyStage[data-work-threshold-entry='true'] .appWorkThresholdLine,
+  .appBodyStage[data-work-threshold-entry='true'] .workSheetMount {
+    animation: appWorkThresholdArrive 170ms cubic-bezier(.2,.72,.28,1) both;
+  }
+
+  @keyframes appWorkThresholdArrive {
+    from { opacity: .9; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* The new body never fabricates an empty page header. If a route owns a
      meaningful header it renders one; otherwise the work begins immediately. */
   .rawDashboardContent > .workSheetMount:not(:has(.page-head, [data-work-header='true'], [data-page-header='true'], [data-work-context-bar='true']))::before {
@@ -213,6 +264,10 @@
     padding-top: 8px !important;
   }
 
+  .appWorkThresholdLine {
+    padding-inline: 10px;
+  }
+
   .appCompletedSurface {
     width: 100%;
     padding: 72px 18px 64px;
@@ -229,7 +284,9 @@
     transition: none !important;
   }
 
-  .appCompletedSurface {
+  .appCompletedSurface,
+  .appBodyStage[data-work-threshold-entry='true'] .appWorkThresholdLine,
+  .appBodyStage[data-work-threshold-entry='true'] .workSheetMount {
     animation: none !important;
   }
 }
