@@ -17,6 +17,7 @@ if (exists('app/dashboard/projects/projects-redesign.module.css')) failures.push
 
 const constitution = requireText('lib/work-surface-constitution.js', [
   'program-driven-notebook-v2',
+  'work-first-v3',
   'continuous-sheet-not-card-dashboard',
   'flow-unless-real-boundary',
   'compact-row-expands-in-context',
@@ -32,6 +33,15 @@ const constitution = requireText('lib/work-surface-constitution.js', [
   'print-export-only-unless-explicit-governed-batch-source',
   'deny-unless-action-explicitly-declares',
   'same-work-surface-not-mobile-clone',
+  'route-content-preserved-in-place',
+  'single-route-content-host-no-cloning',
+  'hidden-until-explicitly-called',
+  'progressive-drill-in-no-stacked-accordions',
+  'reserve-space-on-desktop-overlay-on-touch',
+  'work-first-no-global-status-card-wall',
+  'forbidRouteContentDuplication',
+  'forbidBodyOwnedBusinessLogic',
+  'forbidBodyFeatureDeletionDuringMigration',
   "from './app-constitution'",
   'AREAS.flatMap',
   'PROJECT_NAV_GROUPS.flatMap',
@@ -52,12 +62,35 @@ const runtime = requireText('components/ui/WorkSurfaceRuntime.js', [
 ]);
 if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRuntime: ممنوع تخزين سياق الورقة محليًا.');
 
-requireText('app/dashboard/layout.js', [
+const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
+  "'./app-body-v3.css'",
   '<WorkSurfaceRuntime>',
   '</WorkSurfaceRuntime>',
   'data-work-kernel="operational-notebook-v1"',
+  'className="appBodyStage"',
+  'data-application-body="work-first-v3"',
+  'data-organ-host="route-content"',
+  'data-organ-preservation="in-place"',
 ]);
+
+if ((layout.match(/\{children\}/g) || []).length !== 1) {
+  failures.push('app/dashboard/layout.js: محتوى المسار يجب أن يركب مرة واحدة فقط داخل الجسد الجديد؛ ممنوع نسخ العضو أو عرضه في سطح موازٍ.');
+}
+
+const bodyCss = requireText('app/dashboard/app-body-v3.css', [
+  'APPLICATION BODY V3',
+  "[data-organ-host='route-content']",
+  ".appContextNav[data-open='true'][data-pinned='true']",
+  'padding-inline-end: var(--app-body-nav-width)',
+  'content: none !important',
+]);
+if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodyCss)) {
+  failures.push('app-body-v3.css: الجسد الجديد يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
+}
+if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodyCss)) {
+  failures.push('app-body-v3.css: الجسد الجديد يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
+}
 
 requireText('components/ui/ConstitutionUI.js', [
   "import { useWorkSurface } from './WorkSurfaceRuntime'",
@@ -165,4 +198,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook constitution controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs and controls surfaces, selection scopes, actions and interaction grammar.');
