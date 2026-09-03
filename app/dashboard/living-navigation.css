@@ -42,6 +42,11 @@
     color: var(--raw-ink, #2f2924) !important;
   }
 
+  .appNavDismiss {
+    font-size: 10.5px !important;
+    font-weight: 650 !important;
+  }
+
   .appContextNav[data-living-branch='single'] .appNavPanel {
     padding-top: 3px;
   }
@@ -56,8 +61,7 @@
     border-inline-start: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 82%, transparent);
   }
 
-  .appNavBranchNested > .appNavRow,
-  .appNavProjectContext > .appNavRow {
+  .appNavRowNested {
     min-height: 30px !important;
     padding-block: 4px !important;
   }
@@ -67,35 +71,44 @@
     font-weight: 650;
   }
 
-  .appNavBranchDeep {
+  .appNavMirror {
     min-width: 0;
+    padding: 1px 4px 8px;
   }
 
-  .appNavProjectContext {
-    margin: 2px 0 5px;
-    padding-inline-start: 9px;
+  .appNavMirrorPortal {
+    margin: 0 0 10px;
+    color: var(--raw-ink, #2f2924);
+    font-size: 15px;
+    font-weight: 810;
+    line-height: 1.35;
   }
 
-  .appNavSubject {
-    max-width: 100%;
-    margin: 5px 5px 5px 0;
-    padding: 0;
+  .appNavMirrorTrail {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 82%, transparent);
+  }
+
+  .appNavMirrorSubject {
+    min-width: 0;
+    margin-top: 7px;
+  }
+
+  .appNavMirrorSubjectTitle {
+    min-width: 0;
+    margin: 2px 0 7px;
     overflow: hidden;
-    color: var(--raw-muted, #756d64);
-    font-size: 10.5px;
-    font-weight: 720;
+    color: var(--raw-ink, #2f2924);
+    font-size: 12.8px;
+    font-weight: 780;
     line-height: 1.45;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .appNavProjectCardRow > span {
-    font-weight: 720 !important;
-  }
-
-  .appNavRegionRow[data-active='true'] > span,
-  .appNavProjectCardRow[data-active='true'] > span {
-    color: var(--raw-wine, #7b2434);
+  .appNavMirrorRegion {
+    min-width: 0;
   }
 
   .appNavHonoraryList {
@@ -103,6 +116,12 @@
     gap: 0;
     margin: 1px 0 6px;
     padding: 2px 5px 3px 0;
+  }
+
+  .appNavHonoraryListNested {
+    margin: 0 7px 5px 0;
+    padding-inline-start: 8px;
+    border-inline-start: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 72%, transparent);
   }
 
   .appNavHonorary {
@@ -117,6 +136,11 @@
     white-space: nowrap;
     cursor: default;
     user-select: text;
+  }
+
+  .appNavHonoraryStrong {
+    font-size: 11.6px;
+    font-weight: 690;
   }
 
   .appNavHonorary[data-current='true'] {
