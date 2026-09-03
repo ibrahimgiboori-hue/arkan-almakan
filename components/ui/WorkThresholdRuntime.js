@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { isWorkZoneContext, resolveWorkThreshold, WORK_POSTURE } from '@/lib/work-threshold-constitution';
 
 const WorkThresholdContext = createContext(null);
+const NAVIGATION_YIELD_EVENT = 'arkan:navigation-yield-to-work';
 
 export function useWorkThreshold() {
   return useContext(WorkThresholdContext);
@@ -52,6 +53,9 @@ export default function WorkThresholdRuntime({ children }) {
 
     let timer = null;
     if (enteringZone) {
+      window.dispatchEvent(new CustomEvent(NAVIGATION_YIELD_EVENT, {
+        detail:{ zoneKey:context.zoneKey, functionLabel:context.functionLabel || '' },
+      }));
       stage.setAttribute('data-work-threshold-entry', 'true');
       timer = window.setTimeout(() => stage.removeAttribute('data-work-threshold-entry'), 210);
     }
