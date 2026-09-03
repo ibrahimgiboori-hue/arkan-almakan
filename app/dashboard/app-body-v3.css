@@ -1,0 +1,127 @@
+/*
+  APPLICATION BODY V3 — work-first shell around preserved route organs.
+  ------------------------------------------------------------------
+  This layer owns only the body around existing routes: available canvas,
+  pinned-navigation reservation and the compatibility bridge that keeps old
+  route shells functional while they are moved gradually into the work kernel.
+
+  It does not own business logic, route permissions, document printing or the
+  internal state of any page. Existing route content is mounted once and kept
+  in place as an organ of the program.
+*/
+
+@media screen {
+  .rawDashboardShell {
+    --app-body-nav-width: min(232px, 82vw);
+    --app-body-inline: clamp(12px, 1.45vw, 22px);
+    --app-body-top: clamp(8px, 1vw, 14px);
+    --app-body-bottom: 56px;
+    position: relative;
+    isolation: isolate;
+    overflow-x: clip;
+  }
+
+  .appBodyStage {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    padding-inline-end: 0;
+    transition: padding-inline-end 170ms cubic-bezier(.2,.72,.28,1);
+  }
+
+  .rawDashboardContent {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 100dvh !important;
+    overflow-x: clip !important;
+    background: var(--raw-bg) !important;
+  }
+
+  .rawDashboardContent > .workSheetMount {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    padding: var(--app-body-top) var(--app-body-inline) var(--app-body-bottom) !important;
+  }
+
+  /* The new body never fabricates an empty page header. If a route owns a
+     meaningful header it renders one; otherwise the work begins immediately. */
+  .rawDashboardContent > .workSheetMount:not(:has(.page-head, [data-work-header='true'], [data-page-header='true'], [data-work-context-bar='true']))::before {
+    content: none !important;
+    display: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+  }
+
+  [data-organ-host='route-content'] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Legacy wrappers remain semantic compatibility organs only. Their local
+     sidebars/topbars are already retired by raw-phase.css; the route's actual
+     main content keeps its natural width and interaction logic. */
+  [data-organ-host='route-content'] .shell,
+  [data-organ-host='route-content'] .main,
+  [data-organ-host='route-content'] .page,
+  [data-organ-host='route-content'] [data-work-sheet='true'],
+  [data-organ-host='route-content'] [data-page-surface='true'] {
+    min-width: 0 !important;
+  }
+
+  /* Temporary navigation overlays the work. Pinning is an explicit user act,
+     so only the pinned desktop state reserves body space instead of covering
+     the current work. */
+  .rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage {
+    padding-inline-end: var(--app-body-nav-width);
+  }
+
+  .rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='false']) .appBodyStage {
+    padding-inline-end: 0;
+  }
+
+  .appContextNav[data-open='true'][data-pinned='true'] {
+    box-shadow: none;
+    border-inline-start: 1px solid var(--raw-border-soft, #e8e4dc);
+  }
+
+  .appContextNav[data-open='true'][data-pinned='false'] {
+    border-inline-start: 0;
+  }
+
+  /* Wide ledgers may scroll inside their own operational surface. The body
+     itself never becomes a second horizontal canvas. */
+  [data-organ-host='route-content'] [data-work-ledger='true'],
+  [data-organ-host='route-content'] [data-table-surface='true'],
+  [data-organ-host='route-content'] .table-wrap,
+  [data-organ-host='route-content'] .tableWrap {
+    max-width: 100%;
+  }
+}
+
+@media screen and (max-width: 900px), screen and (hover: none), screen and (pointer: coarse) {
+  .appBodyStage {
+    padding-inline-end: 0 !important;
+  }
+
+  .rawDashboardContent > .workSheetMount {
+    padding-inline: 10px !important;
+    padding-top: 8px !important;
+  }
+
+  .appContextNav[data-open='true'][data-pinned='true'] {
+    box-shadow: -7px 0 22px rgba(46, 39, 31, .055);
+    border-inline-start: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appBodyStage {
+    transition: none !important;
+  }
+}
