@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   AREAS,
   PROJECT_NAV_GROUPS,
@@ -23,6 +23,7 @@ import {
   isMeaningfulBranch,
   perspectiveQuickLinks,
 } from '@/lib/anatomical-navigation';
+import { requestWorkNavigation } from './WorkSessionRuntime';
 
 const PIN_STORAGE_KEY = 'arkan-context-nav-pinned';
 
@@ -48,7 +49,6 @@ function panelId(panel) {
 }
 
 export default function ContextualDashboardNavigation({ me, onSignOut }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const lastPathRef = useRef(null);
@@ -272,9 +272,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }
 
   function go(href) {
-    if (!href) return;
+    if (!href || href === pathname) return;
     if (!pinned) setOpen(false);
-    if (href !== pathname) router.push(href);
+    requestWorkNavigation(href);
   }
 
   function togglePinned() {
@@ -287,6 +287,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }
 
   const quickLinks = perspectiveQuickLinks({ approvals:me?.access?.approvals === true });
+
+  // في صالة البوابات المكان نفسه هو الملاحة؛ لا نكرر البوابات في قائمة جانبية.
+  if (pathname === '/dashboard') return null;
 
   return <>
     <button
