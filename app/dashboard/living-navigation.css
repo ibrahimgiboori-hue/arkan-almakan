@@ -160,6 +160,132 @@
     opacity: 1;
   }
 
+  /* قائمة الحفيد: تخدم الأداة الحالية. العمل الجديد أولاً والتاريخ عند الطلب. */
+  .appNavGrandchild {
+    min-width: 0;
+    display: grid;
+    gap: 8px;
+    padding: 2px 4px 12px;
+  }
+
+  .appNavGrandchildTitle {
+    margin-bottom: 4px;
+    color: var(--raw-ink, #2f2924);
+    font-size: 16px;
+    font-weight: 830;
+    line-height: 1.35;
+  }
+
+  .appNavGrandchildPrimary,
+  .appNavGrandchildSecondary,
+  .appNavGrandchildGroupTitle,
+  .appNavGrandchildItem {
+    width: 100%;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: inherit;
+    text-align: right;
+    cursor: pointer;
+  }
+
+  .appNavGrandchildPrimary {
+    padding: 9px 10px !important;
+    background: color-mix(in srgb, var(--raw-wine, #7b2434) 9%, transparent) !important;
+    color: var(--raw-wine, #7b2434) !important;
+    font-size: 12.7px !important;
+    font-weight: 820 !important;
+  }
+
+  .appNavGrandchildPrimary[data-current='true'] {
+    box-shadow: inset -2px 0 0 var(--raw-wine, #7b2434) !important;
+  }
+
+  .appNavGrandchildSecondary {
+    padding: 5px 10px !important;
+    background: transparent !important;
+    color: var(--raw-muted, #756d64) !important;
+    font-size: 11.5px !important;
+    font-weight: 660 !important;
+  }
+
+  .appNavGrandchildSection {
+    min-width: 0;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 86%, transparent);
+  }
+
+  .appNavGrandchildSectionTitle {
+    margin-bottom: 5px;
+    color: var(--raw-muted, #756d64);
+    font-size: 10.5px;
+    font-weight: 760;
+  }
+
+  .appNavGrandchildGroups,
+  .appNavGrandchildItems {
+    display: grid;
+    gap: 1px;
+  }
+
+  .appNavGrandchildGroupTitle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 5px !important;
+    background: transparent !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-size: 11.8px !important;
+    font-weight: 720 !important;
+  }
+
+  .appNavGrandchildGroup[data-expanded='true'] > .appNavGrandchildGroupTitle {
+    color: var(--raw-wine, #7b2434) !important;
+  }
+
+  .appNavGrandchildGroup .appNavGrandchildItems {
+    margin: 0 7px 5px 0;
+    padding-inline-start: 8px;
+    border-inline-start: 1px solid color-mix(in srgb, var(--raw-border-soft, #e8e4dc) 76%, transparent);
+  }
+
+  .appNavGrandchildItem {
+    display: grid;
+    gap: 2px;
+    padding: 6px 5px !important;
+    background: transparent !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-size: 11.4px !important;
+    font-weight: 680 !important;
+  }
+
+  .appNavGrandchildItem small {
+    overflow: hidden;
+    color: var(--raw-muted, #756d64);
+    font-size: 9.8px;
+    font-weight: 520;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .appNavGrandchildItem:hover,
+  .appNavGrandchildItem:focus-visible,
+  .appNavGrandchildGroupTitle:hover,
+  .appNavGrandchildGroupTitle:focus-visible,
+  .appNavGrandchildSecondary:hover,
+  .appNavGrandchildSecondary:focus-visible {
+    background: color-mix(in srgb, var(--raw-wine, #7b2434) 4%, transparent) !important;
+  }
+
+  .appNavGrandchildItem[data-current='true'] {
+    color: var(--raw-wine, #7b2434) !important;
+    font-weight: 820 !important;
+  }
+
   .appUnsavedNavigationGuard {
     position: sticky;
     top: 0;
