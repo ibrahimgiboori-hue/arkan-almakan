@@ -205,7 +205,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     const accepted = requestWorkSessionNavigation(href, { replace:options.replace === true });
     if (!accepted) return;
     navigationIntentRef.current = options.fromBack === true ? 'semantic-back' : 'forward';
-    setOpen(options.keepOpen !== false);
+    setOpen(true);
     if (options.replace) router.replace(href);
     else router.push(href);
   }
@@ -361,7 +361,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
                 key={item.id || item.href}
                 className="appNavGrandchildItem"
                 data-current={grandchildContext.currentItemId === item.id ? 'true' : 'false'}
-                onClick={()=>go(item.href)}
+                onClick={()=>go(item.href,{keepOpen:false})}
               >
                 <span>{item.label}</span>
                 {item.meta ? <small>{item.meta}</small> : null}
