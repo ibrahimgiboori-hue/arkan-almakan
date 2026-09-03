@@ -53,7 +53,7 @@ if (/localStorage|sessionStorage/.test(constitution)) failures.push('work-surfac
 if (/export\s+const\s+AREAS\s*=/.test(constitution)) failures.push('work-surface constitution: ممنوع نسخ خريطة البوابات بدل اشتقاقها من app-constitution.');
 
 const sessionConstitution = requireText('lib/work-session-constitution.js', [
-  'zero-residue-work-session-v1',
+  'zero-residue-work-session-v2',
   'user-work-session-not-page',
   'being-in-a-work-zone-does-not-mean-a-work-session-has-started',
   'a-procedural-session-must-end-with-an-explicit-terminal-action',
@@ -62,13 +62,19 @@ const sessionConstitution = requireText('lib/work-session-constitution.js', [
   'replace-active-route-organ-with-clean-completion-surface',
   'no-form-no-old-record-list-no-session-actions-after-release',
   'past-transactions-live-in-register-search-reports-not-under-active-work',
+  'live-work-must-be-resolved-before-route-release',
+  'navigation-cannot-silently-abandon-dirty-work',
+  'draft-preserves-editable-work-state-without-creating-business-effect',
+  'the-organ-owns-draft-persistence-the-body-only-orchestrates-leaving',
   'bodyMustNotInferCompletionFromButtonClick',
   'bodyMustNotInferCompletionFromToast',
   'bodyMustNotOwnBusinessTransition',
+  'bodyMustNotInventDraftPersistence',
   'WORK_COMPLETION_KIND',
   'WORK_SESSION_STATE',
+  'WORK_LEAVE_DECISION',
 ]);
-if (/localStorage|sessionStorage/.test(sessionConstitution)) failures.push('work-session constitution: خاتمة الجلسة لا يجوز أن تعيش في تخزين متصفح موازٍ.');
+if (/localStorage|sessionStorage/.test(sessionConstitution)) failures.push('work-session constitution: خاتمة الجلسة أو العمل الحي لا يجوز أن يعيش في تخزين متصفح موازٍ.');
 
 const runtime = requireText('components/ui/WorkSurfaceRuntime.js', [
   'resolveWorkSurface',
@@ -83,20 +89,30 @@ if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRunti
 const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
   "from '@/lib/work-session-constitution'",
   "BEGIN: 'arkan:work-session-begin'",
+  "DIRTY: 'arkan:work-session-dirty'",
+  "CLEAN: 'arkan:work-session-clean'",
+  "NAVIGATE: 'arkan:work-session-navigate'",
   'arkan:work-session-completed',
   'serverConfirmed !== true',
   'emitWorkSessionCompletion',
+  'emitWorkSessionDirty',
+  'requestWorkNavigation',
   'data-work-session-state',
+  'data-work-dirty',
   'CompletedSurface',
+  'LeaveWorkDialog',
   'WORK_SESSION_STATE.IDLE',
   'const [started, setStarted] = useState(false)',
+  'const [pendingWork, setPendingWork] = useState(null)',
   'setStarted(true)',
   'setCompletion(null)',
+  'beforeunload',
 ]);
-if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل لا تُخزن محليًا ولا تعيش بعد تغيير المسار.');
+if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل أو بوابة المغادرة لا تُخزن محليًا.');
 if (!/completion\s*\?\s*<CompletedSurface[\s\S]{0,180}:\s*children/.test(sessionRuntime)) {
   failures.push('WorkSessionRuntime: الخاتمة يجب أن تستبدل مشهد العمل المنتهي بدل إبقاء العضو والقوائم تحته.');
 }
+if (!sessionRuntime.includes('pendingWork?.dirty')) failures.push('WorkSessionRuntime: الملاحة يجب أن تمر على حالة العمل الحي قبل تحرير المسار.');
 
 const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
@@ -240,4 +256,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion, and controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion and live-work leaving, and controls surfaces, selection scopes, actions and interaction grammar.');
