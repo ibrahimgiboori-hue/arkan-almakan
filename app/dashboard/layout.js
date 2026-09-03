@@ -8,6 +8,7 @@ import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/
 import { applyUiTheme, DEFAULT_UI_THEME, UI_THEME_EVENT } from '@/lib/ui-theme';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
+import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime';
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
 import './raw-tokens.css';
@@ -191,34 +192,37 @@ export default function DashboardLayout({ children }) {
       >
         <WorkSurfaceRuntime>
           <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
-          <div className="appBodyStage" data-application-body="work-first-v3">
-            <WorkSessionRuntime>
-              <ActionNervousSystemRuntime>
-                {showExceptionalIdentity ? (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    data-action-context-banner="true"
-                    data-action-context-active="true"
-                    className="appActionContextAlert"
-                  >
-                    <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
-                    <a href="/dashboard/settings#primary-action-mode">تغيير</a>
-                  </div>
-                ) : null}
-                <main className="rawDashboardContent" data-work-book="true">
-                  <div
-                    className="workSheetMount"
-                    data-work-sheet-mount="true"
-                    data-organ-host="route-content"
-                    data-organ-preservation="in-place"
-                  >
-                    {children}
-                  </div>
-                </main>
-              </ActionNervousSystemRuntime>
-            </WorkSessionRuntime>
-          </div>
+          <WorkThresholdRuntime>
+            <div className="appBodyStage" data-application-body="work-first-v3">
+              <WorkSessionRuntime>
+                <ActionNervousSystemRuntime>
+                  {showExceptionalIdentity ? (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      data-action-context-banner="true"
+                      data-action-context-active="true"
+                      className="appActionContextAlert"
+                    >
+                      <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+                      <a href="/dashboard/settings#primary-action-mode">تغيير</a>
+                    </div>
+                  ) : null}
+                  <main className="rawDashboardContent" data-work-book="true">
+                    <WorkThresholdMarker />
+                    <div
+                      className="workSheetMount"
+                      data-work-sheet-mount="true"
+                      data-organ-host="route-content"
+                      data-organ-preservation="in-place"
+                    >
+                      {children}
+                    </div>
+                  </main>
+                </ActionNervousSystemRuntime>
+              </WorkSessionRuntime>
+            </div>
+          </WorkThresholdRuntime>
         </WorkSurfaceRuntime>
       </div>
     </DashboardSessionProvider>
