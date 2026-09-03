@@ -46,7 +46,7 @@ if (!areasMatch) {
   }
 }
 
-// 3) بوابة المشاريع مرتبة حسب العمل: اليوم، ثم التسجيل والإدارة، ثم المتابعة.
+// 3) بوابة المشاريع تحتفظ بترتيب وظائفها التشغيلي الداخلي.
 const dailyIndex = constitution.indexOf("key: 'daily'");
 const entryIndex = constitution.indexOf("key: 'entry'");
 const readIndex = constitution.indexOf("key: 'read'");
@@ -76,16 +76,17 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. التنقل ملك الـShell الجديدة لا كتالوجات الواجهة القديمة.
+// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. الفرع الحي يقرأ تجميعاته من Shell نفسه.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
 const contextualShellCss = 'app/dashboard/app-shell-v2.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
+const approachStage = 'app/dashboard/workspace/[portal]/page.js';
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
 }
-if (!dashboardLayout.includes("data-navigation-shell=\"contextual-slide-v2\"")) {
+if (!dashboardLayout.includes('data-navigation-shell="contextual-slide-v2"')) {
   failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
 }
 if (!dashboardLayout.includes("'./app-shell-v2.css'")) {
@@ -102,7 +103,7 @@ if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardH
 }
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
-  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'SHELL_PORTAL_GROUPS', 'onClick={openNavigation}']) {
+  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'SHELL_PORTAL_GROUPS', 'requestWorkSessionNavigation', 'data-living-branch="single"', 'onClick={openNavigation}']) {
     if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
   }
   if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
@@ -113,6 +114,17 @@ if (exists(contextualNavigation)) {
 }
 if (exists(shellConstitution) && !read(shellConstitution).includes('SHELL_PORTAL_GROUPS')) {
   failures.push('الجسد الجديد: دستور تجميعات الملاحة المستقل غير مكتمل.');
+}
+if (!exists(approachStage)) {
+  failures.push('مسرح الاقتراب: app/dashboard/workspace/[portal]/page.js مفقود.');
+} else {
+  const stage = read(approachStage);
+  for (const required of ['data-navigation-stage="approach"', 'SHELL_PORTAL_GROUPS', 'requestWorkSessionNavigation']) {
+    if (!stage.includes(required)) failures.push(`مسرح الاقتراب: مفقود ${required}.`);
+  }
+  if (/WorkPlatformPage|WORK_PLATFORM_|portalSwitcher|PORTAL_COPY|allowedPortals/.test(stage)) {
+    failures.push('مسرح الاقتراب: عاد منطق منصة الأعمال القديمة داخل المساحة الكبيرة.');
+  }
 }
 
 // 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
@@ -128,7 +140,6 @@ if (!/documents:\s*fullAdmin\s*\|\|\s*capabilities\.some\(\(item\)\s*=>\s*item\.
 
 const deadPlatformFiles = [
   'app/dashboard/workspace/page.js',
-  'app/dashboard/workspace/[portal]/page.js',
   'app/dashboard/workspace/[portal]/scope/[id]/page.js',
   'app/dashboard/workspace/PortalActionMetrics.js',
   'app/dashboard/workspace/unified-workspace.module.css',
