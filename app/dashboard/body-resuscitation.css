@@ -1,0 +1,25 @@
+/* Emergency body survival contract during shell migration.
+   The application body and route-organ host may never become visually absent
+   because of a legacy shell rule or an intermediate wrapper. */
+@media screen {
+  .appBodyStage,
+  .rawDashboardContent,
+  .rawDashboardContent > .workSheetMount,
+  [data-organ-host='route-content'] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .appBodyStage,
+  .rawDashboardContent,
+  [data-organ-host='route-content'] {
+    width: 100% !important;
+  }
+
+  [data-organ-host='route-content'] {
+    position: relative !important;
+    z-index: 0;
+  }
+}
