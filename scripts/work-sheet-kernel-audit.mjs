@@ -58,8 +58,10 @@ requireText('lib/navigation-shell-constitution.js', [
 ]);
 
 requireText('lib/portal-living-navigation.js', [
+  'LIVING_PORTALS',
   'accessiblePortalTools',
   'livingPortalGroups',
+  'portalEntryNodes',
   'activePortalGroup',
   'activePortalTool',
   'portalCoverageReport',
@@ -68,7 +70,9 @@ requireText('lib/portal-living-navigation.js', [
 requireText('components/ui/ContextualDashboardNavigation.js', [
   'filterAreasForAccess',
   'projectNavRequirement',
-  'livingPortalGroups',
+  'portalEntryNodes',
+  'entryNodesByArea',
+  'entryNodes.map',
   'portalApproachHref',
   'requestWorkSessionNavigation',
   'data-living-branch="single"',
@@ -88,6 +92,9 @@ if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد د
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
 if (nav.includes("from '@/lib/supabase'")) failures.push('الملاحة بدأت تستعلم عن بيانات الكيانات بدل استقبال انعكاس المسرح.');
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق تحولت إلى اختصار عمل قابل للضغط.');
+if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) {
+  failures.push('الملاحة عادت لرسم فرع المشاريع بسلوك JSX خاص بدل محرك عقد الدخول الواحد.');
+}
 
 const livingCss = read('app/dashboard/living-navigation.css');
 if (!livingCss.includes(".rawDashboardShell:has(.appContextNav[data-open='true']) .appBodyStage")) {
@@ -122,4 +129,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: one visual captain spans every portal, the stage/list leadership handoff is shared, and desktop navigation persists without creating a second canvas.');
+console.log('Single visual captain audit passed: one visual captain and one entry-node behavior engine span every portal; the stage/list leadership handoff is shared, and desktop navigation persists without creating a second canvas.');
