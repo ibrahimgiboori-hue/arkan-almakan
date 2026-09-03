@@ -77,7 +77,8 @@
   /* Zero-residue completion surface: when an operation explicitly confirms
      completion, the active route organ is released from the visual scene.
      History remains in registers/search/reports, never stacked below this note. */
-  .appCompletedSurface {
+  .appCompletedSurface,
+  .appCompletedSurface[data-work-session-state='released'] {
     box-sizing: border-box;
     width: min(100%, 660px);
     min-height: 100dvh;
