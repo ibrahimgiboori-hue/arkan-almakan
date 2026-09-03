@@ -43,9 +43,9 @@ if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i
 if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodyCss)) failures.push('app-body-v3.css: الجسد الجديد يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
 
 requireText('app/dashboard/living-navigation.css', ['.appNavBackArrow','.appNavHonorary','.appNavGrandchildTabs','.appNavGrandchildTab','.appUnsavedNavigationGuard','.appUnsavedNavigationActions']);
-requireText('components/ui/ConstitutionUI.js', ["import { useWorkSurface } from './WorkSurfaceRuntime'",'const resolvedMode = surface?.mode || mode ||','data-page-portal','data-work-section-style','boundary = false','export function ContextActions','secondary-overflow','export function ViewOptions','export function RecordList','export function RecordRow','export function RecordSummary','export function InlineStatus']);
+requireText('components/ui/ConstitutionUI.js', ["import { useWorkSurface } from './WorkSurfaceRuntime'",'const resolvedMode = surface?.mode || mode ||','data-page-portal','data-work-section-style','boundary = false','export function WorkFormGrid','export function WorkField','data-field-mode={mode}','export function DocumentBody','export function DocumentSection','export function ContextActions','secondary-overflow','export function ViewOptions','export function RecordList','export function RecordRow','export function RecordSummary','export function InlineStatus']);
 requireText('lib/record-selection.js', ['normalizeRecordSelection','selectionQueryValue','appendSelectionToUrl','filterBySelection','selectionState']);
-requireText('components/ui/RawGrid.js', ['data-cell-type','data-grid-field','data-keyboard-policy="enter-tab-native"','data-selection-surface','data-record-selected','selection = null','visibleKeys',"case 'money'","case 'multiline'"]);
+requireText('components/ui/RawGrid.js', ['data-cell-type','data-grid-field','data-keyboard-policy="enter-tab-native"','data-selection-surface','data-record-selected','selection = null','visibleKeys',"case 'money'","case 'multiline'","case 'generated'","case 'linked'","case 'calculated'",'data-work-underwear="transaction-grid-v1"']);
 requireText('components/ui/ProgramAction.js', ['WORK_ACTION_SCOPE','selectionCount','data-action-scope','data-selection-required','data-bulk-decision-allowed']);
 requireText('components/ui/WorkSheetKernel.js', ['export function WorkSelectionDock','data-selection-dock','data-selection-count']);
 requireText('components/ui/GlobalSearch.js', ["import { WORK_SURFACE_EVENT } from './WorkSurfaceRuntime'",'WORK_SURFACE_EVENT.PAGE_COMMAND','Ctrl K · /']);
@@ -57,7 +57,7 @@ if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(projects)) failu
 
 requireText('app/dashboard/projects/[id]/anatomy/page.js', ['ProjectAnatomyStage','useDashboardSession',"select('id,project_no,name_ar,city,stage,status,supply_scope,our_role,commencement_date,duration_days')"]);
 
-const quotes = requireText('app/dashboard/quotes/page.js', ['ConstitutionPage','useDashboardSession','canUseCapability','data-new-quotation-operation="true"','data-stage-occupancy="single-action"','title="إصدار جديد"','بدء الإصدار']);
+const quotes = requireText('app/dashboard/quotes/page.js', ['ConstitutionPage','useDashboardSession','canUseCapability','data-new-quotation-operation="true"','data-stage-occupancy="single-action"','— إصدار جديد','WorkFormGrid','WorkField','ActionDock','بدء ${documentLabel}']);
 if (quotes.includes('<table>') || quotes.includes('العمل الجاري') || quotes.includes('السجل')) failures.push('/dashboard/quotes: المعاملات الموجودة لا يجوز أن تعود إلى المسرح؛ المسرح لإجراء جديد واحد فقط.');
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(quotes)) failures.push('/dashboard/quotes: الصفحة أعادت اختراع صلاحيات العرض بدل النواة.');
 
@@ -76,4 +76,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves organs, one real action or selected transaction owns the stage, and existing transactions live in the contextual grandchild shelf.');
+console.log('Program-driven work surface audit passed: one notebook body preserves organs, transaction underwear gives every field one family, and one real action or selected transaction owns the stage.');
