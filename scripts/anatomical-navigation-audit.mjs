@@ -59,9 +59,11 @@ for (const required of [
 
 const portalModel = requireFile('lib/portal-living-navigation.js');
 for (const required of [
+  'LIVING_PORTALS',
   'SHELL_PORTAL_GROUPS',
   'accessiblePortalTools',
   'livingPortalGroups',
+  'portalEntryNodes',
   'activePortalGroup',
   'activePortalTool',
   'portalCoverageReport',
@@ -85,7 +87,9 @@ for (const required of [
   'appNavHonoraryList',
   'appNavHonorary',
   'mirrorSubject?.subjectLabel',
-  'livingPortalGroups',
+  'portalEntryNodes',
+  'entryNodesByArea',
+  'entryNodes.map',
   'portalApproachHref',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
@@ -97,6 +101,7 @@ if (/>\s*الكل\s*</.test(nav)) failures.push('الرجوع التشريحي: 
 if (nav.includes('router.back(')) failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
 if (nav.includes("from '@/lib/supabase'")) failures.push('مرآة السياق: القائمة لا تستعلم عن الكيان البيولوجي؛ تستقبل هويته من المسرح فقط.');
 if (/<button[^>]+className="appNavHonorary"/.test(nav)) failures.push('مرآة السياق: العنصر الشرفي لا يجوز أن يصبح زر عمل.');
+if (/area\.key\s*===\s*['\"]projects['\"][\s\S]{0,260}?appNavChildren/.test(nav)) failures.push('الملاحة التشريحية: عاد مسار رسم خاص بالمشاريع بدل محرك عقد الدخول العام.');
 if (!nav.includes("label:'البوابات'") && !nav.includes("label: 'البوابات'")) failures.push('الرجوع التشريحي: نهاية السياق يجب أن تُسمّى «البوابات» لا «وضع الخمول».');
 if (nav.includes("label:'وضع الخمول'") || nav.includes("label: 'وضع الخمول'")) failures.push('الخمول ليس وجهة ملاحة ولا يجوز أن يكون اسم هدف سهم الرجوع.');
 
@@ -115,6 +120,15 @@ for (const required of [
 }
 if (projectStage.includes('التنقل داخل المشروع يتم من القائمة')) {
   failures.push('مسرح المشروع: عاد السلوك القديم الذي يجعل القائمة تقود بعد اختيار المشروع.');
+}
+
+const projectBoundary = requireFile('app/dashboard/projects/[id]/layout.js');
+for (const required of [
+  'publishNavigationMirrorContext',
+  "select('id,name_ar')",
+  "portalKey:'projects'",
+]) {
+  if (!projectBoundary.includes(required)) failures.push(`حد المشروع: مفقود ${required}`);
 }
 
 const portalStage = requireFile('app/dashboard/workspace/[portal]/page.js');
@@ -191,4 +205,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: one living behavior engine spans all portals; the list leads early, the stage leads late, selected context mirrors back without becoming a shortcut, and idle remains a state rather than a destination.');
+console.log('Anatomical navigation audit passed: one entry-node behavior engine spans all portals; the list leads early, the stage leads late, selected context mirrors back without becoming a shortcut, and idle remains a state rather than a destination.');
