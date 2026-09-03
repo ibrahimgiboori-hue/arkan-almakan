@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PrintColumnLabel } from '@/components/print/PrintPresentationContext';
+import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import { monthKey, monthLabelAr, OPERATING_BUDGET } from '@/lib/operating-budget';
 import { operationalDate } from '@/lib/system-constitution';
 import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
@@ -95,9 +97,9 @@ export default function OperatingBudgetPrintPage() {
       <span>المطلوب للسداد: <strong>{money(totals.dueNow)} ريال</strong></span>
     </div>
 
-    <ConstitutionPrintFrame documentKey="operating_budget_report" cfg={cfg} showLetterhead showStamp>
+    <ConstitutionPrintFrame documentKey="operating_budget_report" cfg={cfg} showStamp>
       <div className="ob-report">
-        <header className="ob-title">
+        <header className="ob-title" data-print-keep-with-next="true">
           <h1>{selectionMode ? 'ميزانية التشغيل — البنود المحددة' : 'ميزانية التشغيل'}</h1>
           <div>{monthLabelAr(month)} · {cfg.company_name_ar || 'أركان المكان'}</div>
           <small>{selectionMode ? `نطاق التقرير: ${printRows.length} بند محدد. ` : ''}تكلفة الشهر منفصلة عن قيمة الدفعة وموعد السداد.</small>
@@ -110,15 +112,15 @@ export default function OperatingBudgetPrintPage() {
           <div><span>متأخر</span><strong>{money(totals.overdue)} ريال</strong><small>استحقاقات سابقة غير مسددة</small></div>
         </div>
 
-        <table className="ob-table">
+        <table className="ob-table" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
           <thead><tr>
-            <th>البند</th>
-            <th>تكلفة الشهر</th>
-            <th>المتراكم</th>
-            <th>قيمة الدفعة</th>
-            <th>استحقاق هذا الشهر</th>
-            <th>الاستحقاق القادم</th>
-            <th>السداد</th>
+            <th><PrintColumnLabel field="item_name" fallback="البند" /></th>
+            <th><PrintColumnLabel field="monthly_cost" fallback="تكلفة الشهر" /></th>
+            <th><PrintColumnLabel field="accumulated_cost" fallback="المتراكم" /></th>
+            <th><PrintColumnLabel field="cycle_amount" fallback="قيمة الدفعة" /></th>
+            <th><PrintColumnLabel field="due_amount_this_period" fallback="استحقاق هذا الشهر" /></th>
+            <th><PrintColumnLabel field="next_due_date" fallback="الاستحقاق القادم" /></th>
+            <th><PrintColumnLabel field="payment_status" fallback="السداد" /></th>
           </tr></thead>
           <tbody>
             {printRows.map((line) => <tr key={line.line_id}>
@@ -136,7 +138,7 @@ export default function OperatingBudgetPrintPage() {
                 {num(line.paid_amount) > 0 && <small>مدفوع للدورة: {money(line.paid_amount)} ريال</small>}
               </td>
             </tr>)}
-            <tr className="ob-total">
+            <tr className="ob-total" data-print-row-role="total">
               <td>الإجمالي</td>
               <td className="num">{money(totals.monthly)} ريال</td>
               <td className="num">{money(totals.accumulated)} ريال</td>
@@ -155,12 +157,11 @@ export default function OperatingBudgetPrintPage() {
     </ConstitutionPrintFrame>
 
     <style jsx global>{`
-      .ob-toolbar{max-width:210mm;margin:8px auto;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:9px 12px;border:1px solid #ccc;background:#fff;direction:rtl}
+      .ob-toolbar{max-width:297mm;margin:8px auto;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:9px 12px;border:1px solid #ccc;background:#fff;direction:rtl}
       .ob-toolbar button{font:inherit;padding:6px 9px;border:1px solid #aaa;background:#fff}.ob-toolbar button.primary{background:#111;color:#fff;border-color:#111}
       .ob-report{direction:rtl;font-size:10.2px;color:#111}.ob-title{text-align:center;margin:0 0 6mm}.ob-title h1{font-size:20px;margin:0 0 2mm}.ob-title small{display:block;margin-top:2mm;color:#555}
       .ob-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:2.5mm;margin-bottom:4mm}.ob-kpis>div{border:1px solid #bbb;padding:2.5mm;display:flex;flex-direction:column;gap:1mm}.ob-kpis span{font-size:9px;color:#555}.ob-kpis strong{font-size:12px}.ob-kpis small{font-size:8px;color:#666}
       .ob-table{width:100%;border-collapse:collapse;table-layout:fixed}.ob-table th,.ob-table td{border:1px solid #aaa;padding:1.7mm;vertical-align:top}.ob-table th{font-weight:700;background:#f5f5f5;font-size:9px}.ob-table th:first-child,.ob-table td:first-child{width:23%}.ob-table td small{display:block;color:#666;margin-top:.7mm;font-size:8px;line-height:1.45}.ob-table .num{text-align:center;direction:rtl;font-variant-numeric:tabular-nums}.ob-total td{font-weight:700;border-top:1.5px solid #222}.ob-note{margin-top:4mm;padding-top:2.5mm;border-top:1px solid #aaa;line-height:1.7}
-      @media print{.ob-toolbar{display:none!important}.ob-table tr{break-inside:avoid;page-break-inside:avoid}.ob-kpis>div{break-inside:avoid}}
     `}</style>
   </>;
 }
