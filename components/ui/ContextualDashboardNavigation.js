@@ -140,7 +140,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       setOpen(false);
     }
     function yieldToWork() {
-      if (isCompactNavigationViewport()) setOpen(false);
+      // الوصول إلى منطقة إجراء/إدخال حقيقية ينهي دور الملاحة تلقائيًا.
+      // إن احتاجها المستخدم داخل العمل يستدعيها من جديد صراحةً.
+      setOpen(false);
     }
     window.addEventListener('keydown', keydown);
     window.addEventListener(NAVIGATION_YIELD_EVENT, yieldToWork);
