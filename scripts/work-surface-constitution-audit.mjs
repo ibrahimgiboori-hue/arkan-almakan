@@ -52,6 +52,23 @@ const constitution = requireText('lib/work-surface-constitution.js', [
 if (/localStorage|sessionStorage/.test(constitution)) failures.push('work-surface constitution: حالة العمل لا يجوز أن تعيش في تخزين متصفح موازٍ.');
 if (/export\s+const\s+AREAS\s*=/.test(constitution)) failures.push('work-surface constitution: ممنوع نسخ خريطة البوابات بدل اشتقاقها من app-constitution.');
 
+const sessionConstitution = requireText('lib/work-session-constitution.js', [
+  'zero-residue-work-session-v1',
+  'user-work-session-not-page',
+  'a-procedural-session-must-end-with-an-explicit-terminal-action',
+  'server-confirmed-effect-only',
+  'action-server-commit-audit-completion-surface-release',
+  'replace-active-route-organ-with-clean-completion-surface',
+  'no-form-no-old-record-list-no-session-actions-after-release',
+  'past-transactions-live-in-register-search-reports-not-under-active-work',
+  'bodyMustNotInferCompletionFromButtonClick',
+  'bodyMustNotInferCompletionFromToast',
+  'bodyMustNotOwnBusinessTransition',
+  'WORK_COMPLETION_KIND',
+  'WORK_SESSION_STATE',
+]);
+if (/localStorage|sessionStorage/.test(sessionConstitution)) failures.push('work-session constitution: خاتمة الجلسة لا يجوز أن تعيش في تخزين متصفح موازٍ.');
+
 const runtime = requireText('components/ui/WorkSurfaceRuntime.js', [
   'resolveWorkSurface',
   'data-work-surface-policy',
@@ -62,11 +79,29 @@ const runtime = requireText('components/ui/WorkSurfaceRuntime.js', [
 ]);
 if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRuntime: ممنوع تخزين سياق الورقة محليًا.');
 
+const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
+  "from '@/lib/work-session-constitution'",
+  'arkan:work-session-completed',
+  'serverConfirmed !== true',
+  'emitWorkSessionCompletion',
+  'data-work-session-state',
+  'CompletedSurface',
+  "state: completion ? WORK_SESSION_STATE.RELEASED : WORK_SESSION_STATE.WORKING",
+  'setCompletion(null)',
+]);
+if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل لا تُخزن محليًا ولا تعيش بعد تغيير المسار.');
+if (!/completion\s*\?\s*<CompletedSurface[\s\S]{0,180}:\s*children/.test(sessionRuntime)) {
+  failures.push('WorkSessionRuntime: الخاتمة يجب أن تستبدل مشهد العمل المنتهي بدل إبقاء العضو والقوائم تحته.');
+}
+
 const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
+  "import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime'",
   "'./app-body-v3.css'",
   '<WorkSurfaceRuntime>',
   '</WorkSurfaceRuntime>',
+  '<WorkSessionRuntime>',
+  '</WorkSessionRuntime>',
   'data-work-kernel="operational-notebook-v1"',
   'className="appBodyStage"',
   'data-application-body="work-first-v3"',
@@ -84,6 +119,9 @@ const bodyCss = requireText('app/dashboard/app-body-v3.css', [
   ".appContextNav[data-open='true'][data-pinned='true']",
   'padding-inline-end: var(--app-body-nav-width)',
   'content: none !important',
+  '.appCompletedSurface',
+  '.appCompletedActions',
+  'data-work-session-state',
 ]);
 if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodyCss)) {
   failures.push('app-body-v3.css: الجسد الجديد يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
@@ -198,4 +236,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves route organs and controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion, and controls surfaces, selection scopes, actions and interaction grammar.');
