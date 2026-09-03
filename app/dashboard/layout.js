@@ -12,16 +12,8 @@ import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkT
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
 import './raw-tokens.css';
-import './raw-phase.css';
-import './transaction-underwear.css';
-import './app-shell-v2.css';
-import './app-body-v3.css';
-import './living-navigation.css';
-import './body-resuscitation.css';
 import './arkan-skin-v1.css';
-import './arkan-field-geometry-v1.css';
-import './navigation-comfort-v1.css';
-import './arkan-workspace-geometry-v1.css';
+import './arkan-dashboard-geometry-v2.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -219,6 +211,7 @@ export default function DashboardLayout({ children }) {
                     <div
                       className="workSheetMount"
                       data-work-sheet-mount="true"
+                      data-geometry-owner="arkan-dashboard-v2"
                       data-organ-host="route-content"
                       data-organ-preservation="in-place"
                     >
