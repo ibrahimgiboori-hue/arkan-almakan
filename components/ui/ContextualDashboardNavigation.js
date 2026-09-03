@@ -12,9 +12,9 @@ import {
 import { filterAreasForAccess, projectNavRequirement } from '@/lib/access-ui';
 import {
   PORTAL_EXISTING_DESTINATION_CAPABILITIES,
-  PORTAL_MANAGEMENT_SECTIONS,
   PORTAL_SECTION_ITEMS,
 } from '@/lib/portal-section-constitution';
+import { SHELL_PORTAL_GROUPS } from '@/lib/navigation-shell-constitution';
 import { anatomyAreaLabel, anatomyToolLabel } from '@/lib/anatomical-navigation';
 import {
   PROJECT_APPROACH_REGIONS,
@@ -97,15 +97,17 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     if (area.key === 'projects') return [area.key, []];
     const tools = toolsByArea[area.key] || [];
     const itemByHref = new Map(tools.map((item) => [item.href, item]));
-    const groups = (PORTAL_MANAGEMENT_SECTIONS[area.key] || [])
+    const configured = SHELL_PORTAL_GROUPS[area.key] || [];
+    const groups = configured
       .map((group) => ({
-        ...group,
+        key:group.key,
+        label:group.label,
         items:(group.hrefs || []).map((href) => itemByHref.get(href)).filter(Boolean),
       }))
       .filter((group) => group.items.length > 0);
-    const assigned = new Set(groups.flatMap((group) => group.items.map((item) => item.href)));
+    const assigned = new Set(configured.flatMap((group) => group.hrefs || []));
     const extras = tools.filter((item) => !assigned.has(item.href));
-    if (extras.length) groups.push({ key:'more', label:'المزيد', description:'مسارات إضافية متاحة في هذه البوابة.', items:extras });
+    if (extras.length) groups.push({ key:'more', label:'المزيد', items:extras });
     return [area.key, groups];
   })), [accessibleAreas, toolsByArea]);
 
@@ -358,7 +360,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
                     const selected=currentPortalGroup?.key===group.key;
                     return <div key={group.key} className="appNavBranch appNavBranchNested" data-expanded={selected?'true':'false'}>
                       <button type="button" className="appNavRow appNavRowNested" data-active={selected?'true':'false'} onClick={()=>go(portalApproachHref(area.key,group.key),{keepOpen:true})}>
-                        <span>{group.shortLabel||group.label}</span>
+                        <span>{group.label}</span>
                       </button>
                       {selected ? <div className="appNavHonoraryList" aria-label={`مسارات ${group.label}`}>
                         {group.items.map((item)=><span key={item.href} className="appNavHonorary" data-current={currentGlobalTool?.href===item.href?'true':'false'}>{item.label}</span>)}
