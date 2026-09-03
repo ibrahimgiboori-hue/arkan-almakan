@@ -20,6 +20,7 @@ function flattenRenderedBlocks(nodes) {
  * القبطان يستقبل تيار المحتوى الحقيقي لا غلافًا صناعيًا حوله.
  * الرحلات المركبة التي تنتج عدة كتل تُفك قبل القياس حتى تبقى حدود React وDOM متطابقة.
  * هندسة الورقة، Word baseline، الليترهيد، الاتجاه، مناطق الأمان والتقسيم كلها ملك ConstitutionPagedFrame وحده.
+ * لا توجد هنا أي قناة لإدخال هوامش أو أبعاد من المستندات القديمة.
  */
 function expandCaptainFlowBlocks(nodes) {
   return Children.toArray(nodes).flatMap((node) => {
@@ -45,11 +46,6 @@ export default function ConstitutionPrintFrame({
   signatureSizeMm,
   stampStyle,
   signatureStyle,
-  contentTopMm,
-  contentBottomMm,
-  contentSideMm,
-  contentLeftMm,
-  contentRightMm,
   ...rest
 }) {
   const childArray = Children.toArray(children);
@@ -70,11 +66,6 @@ export default function ConstitutionPrintFrame({
       signatureSizeMm={signatureSizeMm}
       stampStyle={stampStyle}
       signatureStyle={signatureStyle}
-      contentTopMm={contentTopMm}
-      contentBottomMm={contentBottomMm}
-      contentSideMm={contentSideMm}
-      contentLeftMm={contentLeftMm}
-      contentRightMm={contentRightMm}
       showPageNumbers={false}
       pageClassName="print-page"
       contentClassName="print-content"
