@@ -1,16 +1,17 @@
-/* Quotation flow overrides: consistent numbered terms, document-language direction, compact bank details */
-.quote-document-page{direction:inherit;text-align:start}
-.quote-document-page .q-block.pay,.quote-document-page .q-pay,.quote-document-page .q-pay th,.quote-document-page .q-pay td,.quote-document-page .q-term-flow,.quote-document-page .q-bank{direction:inherit;text-align:start}
-.q-block.pay .qb-head{font-weight:700;color:var(--maroon-dark)}
-.q-pay th,.q-pay td{vertical-align:middle}.q-pay .payment-note{line-height:1.28;overflow-wrap:normal;word-break:normal}
+/* Quotation editorial flow: content only; physical page geometry belongs to the captain. */
+.print-doc-quotation .quote-document-flow{direction:inherit;text-align:start}
+.print-doc-quotation .q-block.pay,
+.print-doc-quotation .q-pay,
+.print-doc-quotation .q-pay th,
+.print-doc-quotation .q-pay td,
+.print-doc-quotation .q-term-flow,
+.print-doc-quotation .q-bank{direction:inherit;text-align:start}
+.print-doc-quotation .q-block.pay .qb-head{font-weight:700;color:var(--maroon-dark)}
+.print-doc-quotation .q-pay th,.print-doc-quotation .q-pay td{vertical-align:middle}
+.print-doc-quotation .q-pay .payment-note{line-height:1.28;overflow-wrap:normal;word-break:normal}
 
-/*
- * الشروط والأحكام نص مستندي لا واجهة بطاقات.
- * نموذج الطباعة هنا Word + Excel:
- * - الفقرات والعناوين والتباعد تتصرف كنص Word.
- * - الجداول والأرقام تبقى منضبطة كجداول Excel.
- */
-.q-term-flow{
+/* الشروط والأحكام نص مستندي لا واجهة بطاقات. */
+.print-doc-quotation .q-term-flow{
   margin:0 0 1.45mm;
   padding:0 .6mm;
   border:0;
@@ -21,7 +22,7 @@
   break-inside:avoid;
   page-break-inside:avoid;
 }
-.q-term-flow h3{
+.print-doc-quotation .q-term-flow h3{
   display:inline;
   margin:0;
   padding:0;
@@ -32,9 +33,9 @@
   direction:inherit;
   text-align:inherit;
 }
-.q-term-flow h3::after{content:'.\00a0';color:var(--maroon-dark);font-weight:700}
-.q-term-flow .term-no{margin-inline-end:.8mm;font-variant-numeric:tabular-nums}
-.q-term-flow p{
+.print-doc-quotation .q-term-flow h3::after{content:'.\00a0';color:var(--maroon-dark);font-weight:700}
+.print-doc-quotation .q-term-flow .term-no{margin-inline-end:.8mm;font-variant-numeric:tabular-nums}
+.print-doc-quotation .q-term-flow p{
   display:inline;
   margin:0;
   padding:0;
@@ -44,8 +45,18 @@
   direction:inherit;
   text-align:inherit;
 }
-.q-term-flow:last-child{margin-bottom:0}
+.print-doc-quotation .q-term-flow:last-child{margin-bottom:0}
 
-.q-bank{padding:1.2mm 2mm;line-height:1.35}.q-bank .qb-t{margin-bottom:.65mm;text-align:start}.q-bank .bank-line{display:block;margin:.18mm 0;white-space:nowrap;text-align:start;direction:inherit}.q-bank .bank-label{font-weight:700;color:var(--maroon-dark)}.q-bank .acct{direction:ltr;unicode-bidi:isolate;display:inline-block;text-align:left}
-[dir="ltr"] .q-pay th:not(.num),[dir="ltr"] .q-pay td:not(.num),[dir="ltr"] .q-term-flow,[dir="ltr"] .q-bank{text-align:left}[dir="rtl"] .q-pay th:not(.num),[dir="rtl"] .q-pay td:not(.num),[dir="rtl"] .q-term-flow,[dir="rtl"] .q-bank{text-align:right}
-@media print{.q-term-flow{break-inside:avoid;page-break-inside:avoid}}
+.print-doc-quotation .q-bank{padding:1.2mm 2mm;line-height:1.35}
+.print-doc-quotation .q-bank .qb-t{margin-bottom:.65mm;text-align:start}
+.print-doc-quotation .q-bank .bank-line{display:block;margin:.18mm 0;white-space:nowrap;text-align:start;direction:inherit}
+.print-doc-quotation .q-bank .bank-label{font-weight:700;color:var(--maroon-dark)}
+.print-doc-quotation .q-bank .acct{direction:ltr;unicode-bidi:isolate;display:inline-block;text-align:left}
+.print-doc-quotation [dir="ltr"] .q-pay th:not(.num),
+.print-doc-quotation [dir="ltr"] .q-pay td:not(.num),
+.print-doc-quotation [dir="ltr"] .q-term-flow,
+.print-doc-quotation [dir="ltr"] .q-bank{text-align:left}
+.print-doc-quotation [dir="rtl"] .q-pay th:not(.num),
+.print-doc-quotation [dir="rtl"] .q-pay td:not(.num),
+.print-doc-quotation [dir="rtl"] .q-term-flow,
+.print-doc-quotation [dir="rtl"] .q-bank{text-align:right}
