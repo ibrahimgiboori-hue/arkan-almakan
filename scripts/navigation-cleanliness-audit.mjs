@@ -76,11 +76,12 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. لا يعود شريط علوي موازٍ ولا منصة أعمال ثانية.
+// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. التنقل ملك الـShell الجديدة لا كتالوجات الواجهة القديمة.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
 const contextualShellCss = 'app/dashboard/app-shell-v2.css';
+const shellConstitution = 'lib/navigation-shell-constitution.js';
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
 }
@@ -90,8 +91,8 @@ if (!dashboardLayout.includes("data-navigation-shell=\"contextual-slide-v2\"")) 
 if (!dashboardLayout.includes("'./app-shell-v2.css'")) {
   failures.push('app/dashboard/layout.js: أنماط الجسد الجديد app-shell-v2.css غير مربوطة.');
 }
-if (!exists(contextualNavigation) || !exists(contextualShellCss)) {
-  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو أنماطها غير موجودة.');
+if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(shellConstitution)) {
+  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور تجميعاتها أو أنماطها غير موجودة.');
 }
 if (dashboardLayout.includes('RawDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
@@ -101,9 +102,17 @@ if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardH
 }
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
-  for (const required of ['OPEN_INTENT_MS', 'CLOSE_GRACE_MS', 'filterAreasForAccess', 'projectNavRequirement', 'PORTAL_MANAGEMENT_SECTIONS']) {
+  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'SHELL_PORTAL_GROUPS', 'onClick={openNavigation}']) {
     if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
   }
+  if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
+  if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
+  if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) {
+    failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
+  }
+}
+if (exists(shellConstitution) && !read(shellConstitution).includes('SHELL_PORTAL_GROUPS')) {
+  failures.push('الجسد الجديد: دستور تجميعات الملاحة المستقل غير مكتمل.');
 }
 
 // 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
