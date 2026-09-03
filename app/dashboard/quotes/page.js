@@ -13,6 +13,9 @@ import {
   Notice,
   InlineStatus,
   EmptyState,
+  WorkFormGrid,
+  WorkField,
+  ActionDock,
 } from '@/components/ui/ConstitutionUI';
 
 const EN_INTRO = 'We are pleased to submit our quotation for the execution of the works described below, in accordance with the approved drawings, specifications, and project requirements.';
@@ -68,38 +71,41 @@ export default function Quotes() {
     return <ConstitutionPage><EmptyState title="عروض الأسعار" description="لا توجد لديك صلاحية إصدار عرض جديد."/></ConstitutionPage>;
   }
 
+  const documentLabel = kind === 'boq' ? 'جدول كميات' : 'عرض سعر';
+
   return <ConstitutionPage>
     <div data-new-quotation-operation="true" data-stage-occupancy="single-action">
       <PageHeader
-        eyebrow="QUOTATIONS"
-        title="إصدار جديد"
-        description="اختر نوع المستند واللغة ثم ابدأ."
+        eyebrow="QUOTATIONS · CREATE NEW"
+        title={`${documentLabel} — إصدار جديد`}
+        description="حدد نوع المستند ولغته ثم ابدأ. بعد إنشاء المعاملة ستأخذ وحدها مساحة العمل."
       />
 
       {err ? <Notice tone="error">{err}</Notice> : null}
       {msg ? <InlineStatus tone="success" live>{msg}</InlineStatus> : null}
 
-      <Section title="المستند" description="">
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,alignItems:'end',maxWidth:640}}>
-          <label style={{display:'grid',gap:6}}>
-            <span>النوع</span>
+      <Section title="بيانات الإصدار" description="كل الحقول تتبع نفس لغة المعاملة؛ القيم التي يولدها النظام تبقى واضحة دون أن تبدو كحقل معطل." boundary>
+        <WorkFormGrid label="بيانات المستند الجديد">
+          <WorkField label="النوع" span={4}>
             <select value={kind} onChange={(event)=>setKind(event.target.value)} aria-label="نوع المستند الجديد">
               <option value="quotation">عرض سعر</option>
               <option value="boq">جدول كميات</option>
             </select>
-          </label>
-          <label style={{display:'grid',gap:6}}>
-            <span>اللغة</span>
+          </WorkField>
+          <WorkField label="اللغة" span={4}>
             <select value={language} onChange={(event)=>setLanguage(event.target.value)} aria-label="لغة المستند الجديد">
               <option value="ar">العربية</option>
               <option value="en">English</option>
             </select>
-          </label>
-          <div>
-            <button className="btn" disabled={busy} onClick={create}>{busy ? 'جارٍ الإنشاء…' : 'بدء الإصدار'}</button>
-          </div>
-        </div>
+          </WorkField>
+          <WorkField label="رقم المستند" mode="generated" span={4} value="يُولد عند بدء الإصدار" />
+        </WorkFormGrid>
       </Section>
+
+      <ActionDock
+        actions={<button className="btn" disabled={busy} onClick={create}>{busy ? 'جارٍ الإنشاء…' : `بدء ${documentLabel}`}</button>}
+        status="الرقم المرجعي وبقية القيم النظامية تُنشأ من المصدر نفسه عند بدء المعاملة."
+      />
     </div>
   </ConstitutionPage>;
 }
