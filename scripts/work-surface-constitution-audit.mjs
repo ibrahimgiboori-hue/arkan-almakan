@@ -137,7 +137,7 @@ const bodyCss = requireText('app/dashboard/app-body-v3.css', [
   'APPLICATION BODY V3',
   "[data-organ-host='route-content']",
   ".appContextNav[data-open='true'][data-pinned='true']",
-  'padding-inline-end: var(--app-body-nav-width)',
+  'padding-right: var(--app-body-nav-width)',
   'content: none !important',
   '.appCompletedSurface',
   '.appCompletedActions',
