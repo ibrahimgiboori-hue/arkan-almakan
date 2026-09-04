@@ -583,6 +583,15 @@ export default function ConstitutionPagedFrame({
       const boundary = element?.dataset?.printBoundaryBefore || block?.props?.['data-print-boundary-before'];
       if (boundary === PRINT_FLOW_BOUNDARY.FORCE_PAGE && current.length) newPage();
 
+      // ALLOW حد دلالي عام داخل القبطان: نقيس بصمة الكتلة الحقيقية بعد الرسم.
+      // إذا كانت الكتلة كاملة تدخل في صفحة جديدة لكنها لا تدخل في المساحة المتبقية،
+      // نلتقط الحد وننقل بدايتها. أمّا الكتلة الأكبر من صفحة كاملة فلا نفرض عليها صفحة؛
+      // نترك آلية التجزئة الخاصة بها تملأ المساحة وتقسمها عند حدودها الداخلية.
+      if (boundary === PRINT_FLOW_BOUNDARY.ALLOW && current.length) {
+        const measuredBlockHeight = Math.max(1, outerHeight(element));
+        if (measuredBlockHeight <= availablePx + 1 && used + measuredBlockHeight > availablePx + 1) newPage();
+      }
+
       const tableParts = repeatableTableParts(block);
       const domRows = tableParts ? [...element.querySelectorAll(':scope > tbody > tr')] : [];
       const domHead = tableParts ? element.querySelector(':scope > thead') : null;
@@ -592,19 +601,6 @@ export default function ConstitutionPagedFrame({
         const headHeight = domHead ? outerHeight(domHead) : 0;
         const footHeight = domFoot ? outerHeight(domFoot) : 0;
         const rowHeights = domRows.map((row)=>Math.max(1,outerHeight(row)));
-        const completeTableHeight = headHeight + footHeight + rowHeights.reduce((sum,height)=>sum + height,0);
-        const prefersFreshPage = boundary === PRINT_FLOW_BOUNDARY.ALLOW;
-
-        // ALLOW هو فاصل مفضّل لا أمر صفحة: إذا كانت الوحدة كاملة تستطيع العيش
-        // في صفحة جديدة، لا نقطّعها فقط لملء الباقي من الصفحة الحالية.
-        // أمّا الوحدة الأكبر من صفحة كاملة فتظل قابلة للتجزئة مع تكرار الرأس.
-        if (
-          prefersFreshPage
-          && current.length
-          && completeTableHeight <= availablePx + 1
-          && used + completeTableHeight > availablePx + 1
-        ) newPage();
-
         const freshRowCapacity = Math.max(1,availablePx - headHeight);
         let rowIndex = 0;
         let rowStartPx = 0;
