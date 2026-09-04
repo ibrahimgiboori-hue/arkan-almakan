@@ -217,11 +217,14 @@ const projects = requireText('app/dashboard/projects/page.js', [
   'RecordList',
   'RecordRow',
   'RecordSummary',
-  'SummaryStrip',
+  'PortalHall',
+  'PortalLiveZone',
+  'PortalRegistry',
   'FilterSurface',
 ]);
 if (/projects-redesign\.module\.css|projectCard|projectGrid/.test(projects)) failures.push('/dashboard/projects: سجل المشاريع لا يجوز أن يعود إلى بطاقات Dashboard محلية.');
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(projects)) failures.push('/dashboard/projects: الصفحة أعادت اختراع حقيقة صلاحيات العرض بدل DashboardSession.');
+if (projects.includes('SummaryStrip')) failures.push('/dashboard/projects: الحارس يتبع قانون البوابة work-first؛ لا يعيد شريط المؤشرات العام إلى مدخل المشاريع.');
 
 const quotes = requireText('app/dashboard/quotes/page.js', [
   'ConstitutionPage',
