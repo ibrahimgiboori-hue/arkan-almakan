@@ -591,6 +591,20 @@ export default function ConstitutionPagedFrame({
       if (tableParts && domRows.length === tableParts.rows.length) {
         const headHeight = domHead ? outerHeight(domHead) : 0;
         const footHeight = domFoot ? outerHeight(domFoot) : 0;
+        const rowHeights = domRows.map((row)=>Math.max(1,outerHeight(row)));
+        const completeTableHeight = headHeight + footHeight + rowHeights.reduce((sum,height)=>sum + height,0);
+        const prefersFreshPage = boundary === PRINT_FLOW_BOUNDARY.ALLOW;
+
+        // ALLOW هو فاصل مفضّل لا أمر صفحة: إذا كانت الوحدة كاملة تستطيع العيش
+        // في صفحة جديدة، لا نقطّعها فقط لملء الباقي من الصفحة الحالية.
+        // أمّا الوحدة الأكبر من صفحة كاملة فتظل قابلة للتجزئة مع تكرار الرأس.
+        if (
+          prefersFreshPage
+          && current.length
+          && completeTableHeight <= availablePx + 1
+          && used + completeTableHeight > availablePx + 1
+        ) newPage();
+
         const freshRowCapacity = Math.max(1,availablePx - headHeight);
         let rowIndex = 0;
         let rowStartPx = 0;
@@ -605,7 +619,7 @@ export default function ConstitutionPagedFrame({
           while (rowIndex < tableParts.rows.length) {
             const reactRow = tableParts.rows[rowIndex];
             const domRow = domRows[rowIndex];
-            const rowHeight = Math.max(1,outerHeight(domRow));
+            const rowHeight = rowHeights[rowIndex] || Math.max(1,outerHeight(domRow));
             const remainingHeight = Math.max(1,rowHeight - rowStartPx);
             const roomForRow = Math.max(0,pageRoom - fragmentHeight);
 
@@ -660,7 +674,7 @@ export default function ConstitutionPagedFrame({
             // فشل آمن لعنصر لا يملك حدود سطر قابلة للقياس حتى على صفحة كاملة.
             const reactRow = tableParts.rows[rowIndex];
             const domRow = domRows[rowIndex];
-            const rowHeight = Math.max(1,outerHeight(domRow));
+            const rowHeight = rowHeights[rowIndex] || Math.max(1,outerHeight(domRow));
             fragmentRows.push(reactRow);
             fragmentHeight += Math.max(1,rowHeight - rowStartPx);
             rowIndex += 1;
