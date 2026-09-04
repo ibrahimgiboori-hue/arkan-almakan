@@ -269,6 +269,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       setExpandedProjectGroupKey(currentProjectGroup.key);
     }
     setMotionDirection('forward');
+    setPinned(true);
     setOpen(true);
   }
 
@@ -284,7 +285,6 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
   function go(href) {
     if (!href || href === pathname) return;
-    if (!pinned) setOpen(false);
     requestWorkNavigation(href);
   }
 
@@ -292,13 +292,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     setExpandedProjectGroupKey((current) => current === groupKey ? null : groupKey);
   }
 
-  function togglePinned() {
-    setPinned((value) => {
-      const next = !value;
-      setOpen(true);
-      if (next) setPanel(contextPanel);
-      return next;
-    });
+  function closeNavigation() {
+    setOpen(false);
+    setPinned(false);
   }
 
   const quickLinks = perspectiveQuickLinks({ approvals:me?.access?.approvals === true });
@@ -338,7 +334,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     >
       {open ? <>
         <div className="appNavTopLine" data-consciousness-visibility="implicit">
-          <button type="button" onClick={togglePinned}>{pinned ? 'تحرير' : 'إبقاء'}</button>
+          <button type="button" onClick={closeNavigation}>إغلاق</button>
         </div>
 
         <div key={panelId(panel)} className="appNavPanel" data-motion={motionDirection}>
