@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import { selectRosterAssignmentsForPeriod } from '@/lib/site-operation-roster.mjs';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PRINT_FLOW_BOUNDARY } from '@/lib/print-governance';
 import {
   arabicDayName,
   buildAttendanceMap,
@@ -217,7 +218,7 @@ export default function TimesheetPrintPage() {
   } else {
     flowContent = <>
       {matrixDateGroups.map((dateGroup,dateGroupIndex)=><Fragment key={`matrix-group-${dateGroupIndex}`}>
-        <div data-print-boundary-before={dateGroupIndex > 0 ? 'force-page' : undefined}>
+        <div data-print-boundary-before={dateGroupIndex > 0 ? PRINT_FLOW_BOUNDARY.ALLOW : undefined}>
           {dateGroupIndex === 0
             ? fullHeader(`الحضور · ${displayDate(dateGroup[0])} — ${displayDate(dateGroup.at(-1))}`)
             : compactHeader(`الحضور · ${displayDate(dateGroup[0])} — ${displayDate(dateGroup.at(-1))}`)}
