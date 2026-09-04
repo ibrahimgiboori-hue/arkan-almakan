@@ -26,6 +26,7 @@ import {
 import { requestWorkNavigation } from './WorkSessionRuntime';
 
 const PIN_STORAGE_KEY = 'arkan-context-nav-pinned';
+const NAV_WIDTH = '196px';
 
 function uniqueByHref(items = []) {
   const seen = new Set();
@@ -184,6 +185,13 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   }, [currentAreaGroup, currentAreaIsAccessible, currentAreaKey, projectId, projectTools.length]);
 
   useEffect(() => {
+    const shell = document.querySelector('.rawDashboardShell');
+    if (!shell) return undefined;
+    shell.style.setProperty('--app-body-nav-width', NAV_WIDTH);
+    return () => shell.style.removeProperty('--app-body-nav-width');
+  }, [pathname]);
+
+  useEffect(() => {
     let saved = false;
     try { saved = window.localStorage.getItem(PIN_STORAGE_KEY) === 'true'; } catch (_) {}
     setPinned(saved);
@@ -331,6 +339,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       data-navigation-consciousness="implicit"
       aria-label="التنقل في مساحة العمل"
       aria-hidden={!open}
+      style={{ width:`min(${NAV_WIDTH}, 82vw)` }}
     >
       {open ? <>
         <div className="appNavTopLine" data-consciousness-visibility="implicit">
