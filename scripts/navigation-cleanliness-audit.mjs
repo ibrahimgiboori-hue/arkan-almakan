@@ -47,15 +47,18 @@ if (!areasMatch) {
 }
 
 // 3) المشروع مكان له «موقف» مباشر، ثم أربعة عوالم مجمعة لا تتنافس كقائمة مسطحة.
+const projectNavMatch = constitution.match(/export const PROJECT_NAV_GROUPS = Object\.freeze\(\[([\s\S]*?)\n\]\);/);
+const projectNavText = projectNavMatch?.[1] || '';
+if (!projectNavText) failures.push('PROJECT_NAV_GROUPS: تعذر قراءة دستور ملاحة المشروع.');
 const projectGroupKeys = ['status','operations','contract','finance','documents'];
-const projectGroupIndexes = projectGroupKeys.map((key) => constitution.indexOf(`key: '${key}'`));
+const projectGroupIndexes = projectGroupKeys.map((key) => projectNavText.indexOf(`key: '${key}'`));
 if (projectGroupIndexes.some((index) => index < 0) || projectGroupIndexes.some((index, i) => i > 0 && index <= projectGroupIndexes[i - 1])) {
   failures.push('PROJECT_NAV_GROUPS: الترتيب الدستوري يجب أن يبقى موقف المشروع ← التشغيل ← العقد والنطاق ← المال والمستخلصات ← المستندات والمتابعة.');
 }
 for (const label of ['موقف المشروع','التشغيل','العقد والنطاق','المال والمستخلصات','المستندات والمتابعة']) {
-  if (!constitution.includes(`label: '${label}'`)) failures.push(`PROJECT_NAV_GROUPS: مفقود عالم المشروع «${label}».`);
+  if (!projectNavText.includes(`label: '${label}'`)) failures.push(`PROJECT_NAV_GROUPS: مفقود عالم المشروع «${label}».`);
 }
-if (constitution.includes("key: 'quote-register'")) {
+if (projectNavText.includes("key: 'quote-register'")) {
   failures.push('PROJECT_NAV_GROUPS: سجل عروض الأسعار العام مكرر داخل المشروع؛ يجب أن يبقى له مدخل عام واحد فقط.');
 }
 const contextualNav = read('components/ui/ContextualDashboardNavigation.js');
