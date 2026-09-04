@@ -66,6 +66,17 @@ const sessionConstitution = requireText('lib/work-session-constitution.js', [
   'navigation-cannot-silently-abandon-dirty-work',
   'draft-preserves-editable-work-state-without-creating-business-effect',
   'the-organ-owns-draft-persistence-the-body-only-orchestrates-leaving',
+  'operation-settlement-journey-output-v1',
+  'WORK_JOURNEY_LAYER',
+  'WORK_OUTPUT_KIND',
+  'operational-fact-is-truth-not-automatically-an-action-transaction',
+  'explicit-user-settlement-decision-selects-and-freezes-eligible-operational-facts',
+  'cross-portal-action-begins-only-when-a-governed-transition-is-requested',
+  'requires-action-belongs-to-governed-transition-not-routine-operational-write',
+  'same-operational-stream-may-produce-multiple-non-overlapping-settlements-over-time',
+  'one-transaction-one-body-inbox-points-to-source-owner',
+  'report-does-not-create-truth-truth-creates-report',
+  'contractor-laborers-belong-to-project-operations-not-employee-hr-lifecycle',
   'bodyMustNotInferCompletionFromButtonClick',
   'bodyMustNotInferCompletionFromToast',
   'bodyMustNotOwnBusinessTransition',
@@ -226,6 +237,26 @@ if (/projects-redesign\.module\.css|projectCard|projectGrid/.test(projects)) fai
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(projects)) failures.push('/dashboard/projects: الصفحة أعادت اختراع حقيقة صلاحيات العرض بدل DashboardSession.');
 if (projects.includes('SummaryStrip')) failures.push('/dashboard/projects: الحارس يتبع قانون البوابة work-first؛ لا يعيد شريط المؤشرات العام إلى مدخل المشاريع.');
 
+const projectStatus = requireText('app/dashboard/projects/[id]/page.js', [
+  'fn_project_approval_queue',
+  'fn_submit_project_setup_for_approval',
+  'fn_approval_get',
+  'emitWorkSessionCompletion',
+  'WORK_COMPLETION_KIND.SENT_FOR_APPROVAL',
+  'data-project-setup-journey="true"',
+  'إرسال تأسيس المشروع للاعتماد',
+]);
+if (projectStatus.includes("supabase.rpc('approve_project_contract_value'")) {
+  failures.push('موقف المشروع: عاد مسار اعتماد قيمة العقد المباشر؛ التأسيس يجب أن يمر بمحرك الاعتمادات.');
+}
+
+requireText('supabase/migrations/20260904233000_remove_misclassified_project_transaction_hooks.sql', [
+  "source_table = 'change_orders' and transaction_key = 'job_offer'",
+  "source_table = 'project_change_events' and transaction_key = 'payroll_run'",
+  "transaction_key = 'project_change'",
+  'إحلال وإلغاء',
+]);
+
 const quotes = requireText('app/dashboard/quotes/page.js', [
   'ConstitutionPage',
   'TableFrame',
@@ -259,4 +290,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion and live-work leaving, and controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs, the four-layer operation → settlement → journey → output law is constitutional, project setup uses the governed approval journey, and reports remain read-only truth outputs.');
