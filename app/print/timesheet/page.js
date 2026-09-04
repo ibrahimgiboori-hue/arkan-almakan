@@ -186,6 +186,19 @@ export default function TimesheetPrintPage() {
     <div className="ts-page-subline" data-print-keep-with-next="true">{periodLabel(query.from,query.to)}{subline ? ` · ${subline}` : ''}</div>
   </>;
 
+  const weekTableHead = (dateGroup) => {
+    const columnCount = 3 + dateGroup.length;
+    return <thead>
+      <tr className="ts-week-context-row">
+        <th colSpan={columnCount}>
+          <div className="ts-doc-meta"><span>{project.project_no} — {project.name_ar}</span><span>{contractor.name_ar}</span></div>
+          <div className="ts-page-subline">{periodLabel(query.from,query.to)} · الحضور · {displayDate(dateGroup[0])} — {displayDate(dateGroup.at(-1))}</div>
+        </th>
+      </tr>
+      <tr><th>م</th><th>اسم العامل</th><th>الصفة / المهنة</th>{dateGroup.map((date) => <th key={date}><span>{arabicDayName(date)}</span><small>{displayDate(date).slice(0,5)}</small></th>)}</tr>
+    </thead>;
+  };
+
   const legend = () => <div className="ts-legend"><span><b>✓</b> يوم كامل</span><span><b>½</b> نصف يوم</span><span><b>غ</b> غياب</span></div>;
   const manualSignatures = () => <div className="ts-signatures"><div><b>مشرف الموقع</b><span>الاسم: ........................................................</span><span>التاريخ: ......................................................</span><span className="signature-line">التوقيع:</span></div><div><b>ممثل المقاول</b><span>الاسم: ........................................................</span><span>التاريخ: ......................................................</span><span className="signature-line">التوقيع:</span></div></div>;
 
@@ -217,15 +230,16 @@ export default function TimesheetPrintPage() {
     </>;
   } else {
     flowContent = <>
+      {fullHeader()}
       {matrixDateGroups.map((dateGroup,dateGroupIndex)=><Fragment key={`matrix-group-${dateGroupIndex}`}>
-        <div data-print-boundary-before={dateGroupIndex > 0 ? PRINT_FLOW_BOUNDARY.ALLOW : undefined}>
-          {dateGroupIndex === 0
-            ? fullHeader(`الحضور · ${displayDate(dateGroup[0])} — ${displayDate(dateGroup.at(-1))}`)
-            : compactHeader(`الحضور · ${displayDate(dateGroup[0])} — ${displayDate(dateGroup.at(-1))}`)}
-        </div>
-        <table className="ts-table ts-matrix-table" data-print-flow="repeatable-table">
+        <table
+          className="ts-table ts-matrix-table"
+          data-print-flow="repeatable-table"
+          data-print-boundary-before={dateGroupIndex > 0 ? PRINT_FLOW_BOUNDARY.ALLOW : undefined}
+          data-print-semantic-unit="timesheet-week"
+        >
           <colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/>{dateGroup.map((date) => <col key={date} className="ts-col-day"/>)}</colgroup>
-          <thead><tr><th>م</th><th>اسم العامل</th><th>الصفة / المهنة</th>{dateGroup.map((date) => <th key={date}><span>{arabicDayName(date)}</span><small>{displayDate(date).slice(0,5)}</small></th>)}</tr></thead>
+          {weekTableHead(dateGroup)}
           <tbody>{workers.map((worker,index) => <tr key={worker.id} data-print-flow-item="row"><td>{index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'عامل'}{worker.trade ? ` — ${worker.trade}` : ''}</td>{dateGroup.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <td key={date} className={`ts-mark ts-status-${record?.status || 'absent'}`} title={status.label}>{status.short}</td>; })}</tr>)}</tbody>
         </table>
         {legend()}
