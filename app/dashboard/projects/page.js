@@ -72,15 +72,12 @@ export default function Projects(){
     };
   },[rows]);
 
-  const filterProject=(row)=>{
+  const registryList=useMemo(()=>{
     const term=q.trim().toLowerCase();
-    const stageMatch=stage==='all'||row.stage===stage||(stage==='opportunity'&&['opportunity','pricing','submitted'].includes(row.stage));
-    const termMatch=!term||[row.name_ar,row.project_no,row.city].filter(Boolean).some((value)=>String(value).toLowerCase().includes(term));
-    return stageMatch&&termMatch;
-  };
-
-  const liveList=useMemo(()=>split.live.filter(filterProject),[split.live,stage,q]);
-  const registryList=useMemo(()=>split.registry.filter(filterProject),[split.registry,stage,q]);
+    return split.registry
+      .filter((row)=>stage==='all'||row.stage===stage||(stage==='opportunity'&&['opportunity','pricing','submitted'].includes(row.stage)))
+      .filter((row)=>!term||[row.name_ar,row.project_no,row.city].filter(Boolean).some((value)=>String(value).toLowerCase().includes(term)));
+  },[split.registry,stage,q]);
   const filtering=stage!=='all'||Boolean(q.trim());
   const effectiveRegistryOpen=registryOpen||filtering;
 
@@ -134,11 +131,11 @@ export default function Projects(){
       <PortalLiveZone
         title="قيد التنفيذ الآن"
         description="هذه هي مساحة العمل اليومية داخل بوابة المشاريع؛ فتح المشروع ينقلك مباشرة إلى موقفه."
-        count={liveList.length}
+        count={split.live.length}
       >
-        {liveList.length===0
-          ? <EmptyState title={filtering?'لا توجد مشاريع تنفيذ مطابقة':'لا توجد مشاريع قيد التنفيذ حاليًا'} description={filtering?'غيّر البحث أو المرحلة لرؤية المشاريع الأخرى.':'ستظهر هنا المشاريع فور انتقالها إلى مرحلة التنفيذ.'}/>
-          : <RecordList label="المشاريع قيد التنفيذ">{liveList.map(projectRow)}</RecordList>}
+        {split.live.length===0
+          ? <EmptyState title="لا توجد مشاريع قيد التنفيذ حاليًا" description="ستظهر هنا المشاريع فور انتقالها إلى مرحلة التنفيذ."/>
+          : <RecordList label="المشاريع قيد التنفيذ">{split.live.map(projectRow)}</RecordList>}
       </PortalLiveZone>
 
       <PortalRegistry
@@ -149,13 +146,13 @@ export default function Projects(){
         onToggle={(event)=>{if(!filtering)setRegistryOpen(event.currentTarget.open);}}
       >
         <FilterSurface>
-          <input value={q} onChange={(event)=>setQ(event.target.value)} placeholder="اسم المشروع أو رقمه أو المدينة" aria-label="بحث في المشاريع"/>
+          <input value={q} onChange={(event)=>setQ(event.target.value)} placeholder="اسم المشروع أو رقمه أو المدينة" aria-label="بحث في بقية المشاريع"/>
           <Toolbar>
             <button type="button" className="btn ghost" aria-pressed={stage==='all'} onClick={()=>setStage('all')}>الكل</button>
-            <button type="button" className="btn ghost" aria-pressed={stage==='execution'} onClick={()=>setStage('execution')}>تنفيذ</button>
             <button type="button" className="btn ghost" aria-pressed={stage==='opportunity'} onClick={()=>setStage('opportunity')}>فرص وتسعير</button>
             <button type="button" className="btn ghost" aria-pressed={stage==='awarded'} onClick={()=>setStage('awarded')}>ترسية</button>
             <button type="button" className="btn ghost" aria-pressed={stage==='closed'} onClick={()=>setStage('closed')}>مقفل</button>
+            <button type="button" className="btn ghost" aria-pressed={stage==='lost'} onClick={()=>setStage('lost')}>خسارة</button>
           </Toolbar>
           <span>{registryList.length}</span>
         </FilterSurface>
