@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import { selectRosterAssignmentsForPeriod } from '@/lib/site-operation-roster.mjs';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
-import { PRINT_FLOW_BOUNDARY } from '@/lib/print-governance';
 import {
   arabicDayName,
   buildAttendanceMap,
@@ -235,8 +234,6 @@ export default function TimesheetPrintPage() {
         <table
           className="ts-table ts-matrix-table"
           data-print-flow="repeatable-table"
-          data-print-boundary-before={dateGroupIndex > 0 ? PRINT_FLOW_BOUNDARY.ALLOW : undefined}
-          data-print-semantic-unit="timesheet-week"
         >
           <colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/>{dateGroup.map((date) => <col key={date} className="ts-col-day"/>)}</colgroup>
           {weekTableHead(dateGroup)}
