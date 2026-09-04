@@ -10,16 +10,15 @@ import { canUseAnyCapability, canUseCapability, preferredProjectHref } from '@/l
 import {
   ConstitutionPage,
   PageHeader,
-  Section,
   Notice,
   Toolbar,
   EmptyState,
-  SummaryStrip,
   FilterSurface,
   RecordList,
   RecordRow,
   RecordSummary,
 } from '@/components/ui/ConstitutionUI';
+import { PortalHall, PortalLiveZone, PortalRegistry } from '@/components/ui/PortalHall';
 
 function pct(value) {
   const n=Number(value||0);
@@ -33,6 +32,7 @@ export default function Projects(){
   const [fin,setFin]=useState({});
   const [stage,setStage]=useState('all');
   const [q,setQ]=useState('');
+  const [registryOpen,setRegistryOpen]=useState(false);
   const [err,setErr]=useState('');
   const [busy,setBusy]=useState(false);
 
@@ -64,82 +64,106 @@ export default function Projects(){
     router.push(`/dashboard/projects/${data.id}?view=settings`);
   }
 
-  const list=useMemo(()=>{
-    if(!rows)return[];
+  const split=useMemo(()=>{
+    if(!rows)return {live:[],registry:[]};
+    return {
+      live:rows.filter((row)=>row.stage==='execution'),
+      registry:rows.filter((row)=>row.stage!=='execution'),
+    };
+  },[rows]);
+
+  const filterProject=(row)=>{
     const term=q.trim().toLowerCase();
-    return rows
-      .filter((row)=>stage==='all'||row.stage===stage)
-      .filter((row)=>!term||[row.name_ar,row.project_no,row.city].filter(Boolean).some((value)=>String(value).toLowerCase().includes(term)));
-  },[rows,stage,q]);
+    const stageMatch=stage==='all'||row.stage===stage||(stage==='opportunity'&&['opportunity','pricing','submitted'].includes(row.stage));
+    const termMatch=!term||[row.name_ar,row.project_no,row.city].filter(Boolean).some((value)=>String(value).toLowerCase().includes(term));
+    return stageMatch&&termMatch;
+  };
+
+  const liveList=useMemo(()=>split.live.filter(filterProject),[split.live,stage,q]);
+  const registryList=useMemo(()=>split.registry.filter(filterProject),[split.registry,stage,q]);
+  const filtering=stage!=='all'||Boolean(q.trim());
+  const effectiveRegistryOpen=registryOpen||filtering;
 
   if(!rows)return <ConstitutionPage><EmptyState title="جارٍ تحميل المشاريع"/></ConstitutionPage>;
 
-  const executionCount=rows.filter((row)=>row.stage==='execution').length;
-  const opportunityCount=rows.filter((row)=>['opportunity','pricing','submitted'].includes(row.stage)).length;
+  function projectRow(project){
+    const f=fin[project.id]||{};
+    const progress=pct(f.computed_progress_pct);
+    const pending=Number(f.pending_collection||0);
+    const undecided=Number(f.items_without_decision||0);
+    const profit=Number(f.current_profit||0);
+    const showFinancials=canUseAnyCapability(
+      session,
+      ['projects.financial_summary.view','finance.projects.view'],
+      'project',
+      project.id,
+    );
+    const metrics=showFinancials ? [
+      {key:'contract',label:'قيمة العقد',value:money(project.contract_value||0)},
+      {key:'pending',label:'غير محصل',value:money(pending)},
+      {key:'profit',label:'الربح الحالي',value:money(profit)},
+    ] : [];
+    return <RecordRow
+      key={project.id}
+      onOpen={()=>router.push(preferredProjectHref(session,project.id))}
+      ariaLabel={`فتح مشروع ${project.name_ar}`}
+    >
+      <RecordSummary
+        kicker={project.project_no||'بدون رقم'}
+        title={project.name_ar}
+        badge={STAGE_AR[project.stage]||project.stage||'—'}
+        meta={[project.city||'المدينة غير محددة',SCOPE_AR[project.supply_scope]||'النطاق غير محدد']}
+        metrics={metrics}
+        progress={progress}
+        note={undecided>0?`${undecided} بند بلا قرار تنفيذ`:null}
+      />
+    </RecordRow>;
+  }
 
   return <ConstitutionPage>
     <PageHeader
+      eyebrow="بوابة المشاريع"
       title="المشاريع"
+      description="ابدأ بالمشاريع التي يجري تنفيذها الآن. السجل الكامل والأعمال غير الجارية تبقى في طبقة ثانية عند الحاجة."
       actions={canCreate?<Toolbar><button className="btn" onClick={createProject} disabled={busy}>{busy?'جارٍ الإنشاء…':'مشروع جديد'}</button></Toolbar>:null}
     />
 
-    <SummaryStrip
-      label="ملخص المشاريع"
-      items={[
-        {key:'all',value:rows.length,label:'المشاريع'},
-        {key:'execution',value:executionCount,label:'قيد التنفيذ'},
-        {key:'opportunity',value:opportunityCount,label:'فرص وتسعير'},
-      ]}
-    />
-
-    <FilterSurface>
-      <input value={q} onChange={(event)=>setQ(event.target.value)} placeholder="اسم المشروع أو رقمه أو المدينة" aria-label="بحث في المشاريع"/>
-      <Toolbar>
-        <button type="button" className="btn ghost" aria-pressed={stage==='all'} onClick={()=>setStage('all')}>الكل</button>
-        <button type="button" className="btn ghost" aria-pressed={stage==='execution'} onClick={()=>setStage('execution')}>قيد التنفيذ</button>
-        <button type="button" className="btn ghost" aria-pressed={stage==='opportunity'} onClick={()=>setStage('opportunity')}>فرص</button>
-      </Toolbar>
-      <span>{list.length}</span>
-    </FilterSurface>
-
     {err&&<Notice tone="error">{err}</Notice>}
 
-    <Section title="المشاريع">
-      {list.length===0?<EmptyState title="لا توجد مشاريع مطابقة"/>:<RecordList label="المشاريع">
-        {list.map((project)=>{
-          const f=fin[project.id]||{};
-          const progress=pct(f.computed_progress_pct);
-          const pending=Number(f.pending_collection||0);
-          const undecided=Number(f.items_without_decision||0);
-          const profit=Number(f.current_profit||0);
-          const showFinancials=canUseAnyCapability(
-            session,
-            ['projects.financial_summary.view','finance.projects.view'],
-            'project',
-            project.id,
-          );
-          const metrics=showFinancials ? [
-            {key:'contract',label:'قيمة العقد',value:money(project.contract_value||0)},
-            {key:'pending',label:'غير محصل',value:money(pending)},
-            {key:'profit',label:'الربح الحالي',value:money(profit)},
-          ] : [];
-          return <RecordRow
-            key={project.id}
-            onOpen={()=>router.push(preferredProjectHref(session,project.id))}
-            ariaLabel={`فتح مشروع ${project.name_ar}`}
-          >
-            <RecordSummary
-              kicker={project.project_no||'بدون رقم'}
-              title={project.name_ar}
-              badge={STAGE_AR[project.stage]||project.stage||'—'}
-              meta={[project.city||'المدينة غير محددة',SCOPE_AR[project.supply_scope]||'النطاق غير محدد']}
-              metrics={metrics}
-              progress={progress}
-              note={undecided>0?`${undecided} بند بلا قرار تنفيذ`:null}
-            />
-          </RecordRow>;
-        })}
-      </RecordList>}
-    </Section>
+    <PortalHall portalKey="projects">
+      <PortalLiveZone
+        title="قيد التنفيذ الآن"
+        description="هذه هي مساحة العمل اليومية داخل بوابة المشاريع؛ فتح المشروع ينقلك مباشرة إلى موقفه."
+        count={liveList.length}
+      >
+        {liveList.length===0
+          ? <EmptyState title={filtering?'لا توجد مشاريع تنفيذ مطابقة':'لا توجد مشاريع قيد التنفيذ حاليًا'} description={filtering?'غيّر البحث أو المرحلة لرؤية المشاريع الأخرى.':'ستظهر هنا المشاريع فور انتقالها إلى مرحلة التنفيذ.'}/>
+          : <RecordList label="المشاريع قيد التنفيذ">{liveList.map(projectRow)}</RecordList>}
+      </PortalLiveZone>
+
+      <PortalRegistry
+        title="بقية المشاريع"
+        description="الفرص والتسعير والترسية والمشاريع المقفلة؛ افتح السجل فقط عندما تحتاج البحث أو الرجوع إليها."
+        count={split.registry.length}
+        open={effectiveRegistryOpen}
+        onToggle={(event)=>{if(!filtering)setRegistryOpen(event.currentTarget.open);}}
+      >
+        <FilterSurface>
+          <input value={q} onChange={(event)=>setQ(event.target.value)} placeholder="اسم المشروع أو رقمه أو المدينة" aria-label="بحث في المشاريع"/>
+          <Toolbar>
+            <button type="button" className="btn ghost" aria-pressed={stage==='all'} onClick={()=>setStage('all')}>الكل</button>
+            <button type="button" className="btn ghost" aria-pressed={stage==='execution'} onClick={()=>setStage('execution')}>تنفيذ</button>
+            <button type="button" className="btn ghost" aria-pressed={stage==='opportunity'} onClick={()=>setStage('opportunity')}>فرص وتسعير</button>
+            <button type="button" className="btn ghost" aria-pressed={stage==='awarded'} onClick={()=>setStage('awarded')}>ترسية</button>
+            <button type="button" className="btn ghost" aria-pressed={stage==='closed'} onClick={()=>setStage('closed')}>مقفل</button>
+          </Toolbar>
+          <span>{registryList.length}</span>
+        </FilterSurface>
+
+        {registryList.length===0
+          ? <EmptyState title="لا توجد مشاريع مطابقة في بقية السجل"/>
+          : <RecordList label="بقية المشاريع">{registryList.map(projectRow)}</RecordList>}
+      </PortalRegistry>
+    </PortalHall>
   </ConstitutionPage>;
 }
