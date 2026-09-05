@@ -1,0 +1,138 @@
+/* Screen surfaces that live outside /dashboard use the same semantic outfit. */
+@media screen {
+  html[data-ui-skin-contract='arkan-semantic-skin-v1'] body {
+    background: var(--ui-canvas);
+    color: var(--ui-text);
+  }
+
+  [data-ui-surface='auth'] {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: var(--ui-page-pad);
+    background:
+      linear-gradient(180deg, var(--ui-surface-strong) 0%, color-mix(in srgb, var(--ui-accent) 5%, var(--ui-canvas)) 100%);
+    color: var(--ui-text);
+  }
+
+  [data-ui-surface='auth'] [data-ui-role='auth-card'] {
+    width: min(390px, 100%);
+    box-sizing: border-box;
+    padding: 32px 30px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface-strong);
+    color: var(--ui-text);
+  }
+
+  [data-ui-surface='auth'] [data-ui-part='brand'] {
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 3px;
+    height: 22px;
+    margin: 0 auto 12px;
+  }
+
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i {
+    display: block;
+    width: 3px;
+    background: var(--ui-accent);
+    opacity: .85;
+  }
+
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i:nth-child(1) { height: 40%; }
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i:nth-child(2) { height: 70%; }
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i:nth-child(3) { height: 100%; }
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i:nth-child(4) { height: 55%; }
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i:nth-child(5) { height: 85%; }
+  [data-ui-surface='auth'] [data-ui-part='brand-mark'] i:nth-child(6) { height: 35%; }
+
+  [data-ui-surface='auth'] [data-ui-part='brand'] h1 {
+    margin: 0;
+    color: var(--ui-accent-strong);
+    font-size: 23px;
+    line-height: 1.35;
+  }
+
+  [data-ui-surface='auth'] [data-ui-part='brand'] p {
+    margin: 4px 0 0;
+    color: var(--ui-text-muted);
+    font-size: 12.5px;
+    letter-spacing: .06em;
+  }
+
+  [data-ui-surface='auth'] [data-ui-slot='notice'] {
+    margin-bottom: 14px;
+    padding: 11px 14px;
+    border: 1px solid color-mix(in srgb, var(--ui-danger) 30%, var(--ui-border));
+    border-radius: var(--ui-radius-sm);
+    background: color-mix(in srgb, var(--ui-danger) 7%, var(--ui-surface));
+    color: var(--ui-danger);
+    font-size: 13.5px;
+  }
+
+  [data-ui-surface='auth'] [data-ui-role='field-group'] {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 14px;
+  }
+
+  [data-ui-surface='auth'] [data-ui-role='field-group'] label {
+    color: var(--ui-text-muted);
+    font-size: 12.5px;
+  }
+
+  [data-ui-surface='auth'] [data-ui-control='field'] {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 11px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-strong);
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 14px;
+  }
+
+  [data-ui-surface='auth'] [data-ui-control='field']:focus {
+    border-color: var(--ui-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  }
+
+  [data-ui-surface='auth'] [data-ui-control='action'] {
+    width: 100%;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+    padding: 9px 16px;
+    border: 1px solid var(--ui-accent);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-accent);
+    color: var(--ui-on-accent);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 760;
+    cursor: pointer;
+  }
+
+  [data-ui-surface='auth'] [data-ui-control='action']:hover:not(:disabled) {
+    background: var(--ui-accent-strong);
+    border-color: var(--ui-accent-strong);
+  }
+
+  [data-ui-surface='auth'] [data-ui-control='action']:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+}

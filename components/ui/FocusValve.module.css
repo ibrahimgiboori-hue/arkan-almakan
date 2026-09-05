@@ -16,11 +16,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--ui-gap);
   min-width: 0;
-  padding: 2px 0 10px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--raw-border-soft);
+  padding: 2px 0 var(--ui-gap);
+  margin-bottom: var(--ui-gap);
+  border-bottom: 1px solid var(--ui-border-soft);
 }
 
 .contextText {
@@ -33,24 +33,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 650;
-  color: var(--raw-text);
+  color: var(--ui-text);
 }
 
 .contextMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 10px;
+  gap: calc(var(--ui-gap) / 2) var(--ui-gap);
   margin-top: 3px;
-  color: var(--raw-muted);
-  font-size: 11.5px;
+  color: var(--ui-text-muted);
+  font-size: calc(var(--ui-font-size-sm) - 2px);
 }
 
 .contextActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: calc(var(--ui-gap) * .8);
   flex: 0 0 auto;
 }
 

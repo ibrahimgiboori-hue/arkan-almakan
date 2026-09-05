@@ -4,6 +4,7 @@
   padding: clamp(28px, 5vw, 64px) clamp(14px, 3vw, 32px) clamp(44px, 7vw, 88px);
   display: grid;
   gap: clamp(28px, 4vw, 48px);
+  color: var(--ui-text);
 }
 
 .header {
@@ -12,7 +13,7 @@
   justify-content: space-between;
   gap: 24px;
   padding-bottom: 22px;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 14%, transparent);
 }
 
 .eyebrow {
@@ -20,7 +21,7 @@
   font-size: 12px;
   font-weight: 760;
   letter-spacing: .08em;
-  color: var(--raw-muted, #756d64);
+  color: var(--ui-text-muted);
 }
 
 .header h1 {
@@ -28,6 +29,7 @@
   font-size: clamp(30px, 4.2vw, 54px);
   line-height: 1.08;
   font-weight: 860;
+  color: var(--ui-text);
 }
 
 .intro {
@@ -35,7 +37,7 @@
   margin: 12px 0 0;
   font-size: 15px;
   line-height: 1.85;
-  color: var(--raw-muted, #756d64);
+  color: var(--ui-text-muted);
 }
 
 .personal {
@@ -51,14 +53,14 @@
   text-decoration: none;
   font-size: 13px;
   font-weight: 760;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 28%, transparent);
   padding-block: 4px;
 }
 
 .portals {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--ui-text) 12%, transparent);
 }
 
 .portal {
@@ -70,21 +72,21 @@
   padding: clamp(24px, 3vw, 38px) clamp(18px, 2.5vw, 30px);
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-text) 12%, transparent);
   transition: background-color 150ms ease, transform 150ms ease;
 }
 
 .portal:nth-child(odd) {
-  border-inline-end: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-inline-end: 1px solid color-mix(in srgb, var(--ui-text) 12%, transparent);
 }
 
 .portal:hover,
 .portal:focus-visible {
-  background: color-mix(in srgb, currentColor 4%, transparent);
+  background: color-mix(in srgb, var(--ui-accent) 5%, transparent);
 }
 
 .portal:focus-visible {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--ui-accent);
   outline-offset: -2px;
 }
 
@@ -92,7 +94,7 @@
   min-width: 30px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: var(--raw-muted, #756d64);
+  color: var(--ui-text-muted);
 }
 
 .copy {
@@ -104,6 +106,7 @@
   font-size: clamp(23px, 2.5vw, 32px);
   line-height: 1.2;
   font-weight: 820;
+  color: var(--ui-text);
 }
 
 .copy small {
@@ -111,20 +114,20 @@
   font-size: 13px;
   line-height: 1.8;
   font-weight: 500;
-  color: var(--raw-muted, #756d64);
+  color: var(--ui-text-muted);
 }
 
 .enter {
   align-self: end;
   font-size: 12px;
   font-weight: 760;
-  color: var(--raw-muted, #756d64);
+  color: var(--ui-text-muted);
 }
 
 .empty {
   margin: 0;
   padding: 28px 0;
-  color: var(--raw-muted, #756d64);
+  color: var(--ui-text-muted);
 }
 
 @media (max-width: 760px) {

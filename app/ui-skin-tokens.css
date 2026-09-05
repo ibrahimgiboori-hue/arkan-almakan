@@ -1,0 +1,158 @@
+/*
+  ROOT UI SKIN TOKENS
+  -------------------
+  This is the single visual-token entry point for screen UI, including routes
+  outside /dashboard. Business code must not consume brand colors directly.
+*/
+:root,
+html[data-app-theme='sand'] {
+  --ui-canvas: #f3f0e9;
+  --ui-surface: #fbfaf7;
+  --ui-surface-strong: #ffffff;
+  --ui-text: #171612;
+  --ui-text-muted: #68645d;
+  --ui-border: #d8d3c8;
+  --ui-border-soft: #e8e4dc;
+  --ui-accent: #74262d;
+  --ui-accent-strong: #5f1e24;
+  --ui-success: #126548;
+  --ui-info: #165f9f;
+  --ui-danger: #9a312f;
+  --ui-warning: #80661f;
+  --ui-on-accent: #ffffff;
+  --ui-radius: 10px;
+  --ui-radius-sm: 7px;
+  --ui-radius-lg: 18px;
+  --ui-font-size: 16px;
+  --ui-font-size-sm: 14.5px;
+  --ui-row-height: 46px;
+  --ui-gap: 10px;
+  --ui-page-pad: 26px;
+  --ui-shell-rail-width: 76px;
+  --ui-shell-nav-width: 220px;
+}
+
+html[data-app-theme='stone'] {
+  --ui-canvas: #f2f1ed;
+  --ui-surface: #fbfaf8;
+  --ui-surface-strong: #ffffff;
+  --ui-text: #1d1c1a;
+  --ui-text-muted: #696762;
+  --ui-border: #d6d4cf;
+  --ui-border-soft: #e7e5e0;
+  --ui-accent: #50575a;
+  --ui-accent-strong: #3f4649;
+  --ui-success: #2f6754;
+  --ui-info: #45657a;
+  --ui-danger: #8b4140;
+  --ui-warning: #7d692e;
+  --ui-on-accent: #ffffff;
+}
+
+html[data-app-theme='olive'] {
+  --ui-canvas: #f1f1e9;
+  --ui-surface: #fbfbf6;
+  --ui-surface-strong: #ffffff;
+  --ui-text: #1b201b;
+  --ui-text-muted: #65695f;
+  --ui-border: #d4d6ca;
+  --ui-border-soft: #e5e7dd;
+  --ui-accent: #4f6352;
+  --ui-accent-strong: #3e5041;
+  --ui-success: #35634a;
+  --ui-info: #4a6673;
+  --ui-danger: #8d423f;
+  --ui-warning: #76672c;
+  --ui-on-accent: #ffffff;
+}
+
+html[data-app-theme='mist'] {
+  --ui-canvas: #f0f3f4;
+  --ui-surface: #fafcfc;
+  --ui-surface-strong: #ffffff;
+  --ui-text: #172126;
+  --ui-text-muted: #667178;
+  --ui-border: #d3dadd;
+  --ui-border-soft: #e3e9eb;
+  --ui-accent: #3e5e6f;
+  --ui-accent-strong: #304d5c;
+  --ui-success: #2f6653;
+  --ui-info: #3e6680;
+  --ui-danger: #8d4544;
+  --ui-warning: #78672d;
+  --ui-on-accent: #ffffff;
+}
+
+/*
+  Deliberately radical proof skin. It is dormant in production; changing only
+  ACTIVE_UI_SKIN_KEY to "stress-test" must repaint both internal and external UI.
+*/
+html[data-ui-skin='stress-test'],
+[data-ui-skin='stress-test'] {
+  --ui-canvas: #0b0d10;
+  --ui-surface: #13171c;
+  --ui-surface-strong: #1b2128;
+  --ui-text: #f5f7f8;
+  --ui-text-muted: #b9c2c9;
+  --ui-border: #68737d;
+  --ui-border-soft: #303942;
+  --ui-accent: #78f0c1;
+  --ui-accent-strong: #a5ffda;
+  --ui-success: #75f0a7;
+  --ui-info: #80c8ff;
+  --ui-danger: #ff8c8c;
+  --ui-warning: #ffd66e;
+  --ui-on-accent: #07110c;
+  --ui-radius: 0px;
+  --ui-radius-sm: 0px;
+  --ui-radius-lg: 0px;
+  --ui-font-size: 17px;
+  --ui-font-size-sm: 15px;
+  --ui-row-height: 50px;
+  --ui-gap: 14px;
+  --ui-page-pad: 30px;
+  --ui-shell-rail-width: 88px;
+  --ui-shell-nav-width: 250px;
+}
+
+/* Temporary compatibility names. They resolve from the active semantic skin. */
+:root {
+  --raw-bg: var(--ui-canvas);
+  --raw-paper: var(--ui-surface);
+  --raw-paper-strong: var(--ui-surface-strong);
+  --raw-ink: var(--ui-text);
+  --raw-text: var(--ui-text);
+  --raw-muted: var(--ui-text-muted);
+  --raw-border: var(--ui-border);
+  --raw-border-soft: var(--ui-border-soft);
+  --raw-wine: var(--ui-accent);
+  --raw-wine-dark: var(--ui-accent-strong);
+  --raw-green: var(--ui-success);
+  --raw-blue: var(--ui-info);
+  --raw-red: var(--ui-danger);
+  --raw-amber: var(--ui-warning);
+  --raw-on-accent: var(--ui-on-accent);
+  --raw-radius: var(--ui-radius);
+  --raw-radius-sm: var(--ui-radius-sm);
+  --raw-radius-lg: var(--ui-radius-lg);
+  --raw-font-size: var(--ui-font-size);
+  --raw-font-size-sm: var(--ui-font-size-sm);
+  --raw-row-height: var(--ui-row-height);
+  --raw-gap: var(--ui-gap);
+  --raw-page-pad: var(--ui-page-pad);
+
+  --maroon: var(--ui-accent);
+  --maroon-dark: var(--ui-accent-strong);
+  --maroon-light: color-mix(in srgb, var(--ui-accent) 52%, var(--ui-surface));
+  --rose-wash: color-mix(in srgb, var(--ui-accent) 5%, var(--ui-surface));
+  --paper: var(--ui-canvas);
+  --card: var(--ui-surface);
+  --ink: var(--ui-text);
+  --ink-soft: var(--ui-text-muted);
+  --hair: var(--ui-border-soft);
+  --hair-strong: var(--ui-border);
+  --ok: var(--ui-success);
+  --warn: var(--ui-warning);
+  --bad: var(--ui-danger);
+  --sidebar-w: var(--ui-shell-nav-width);
+}

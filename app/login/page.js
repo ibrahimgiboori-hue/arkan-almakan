@@ -23,29 +23,45 @@ export default function Login() {
   }
 
   return (
-    <main className="login-wrap">
-      <form className="login" onSubmit={signIn}>
-        <div className="brand">
-          <div className="skyline"><i/><i/><i/><i/><i/><i/></div>
+    <main data-ui-surface="auth" data-ui-slot="page">
+      <form data-ui-role="auth-card" data-ui-slot="form" onSubmit={signIn}>
+        <div data-ui-part="brand">
+          <div data-ui-part="brand-mark" aria-hidden="true"><i/><i/><i/><i/><i/><i/></div>
           <h1>أركان المكان</h1>
           <p>النظام الإداري</p>
         </div>
 
-        {err && <div className="msg err" style={{marginBottom:14}}>{err}</div>}
+        {err ? <div data-ui-slot="notice" data-ui-tone="error" role="alert">{err}</div> : null}
 
-        <div className="field">
+        <div data-ui-role="field-group">
           <label htmlFor="email">البريد الإلكتروني</label>
-          <input id="email" type="email" dir="ltr" required autoComplete="username"
-                 value={email} onChange={(e)=>setEmail(e.target.value)} />
+          <input
+            id="email"
+            data-ui-control="field"
+            type="email"
+            dir="ltr"
+            required
+            autoComplete="username"
+            value={email}
+            onChange={(e)=>setEmail(e.target.value)}
+          />
         </div>
 
-        <div className="field">
+        <div data-ui-role="field-group">
           <label htmlFor="pw">كلمة المرور</label>
-          <input id="pw" type="password" dir="ltr" required autoComplete="current-password"
-                 value={password} onChange={(e)=>setPassword(e.target.value)} />
+          <input
+            id="pw"
+            data-ui-control="field"
+            type="password"
+            dir="ltr"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e)=>setPassword(e.target.value)}
+          />
         </div>
 
-        <button className="btn" type="submit" disabled={busy}>
+        <button data-ui-control="action" data-ui-variant="primary" type="submit" disabled={busy}>
           {busy ? 'جارٍ الدخول…' : 'تسجيل الدخول'}
         </button>
       </form>
