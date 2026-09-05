@@ -63,7 +63,12 @@ requireText('components/ui/ConstitutionUI.js', [
   "data-ui-slot={uiSlot('recordSummary')}",
   "data-ui-slot={uiSlot('table')}",
   "data-ui-slot={uiSlot('empty')}",
+  '<progress max="100" value={safeProgress}',
 ]);
+const constitutionUi = read('components/ui/ConstitutionUI.js');
+if (constitutionUi.includes('constitution-ui.module.css')) failures.push('ConstitutionUI: عاد الجلد المحلي داخل المكوّن بدل الجلد القابل للاستبدال.');
+if (/styles\./.test(constitutionUi)) failures.push('ConstitutionUI: بقي اعتماد على CSS module مرئي بعد فصل الجلد.');
+if (/style=\{\{/.test(constitutionUi)) failures.push('ConstitutionUI: بقي تنسيق مرئي inline؛ يجب أن يمر عبر الجلد الدلالي.');
 
 requireText('components/ui/ProgramAction.js', [
   "data-ui-slot={uiSlot('action')}",
@@ -132,16 +137,36 @@ for (const forbidden of ['.page-head', '.section:not(', '.card:not(', '.btn:not(
   if (foundation.includes(forbidden)) failures.push(`ui-skin-foundation.css: عاد المحدد القديم ${forbidden} إلى الجلد الدلالي.`);
 }
 
+requireText('app/dashboard/ui-component-skin.css', [
+  'NATIVE COMPONENT SKIN',
+  "[data-ui-slot='entry']",
+  "[data-ui-role='status']",
+  "[data-ui-slot='record-row'] [data-ui-part='record-primary']",
+  "[data-ui-slot='record-summary']",
+  'progress::-webkit-progress-value',
+]);
+const componentSkin = read('app/dashboard/ui-component-skin.css');
+if (/\.pageHeader|\.sectionHeader|\.recordRow|\.recordSummary|\.actionMenu|\.viewOptions/.test(componentSkin)) {
+  failures.push('ui-component-skin.css: عاد ليتعلق بأسماء CSS module المحلية بدل data-ui-* الدلالي.');
+}
+
+requireText('app/dashboard/ui-shell-skin.css', [
+  'NATIVE SHELL SKIN',
+  '.appNavHotZone',
+  '.appContextNav',
+  ".appContextNav[data-open='true']",
+  '.appNavTopLine',
+  '.appNavBottomActions',
+  "@media (prefers-reduced-motion: reduce)",
+]);
+const shellSkin = read('app/dashboard/ui-shell-skin.css');
+if (shellSkin.includes('.appActionContextAlert')) failures.push('ui-shell-skin.css: شريط سياق الإجراء دخل جلد الملاحة بدل جلد الجسم الدلالي.');
+if (shellSkin.includes('.rawDashboardContent > .workSheetMount')) failures.push('ui-shell-skin.css: جلد الغلاف امتلك جسم الصفحة بدل عقد الجلد.');
+
 requireText('app/dashboard/legacy-ui-compat.css', [
   'LEGACY UI COMPATIBILITY — quarantine only',
   'Every selector here is removable residue',
-  '.page:not([data-ui-slot])',
-  '.section:not([data-ui-slot])',
-  "table:not([data-ui-role='table'])",
-  'input:not([data-ui-slot])',
-  ".btn:not([data-ui-slot='action'])",
 ]);
-
 const legacy = read('app/dashboard/legacy-ui-compat.css');
 if (/\[data-ui-slot=['"][^'"]+['"]\]\s*\{/.test(legacy)) {
   failures.push('legacy-ui-compat.css: ملف الحجر لا يجوز أن يملك تنسيقًا مباشرًا لفتحات data-ui-slot الدلالية.');
@@ -174,6 +199,8 @@ requireText('app/dashboard/layout.js', [
   "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
   "import './legacy-ui-compat.css'",
   "import './ui-skin-foundation.css'",
+  "import './ui-component-skin.css'",
+  "import './ui-shell-skin.css'",
   "import './ui-skin-contract.css'",
   'const skinAttrs = uiSkinDataAttributes()',
   '{...skinAttrs}',
@@ -187,16 +214,18 @@ requireText('app/dashboard/layout.js', [
 
 const layout = read('app/dashboard/layout.js');
 if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
-if (layout.includes('body-resuscitation.css')) failures.push('DashboardLayout: عاد لاستيراد رقعة إنعاش الجسم القديمة بعد امتصاصها في العقد الدلالي.');
-if (layout.includes('app-body-v3.css')) failures.push('DashboardLayout: عاد لاستيراد طبقة جسم مستقلة بعد امتصاص هندستها في الجلد الدلالي.');
-if (layout.includes('raw-phase.css')) failures.push('DashboardLayout: عاد لاستيراد raw-phase بعد إعادة تأهيل البقايا الصالحة إلى الجلد الدلالي وحجر التوافق.');
-if (exists('app/dashboard/body-resuscitation.css')) failures.push('body-resuscitation.css: الرقعة الطارئة تم امتصاصها في الجسم المركزي ويجب ألا تعود كملف مستقل.');
-if (exists('app/dashboard/app-body-v3.css')) failures.push('app-body-v3.css: طبقة الجسم تم امتصاصها في الجلد المركزي ويجب ألا تعود كملف مستقل.');
-if (exists('app/dashboard/raw-phase.css')) failures.push('raw-phase.css: الاسم/الدور القديم انتهى؛ الدلالي في ui-skin-foundation والقديم فقط في legacy-ui-compat.');
-
-const shellCss = read('app/dashboard/app-shell-v2.css');
-if (shellCss.includes('.appActionContextAlert')) failures.push('app-shell-v2.css: شريط سياق الإجراء عاد إلى ملف الغلاف بدل الجلد الدلالي.');
-if (shellCss.includes('.rawDashboardContent > .workSheetMount')) failures.push('app-shell-v2.css: قاعدة بقاء جسم الصفحة عادت إلى ملف الغلاف بدل عقد الجلد.');
+for (const retired of ['body-resuscitation.css','app-body-v3.css','raw-phase.css','app-shell-v2.css']) {
+  if (layout.includes(retired)) failures.push(`DashboardLayout: عاد لاستيراد ${retired} بعد امتصاصه/استبداله.`);
+}
+for (const retiredFile of [
+  'app/dashboard/body-resuscitation.css',
+  'app/dashboard/app-body-v3.css',
+  'app/dashboard/raw-phase.css',
+  'app/dashboard/app-shell-v2.css',
+  'components/ui/constitution-ui.module.css',
+]) {
+  if (exists(retiredFile)) failures.push(`${retiredFile}: الملف المرئي المتقاعد لا يجوز أن يعود.`);
+}
 
 if (failures.length) {
   console.error('\nUI skin contract audit failed:\n');
@@ -204,4 +233,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: semantic structure lives in the replaceable skin, old class vocabulary is quarantined, and retired body/phase patches cannot regrow.');
+console.log('UI skin contract audit passed: native skin is split into semantic foundation, components, shell and body; component-local and retired visual layers cannot regrow.');
