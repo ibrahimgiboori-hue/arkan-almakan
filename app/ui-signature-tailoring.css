@@ -1,0 +1,332 @@
+/*
+  ARKAN SIGNATURE — SYSTEM TAILORING
+  ----------------------------------
+  Second-pass tailoring derived from the live program review.
+  This file is part of the approved Signature skin pack. It owns only screen
+  presentation and density. It never owns data, permissions, workflow or print.
+*/
+@media screen {
+  html[data-ui-skin='signature'] .rawDashboardShell {
+    --signature-polish-line: color-mix(in srgb, var(--ui-signature-deep) 8%, var(--ui-border-soft));
+  }
+
+  /* Make contextual artwork read as intentional architecture, not a watermark. */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header'] {
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--ui-signature-paper) 8%, transparent) 0%,
+        color-mix(in srgb, var(--ui-signature-paper) 64%, transparent) 31%,
+        color-mix(in srgb, var(--ui-signature-paper) 96%, transparent) 52%,
+        var(--ui-signature-paper) 100%),
+      var(--signature-context-art) left center / 390px auto no-repeat,
+      var(--ui-signature-paper) !important;
+  }
+
+  /* =========================================================
+     INTENTIONAL LOADING STATE
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='empty'][data-ui-state='loading'] {
+    position: relative;
+    isolation: isolate;
+    min-height: clamp(230px, 42vh, 390px);
+    width: min(860px, 100%);
+    box-sizing: border-box;
+    display: grid;
+    place-content: center;
+    gap: 12px;
+    margin: 22px auto;
+    padding: 46px 28px;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background:
+      linear-gradient(112deg,
+        color-mix(in srgb, var(--ui-signature-paper) 96%, transparent),
+        color-mix(in srgb, var(--signature-context-wash) 64%, var(--ui-signature-paper))),
+      var(--signature-context-art) left bottom / 310px auto no-repeat,
+      var(--ui-signature-paper);
+    color: var(--ui-signature-deep);
+    box-shadow: var(--ui-signature-shadow-soft);
+    text-align: center;
+    font-size: 14px;
+    font-weight: 760;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='empty'][data-ui-state='loading']::before {
+    content: '';
+    width: 48px;
+    height: 48px;
+    justify-self: center;
+    border: 3px solid color-mix(in srgb, var(--ui-signature-burgundy) 13%, var(--ui-border));
+    border-top-color: var(--ui-signature-burgundy);
+    border-radius: 999px;
+    animation: signatureLoadingSpin .82s linear infinite;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='empty'][data-ui-state='loading']::after {
+    content: 'نجهّز مساحة العمل';
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 620;
+    letter-spacing: .02em;
+  }
+
+  @keyframes signatureLoadingSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* =========================================================
+     LEGACY MARKUP, SEMANTICALLY ADAPTED — ONE VISUAL LANGUAGE
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='legacy-card'] {
+    padding: 15px 16px !important;
+    border-color: var(--ui-border) !important;
+    border-radius: 15px !important;
+    background: var(--ui-signature-paper) !important;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--ui-signature-deep) 4%, transparent) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='legacy-grid'] {
+    gap: 11px !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='field-group'] {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 6px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='field-group'] > label {
+    color: color-mix(in srgb, var(--ui-signature-deep) 84%, var(--ui-text-muted));
+    font-size: 12px;
+    font-weight: 740;
+    line-height: 1.45;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='field-group'] > .hint,
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='field-group'] [data-ui-part='hint'] {
+    color: var(--ui-text-muted);
+    font-size: 10.5px;
+    line-height: 1.55;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='form-grid'] {
+    gap: 12px !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='row-split'] {
+    gap: 8px !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='legacy-action'] {
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    font-weight: 760 !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ui-signature-burgundy) 10%, transparent) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='legacy-action'].ghost {
+    background: color-mix(in srgb, var(--ui-signature-paper) 96%, var(--ui-signature-ivory)) !important;
+    color: var(--ui-signature-deep) !important;
+    border-color: var(--ui-border) !important;
+    box-shadow: none !important;
+  }
+
+  /* Dense operational tables: readable, not oversized. */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] {
+    font-size: 12.5px !important;
+    line-height: 1.45;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] thead th {
+    min-height: 38px;
+    padding: 8px 9px !important;
+    color: #5c5050 !important;
+    font-size: 11.5px !important;
+    letter-spacing: 0;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] tbody td {
+    min-height: 42px;
+    padding: 8px 9px !important;
+    font-size: 12.5px !important;
+    line-height: 1.45;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--ui-signature-ivory) 38%, var(--ui-signature-paper)) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] button,
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] a[data-ui-control='action'] {
+    min-height: 30px !important;
+    padding-inline: 9px !important;
+    font-size: 11px !important;
+  }
+
+  /* =========================================================
+     SETTINGS — APPROVED TUXEDO STATUS, NOT A COMPETING THEME PICKER
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-status'] {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 22px;
+    min-height: 126px;
+    padding: 20px 22px;
+    border: 1px solid var(--ui-border);
+    border-radius: 17px;
+    background:
+      linear-gradient(100deg, var(--ui-signature-paper) 0 62%, color-mix(in srgb, var(--ui-signature-rose) 72%, var(--ui-signature-paper)) 100%);
+    box-shadow: var(--ui-signature-shadow-soft);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-copy'] {
+    display: grid;
+    gap: 6px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-copy'] strong {
+    color: var(--ui-signature-deep);
+    font-size: 22px;
+    font-weight: 860;
+    letter-spacing: -.02em;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-copy'] span {
+    max-width: 70ch;
+    color: var(--ui-text-muted);
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-meta'] {
+    display: grid;
+    justify-items: end;
+    gap: 10px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-badge'] {
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--ui-signature-gold) 35%, var(--ui-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-signature-gold) 10%, var(--ui-signature-paper));
+    color: var(--ui-signature-deep);
+    font-size: 10.5px;
+    font-weight: 800;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] {
+    display: flex;
+    gap: 6px;
+    direction: ltr;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] > i {
+    width: 24px;
+    height: 24px;
+    display: block;
+    border: 1px solid color-mix(in srgb, var(--ui-signature-deep) 10%, var(--ui-border));
+    border-radius: 7px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] > i:nth-child(1) { background: var(--ui-signature-deep); }
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] > i:nth-child(2) { background: var(--ui-signature-burgundy); }
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] > i:nth-child(3) { background: var(--ui-signature-gold); }
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] > i:nth-child(4) { background: var(--ui-signature-ivory); }
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-swatches'] > i:nth-child(5) { background: var(--ui-signature-paper); }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='asset-grid'] {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='asset-card'] {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--ui-signature-paper) 98%, var(--ui-signature-ivory));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='asset-preview'] {
+    height: 138px;
+    display: grid;
+    place-items: center;
+    margin: 8px 0;
+    overflow: hidden;
+    border: 1px solid var(--ui-border-soft);
+    border-radius: 11px;
+    background: var(--ui-signature-ivory);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='asset-preview'] img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='settings-columns'] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='document-color-strip'] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='document-color-item'] {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='document-color-item'] > i {
+    width: 28px;
+    height: 28px;
+    display: block;
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+  }
+
+  @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'],
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header'] {
+      background:
+        linear-gradient(90deg,
+          color-mix(in srgb, var(--ui-signature-paper) 28%, transparent) 0%,
+          color-mix(in srgb, var(--ui-signature-paper) 90%, transparent) 48%,
+          var(--ui-signature-paper) 100%),
+        var(--signature-context-art) left center / 270px auto no-repeat,
+        var(--ui-signature-paper) !important;
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-status'],
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='settings-columns'] {
+      grid-template-columns: 1fr;
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-meta'] {
+      justify-items: start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='empty'][data-ui-state='loading']::before {
+      animation: none;
+      border-top-color: var(--ui-signature-gold);
+    }
+  }
+}
