@@ -53,13 +53,18 @@ requireText('app/dashboard/app-shell-v2.css', [
   "@media (prefers-reduced-motion: reduce)",
 ]);
 
+// القبطان المرئي واحد، وكتالوج مجموعات البوابات واحد كذلك. المشاريع تحتفظ
+// بتجميعها المتخصص، أما البوابات العامة فتُشتق من PORTAL_MANAGEMENT_SECTIONS
+// بدل نسخ نفس القوائم يدويًا في دستور الملاحة.
 requireText('lib/navigation-shell-constitution.js', [
   'SHELL_PORTAL_GROUPS',
+  'PORTAL_MANAGEMENT_SECTIONS',
+  'groupsFromManagement',
   "projects: Object.freeze([",
-  "workforce: Object.freeze([",
-  "finance: Object.freeze([",
-  "documents: Object.freeze([",
-  "admin: Object.freeze([",
+  'workforce: workforceGroups',
+  'finance: financeGroups',
+  "documents: groupsFromManagement('documents')",
+  "admin: groupsFromManagement('admin')",
 ]);
 
 requireText('components/ui/ContextualDashboardNavigation.js', [
@@ -77,7 +82,7 @@ if (exists('components/ui/RawDashboardNavigation.js')) {
 const nav = read('components/ui/ContextualDashboardNavigation.js');
 if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
 if (!nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة السياقية فقدت خيار إبقاء القائمة مفتوحة.');
-if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة الجديدة عادت للاعتماد على تجميعات كتالوج البوابات القديم.');
+if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة التنفيذية لا تقرأ كتالوج الإدارة مباشرة؛ يجب أن تمر عبر دستور SHELL_PORTAL_GROUPS.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
 if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
 
