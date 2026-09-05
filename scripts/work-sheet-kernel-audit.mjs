@@ -7,6 +7,10 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const exists = (relative) => fs.existsSync(path.join(root, relative));
 
 function requireText(file, needles) {
+  if (!exists(file)) {
+    failures.push(`${file}: الملف المطلوب غير موجود.`);
+    return;
+  }
   const text = read(file);
   for (const needle of needles) {
     if (!text.includes(needle)) failures.push(`${file}: مفقود الثابت البنيوي ${needle}`);
@@ -15,7 +19,7 @@ function requireText(file, needles) {
 
 requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
-  "import './raw-phase.css'",
+  "import './ui-skin-foundation.css'",
   "import './app-shell-v2.css'",
   'data-work-kernel="operational-notebook-v1"',
   'data-navigation-shell="contextual-slide-v2"',
@@ -27,16 +31,22 @@ requireText('app/dashboard/layout.js', [
 if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) {
   failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
 }
+if (read('app/dashboard/layout.js').includes("raw-phase.css")) {
+  failures.push('app/dashboard/layout.js: أعاد raw-phase بعد إعادة تأهيل قواعده الصالحة داخل أساس الجلد.');
+}
 
 if (exists('app/dashboard/work-sheet-kernel.css')) {
   failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
+}
+if (exists('app/dashboard/raw-phase.css')) {
+  failures.push('app/dashboard/raw-phase.css: الدور القديم انتهى؛ القواعد الصالحة تعيش في ui-skin-foundation.css.');
 }
 
 if (exists('components/ui/RawDashboardNavigation.module.css')) {
   failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
 }
 
-requireText('app/dashboard/raw-phase.css', [
+requireText('app/dashboard/ui-skin-foundation.css', [
   '.rawDashboardContent > .workSheetMount',
   "[data-work-header='true']",
   "[data-work-ledger='true']",
