@@ -57,7 +57,7 @@ requireText('components/ui/ProgramAction.js', [
   "data-action-destructive",
   "data-disabled-reason",
   "aria-keyshortcuts={saveShortcut}",
-  "confirmation:false",
+  "spec.confirmation === false",
   "data-ui-slot={uiSlot('action')}",
   'data-ui-control="action"',
   'data-ui-state=',
