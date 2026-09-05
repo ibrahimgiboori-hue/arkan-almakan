@@ -17,11 +17,13 @@ function markAll(root, selector, attributes) {
 }
 
 function annotate(root = document) {
-  markAll(root, '.appContextNav', { 'data-ui-slot':uiSlot('navigation'), 'data-ui-role':'navigation' });
-  markAll(root, '.appNavTopLine', { 'data-ui-slot':uiSlot('navigationHeader') });
-  markAll(root, '.appNavRow, .appNavBack, .appNavProjectGroupTitle', { 'data-ui-slot':uiSlot('navigationRow') });
-  markAll(root, '.appNavBottomActions', { 'data-ui-slot':uiSlot('navigationFooter') });
-  markAll(root, '.appNavTouchTrigger, .appNavHotZone', { 'data-ui-slot':uiSlot('navigationTrigger') });
+  markAll(root, '.appNavRail', { 'data-ui-slot':uiSlot('navigationRail'), 'data-ui-role':'primary-navigation' });
+  markAll(root, '.appContextNav', { 'data-ui-slot':uiSlot('navigationPanel'), 'data-ui-role':'contextual-navigation' });
+  markAll(root, '.appNavContextHeader', { 'data-ui-slot':uiSlot('navigationHeader') });
+  markAll(root, '.appNavContextSection', { 'data-ui-slot':uiSlot('navigationGroup') });
+  markAll(root, '.appRailItem, .appNavContextItem, .appMobilePortalStrip button', { 'data-ui-slot':uiSlot('navigationRow') });
+  markAll(root, '.appNavContextFooter', { 'data-ui-slot':uiSlot('navigationFooter') });
+  markAll(root, '.appNavMobileTrigger, .appRailCollapse, .appNavDesktopCollapse, .appNavMobileClose', { 'data-ui-slot':uiSlot('navigationTrigger') });
   markAll(root, '.appBodyStage', { 'data-ui-slot':uiSlot('applicationStage') });
   markAll(root, '.rawDashboardContent', { 'data-ui-slot':uiSlot('applicationContent'), 'data-ui-role':'application-content' });
   markAll(root, '.workSheetMount', { 'data-ui-slot':uiSlot('routeMount'), 'data-ui-role':'route-mount' });
