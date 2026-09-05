@@ -43,6 +43,13 @@ requireText('components/ui/PortalExperienceRuntime.js', [
   "data-network-status",
   "data-network-notice=\"offline\"",
   "data-technical-field",
+  "field.setAttribute('data-ui-slot', 'field')",
+  "form.setAttribute('data-ui-slot', 'form')",
+  "button.setAttribute('data-ui-control', 'button')",
+  "link.setAttribute('data-ui-control', 'link')",
+  "summary.setAttribute('data-ui-control', 'disclosure')",
+  "table.setAttribute('data-ui-role', 'table')",
+  "attributeFilter:['disabled', 'readonly', 'aria-invalid', 'type', 'inputmode']",
 ]);
 
 requireText('components/ui/ProgramAction.js', [
@@ -51,6 +58,9 @@ requireText('components/ui/ProgramAction.js', [
   "data-disabled-reason",
   "aria-keyshortcuts={saveShortcut}",
   "confirmation:false",
+  "data-ui-slot={uiSlot('action')}",
+  'data-ui-control="action"',
+  'data-ui-state=',
 ]);
 
 requireText('components/ui/ActionNervousSystemRuntime.js', [
@@ -84,4 +94,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Portal experience audit passed: navigation, keyboard save, numeric input safety, ledger awareness, action failure visibility, destructive safeguards, technical direction, and network awareness are centrally governed.');
+console.log('Portal experience audit passed: navigation, keyboard save, numeric input safety, ledger awareness, semantic legacy control annotation, action failure visibility, destructive safeguards, technical direction, and network awareness are centrally governed.');
