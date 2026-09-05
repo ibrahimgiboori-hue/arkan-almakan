@@ -1,27 +1,56 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240" fill="none">
   <defs>
-    <linearGradient id="g" x1="30" y1="26" x2="600" y2="220" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B58A45" stop-opacity=".76"/>
-      <stop offset="1" stop-color="#6B1F2B" stop-opacity=".24"/>
+    <linearGradient id="bg" x1="24" y1="20" x2="612" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3E8DC"/>
+      <stop offset=".52" stop-color="#D7C4AF"/>
+      <stop offset="1" stop-color="#5E2630"/>
     </linearGradient>
+    <linearGradient id="note" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F7F1E8"/>
+      <stop offset=".62" stop-color="#D4B788"/>
+      <stop offset="1" stop-color="#9B6B62"/>
+    </linearGradient>
+    <linearGradient id="note2" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#EDE3D5"/>
+      <stop offset="1" stop-color="#7B3742"/>
+    </linearGradient>
+    <radialGradient id="coin" cx="40%" cy="30%" r="70%">
+      <stop stop-color="#F7E8C8"/>
+      <stop offset=".55" stop-color="#C69A52"/>
+      <stop offset="1" stop-color="#8B642F"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#3B0F16" flood-opacity=".22"/>
+    </filter>
+    <pattern id="security" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(18)">
+      <path d="M0 6H12" stroke="#6B1F2B" stroke-opacity=".08" stroke-width="1"/>
+    </pattern>
   </defs>
-  <g stroke="url(#g)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="58" y="56" width="250" height="128" rx="18"/>
-    <rect x="86" y="78" width="194" height="84" rx="13" opacity=".72"/>
-    <circle cx="183" cy="120" r="30"/>
-    <path d="M153 120h60M183 90v60" opacity=".38"/>
-    <rect x="246" y="38" width="286" height="150" rx="22" transform="rotate(8 246 38)" opacity=".7"/>
-    <circle cx="470" cy="167" r="45"/>
-    <circle cx="536" cy="146" r="35"/>
-    <circle cx="586" cy="182" r="29"/>
+  <rect width="640" height="240" rx="24" fill="url(#bg)"/>
+  <circle cx="90" cy="38" r="90" fill="#FFFDFC" fill-opacity=".24"/>
+  <g filter="url(#shadow)">
+    <g transform="translate(54 42) rotate(-8 130 62)">
+      <rect width="264" height="122" rx="18" fill="url(#note)"/>
+      <rect x="10" y="10" width="244" height="102" rx="14" fill="url(#security)" stroke="#6B1F2B" stroke-opacity=".18"/>
+      <circle cx="74" cy="61" r="32" fill="#FFFDFC" fill-opacity=".42" stroke="#B58A45" stroke-opacity=".65"/>
+      <text x="74" y="69" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#6B1F2B">ر.س</text>
+      <path d="M126 34H224M126 53H206M126 72H228M126 91H190" stroke="#6B1F2B" stroke-opacity=".22" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(244 40) rotate(9 135 62)">
+      <rect width="276" height="126" rx="18" fill="url(#note2)"/>
+      <rect x="10" y="10" width="256" height="106" rx="14" fill="url(#security)" stroke="#FFFDFC" stroke-opacity=".16"/>
+      <circle cx="198" cy="62" r="34" fill="#FFFDFC" fill-opacity=".28" stroke="#E8D7B8" stroke-opacity=".58"/>
+      <text x="198" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#FFFDFC">$</text>
+      <path d="M38 34H142M38 55H128M38 76H152M38 97H116" stroke="#FFFDFC" stroke-opacity=".24" stroke-width="5" stroke-linecap="round"/>
+    </g>
   </g>
-  <g fill="#6B1F2B" font-family="Arial, sans-serif" font-weight="700" text-anchor="middle">
-    <text x="183" y="127" font-size="24" opacity=".58">ر.س</text>
-    <text x="470" y="176" font-size="34" opacity=".62">$</text>
-    <text x="536" y="154" font-size="28" opacity=".56">€</text>
+  <g filter="url(#shadow)">
+    <circle cx="478" cy="185" r="42" fill="url(#coin)"/>
+    <circle cx="478" cy="185" r="31" fill="none" stroke="#F7E8C8" stroke-opacity=".72" stroke-width="2"/>
+    <text x="478" y="197" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" font-weight="700" fill="#6B1F2B">€</text>
+    <circle cx="548" cy="178" r="31" fill="url(#coin)" opacity=".92"/>
+    <circle cx="585" cy="202" r="24" fill="url(#coin)" opacity=".82"/>
   </g>
-  <g fill="#B58A45" opacity=".12">
-    <rect x="58" y="56" width="250" height="128" rx="18"/>
-    <circle cx="470" cy="167" r="45"/><circle cx="536" cy="146" r="35"/><circle cx="586" cy="182" r="29"/>
-  </g>
+  <path d="M36 210C172 187 273 198 387 184C478 173 557 160 620 146" stroke="#FFFDFC" stroke-opacity=".18" stroke-width="1.5" stroke-dasharray="5 7"/>
+  <rect width="640" height="240" rx="24" fill="#B58A45" fill-opacity=".035"/>
 </svg>

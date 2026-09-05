@@ -1,10 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240" fill="none">
-  <defs><linearGradient id="g" x1="48" y1="30" x2="600" y2="216" gradientUnits="userSpaceOnUse"><stop stop-color="#B58A45" stop-opacity=".78"/><stop offset="1" stop-color="#6B1F2B" stop-opacity=".24"/></linearGradient></defs>
-  <g stroke="url(#g)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="220" cy="120" r="58"/><circle cx="220" cy="120" r="22"/>
-    <path d="M220 43v22M220 175v22M143 120h22M275 120h22M165 65l16 16M259 159l16 16M275 65l-16 16M181 159l-16 16"/>
-    <path d="M380 66h160v132H380z"/><path d="M412 98h96M412 128h96M412 158h62"/>
-    <path d="M430 66V42h60v24"/>
+  <defs>
+    <linearGradient id="bg" x1="24" y1="16" x2="616" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5EADF"/>
+      <stop offset=".58" stop-color="#D4BFAF"/>
+      <stop offset="1" stop-color="#5A202B"/>
+    </linearGradient>
+    <radialGradient id="gear" cx="36%" cy="30%" r="72%">
+      <stop stop-color="#F2E2C1"/>
+      <stop offset=".5" stop-color="#B58A45"/>
+      <stop offset="1" stop-color="#70481F"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFDFC"/>
+      <stop offset="1" stop-color="#DFD1C5"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#351017" flood-opacity=".25"/>
+    </filter>
+  </defs>
+  <rect width="640" height="240" rx="24" fill="url(#bg)"/>
+  <g opacity=".14" stroke="#3B0F16" stroke-width="1">
+    <path d="M0 48H640M0 96H640M0 144H640M0 192H640"/>
+    <path d="M80 0V240M160 0V240M240 0V240M320 0V240M400 0V240M480 0V240M560 0V240"/>
   </g>
-  <g fill="#B58A45" opacity=".10"><circle cx="220" cy="120" r="58"/><path d="M380 66h160v132H380z"/></g>
+  <g filter="url(#shadow)" transform="translate(54 28)">
+    <g transform="translate(88 88)">
+      <circle r="63" fill="url(#gear)"/>
+      <circle r="34" fill="#6B1F2B" fill-opacity=".72"/>
+      <circle r="15" fill="#F7F1E8"/>
+      <g fill="url(#gear)">
+        <rect x="-10" y="-82" width="20" height="28" rx="6"/>
+        <rect x="-10" y="54" width="20" height="28" rx="6"/>
+        <rect x="54" y="-10" width="28" height="20" rx="6"/>
+        <rect x="-82" y="-10" width="28" height="20" rx="6"/>
+        <rect x="44" y="-62" width="20" height="28" rx="6" transform="rotate(45 54 -48)"/>
+        <rect x="-64" y="34" width="20" height="28" rx="6" transform="rotate(45 -54 48)"/>
+        <rect x="34" y="44" width="28" height="20" rx="6" transform="rotate(45 48 54)"/>
+        <rect x="-62" y="-64" width="28" height="20" rx="6" transform="rotate(45 -48 -54)"/>
+      </g>
+    </g>
+    <g transform="translate(212 104) scale(.62)">
+      <circle r="54" fill="#8C5660"/>
+      <circle r="28" fill="#FFFDFC" fill-opacity=".85"/>
+      <circle r="10" fill="#B58A45"/>
+      <g fill="#8C5660">
+        <rect x="-8" y="-70" width="16" height="24" rx="5"/>
+        <rect x="-8" y="46" width="16" height="24" rx="5"/>
+        <rect x="46" y="-8" width="24" height="16" rx="5"/>
+        <rect x="-70" y="-8" width="24" height="16" rx="5"/>
+      </g>
+    </g>
+  </g>
+  <g filter="url(#shadow)" transform="translate(360 42)">
+    <rect width="220" height="154" rx="18" fill="url(#panel)"/>
+    <rect x="18" y="18" width="184" height="30" rx="9" fill="#6B1F2B" fill-opacity=".09"/>
+    <circle cx="36" cy="33" r="6" fill="#B58A45"/>
+    <circle cx="55" cy="33" r="6" fill="#8D3442"/>
+    <circle cx="74" cy="33" r="6" fill="#CDBA9E"/>
+    <path d="M26 72H194M26 100H166M26 128H182" stroke="#6B1F2B" stroke-opacity=".18" stroke-width="9" stroke-linecap="round"/>
+    <rect x="152" y="65" width="42" height="22" rx="11" fill="#B58A45" fill-opacity=".2"/>
+    <circle cx="181" cy="76" r="8" fill="#B58A45"/>
+  </g>
+  <path d="M28 217H610" stroke="#FFFDFC" stroke-opacity=".24"/>
+  <rect width="640" height="240" rx="24" fill="#B58A45" fill-opacity=".025"/>
 </svg>
