@@ -11,6 +11,7 @@
   --arkan-print-muted:#606060;
   --arkan-print-border:#9b9b9b;
   --arkan-print-label:#f1f1f1;
+  --arkan-print-table-head-text:#111;
   min-height:100vh;
   color:var(--arkan-print-text);
   background:#efeaea;
@@ -63,6 +64,14 @@
   min-width:0;
   max-width:100%;
   overflow-wrap:anywhere;
+}
+/* رؤوس الجداول المطبوعة معلومة أساسية وليست نصًا ثانويًا؛ لا يسمح لأي قالب
+   أو لون موروث بأن يجعلها باهتة على الورق. هذا القانون يشمل كل المطبوعات المحكومة. */
+.print-constitution thead th,
+.print-constitution thead th *{
+  color:var(--arkan-print-table-head-text)!important;
+  -webkit-text-fill-color:var(--arkan-print-table-head-text)!important;
+  opacity:1!important;
 }
 .print-constitution img,
 .print-constitution svg,
