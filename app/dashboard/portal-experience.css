@@ -11,6 +11,11 @@
     outline-offset: 2px;
   }
 
+  .rawDashboardShell[data-portal-experience^='unified-portal-experience-'] [data-technical-field='true'] {
+    font-variant-numeric: tabular-nums;
+    unicode-bidi: plaintext;
+  }
+
   .rawDashboardShell[data-portal-experience^='unified-portal-experience-'] [data-table-surface='true'][data-ledger-scroll-ready='true'] {
     overscroll-behavior-inline: contain;
     scrollbar-gutter: stable both-edges;
@@ -56,11 +61,64 @@
     scroll-margin-top: 96px;
   }
 
+  .appActionFailure,
+  .appOfflineNotice {
+    position: sticky;
+    top: 0;
+    z-index: 38;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    border-bottom: 1px solid var(--raw-border-soft, #e8e4dc);
+    padding: 7px 14px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .appActionFailure {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    background: color-mix(in srgb, #ffe5e5 82%, var(--raw-paper, #fff));
+    color: var(--raw-red, #8d2f2f);
+  }
+
+  .appActionFailure > div {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .appActionFailure strong { color: inherit; font-weight: 800; }
+  .appActionFailure span { color: inherit; }
+  .appActionFailure button {
+    flex: 0 0 auto;
+    min-height: 28px !important;
+    padding: 2px 8px !important;
+    border: 1px solid color-mix(in srgb, var(--raw-red, #8d2f2f) 24%, transparent) !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .appOfflineNotice {
+    background: color-mix(in srgb, #fff2c7 84%, var(--raw-paper, #fff));
+    color: var(--raw-ink, #2f2924);
+    text-align: center;
+  }
+
   @media (max-width: 820px) {
     .rawDashboardShell[data-portal-experience^='unified-portal-experience-'] [data-table-surface='true'][data-ledger-scroll-ready='true'] {
       margin-inline: -2px;
       padding-bottom: 3px;
     }
+    .appActionFailure { align-items: flex-start; }
   }
 
   @media (prefers-reduced-motion: reduce) {
