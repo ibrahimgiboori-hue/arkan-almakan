@@ -90,10 +90,18 @@ export default function QuoteEditor() {
     load();
   }
 
-  async function updLine(lineId, fields) {
-    setLines(lines.map((l) => l.id === lineId ? { ...l, ...fields } : l));
+  function editLine(lineId, fields) {
+    setLines((current) => current.map((l) => l.id === lineId ? { ...l, ...fields } : l));
+  }
+
+  async function saveLine(lineId, fields) {
     const { error } = await supabase.from('quotation_lines').update(fields).eq('id', lineId);
-    if (error) setErr('تعذّر الحفظ: ' + error.message);
+    if (error) setErr('تعذّر الحفظ: ' + error.message); else flash('حُفظ');
+  }
+
+  async function updLine(lineId, fields) {
+    editLine(lineId, fields);
+    await saveLine(lineId, fields);
   }
 
   async function delLine(lineId) {
@@ -208,7 +216,9 @@ export default function QuoteEditor() {
                   <tr key={l.id} style={{background:'var(--rose-wash)'}}>
                     <td className="mono" style={{fontWeight:700,color:'var(--maroon-dark)'}}>{l.number}</td>
                     <td colSpan={1 + (q.show_unit?1:0) + (q.show_qty?1:0) + (q.show_unit_price?1:0)}>
-                      <input value={l.description_ar || ''} placeholder="عنوان القسم" onChange={(e)=>updLine(l.id,{description_ar:e.target.value})}
+                      <input value={l.description_ar || ''} placeholder="عنوان القسم"
+                        onChange={(e)=>editLine(l.id,{description_ar:e.target.value})}
+                        onBlur={(e)=>saveLine(l.id,{description_ar:e.target.value})}
                         style={{width:'100%',fontWeight:600,color:'var(--maroon-dark)',border:'none',background:'transparent',fontSize:14.5,fontFamily:'inherit'}} />
                     </td>
                     {showTotalCol && <td className="num" style={{fontWeight:700,color:'var(--maroon-dark)'}}>{money(subs[l.id] || 0)}</td>}
@@ -224,9 +234,13 @@ export default function QuoteEditor() {
                   <tr key={l.id}>
                     <td className="mono">{l.number}</td>
                     <td>
-                      <textarea rows="2" value={l.description_ar || ''} placeholder="وصف البند" onChange={(e)=>updLine(l.id,{description_ar:e.target.value})}
+                      <textarea rows="2" value={l.description_ar || ''} placeholder="وصف البند"
+                        onChange={(e)=>editLine(l.id,{description_ar:e.target.value})}
+                        onBlur={(e)=>saveLine(l.id,{description_ar:e.target.value})}
                         style={{width:'100%',border:'1px solid var(--hair)',fontFamily:'inherit',fontSize:13.5,padding:'4px 6px',resize:'vertical'}} />
-                      {q.show_en_desc && <input dir="ltr" value={l.description_en || ''} placeholder="English description" onChange={(e)=>updLine(l.id,{description_en:e.target.value})}
+                      {q.show_en_desc && <input dir="ltr" value={l.description_en || ''} placeholder="English description"
+                        onChange={(e)=>editLine(l.id,{description_en:e.target.value})}
+                        onBlur={(e)=>saveLine(l.id,{description_en:e.target.value})}
                         style={{width:'100%',border:'1px solid var(--hair)',fontSize:12.5,padding:'3px 6px',marginTop:3,fontFamily:'inherit'}} />}
                       <div className="rowsplit" style={{marginTop:4}}>
                         {items.length > 0 && <select defaultValue="" onChange={(e)=>pickItem(l.id, e.target.value)} style={{fontSize:12,padding:'2px 4px',maxWidth:180}}>
