@@ -6,7 +6,8 @@
   owns only shell geometry and appearance.
 */
 @media screen {
-  .rawDashboardShell {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] {
+    --app-body-nav-width: min(var(--ui-shell-nav-width, 196px), 82vw) !important;
     --raw-nav-primary-height: 0px;
     --raw-nav-context-height: 0px;
     --raw-nav-gap: 0px;
@@ -56,7 +57,7 @@
     bottom: 0;
     left: auto;
     z-index: 240;
-    width: min(232px, 82vw);
+    width: min(var(--ui-shell-nav-width, 196px), 82vw) !important;
     box-sizing: border-box;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
@@ -302,7 +303,7 @@
       cursor: pointer;
     }
 
-    .appContextNav { width: min(232px, 82vw); }
+    .appContextNav { width: min(var(--ui-shell-nav-width, 196px), 82vw) !important; }
   }
 
   @media (prefers-reduced-motion: reduce) {
