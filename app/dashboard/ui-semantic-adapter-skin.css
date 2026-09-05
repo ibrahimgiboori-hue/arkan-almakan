@@ -1,0 +1,106 @@
+/*
+  SEMANTIC ADAPTER SKIN
+  ---------------------
+  LegacySemanticBridgeRuntime translates surviving old markup into semantic
+  roles. This file styles those roles only; it never targets old class names.
+  It can disappear as the last legacy markup is rewritten without touching
+  business behavior or the primary native skin.
+*/
+@media screen {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-card'] {
+    padding: 16px 18px !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-grid'] {
+    gap: 12px !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='tabs'] {
+    display: flex;
+    gap: 7px !important;
+    flex-wrap: wrap;
+    margin-bottom: 16px !important;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--ui-border) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='tabs'] button {
+    min-height: 36px;
+    padding: 0 12px !important;
+    border: 1px solid var(--ui-border) !important;
+    border-radius: var(--ui-radius-sm) !important;
+    background: var(--ui-surface) !important;
+    color: var(--ui-text) !important;
+    font: inherit;
+    font-size: 15.5px !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='tabs'] button.on,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='tabs'] button[data-ui-state='active'] {
+    background: var(--ui-accent) !important;
+    border-color: var(--ui-accent) !important;
+    color: var(--ui-on-accent) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-action'] {
+    min-height: 40px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 15px !important;
+    border: 1px solid var(--ui-accent) !important;
+    border-radius: var(--ui-radius-sm) !important;
+    background: var(--ui-accent) !important;
+    color: var(--ui-on-accent) !important;
+    font: inherit;
+    font-size: 15.5px !important;
+    font-weight: 750;
+    box-shadow: none !important;
+    cursor: pointer;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-action']:hover {
+    background: var(--ui-accent-strong) !important;
+    border-color: var(--ui-accent-strong) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-action'].ghost {
+    background: var(--ui-surface) !important;
+    color: var(--ui-text) !important;
+    border-color: var(--ui-border) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-action'].ghost:hover {
+    background: var(--ui-border-soft) !important;
+    border-color: var(--ui-text) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-stickybar'] {
+    position: static !important;
+    top: auto !important;
+    background: transparent !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-shell'] {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-side'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-topbar'] {
+    display: none !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-main'] {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: block !important;
+  }
+
+  @media (max-width: 520px) {
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='legacy-grid'] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+}
