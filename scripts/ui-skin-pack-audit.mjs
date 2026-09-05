@@ -19,13 +19,18 @@ function requireText(file, values) {
 }
 
 requireText('lib/ui-skin-manifest.js', [
-  "id:'arkan-native-v1'",
+  "id:'arkan-signature-v1'",
   "contract:'arkan-semantic-skin-v1'",
   "coverage:'inside-and-outside-complete-outfit'",
   "switch:'lib/ui-active-skin.js'",
+  "name:'ARKAN SIGNATURE — APPROVED MASTER'",
   "tokens:'app/ui-skin-tokens.css'",
   "external:'app/ui-external-skin.css'",
+  "signature:'app/ui-signature-skin.css'",
   "dashboardCompatibility:'app/dashboard/raw-tokens.css'",
+  "projects:'public/skin/signature/projects.svg'",
+  "finance:'public/skin/signature/finance.svg'",
+  "workforce:'public/skin/signature/workforce.svg'",
   "visualLegacyLayer:false",
   "containmentPolicy:'structure-only-no-identity'",
   "stressSkin:'stress-test'",
@@ -34,8 +39,10 @@ requireText('lib/ui-skin-manifest.js', [
 ]);
 
 requireText('lib/ui-active-skin.js', [
-  "ACTIVE_UI_SKIN_KEY = 'native'",
+  "UI_SKIN_NATIVE_KEY = 'native'",
+  "UI_SKIN_SIGNATURE_KEY = 'signature'",
   "UI_SKIN_STRESS_TEST_KEY = 'stress-test'",
+  'ACTIVE_UI_SKIN_KEY = UI_SKIN_SIGNATURE_KEY',
 ]);
 
 const rootTokens = requireText('app/ui-skin-tokens.css', [
@@ -46,6 +53,9 @@ const rootTokens = requireText('app/ui-skin-tokens.css', [
   '--ui-accent:',
   '--ui-shell-rail-width:',
   '--ui-shell-nav-width:',
+  "html[data-ui-skin='signature']",
+  '--ui-signature-deep:',
+  '--ui-signature-gold:',
   "html[data-ui-skin='stress-test']",
 ]);
 if (!rootTokens.includes('--ui-radius: 0px;')) failures.push('ui-skin-tokens.css: جلد الاختبار الجذري لا يثبت القدرة على تغيير الهندسة المرئية.');
@@ -57,10 +67,36 @@ requireText('app/ui-external-skin.css', [
   "[data-ui-control='action']",
 ]);
 
+const signature = requireText('app/ui-signature-skin.css', [
+  'ARKAN SIGNATURE — APPROVED PROGRAM TUXEDO',
+  "html[data-ui-skin='signature']",
+  "url('/skin/signature/projects.svg')",
+  "url('/skin/signature/finance.svg')",
+  "url('/skin/signature/workforce.svg')",
+  "[data-ui-part='auth-hero']",
+  '.appNavRail',
+  '.appContextNav',
+  "[data-ui-slot='summary']",
+  "[data-ui-role='table']",
+]);
+if (/@media\s+print/i.test(signature)) failures.push('ui-signature-skin.css: جلد الشاشة لا يجوز أن يكتب أي قاعدة print.');
+
+[
+  'public/skin/signature/projects.svg',
+  'public/skin/signature/finance.svg',
+  'public/skin/signature/workforce.svg',
+  'public/skin/signature/documents.svg',
+  'public/skin/signature/admin.svg',
+  'public/skin/signature/login-architecture.svg',
+].forEach((file) => {
+  if (!exists(file)) failures.push(`${file}: صورة سياقية من ARKAN SIGNATURE مفقودة.`);
+});
+
 const rootLayout = requireText('app/layout.js', [
   "import './globals.css'",
   "import './ui-skin-tokens.css'",
   "import './ui-external-skin.css'",
+  "import './ui-signature-skin.css'",
   "import { ACTIVE_UI_SKIN_KEY } from '@/lib/ui-active-skin'",
   'uiSkinDataAttributes(ACTIVE_UI_SKIN_KEY)',
   '{...skinAttrs}',
@@ -68,18 +104,25 @@ const rootLayout = requireText('app/layout.js', [
 if (rootLayout.indexOf("import './ui-skin-tokens.css'") < rootLayout.indexOf("import './globals.css'")) {
   failures.push('RootLayout: يجب تحميل الجلد الدلالي بعد globals.css ليملك الكلمة المرئية النهائية.');
 }
+if (rootLayout.indexOf("import './ui-signature-skin.css'") < rootLayout.indexOf("import './ui-external-skin.css'")) {
+  failures.push('RootLayout: ARKAN SIGNATURE يجب أن يحمل بعد الجلد الخارجي الأساسي حتى يملك اللمسة النهائية.');
+}
 
 const login = requireText('app/login/page.js', [
   'data-ui-surface="auth"',
   'data-ui-role="auth-card"',
   'data-ui-control="field"',
   'data-ui-control="action"',
+  'data-ui-part="auth-hero"',
+  'data-ui-part="auth-hero-brand"',
+  'data-ui-part="auth-hero-copy"',
 ]);
 if (/className=|style=\{\{/.test(login)) failures.push('Login: عاد لاعتماد جلد محلي/قديم بدل عقد الجلد الخارجي.');
 
 const visualLayers = [
   'app/ui-skin-tokens.css',
   'app/ui-external-skin.css',
+  'app/ui-signature-skin.css',
   'app/dashboard/ui-skin-foundation.css',
   'app/dashboard/ui-component-skin.css',
   'app/dashboard/ui-semantic-adapter-skin.css',
@@ -186,4 +229,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin pack audit passed: one root switch controls internal and external screen identity; legacy dashboard names are aliases only and isolated components consume semantic tokens.');
+console.log('UI skin pack audit passed: ARKAN SIGNATURE is the approved root-controlled tuxedo, contextual imagery stays visual-only, print remains separate, and native/stress skins remain swappable proofs.');

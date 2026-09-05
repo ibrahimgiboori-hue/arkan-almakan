@@ -1,0 +1,760 @@
+/*
+  ARKAN SIGNATURE — APPROVED PROGRAM TUXEDO
+  -----------------------------------------
+  Figma master: ARKAN SIGNATURE — APPROVED MASTER.
+  This layer changes screen identity only. It never owns business logic,
+  permissions, data truth, workflow rules or physical print geometry.
+*/
+@media screen {
+  html[data-ui-skin='signature'] {
+    background: var(--ui-signature-ivory);
+  }
+
+  html[data-ui-skin='signature'] body {
+    background:
+      radial-gradient(circle at 8% -12%, color-mix(in srgb, var(--ui-signature-gold) 8%, transparent), transparent 34%),
+      var(--ui-signature-ivory) !important;
+    color: var(--ui-signature-charcoal);
+  }
+
+  /* =========================================================
+     CONTEXTUAL ART DIRECTION
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell {
+    --signature-context-art: url('/skin/signature/projects.svg');
+    --signature-context-accent: var(--ui-signature-burgundy);
+    --signature-context-wash: color-mix(in srgb, var(--ui-signature-burgundy) 5%, var(--ui-signature-paper));
+    background: var(--ui-signature-ivory) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appContextNav[data-context-kind='project']),
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appRailItem[aria-label='المشاريع'][data-active='true']) {
+    --signature-context-art: url('/skin/signature/projects.svg');
+    --signature-context-accent: var(--ui-signature-burgundy);
+    --signature-context-wash: color-mix(in srgb, var(--ui-signature-burgundy) 5%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appRailItem[aria-label='المالية'][data-active='true']) {
+    --signature-context-art: url('/skin/signature/finance.svg');
+    --signature-context-accent: var(--ui-signature-gold);
+    --signature-context-wash: color-mix(in srgb, var(--ui-signature-gold) 9%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appRailItem[aria-label='الموارد البشرية'][data-active='true']),
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appRailItem[aria-label='الموارد'][data-active='true']) {
+    --signature-context-art: url('/skin/signature/workforce.svg');
+    --signature-context-accent: var(--ui-signature-burgundy);
+    --signature-context-wash: color-mix(in srgb, var(--ui-success) 5%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appRailItem[aria-label='المستندات'][data-active='true']) {
+    --signature-context-art: url('/skin/signature/documents.svg');
+    --signature-context-accent: var(--ui-signature-gold);
+    --signature-context-wash: color-mix(in srgb, var(--ui-signature-gold) 7%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell:has(.appRailItem[aria-label='الإدارة'][data-active='true']) {
+    --signature-context-art: url('/skin/signature/admin.svg');
+    --signature-context-accent: var(--ui-signature-burgundy);
+    --signature-context-wash: color-mix(in srgb, var(--ui-signature-burgundy) 4%, var(--ui-signature-paper));
+  }
+
+  /* =========================================================
+     PRIMARY RAIL — DEEP BURGUNDY SIGNATURE
+     ========================================================= */
+  html[data-ui-skin='signature'] .appNavRail {
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 10px 8px 12px;
+    border-inline-start: 1px solid color-mix(in srgb, var(--ui-signature-gold) 32%, var(--ui-signature-deep));
+    background:
+      linear-gradient(180deg, #3b0f16 0%, #4a121c 52%, #351017 100%);
+    color: #f7eee6;
+    box-shadow: -10px 0 34px color-mix(in srgb, var(--ui-signature-deep) 10%, transparent);
+  }
+
+  html[data-ui-skin='signature'] .appNavRail::before {
+    content: 'أركان\Aالمكان';
+    flex: 0 0 auto;
+    min-height: 72px;
+    display: grid;
+    place-content: center;
+    margin: 0 4px 7px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-signature-gold-soft) 22%, transparent);
+    color: var(--ui-signature-paper);
+    white-space: pre;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -.02em;
+  }
+
+  html[data-ui-skin='signature'] .appRailTop,
+  html[data-ui-skin='signature'] .appRailBottom {
+    gap: 5px;
+  }
+
+  html[data-ui-skin='signature'] .appRailBottom {
+    margin-top: auto;
+  }
+
+  html[data-ui-skin='signature'] .appRailItem,
+  html[data-ui-skin='signature'] .appRailCollapse {
+    color: #eadfd7;
+    border-radius: 14px;
+  }
+
+  html[data-ui-skin='signature'] .appRailItem:hover,
+  html[data-ui-skin='signature'] .appRailItem:focus-visible,
+  html[data-ui-skin='signature'] .appRailCollapse:hover,
+  html[data-ui-skin='signature'] .appRailCollapse:focus-visible {
+    background: color-mix(in srgb, var(--ui-signature-paper) 8%, transparent);
+    color: var(--ui-signature-paper);
+  }
+
+  html[data-ui-skin='signature'] .appRailItem[data-active='true'] {
+    background: linear-gradient(145deg, #8d3442, #6b1f2b);
+    color: #fffdfc;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-signature-gold) 16%, transparent), 0 8px 20px color-mix(in srgb, #160408 24%, transparent);
+  }
+
+  html[data-ui-skin='signature'] .appRailItem[data-active='true']::after {
+    inset-block: 10px;
+    inset-inline-start: -8px;
+    width: 4px;
+    background: var(--ui-signature-gold);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ui-signature-gold) 45%, transparent);
+  }
+
+  html[data-ui-skin='signature'] .appRailIcon {
+    width: 25px;
+    height: 25px;
+  }
+
+  html[data-ui-skin='signature'] .appRailLabel {
+    font-size: 10px;
+    font-weight: 760;
+  }
+
+  html[data-ui-skin='signature'] .appRailBadge {
+    background: var(--ui-danger);
+    color: #fff;
+    box-shadow: 0 0 0 2px var(--ui-signature-deep);
+  }
+
+  html[data-ui-skin='signature'] .appRailCollapse {
+    border-top-color: color-mix(in srgb, var(--ui-signature-gold-soft) 20%, transparent);
+  }
+
+  /* =========================================================
+     CONTEXT PANEL — WARM PAPER
+     ========================================================= */
+  html[data-ui-skin='signature'] .appContextNav {
+    border-inline-start-color: var(--ui-border);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--ui-signature-paper) 97%, transparent), color-mix(in srgb, var(--signature-context-wash) 94%, var(--ui-signature-paper))),
+      var(--signature-context-art) bottom 12px left -82px / 270px auto no-repeat,
+      var(--ui-signature-paper);
+    color: var(--ui-text);
+    box-shadow: -12px 0 30px color-mix(in srgb, var(--ui-signature-deep) 5%, transparent);
+  }
+
+  html[data-ui-skin='signature'] .appNavContextHeader {
+    min-height: 82px;
+    padding: 15px 14px 12px;
+    border-bottom-color: var(--ui-border-soft);
+    background: color-mix(in srgb, var(--ui-signature-paper) 96%, var(--signature-context-wash));
+  }
+
+  html[data-ui-skin='signature'] .appNavContextTitle strong {
+    color: var(--ui-signature-deep);
+    font-size: 15px;
+    font-weight: 850;
+  }
+
+  html[data-ui-skin='signature'] .appNavContextTitle small {
+    color: var(--ui-text-muted);
+    font-size: 10.5px;
+  }
+
+  html[data-ui-skin='signature'] .appNavContextBody {
+    padding: 8px 9px 18px;
+  }
+
+  html[data-ui-skin='signature'] .appNavContextSection {
+    border-bottom-color: color-mix(in srgb, var(--ui-border-soft) 82%, transparent);
+  }
+
+  html[data-ui-skin='signature'] .appNavContextSection h2 {
+    color: color-mix(in srgb, var(--ui-signature-gold) 82%, var(--ui-text-muted));
+    font-size: 10px !important;
+    letter-spacing: .02em;
+  }
+
+  html[data-ui-skin='signature'] .appNavContextItem {
+    min-height: 38px;
+    border-radius: 11px;
+    color: var(--ui-signature-charcoal);
+    font-weight: 620;
+  }
+
+  html[data-ui-skin='signature'] .appNavContextItem:hover,
+  html[data-ui-skin='signature'] .appNavContextItem:focus-visible {
+    background: color-mix(in srgb, var(--ui-signature-burgundy) 4%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .appNavContextItem[data-active='true'] {
+    background: var(--ui-signature-rose);
+    color: var(--ui-signature-burgundy);
+    font-weight: 800;
+  }
+
+  html[data-ui-skin='signature'] .appNavContextItem[data-active='true']::before {
+    width: 4px;
+    background: var(--ui-signature-burgundy);
+  }
+
+  html[data-ui-skin='signature'] .appNavContextFooter {
+    border-top-color: var(--ui-border-soft);
+    background: color-mix(in srgb, var(--ui-signature-paper) 93%, var(--signature-context-wash));
+  }
+
+  /* =========================================================
+     WORK CANVAS / HEADERS / CARDS
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='application-stage'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='application-content'] {
+    background:
+      radial-gradient(circle at 3% 2%, color-mix(in srgb, var(--ui-signature-gold) 7%, transparent), transparent 26%),
+      var(--ui-signature-ivory) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='route-mount'] {
+    padding-top: clamp(14px, 1.4vw, 22px) !important;
+    padding-inline: clamp(16px, 1.8vw, 28px) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header'] {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-height: 132px !important;
+    margin-bottom: 16px !important;
+    padding: 22px 24px 20px !important;
+    align-items: end !important;
+    border: 1px solid var(--ui-border) !important;
+    border-bottom: 1px solid var(--ui-border) !important;
+    border-radius: var(--ui-radius-lg) !important;
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--ui-signature-paper) 18%, transparent) 0%, var(--ui-signature-paper) 46%, var(--ui-signature-paper) 100%),
+      var(--signature-context-art) left center / 360px auto no-repeat,
+      var(--ui-signature-paper) !important;
+    box-shadow: var(--ui-signature-shadow-soft);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header']::after,
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header']::after {
+    content: '';
+    position: absolute;
+    inset-block: 18px;
+    inset-inline-end: 0;
+    width: 4px;
+    border-radius: 99px 0 0 99px;
+    background: linear-gradient(180deg, var(--signature-context-accent), var(--ui-signature-gold));
+    z-index: -1;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'] [data-ui-part='title'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header'] h1 {
+    color: var(--ui-signature-deep) !important;
+    font-size: clamp(28px, 2.4vw, 36px) !important;
+    font-weight: 860 !important;
+    letter-spacing: -.02em;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'] [data-ui-part='eyebrow'] {
+    color: var(--ui-signature-gold);
+    font-weight: 820;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-work-section-style='boundary'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='entry'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='selection-dock'] {
+    border-color: var(--ui-border) !important;
+    border-radius: var(--ui-radius) !important;
+    background: var(--ui-signature-paper) !important;
+    box-shadow: var(--ui-signature-shadow-soft) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='section-header'] [data-ui-part='title'] {
+    color: var(--ui-signature-deep);
+    font-weight: 840;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-work-section-style='boundary'] > [data-ui-slot='section-header'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='entry'] > [data-ui-slot='section-header'] {
+    padding: 12px 16px !important;
+    border-bottom-color: var(--ui-border-soft) !important;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--signature-context-wash) 72%, transparent)) !important;
+    border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  }
+
+  /* Summary changes from one flat strip into executive metric cards. */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 12px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] [data-ui-part='summary-item'] {
+    min-width: 0;
+    min-height: 112px;
+    display: flex;
+    justify-content: center;
+    padding: 15px 16px;
+    border: 1px solid var(--ui-border);
+    border-radius: 17px;
+    background:
+      radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--signature-context-accent) 6%, transparent), transparent 35%),
+      var(--ui-signature-paper);
+    box-shadow: var(--ui-signature-shadow-soft);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] [data-ui-part='summary-item'] + [data-ui-part='summary-item'] {
+    border-inline-start: 1px solid var(--ui-border) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] [data-ui-part='value'] {
+    color: var(--ui-signature-deep);
+    font-size: 24px;
+    font-weight: 880;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] [data-ui-part='label'] {
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 760;
+  }
+
+  /* =========================================================
+     TABLES / LEDGERS / RECORDS
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='ledger'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='table'] {
+    overflow: auto;
+    border: 1px solid var(--ui-border);
+    border-radius: 15px;
+    background: var(--ui-signature-paper);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--ui-signature-deep) 4%, transparent);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] {
+    background: var(--ui-signature-paper) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] thead th {
+    border-color: var(--ui-border) !important;
+    background: #f4eee8 !important;
+    color: #615655 !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] tbody td {
+    border-color: var(--ui-border-soft) !important;
+    background: var(--ui-signature-paper) !important;
+    color: var(--ui-signature-charcoal) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='table'] tbody tr:hover td {
+    background: color-mix(in srgb, var(--ui-signature-burgundy) 3.5%, var(--ui-signature-paper)) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='record-row'] {
+    border-radius: 12px;
+    transition: background-color 120ms ease, transform 120ms ease;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='record-row']:hover {
+    background: color-mix(in srgb, var(--ui-signature-burgundy) 3%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='record-summary'] [data-ui-part='title'] {
+    color: var(--ui-signature-deep);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='record-summary'] progress::-webkit-progress-value,
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='record-summary'] progress::-moz-progress-bar {
+    background: linear-gradient(90deg, var(--ui-signature-gold), var(--ui-signature-burgundy));
+  }
+
+  /* =========================================================
+     CONTROLS / BUTTONS / MENUS
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-control='field'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='field'],
+  html[data-ui-skin='signature'] .rawDashboardShell input,
+  html[data-ui-skin='signature'] .rawDashboardShell select,
+  html[data-ui-skin='signature'] .rawDashboardShell textarea {
+    border-color: var(--ui-border) !important;
+    border-radius: 11px !important;
+    background: var(--ui-signature-paper) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-control='field']:focus,
+  html[data-ui-skin='signature'] .rawDashboardShell input:focus,
+  html[data-ui-skin='signature'] .rawDashboardShell select:focus,
+  html[data-ui-skin='signature'] .rawDashboardShell textarea:focus {
+    border-color: var(--ui-signature-burgundy) !important;
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-signature-burgundy) 10%, transparent) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-variant='primary'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='primary-action'] button,
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='primary-action'] a {
+    border-color: var(--ui-signature-burgundy) !important;
+    border-radius: 11px !important;
+    background: linear-gradient(145deg, #7b2835, #5b1722) !important;
+    color: var(--ui-signature-paper) !important;
+    box-shadow: 0 7px 18px color-mix(in srgb, var(--ui-signature-burgundy) 18%, transparent) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-variant='primary']:hover:not(:disabled),
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='primary-action'] button:hover:not(:disabled),
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='primary-action'] a:hover {
+    background: var(--ui-signature-deep) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='menu-body'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='view-options-body'] {
+    border-color: var(--ui-border);
+    border-radius: 14px;
+    background: var(--ui-signature-paper);
+    box-shadow: var(--ui-signature-shadow);
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='notice'] {
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--ui-tone-color, var(--ui-signature-burgundy)) 6%, var(--ui-signature-paper));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='status'],
+  html[data-ui-skin='signature'] .rawDashboardShell [data-ui-part='badge'] {
+    font-weight: 760;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ui-signature-gold) 75%, var(--ui-signature-burgundy));
+    outline-offset: 2px;
+  }
+
+  /* =========================================================
+     LOGIN — EXECUTIVE SPLIT SCREEN
+     ========================================================= */
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] {
+    min-height: 100dvh;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(430px, .95fr);
+    grid-template-areas: 'hero form';
+    place-items: stretch;
+    gap: 0;
+    padding: 0;
+    direction: ltr;
+    background: var(--ui-signature-ivory);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='auth-hero'] {
+    grid-area: hero;
+    position: relative;
+    isolation: isolate;
+    min-height: 100dvh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 32px;
+    padding: clamp(46px, 6vw, 86px);
+    overflow: hidden;
+    direction: rtl;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--ui-signature-deep) 96%, transparent), color-mix(in srgb, #5b1722 94%, transparent)),
+      url('/skin/signature/login-architecture.svg') center bottom / cover no-repeat,
+      var(--ui-signature-deep);
+    color: var(--ui-signature-paper);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='auth-hero']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: url('/skin/signature/login-architecture.svg') center bottom / cover no-repeat;
+    opacity: .82;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-brand'] {
+    display: grid;
+    gap: 4px;
+    width: max-content;
+    padding-inline-end: 22px;
+    border-inline-end: 3px solid var(--ui-signature-gold);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-brand'] strong {
+    font-size: clamp(28px, 3vw, 42px);
+    line-height: 1.15;
+    letter-spacing: -.035em;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-brand'] span {
+    color: var(--ui-signature-gold-soft);
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: .04em;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-copy'] {
+    width: min(620px, 90%);
+    display: grid;
+    gap: 14px;
+    margin-top: auto;
+    padding-bottom: 24px;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-copy'] strong {
+    max-width: 14ch;
+    font-size: clamp(36px, 5vw, 66px);
+    line-height: 1.08;
+    letter-spacing: -.045em;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-copy'] span {
+    max-width: 52ch;
+    color: #eadfd7;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-hero-signature'] {
+    color: var(--ui-signature-gold);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .14em;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-role='auth-card'] {
+    grid-area: form;
+    align-self: center;
+    justify-self: center;
+    width: min(460px, calc(100% - 72px));
+    box-sizing: border-box;
+    padding: 46px 42px;
+    border: 1px solid var(--ui-border);
+    border-radius: 22px;
+    direction: rtl;
+    background: color-mix(in srgb, var(--ui-signature-paper) 98%, transparent);
+    color: var(--ui-text);
+    box-shadow: var(--ui-signature-shadow);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='brand'] {
+    margin-bottom: 30px;
+    text-align: right;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='brand-mark'] {
+    justify-content: flex-start;
+    margin: 0 0 16px auto;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='brand-mark'] i {
+    width: 4px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, var(--ui-signature-gold), var(--ui-signature-burgundy));
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='brand'] h1 {
+    color: var(--ui-signature-deep);
+    font-size: 30px;
+    font-weight: 850;
+    letter-spacing: -.025em;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='brand'] p {
+    margin-top: 7px;
+    color: var(--ui-text-muted);
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-role='field-group'] {
+    gap: 7px;
+    margin-bottom: 17px;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-role='field-group'] label {
+    color: #554b4b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-control='field'] {
+    min-height: 48px;
+    padding: 10px 13px;
+    border-color: var(--ui-border);
+    border-radius: 11px;
+    background: var(--ui-signature-paper);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-control='field']:focus {
+    border-color: var(--ui-signature-burgundy);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-signature-burgundy) 10%, transparent);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-control='action'] {
+    min-height: 50px;
+    margin-top: 10px;
+    border-color: var(--ui-signature-burgundy);
+    border-radius: 11px;
+    background: linear-gradient(145deg, #7b2835, #54141f);
+    color: var(--ui-signature-paper);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--ui-signature-burgundy) 20%, transparent);
+    font-weight: 800;
+  }
+
+  html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-control='action']:hover:not(:disabled) {
+    background: var(--ui-signature-deep);
+    border-color: var(--ui-signature-deep);
+  }
+
+  html[data-ui-skin='signature'] [data-ui-part='auth-security-note'] {
+    display: block;
+    margin-top: 18px;
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  /* =========================================================
+     MOBILE — SAME TUXEDO, LESS CEREMONY
+     ========================================================= */
+  @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    html[data-ui-skin='signature'] .appNavMobileTrigger {
+      top: 10px;
+      right: 10px;
+      min-height: 40px;
+      border-color: color-mix(in srgb, var(--ui-signature-gold) 25%, var(--ui-signature-burgundy));
+      border-radius: 12px;
+      background: linear-gradient(145deg, #6b1f2b, #3b0f16);
+      color: var(--ui-signature-paper);
+      box-shadow: 0 9px 24px color-mix(in srgb, var(--ui-signature-deep) 22%, transparent);
+    }
+
+    html[data-ui-skin='signature'] .appContextNav {
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--ui-signature-paper) 98%, transparent), var(--ui-signature-ivory)),
+        var(--signature-context-art) bottom -18px left -80px / 260px auto no-repeat;
+      box-shadow: -18px 0 42px color-mix(in srgb, var(--ui-signature-deep) 16%, transparent);
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='route-mount'] {
+      padding-top: 62px !important;
+      padding-inline: 12px !important;
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'],
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header'] {
+      min-height: 118px !important;
+      padding: 18px 16px 16px !important;
+      border-radius: 18px !important;
+      background:
+        linear-gradient(90deg, color-mix(in srgb, var(--ui-signature-paper) 38%, transparent) 0%, var(--ui-signature-paper) 62%),
+        var(--signature-context-art) left center / 250px auto no-repeat,
+        var(--ui-signature-paper) !important;
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='page-header'] [data-ui-part='title'],
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='header'] h1 {
+      font-size: 25px !important;
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] [data-ui-part='summary-item'] {
+      min-height: 88px;
+      padding: 12px;
+      border-radius: 14px;
+    }
+
+    html[data-ui-skin='signature'] [data-ui-surface='auth'] {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'hero' 'form';
+      align-content: start;
+      min-height: 100dvh;
+      background: var(--ui-signature-ivory);
+    }
+
+    html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-part='auth-hero'] {
+      min-height: 230px;
+      padding: 30px 24px 26px;
+      justify-content: space-between;
+    }
+
+    html[data-ui-skin='signature'] [data-ui-part='auth-hero-brand'] strong {
+      font-size: 26px;
+    }
+
+    html[data-ui-skin='signature'] [data-ui-part='auth-hero-copy'] {
+      width: 100%;
+      gap: 6px;
+      padding-bottom: 0;
+    }
+
+    html[data-ui-skin='signature'] [data-ui-part='auth-hero-copy'] strong {
+      max-width: 18ch;
+      font-size: 25px;
+      line-height: 1.2;
+    }
+
+    html[data-ui-skin='signature'] [data-ui-part='auth-hero-copy'] span,
+    html[data-ui-skin='signature'] [data-ui-part='auth-hero-signature'] {
+      display: none;
+    }
+
+    html[data-ui-skin='signature'] [data-ui-surface='auth'] [data-ui-role='auth-card'] {
+      width: min(100% - 24px, 470px);
+      margin: 18px auto 30px;
+      padding: 30px 24px;
+      border-radius: 18px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='summary'] {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html[data-ui-skin='signature'] *,
+    html[data-ui-skin='signature'] *::before,
+    html[data-ui-skin='signature'] *::after {
+      scroll-behavior: auto !important;
+      transition-duration: .01ms !important;
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}

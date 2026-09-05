@@ -24,11 +24,23 @@ export default function Login() {
 
   return (
     <main data-ui-surface="auth" data-ui-slot="page">
+      <section data-ui-part="auth-hero" aria-label="هوية أركان المكان">
+        <div data-ui-part="auth-hero-brand">
+          <strong>أركان المكان</strong>
+          <span>نبني قيمة تدوم</span>
+        </div>
+        <div data-ui-part="auth-hero-copy">
+          <strong>أكثر من مشاريع.. نصنع أثرًا يدوم.</strong>
+          <span>نظام تشغيلي موحد لإدارة المشاريع والموارد والمال والمستندات بوضوح واحد وهوية واحدة.</span>
+        </div>
+        <span data-ui-part="auth-hero-signature">ARKAN SIGNATURE</span>
+      </section>
+
       <form data-ui-role="auth-card" data-ui-slot="form" onSubmit={signIn}>
         <div data-ui-part="brand">
           <div data-ui-part="brand-mark" aria-hidden="true"><i/><i/><i/><i/><i/><i/></div>
-          <h1>أركان المكان</h1>
-          <p>النظام الإداري</p>
+          <h1>مرحبًا بك مجددًا</h1>
+          <p>سجّل الدخول إلى أركان المكان</p>
         </div>
 
         {err ? <div data-ui-slot="notice" data-ui-tone="error" role="alert">{err}</div> : null}
@@ -64,6 +76,7 @@ export default function Login() {
         <button data-ui-control="action" data-ui-variant="primary" type="submit" disabled={busy}>
           {busy ? 'جارٍ الدخول…' : 'تسجيل الدخول'}
         </button>
+        <span data-ui-part="auth-security-note">دخول آمن إلى نظام أركان المكان</span>
       </form>
     </main>
   );
