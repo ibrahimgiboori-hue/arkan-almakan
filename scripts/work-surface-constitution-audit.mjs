@@ -154,10 +154,10 @@ const bodySkin = requireText('app/dashboard/ui-skin-contract.css', [
   '.appCompletedActions',
   'data-work-session-state',
 ]);
-if (/\[data-ui-slot=['"]route-mount['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodySkin)) {
+if (/\[data-ui-slot=['"]route-mount['"]\]\s*\{[^}]*display\s*:\s*none/i.test(bodySkin)) {
   failures.push('ui-skin-contract.css: الجلد المركزي يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
 }
-if (/\[data-ui-slot=['"]route-mount['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodySkin)) {
+if (/\[data-ui-slot=['"]route-mount['"]\]\s*\{[^}]*(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodySkin)) {
   failures.push('ui-skin-contract.css: الجلد المركزي يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
 }
 if (exists('app/dashboard/app-body-v3.css')) failures.push('app-body-v3.css: طبقة الجسد المستقلة عادت بعد امتصاص وظيفتها في الجلد المركزي.');
