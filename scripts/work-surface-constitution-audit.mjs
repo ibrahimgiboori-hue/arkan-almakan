@@ -128,7 +128,7 @@ if (!sessionRuntime.includes('pendingWork?.dirty')) failures.push('WorkSessionRu
 const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
   "import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime'",
-  "'./app-body-v3.css'",
+  "'./ui-skin-contract.css'",
   '<WorkSurfaceRuntime>',
   '</WorkSurfaceRuntime>',
   '<WorkSessionRuntime>',
@@ -144,9 +144,9 @@ if ((layout.match(/\{children\}/g) || []).length !== 1) {
   failures.push('app/dashboard/layout.js: محتوى المسار يجب أن يركب مرة واحدة فقط داخل الجسد الجديد؛ ممنوع نسخ العضو أو عرضه في سطح موازٍ.');
 }
 
-const bodyCss = requireText('app/dashboard/app-body-v3.css', [
-  'APPLICATION BODY V3',
-  "[data-organ-host='route-content']",
+const bodySkin = requireText('app/dashboard/ui-skin-contract.css', [
+  'Absorbed application-body layer',
+  "[data-ui-slot='route-mount']",
   ".appContextNav[data-open='true'][data-pinned='true']",
   'padding-right: var(--app-body-nav-width)',
   'content: none !important',
@@ -154,12 +154,13 @@ const bodyCss = requireText('app/dashboard/app-body-v3.css', [
   '.appCompletedActions',
   'data-work-session-state',
 ]);
-if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodyCss)) {
-  failures.push('app-body-v3.css: الجسد الجديد يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
+if (/\[data-ui-slot=['"]route-mount['"]\][\s\S]{0,220}?display\s*:\s*none/i.test(bodySkin)) {
+  failures.push('ui-skin-contract.css: الجلد المركزي يخفي مضيف العضو؛ ممنوع إسقاط محتوى المسارات أثناء الهجرة.');
 }
-if (/\[data-organ-host=['"]route-content['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodyCss)) {
-  failures.push('app-body-v3.css: الجسد الجديد يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
+if (/\[data-ui-slot=['"]route-mount['"]\][\s\S]{0,260}?(?:position\s*:\s*fixed|transform\s*:\s*scale)/i.test(bodySkin)) {
+  failures.push('ui-skin-contract.css: الجلد المركزي يعيد تحجيم/تثبيت العضو نفسه بدل حمله داخل مساحة العمل الطبيعية.');
 }
+if (exists('app/dashboard/app-body-v3.css')) failures.push('app-body-v3.css: طبقة الجسد المستقلة عادت بعد امتصاص وظيفتها في الجلد المركزي.');
 
 requireText('components/ui/ConstitutionUI.js', [
   "import { useWorkSurface } from './WorkSurfaceRuntime'",
