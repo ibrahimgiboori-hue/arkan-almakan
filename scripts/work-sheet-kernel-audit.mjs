@@ -19,19 +19,21 @@ function requireText(file, needles) {
 
 requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
-  "import './legacy-ui-compat.css'",
+  "import './prehydration-legacy-containment.css'",
   "import './ui-skin-foundation.css'",
   "import './ui-component-skin.css'",
+  "import './ui-semantic-adapter-skin.css'",
   "import './ui-shell-skin.css'",
   'data-work-kernel="operational-notebook-v1"',
   'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
   'className="workSheetMount"',
   'ContextualDashboardNavigation',
+  'LegacySemanticBridgeRuntime',
 ]);
 
 const layout = read('app/dashboard/layout.js');
-for (const retired of ['work-sheet-kernel.css','raw-phase.css','app-shell-v2.css']) {
+for (const retired of ['work-sheet-kernel.css','raw-phase.css','app-shell-v2.css','legacy-ui-compat.css']) {
   if (layout.includes(retired)) failures.push(`app/dashboard/layout.js: أعاد طبقة متقاعدة ${retired}.`);
 }
 
@@ -39,6 +41,7 @@ for (const retiredFile of [
   'app/dashboard/work-sheet-kernel.css',
   'app/dashboard/raw-phase.css',
   'app/dashboard/app-shell-v2.css',
+  'app/dashboard/legacy-ui-compat.css',
   'components/ui/constitution-ui.module.css',
   'components/ui/RawDashboardNavigation.module.css',
 ]) {
@@ -55,7 +58,6 @@ requireText('app/dashboard/ui-skin-foundation.css', [
   "[data-ui-role='table']",
   'scrollbar-gutter: stable both-edges',
 ]);
-
 const semanticFoundation = read('app/dashboard/ui-skin-foundation.css');
 if (/\.page-head|\.section:not\(|\.btn:not\(|\.shell\s*>\s*\.side/.test(semanticFoundation)) {
   failures.push('ui-skin-foundation.css: القبطان الدلالي عاد لامتلاك مفردات CSS القديمة.');
@@ -66,13 +68,20 @@ requireText('app/dashboard/ui-component-skin.css', [
   "[data-ui-slot='record-summary']",
   "[data-ui-part='secondary-trigger']",
 ]);
-
-requireText('app/dashboard/legacy-ui-compat.css', [
-  'LEGACY UI COMPATIBILITY — quarantine only',
+requireText('app/dashboard/ui-semantic-adapter-skin.css', [
+  'SEMANTIC ADAPTER SKIN',
+  "[data-ui-role='legacy-card']",
+  "[data-ui-role='legacy-action']",
+  "[data-ui-role='legacy-shell']",
 ]);
-const legacy = read('app/dashboard/legacy-ui-compat.css');
-if (/\[data-work-(?:header|section|ledger|dock)=['"]true['"]\]/.test(legacy)) {
-  failures.push('legacy-ui-compat.css: حجر التوافق عاد لامتلاك عظام WorkSheet الدلالية.');
+requireText('app/dashboard/prehydration-legacy-containment.css', [
+  'PRE-HYDRATION LEGACY CONTAINMENT',
+  'Structural safety only',
+  '.shell > .side',
+]);
+const containment = read('app/dashboard/prehydration-legacy-containment.css');
+if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:/.test(containment)) {
+  failures.push('prehydration-legacy-containment.css: احتواء ما قبل hydration صار جلدًا مرئيًا منافسًا.');
 }
 
 requireText('app/dashboard/ui-shell-skin.css', [
@@ -83,6 +92,14 @@ requireText('app/dashboard/ui-shell-skin.css', [
   '.appNavTopLine',
   '.appNavBottomActions',
   "@media (prefers-reduced-motion: reduce)",
+]);
+
+requireText('components/ui/LegacySemanticBridgeRuntime.js', [
+  "uiSlot('page')",
+  "uiSlot('section')",
+  "uiSlot('action')",
+  "'data-ui-role':'legacy-shell'",
+  'MutationObserver',
 ]);
 
 // القبطان المرئي واحد، وكتالوج مجموعات البوابات واحد كذلك. المشاريع تحتفظ
@@ -151,4 +168,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: WorkSheet structure, component skin and shell skin are separated; retired local visual layers cannot return.');
+console.log('Single visual captain audit passed: there is no legacy visual captain; old markup is semantically adapted, the native component/shell skins are replaceable, and only non-visual pre-hydration containment remains.');
