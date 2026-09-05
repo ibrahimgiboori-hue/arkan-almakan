@@ -1,0 +1,69 @@
+/* Native skin adapter for the semantic UI contract.
+   A future interface may replace this file while keeping data-ui-slot/data-ui-part and business behavior intact. */
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] {
+  color: var(--ui-text);
+  background: var(--ui-canvas);
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='selection-dock'] {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='selection-dock'] [data-ui-part='selection-spacer'] {
+  flex: 1 1 auto;
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='selection-dock'] [data-ui-part='selection-actions'] {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-control='clear-selection'] {
+  appearance: none;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text);
+  min-height: 34px;
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-control='clear-selection']:hover {
+  background: color-mix(in srgb, var(--ui-accent) 5%, var(--ui-surface));
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='error'] {
+  --ui-tone-color: var(--ui-danger);
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='success'] {
+  --ui-tone-color: var(--ui-success);
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='warning'] {
+  --ui-tone-color: var(--ui-warning);
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='info'] {
+  --ui-tone-color: var(--ui-info);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] *,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] *::before,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] *::after {
+    scroll-behavior: auto !important;
+  }
+}
