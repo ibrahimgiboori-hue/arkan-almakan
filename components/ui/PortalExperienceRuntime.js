@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { PORTAL_EXPERIENCE_POLICY, portalExperienceDataAttributes } from '@/lib/portal-experience-constitution';
 
@@ -112,6 +112,12 @@ function applySemanticBehavior(root = document) {
       row.setAttribute('data-record-selected', checkbox.checked ? 'true' : 'false');
     }
   });
+
+  root.querySelectorAll?.('input[type="email"], input[type="tel"], input[type="url"], input[type="number"], input[inputmode="numeric"], input[inputmode="decimal"]').forEach((field) => {
+    if (!(field instanceof HTMLInputElement) || field.dataset.preserveDirection === 'true') return;
+    if (!field.hasAttribute('dir')) field.setAttribute('dir', 'ltr');
+    field.setAttribute('data-technical-field', 'true');
+  });
 }
 
 function nearestSaveTarget(eventTarget) {
@@ -134,6 +140,7 @@ export default function PortalExperienceRuntime({ children }) {
   const returnFocusRef = useRef(null);
   const focusNavOnOpenRef = useRef(false);
   const submitTimesRef = useRef(new WeakMap());
+  const [online, setOnline] = useState(true);
 
   useEffect(() => {
     const shell = document.querySelector('.rawDashboardShell');
@@ -141,6 +148,22 @@ export default function PortalExperienceRuntime({ children }) {
     const attrs = portalExperienceDataAttributes();
     Object.entries(attrs).forEach(([name, value]) => shell.setAttribute(name, value));
     return () => Object.keys(attrs).forEach((name) => shell.removeAttribute(name));
+  }, []);
+
+  useEffect(() => {
+    function syncNetwork() {
+      const nextOnline = navigator.onLine !== false;
+      setOnline(nextOnline);
+      const shell = document.querySelector('.rawDashboardShell');
+      if (shell instanceof HTMLElement) shell.setAttribute('data-network-status', nextOnline ? 'online' : 'offline');
+    }
+    syncNetwork();
+    window.addEventListener('online', syncNetwork);
+    window.addEventListener('offline', syncNetwork);
+    return () => {
+      window.removeEventListener('online', syncNetwork);
+      window.removeEventListener('offline', syncNetwork);
+    };
   }, []);
 
   useEffect(() => {
@@ -421,5 +444,12 @@ export default function PortalExperienceRuntime({ children }) {
     };
   }, [pathname]);
 
-  return children;
+  return <>
+    {!online ? (
+      <div className="appOfflineNotice" role="status" aria-live="polite" data-network-notice="offline">
+        لا يوجد اتصال بالإنترنت. يمكنك مراجعة البيانات الظاهرة، لكن أي حفظ أو إرسال قد لا يكتمل حتى يعود الاتصال.
+      </div>
+    ) : null}
+    {children}
+  </>;
 }
