@@ -144,6 +144,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
 
   const currentArea = accessibleAreas.find((area) => area.key === currentAreaKey) || null;
   const currentAreaGroups = currentArea ? groupsByArea[currentArea.key] || [] : [];
+  const hasDesktopContext = Boolean(projectId || currentArea);
 
   const projectTools = useMemo(() => {
     if (!projectId) return [];
@@ -209,14 +210,14 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
         event.preventDefault();
         const compact = window.matchMedia('(max-width: 900px), (hover: none), (pointer: coarse)').matches;
         if (compact) setMobileOpen((value) => !value);
-        else setDesktopExpanded((value) => !value);
+        else if (hasDesktopContext) setDesktopExpanded((value) => !value);
         return;
       }
       if (event.key === 'Escape' && mobileOpen) setMobileOpen(false);
     }
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [mobileOpen]);
+  }, [hasDesktopContext, mobileOpen]);
 
   function go(href) {
     if (!href) return;
@@ -258,15 +259,17 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
         {me?.access?.approvals ? (
           <RailButton label="اعتماداتي" kind="approvals" badge={approvalsBadge} active={pathname.startsWith('/dashboard/approvals') || pathname.startsWith('/dashboard/my-work/approvals')} onClick={() => go('/dashboard/approvals')} />
         ) : null}
-        <button
-          type="button"
-          className="appRailCollapse"
-          aria-label={desktopExpanded ? 'طي القائمة الجانبية' : 'فتح القائمة الجانبية'}
-          title={desktopExpanded ? 'طي القائمة الجانبية' : 'فتح القائمة الجانبية'}
-          onClick={() => setDesktopExpanded((value) => !value)}
-        >
-          <span aria-hidden="true">{desktopExpanded ? '›' : '‹'}</span>
-        </button>
+        {hasDesktopContext ? (
+          <button
+            type="button"
+            className="appRailCollapse"
+            aria-label={desktopExpanded ? 'طي القائمة الجانبية' : 'فتح القائمة الجانبية'}
+            title={desktopExpanded ? 'طي القائمة الجانبية' : 'فتح القائمة الجانبية'}
+            onClick={() => setDesktopExpanded((value) => !value)}
+          >
+            <span aria-hidden="true">{desktopExpanded ? '›' : '‹'}</span>
+          </button>
+        ) : null}
       </div>
     </nav>
 
@@ -288,7 +291,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       ref={asideRef}
       id="arkan-context-navigation"
       className="appContextNav"
-      data-open={desktopExpanded ? 'true' : 'false'}
+      data-open={hasDesktopContext && desktopExpanded ? 'true' : 'false'}
       data-mobile-open={mobileOpen ? 'true' : 'false'}
       data-context-kind={projectId ? 'project' : currentArea ? 'portal' : 'root'}
       aria-label="قائمة المكان الحالي"
