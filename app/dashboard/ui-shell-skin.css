@@ -13,6 +13,14 @@
     --app-shell-context-width: var(--ui-shell-nav-width, 220px);
   }
 
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'] {
+    padding-right: var(--app-shell-rail-width) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1']:has(.appContextNav[data-open='true']) [data-ui-slot='application-stage'] {
+    padding-right: calc(var(--app-shell-rail-width) + var(--app-shell-context-width)) !important;
+  }
+
   .appNavRail {
     position: fixed;
     top: 0;
@@ -393,6 +401,11 @@
   }
 
   @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'],
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1']:has(.appContextNav[data-open='true']) [data-ui-slot='application-stage'] {
+      padding-right: 0 !important;
+    }
+
     .appNavRail {
       display: none;
     }
