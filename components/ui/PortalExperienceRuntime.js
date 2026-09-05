@@ -17,6 +17,23 @@ function typingTarget(target) {
   return target.isContentEditable || tag === 'input' || tag === 'textarea' || tag === 'select';
 }
 
+function numericTarget(target) {
+  if (!(target instanceof HTMLInputElement)) return false;
+  if (target.dataset.normalizeNumeric === 'false') return false;
+  const mode = String(target.inputMode || '').toLowerCase();
+  return target.type === 'number' || mode === 'numeric' || mode === 'decimal' || target.dataset.normalizeNumeric === 'true';
+}
+
+function normalizeLocalizedNumberText(value) {
+  const arabic = '٠١٢٣٤٥٦٧٨٩';
+  const persian = '۰۱۲۳۴۵۶۷۸۹';
+  return String(value ?? '')
+    .replace(/[٠-٩]/g, (digit) => String(arabic.indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String(persian.indexOf(digit)))
+    .replace(/٫/g, '.')
+    .replace(/٬/g, '');
+}
+
 function navFocusable(nav) {
   return Array.from(nav.querySelectorAll(
     '.appNavBack, .appNavRow, .appNavTopLine button:not([disabled]), .appNavBottomActions button:not([disabled])'
@@ -59,6 +76,20 @@ function focusRow(row) {
   return false;
 }
 
+function syncLedgerOverflow(node) {
+  if (!(node instanceof HTMLElement)) return;
+  const max = Math.max(0, node.scrollWidth - node.clientWidth);
+  if (max <= 2) {
+    node.setAttribute('data-ledger-overflow', 'false');
+    node.setAttribute('data-ledger-scroll-position', 'none');
+    return;
+  }
+  const offset = Math.min(max, Math.abs(Number(node.scrollLeft) || 0));
+  const position = offset <= 2 ? 'start' : offset >= max - 2 ? 'end' : 'middle';
+  node.setAttribute('data-ledger-overflow', 'true');
+  node.setAttribute('data-ledger-scroll-position', position);
+}
+
 function applySemanticBehavior(root = document) {
   root.querySelectorAll?.('[data-inline-feedback="true"], [data-work-inline-status="true"]').forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
@@ -71,6 +102,7 @@ function applySemanticBehavior(root = document) {
     if (!node.hasAttribute('tabindex')) node.tabIndex = 0;
     if (!node.hasAttribute('aria-label')) node.setAttribute('aria-label', 'جدول بيانات');
     node.setAttribute('data-ledger-scroll-ready', 'true');
+    syncLedgerOverflow(node);
   });
 
   root.querySelectorAll?.('[data-record-row="true"]').forEach((row) => {
@@ -80,6 +112,21 @@ function applySemanticBehavior(root = document) {
       row.setAttribute('data-record-selected', checkbox.checked ? 'true' : 'false');
     }
   });
+}
+
+function nearestSaveTarget(eventTarget) {
+  const source = eventTarget instanceof Element ? eventTarget : null;
+  const form = source?.closest?.('form');
+  if (form instanceof HTMLFormElement) {
+    const formSubmit = Array.from(form.querySelectorAll('button[type="submit"]:not([disabled]), input[type="submit"]:not([disabled])'))
+      .find((node) => node instanceof HTMLElement && visible(node));
+    if (formSubmit instanceof HTMLElement) return formSubmit;
+  }
+
+  const centralSave = Array.from(document.querySelectorAll(
+    '[data-program-action="true"][data-action-kind="save"]:not([disabled]), [data-page-command-save="true"]:not([disabled])'
+  )).find((node) => node instanceof HTMLElement && visible(node));
+  return centralSave instanceof HTMLElement ? centralSave : null;
 }
 
 export default function PortalExperienceRuntime({ children }) {
@@ -107,7 +154,23 @@ export default function PortalExperienceRuntime({ children }) {
       }
     });
     observer.observe(host, { childList:true, subtree:true });
-    return () => observer.disconnect();
+
+    function syncAllLedgers() {
+      document.querySelectorAll('[data-table-surface="true"]').forEach(syncLedgerOverflow);
+    }
+    function onLedgerScroll(event) {
+      const node = event.target;
+      if (node instanceof HTMLElement && node.matches('[data-table-surface="true"]')) syncLedgerOverflow(node);
+    }
+    window.addEventListener('resize', syncAllLedgers);
+    document.addEventListener('scroll', onLedgerScroll, true);
+    const frame = window.requestAnimationFrame(syncAllLedgers);
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', syncAllLedgers);
+      document.removeEventListener('scroll', onLedgerScroll, true);
+    };
   }, [pathname]);
 
   useEffect(() => {
@@ -143,11 +206,34 @@ export default function PortalExperienceRuntime({ children }) {
     }
 
     function onNavKeyDown(event) {
-      if (!nav.contains(event.target) || typingTarget(event.target)) return;
-      if (!PORTAL_EXPERIENCE_POLICY.navigation.keyboard.includes(event.key)) return;
+      if (!nav.contains(event.target)) return;
+      if (event.key === 'Escape') {
+        window.requestAnimationFrame(() => returnFocusRef.current?.focus?.({ preventScroll:true }));
+        return;
+      }
+      if (typingTarget(event.target) || !PORTAL_EXPERIENCE_POLICY.navigation.keyboard.includes(event.key)) return;
+
       const items = navFocusable(nav);
       if (!items.length) return;
       const current = event.target instanceof Element ? event.target.closest('.appNavBack, .appNavRow, button') : null;
+
+      if (event.key === PORTAL_EXPERIENCE_POLICY.navigation.rtlForwardKey) {
+        if (current instanceof HTMLElement && current.matches('.appNavRowParent, .appNavProjectGroupTitle')) {
+          event.preventDefault();
+          current.click();
+        }
+        return;
+      }
+
+      if (event.key === PORTAL_EXPERIENCE_POLICY.navigation.rtlBackKey) {
+        const back = nav.querySelector('.appNavBack');
+        if (back instanceof HTMLElement && visible(back)) {
+          event.preventDefault();
+          back.click();
+        }
+        return;
+      }
+
       let index = Math.max(0, items.indexOf(current));
       if (event.key === 'ArrowDown') index = (index + 1) % items.length;
       if (event.key === 'ArrowUp') index = (index - 1 + items.length) % items.length;
@@ -211,6 +297,8 @@ export default function PortalExperienceRuntime({ children }) {
       let index = currentIndex;
       if (event.key === 'ArrowDown') index = Math.min(rows.length - 1, currentIndex + 1);
       if (event.key === 'ArrowUp') index = Math.max(0, currentIndex - 1);
+      if (event.key === 'PageDown') index = Math.min(rows.length - 1, currentIndex + PORTAL_EXPERIENCE_POLICY.records.pageJumpRows);
+      if (event.key === 'PageUp') index = Math.max(0, currentIndex - PORTAL_EXPERIENCE_POLICY.records.pageJumpRows);
       if (event.key === 'Home') index = 0;
       if (event.key === 'End') index = rows.length - 1;
       if (index === currentIndex && !['Home', 'End'].includes(event.key)) return;
@@ -254,6 +342,49 @@ export default function PortalExperienceRuntime({ children }) {
       if (field.validity?.valid) field.removeAttribute('aria-invalid');
     }
 
+    function onPaste(event) {
+      const field = event.target;
+      if (!numericTarget(field)) return;
+      const raw = event.clipboardData?.getData('text');
+      if (typeof raw !== 'string') return;
+      const normalized = normalizeLocalizedNumberText(raw);
+      if (normalized === raw) return;
+      event.preventDefault();
+      if (field.type === 'number' || field.selectionStart == null || field.selectionEnd == null) {
+        field.value = normalized;
+      } else {
+        field.setRangeText(normalized, field.selectionStart, field.selectionEnd, 'end');
+      }
+      field.dispatchEvent(new Event('input', { bubbles:true }));
+    }
+
+    function onBlur(event) {
+      const field = event.target;
+      if (!numericTarget(field) || field.type === 'number') return;
+      const normalized = normalizeLocalizedNumberText(field.value);
+      if (normalized === field.value) return;
+      field.value = normalized;
+      field.dispatchEvent(new Event('input', { bubbles:true }));
+      field.dispatchEvent(new Event('change', { bubbles:true }));
+    }
+
+    function onWheel(event) {
+      const field = event.target;
+      if (!(field instanceof HTMLInputElement) || field.type !== 'number') return;
+      if (field.dataset.allowWheelChange === 'true' || document.activeElement !== field) return;
+      field.blur();
+    }
+
+    function onSaveShortcut(event) {
+      if (event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey) || String(event.key).toLowerCase() !== 's') return;
+      event.preventDefault();
+      const target = nearestSaveTarget(event.target);
+      window.dispatchEvent(new CustomEvent('arkan:save-requested', {
+        detail:{ pathname, handled:Boolean(target) },
+      }));
+      target?.click?.();
+    }
+
     function onSubmit(event) {
       const form = event.target;
       if (!(form instanceof HTMLFormElement)) return;
@@ -274,13 +405,21 @@ export default function PortalExperienceRuntime({ children }) {
 
     document.addEventListener('invalid', onInvalid, true);
     document.addEventListener('input', onInput, true);
+    document.addEventListener('paste', onPaste, true);
+    document.addEventListener('blur', onBlur, true);
+    document.addEventListener('wheel', onWheel, true);
     document.addEventListener('submit', onSubmit, true);
+    window.addEventListener('keydown', onSaveShortcut);
     return () => {
       document.removeEventListener('invalid', onInvalid, true);
       document.removeEventListener('input', onInput, true);
+      document.removeEventListener('paste', onPaste, true);
+      document.removeEventListener('blur', onBlur, true);
+      document.removeEventListener('wheel', onWheel, true);
       document.removeEventListener('submit', onSubmit, true);
+      window.removeEventListener('keydown', onSaveShortcut);
     };
-  }, []);
+  }, [pathname]);
 
   return children;
 }
