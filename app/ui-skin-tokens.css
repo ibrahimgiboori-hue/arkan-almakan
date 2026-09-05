@@ -84,6 +84,53 @@ html[data-app-theme='mist'] {
 }
 
 /*
+  ARKAN SIGNATURE — APPROVED PROGRAM TUXEDO
+  ----------------------------------------
+  Figma master: Executive luxury x operational clarity. These tokens own the
+  screen outfit only; print geometry, business truth and interaction contracts
+  remain outside the skin.
+*/
+html[data-ui-skin='signature'],
+[data-ui-skin='signature'] {
+  --ui-canvas: #f7f1e8;
+  --ui-surface: #fffaf5;
+  --ui-surface-strong: #fffdfc;
+  --ui-text: #211b1c;
+  --ui-text-muted: #766b6a;
+  --ui-border: #e6ddd5;
+  --ui-border-soft: #f0e8e1;
+  --ui-accent: #6b1f2b;
+  --ui-accent-strong: #3b0f16;
+  --ui-success: #1f8a63;
+  --ui-info: #3d76c5;
+  --ui-danger: #c84b4b;
+  --ui-warning: #c4872e;
+  --ui-on-accent: #fffdfc;
+  --ui-radius: 18px;
+  --ui-radius-sm: 12px;
+  --ui-radius-lg: 22px;
+  --ui-font-size: 16px;
+  --ui-font-size-sm: 14.5px;
+  --ui-row-height: 48px;
+  --ui-gap: 12px;
+  --ui-page-pad: 24px;
+  --ui-shell-rail-width: 94px;
+  --ui-shell-nav-width: 220px;
+
+  --ui-signature-deep: #3b0f16;
+  --ui-signature-burgundy: #6b1f2b;
+  --ui-signature-burgundy-bright: #8d3442;
+  --ui-signature-gold: #b58a45;
+  --ui-signature-gold-soft: #e8d7b8;
+  --ui-signature-ivory: #f7f1e8;
+  --ui-signature-paper: #fffdfc;
+  --ui-signature-rose: #f5e8e7;
+  --ui-signature-charcoal: #211b1c;
+  --ui-signature-shadow: 0 12px 34px color-mix(in srgb, #3b0f16 8%, transparent);
+  --ui-signature-shadow-soft: 0 5px 18px color-mix(in srgb, #3b0f16 6%, transparent);
+}
+
+/*
   Deliberately radical proof skin. It is dormant in production; changing only
   ACTIVE_UI_SKIN_KEY to "stress-test" must repaint both internal and external UI.
 */
