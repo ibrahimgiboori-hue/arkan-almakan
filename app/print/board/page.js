@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { dateAr } from '@/lib/format';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
-import '../employees/emp-report.css';
 
 export default function BoardReport() {
   const [rows, setRows] = useState(null);
@@ -28,28 +27,24 @@ export default function BoardReport() {
 
   return (
     <>
-      <div className="rtoolbar no-print">
+      <div className="print-doc-board_report rtoolbar no-print">
         <button className="primary" onClick={()=>window.print()}>طباعة أو حفظ PDF</button>
         <span className="rt-note">{rows.length} عضواً · مجموع الملكية {totalOwn}٪</span>
       </div>
 
-      <ConstitutionPrintFrame
-        documentKey="board_report"
-        cfg={cfg}
-        showLetterhead
-        showStamp
-      >
-        <div className="board-report">
-            <div className="r-title">
-              <h1>مجلس الإدارة والملاك</h1>
-              <div className="r-meta">
-                <span>{cfg.company_name_ar}</span>
-                <span className="mono">{dateAr(new Date())}</span>
-              </div>
-              <span className="r-rule" />
+      <ConstitutionPrintFrame documentKey="board_report" cfg={cfg} showStamp>
+        <div className="board-report-flow">
+          <div className="r-title" data-print-keep-with-next="true">
+            <h1>مجلس الإدارة والملاك</h1>
+            <div className="r-meta">
+              <span>{cfg.company_name_ar}</span>
+              <span className="mono">{dateAr(new Date())}</span>
             </div>
+            <span className="r-rule" />
+          </div>
 
-            <table className="r-table">
+          {rows.length > 0 ? (
+            <table className="r-table" data-print-flow="repeatable-table">
               <colgroup>
                 <col className="c-no" />
                 <col className="c-name" />
@@ -65,7 +60,7 @@ export default function BoardReport() {
               </thead>
               <tbody>
                 {rows.map((r,i)=>(
-                  <tr key={r.id}>
+                  <tr key={r.id} data-print-flow-item="row">
                     <td className="ctr mono">{i+1}</td>
                     <td className="nm">
                       <span className="n1">{r.full_name_ar}</span>
@@ -81,23 +76,27 @@ export default function BoardReport() {
                     </td>
                   </tr>
                 ))}
-                {totalOwn > 0 && (
-                  <tr className="r-total">
+              </tbody>
+              {totalOwn > 0 && (
+                <tfoot>
+                  <tr className="r-total" data-print-row-role="total" data-print-row-atomic="true">
                     <td colSpan={4}>مجموع نسب الملكية</td>
                     <td className="num">{totalOwn}%</td>
                     <td colSpan={2} />
                   </tr>
-                )}
-              </tbody>
+                </tfoot>
+              )}
             </table>
+          ) : (
+            <div className="print-document-footer">لا توجد سجلات مجلس ضمن النطاق الحالي.</div>
+          )}
 
-            <div className="r-sign">
-              <div className="rs-stamp" aria-hidden="true" />
-              <div className="rs-info">
-                <div className="ri-t">{cfg.company_name_ar}</div>
-                {cfg.cr_number && <div>سجل تجاري {cfg.cr_number}</div>}
-              </div>
+          <div className="r-sign">
+            <div className="rs-info">
+              <div className="ri-t">{cfg.company_name_ar}</div>
+              {cfg.cr_number && <div>سجل تجاري {cfg.cr_number}</div>}
             </div>
+          </div>
         </div>
       </ConstitutionPrintFrame>
     </>

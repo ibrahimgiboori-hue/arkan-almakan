@@ -1,10 +1,10 @@
 .timesheet-print-loading{margin:80px auto;padding:28px;max-width:680px;background:#fff;border:1px solid #d8d0cf;text-align:center;direction:rtl;color:#444}
 .timesheet-print-loading.error{color:#972f2b;border-color:#d8aaa8}
-.timesheet-print-toolbar{position:sticky;top:0;z-index:30;max-margin:0 auto;padding:9px 12px;background:#fff;border:1px solid #cfc7c6;display:flex;align-items:center;justify-content:space-between;gap:12px;direction:rtl}
+.timesheet-print-toolbar{position:sticky;top:0;z-index:30;margin:0 auto;padding:9px 12px;background:#fff;border:1px solid #cfc7c6;display:flex;align-items:center;justify-content:space-between;gap:12px;direction:rtl}
 .timesheet-print-toolbar button{font:inherit;font-size:12px;padding:6px 11px;border:1px solid #aaa;background:#fff;cursor:pointer}
 .timesheet-print-toolbar button.primary{background:#8B3332;border-color:#8B3332;color:#fff}
 .timesheet-print-toolbar span{font-size:11.5px;color:#555}
-.print-family-site-operations .ts-page{direction:rtl;color:#222;font-size:8pt;line-height:1.4}
+.print-family-site-operations .timesheet-flow{direction:rtl;color:#222;font-size:8pt;line-height:1.4}
 .print-family-site-operations .ts-doc-meta{display:flex;justify-content:space-between;gap:8mm;margin-bottom:1.8mm;color:#414141;font-size:7.5pt}
 .print-family-site-operations .ts-doc-meta span:last-child{direction:ltr;text-align:left}
 .print-family-site-operations .ts-doc-title{text-align:center;margin:0 0 2.2mm;break-after:avoid;page-break-after:avoid}
@@ -20,7 +20,7 @@
 .print-family-site-operations .ts-summary span{padding:1.1mm 1.3mm;text-align:center;border-left:.22mm solid #b3b3b3;background:#fff}
 .print-family-site-operations .ts-summary span:last-child{border-left:0}
 .print-family-site-operations .ts-summary b{color:#7C2B28;font-size:9pt;margin-left:1mm}
-.print-family-site-operations .ts-table{border:.22mm solid #929292}
+.print-family-site-operations .ts-table{border:.22mm solid #929292;margin:0 0 1.7mm}
 .print-family-site-operations .ts-table thead{display:table-header-group}
 .print-family-site-operations .ts-table th,.print-family-site-operations .ts-table td{border:.22mm solid #9a9a9a;padding:.95mm 1mm;vertical-align:middle;overflow-wrap:anywhere}
 .print-family-site-operations .ts-table thead th{background:#8B3332;color:#fff;font-weight:700;text-align:center}
@@ -29,8 +29,6 @@
 .print-family-site-operations .ts-table td{text-align:center}
 .print-family-site-operations .ts-table .ts-name-cell{text-align:right;font-weight:700;padding-right:1.5mm}
 .print-family-site-operations .ts-matrix-table th small{display:block;font-size:6.5pt;font-weight:400;direction:ltr;margin-top:.35mm}
-.print-family-site-operations .ts-matrix-table tfoot{display:table-row-group}
-.print-family-site-operations .ts-matrix-table tfoot th{background:#eee5e5;color:#222;border:.22mm solid #8B3332;padding:1mm;text-align:center}
 .print-family-site-operations .ts-col-index{width:7mm}
 .print-family-site-operations .ts-col-name{width:38mm}
 .print-family-site-operations .ts-col-trade{width:21mm}
@@ -44,7 +42,7 @@
 .print-family-site-operations .ts-status-stopped{color:#354565;background:#f0f3f8!important}
 .print-family-site-operations .ts-status-leave{color:#5a4077;background:#f5f0f8!important}
 .print-family-site-operations .ts-status-unrecorded{color:#777;background:#fff!important}
-.print-family-site-operations .ts-legend{display:flex;gap:2.5mm;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:2mm;padding:1mm 1.4mm;border:.22mm solid #c4c4c4;background:#fff;font-size:7pt;break-inside:avoid;page-break-inside:avoid}
+.print-family-site-operations .ts-legend{display:flex;gap:2.5mm;align-items:center;justify-content:center;flex-wrap:wrap;margin:0 0 2mm;padding:1mm 1.4mm;border:.22mm solid #c4c4c4;background:#fff;font-size:7pt;break-inside:avoid;page-break-inside:avoid}
 .print-family-site-operations .ts-legend b{color:#7C2B28;font-size:8pt}
 .print-family-site-operations .ts-detail-table th:nth-child(1){width:27mm}.print-family-site-operations .ts-detail-table th:nth-child(2){width:19mm}.print-family-site-operations .ts-detail-table th:nth-child(3){width:42mm}.print-family-site-operations .ts-detail-table th:nth-child(4){width:18mm}
 .print-family-site-operations .ts-detail-table td:nth-child(3),.print-family-site-operations .ts-detail-table td:last-child{text-align:right}
@@ -61,4 +59,5 @@
 .print-family-site-operations .ts-signatures b{color:#7C2B28;text-align:center;margin-bottom:.5mm}
 .print-family-site-operations .ts-signatures span{font-size:7pt;color:#444}
 .print-family-site-operations .ts-signatures .signature-line{margin-top:auto;color:#222}
+.print-family-site-operations .ts-financial-summary{margin-top:1mm}
 @media print{.timesheet-print-toolbar{display:none!important}.print-family-site-operations .ts-table tbody tr{break-inside:avoid!important;page-break-inside:avoid!important}}

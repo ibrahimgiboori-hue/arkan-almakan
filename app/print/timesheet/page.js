@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
 import { selectRosterAssignmentsForPeriod } from '@/lib/site-operation-roster.mjs';
-import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
-import { getPrintLayoutPolicy, paginateRows } from '@/lib/print-governance';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import {
   arabicDayName,
   buildAttendanceMap,
@@ -19,12 +18,6 @@ import {
 } from '@/lib/timesheet-report.mjs';
 import './timesheet-report.css';
 
-const REPORT_LAYOUT = getPrintLayoutPolicy('timesheet_report');
-const PAGINATION = REPORT_LAYOUT.pagination;
-const MATRIX_CAPS = PAGINATION.matrix;
-const DETAIL_CAPS = PAGINATION.detail;
-const PAPER_CAPS = PAGINATION.paper;
-const SUMMARY_CAPS = PAGINATION.summary;
 const VALID_MODES = new Set(['worker', 'contractor', 'paper']);
 const CLASS_AR = Object.freeze({ worker:'عامل', technician:'صنايعي', foreman:'فورمان' });
 const CLASS_SUMMARY_AR = Object.freeze({ worker:'يوميات العمال', technician:'يوميات الصنايعية', foreman:'يوميات الفورمان', other:'يوميات غير مصنفة' });
@@ -117,10 +110,7 @@ export default function TimesheetPrintPage() {
 
       const attendanceRows = attendanceResult.data || [];
       let assignmentRows = selectRosterAssignmentsForPeriod(
-        assignmentQuery.data || [],
-        query.from,
-        query.to,
-        { contractorId:query.contractorId },
+        assignmentQuery.data || [], query.from, query.to, { contractorId:query.contractorId },
       );
       if (query.mode === 'worker') {
         const wanted = new Set(query.workerIds);
@@ -169,10 +159,7 @@ export default function TimesheetPrintPage() {
 
   const dates = useMemo(() => query ? dateRange(query.from,query.to) : [], [query]);
   const attendanceMap = useMemo(() => buildAttendanceMap(attendance), [attendance]);
-  const summary = useMemo(() => summarizeAttendance(attendance,workers.map((worker) => worker.id)), [attendance,workers]);
-  const laborClasses = useMemo(() => summarizeLaborClasses(workers), [workers]);
   const laborClassByWorker = useMemo(() => Object.fromEntries(workers.map((worker) => [worker.id,worker.laborClass])), [workers]);
-  const workdaysByClass = useMemo(() => summarizeWorkdaysByLaborClass(attendance,laborClassByWorker), [attendance,laborClassByWorker]);
   const financialRows = useMemo(() => financialSummaryRows(attendance,laborClassByWorker), [attendance,laborClassByWorker]);
   const financialTotal = useMemo(() => financialRows.reduce((acc,row)=>({days:acc.days+row.days,amount:acc.amount+row.amount}),{days:0,amount:0}), [financialRows]);
 
@@ -181,122 +168,102 @@ export default function TimesheetPrintPage() {
   if (!cfg || !project || !contractor) return <div className="timesheet-print-loading error">لم تكتمل بيانات التقرير.</div>;
 
   const title = reportTitle(query.mode,workers,query.from,query.to);
-  const matrixDatePages = chunk(dates,7);
-  const matrixFirstDateWorkerPages = paginateRows(workers,MATRIX_CAPS);
-  const matrixRegularWorkerPages = paginateRows(workers,{regular:MATRIX_CAPS.regular});
-  const detailDatePages = paginateRows(dates,DETAIL_CAPS);
-  const paperWorkerPages = paginateRows(workers,PAPER_CAPS);
-  const summaryPages = paginateRows(workers,SUMMARY_CAPS);
-  const pageModels = [];
-
-  if (query.mode === 'paper') {
-    let startIndex = 0;
-    paperWorkerPages.forEach((workerPage,workerPageIndex) => {
-      pageModels.push({kind:'paper',workers:workerPage,workerPageIndex,workerPageCount:paperWorkerPages.length,startIndex});
-      startIndex += workerPage.length;
-    });
-  } else if (query.mode === 'worker' && workers.length === 1) {
-    detailDatePages.forEach((datePage,datePageIndex) => pageModels.push({kind:'detail',dates:datePage,datePageIndex,datePageCount:detailDatePages.length}));
-  } else {
-    const matrixPageTotal = matrixDatePages.reduce((total,_,datePageIndex) => total + (datePageIndex === 0 ? matrixFirstDateWorkerPages.length : matrixRegularWorkerPages.length), 0);
-    let attendancePageNumber = 0;
-    matrixDatePages.forEach((datePage,datePageIndex) => {
-      const workerPages = datePageIndex === 0 ? matrixFirstDateWorkerPages : matrixRegularWorkerPages;
-      let startIndex = 0;
-      workerPages.forEach((workerPage,workerPageIndex) => {
-        attendancePageNumber += 1;
-        pageModels.push({
-          kind:'matrix', dates:datePage, workers:workerPage,
-          datePageIndex, datePageCount:matrixDatePages.length,
-          workerPageIndex, workerPageCount:workerPages.length, startIndex,
-          attendancePageNumber, attendancePageCount:matrixPageTotal,
-        });
-        startIndex += workerPage.length;
-      });
-    });
-    let summaryStartIndex = 0;
-    summaryPages.forEach((workerPage,summaryPageIndex) => {
-      pageModels.push({kind:'summary',workers:workerPage,summaryPageIndex,summaryPageCount:summaryPages.length,startIndex:summaryStartIndex});
-      summaryStartIndex += workerPage.length;
-    });
-  }
+  const matrixDateGroups = chunk(dates,7);
 
   const fullHeader = (subline='') => <>
     <div className="ts-doc-meta"><span>{cfg.company_name_ar}</span><span>{displayDate(new Date())}</span></div>
-    <div className="ts-doc-title"><h1>{title}</h1><span /></div>
+    <div className="ts-doc-title" data-print-keep-with-next="true"><h1>{title}</h1><span /></div>
     <table className="ts-info-table"><tbody>
       <tr><th>المشروع</th><td>{project.project_no} — {project.name_ar}</td><th>المقاول</th><td>{contractor.name_ar}</td></tr>
       <tr><th>الموقع</th><td>{project.site_address || project.city || '—'}</td><th>الفترة</th><td className="ltr">{periodLabel(query.from,query.to)}</td></tr>
     </tbody></table>
-    {subline && <div className="ts-page-subline">{subline}</div>}
+    {subline && <div className="ts-page-subline" data-print-keep-with-next="true">{subline}</div>}
   </>;
 
   const compactHeader = (subline='') => <>
     <div className="ts-doc-meta"><span>{project.project_no} — {project.name_ar}</span><span>{contractor.name_ar}</span></div>
-    <div className="ts-page-subline">{periodLabel(query.from,query.to)}{subline ? ` · ${subline}` : ''}</div>
+    <div className="ts-page-subline" data-print-keep-with-next="true">{periodLabel(query.from,query.to)}{subline ? ` · ${subline}` : ''}</div>
   </>;
+
+  const weekTableHead = (dateGroup) => {
+    const columnCount = 3 + dateGroup.length;
+    return <thead>
+      <tr className="ts-week-context-row">
+        <th colSpan={columnCount}>
+          <div className="ts-doc-meta"><span>{project.project_no} — {project.name_ar}</span><span>{contractor.name_ar}</span></div>
+          <div className="ts-page-subline">{periodLabel(query.from,query.to)} · الحضور · {displayDate(dateGroup[0])} — {displayDate(dateGroup.at(-1))}</div>
+        </th>
+      </tr>
+      <tr><th>م</th><th>اسم العامل</th><th>الصفة / المهنة</th>{dateGroup.map((date) => <th key={date}><span>{arabicDayName(date)}</span><small>{displayDate(date).slice(0,5)}</small></th>)}</tr>
+    </thead>;
+  };
 
   const legend = () => <div className="ts-legend"><span><b>✓</b> يوم كامل</span><span><b>½</b> نصف يوم</span><span><b>غ</b> غياب</span></div>;
   const manualSignatures = () => <div className="ts-signatures"><div><b>مشرف الموقع</b><span>الاسم: ........................................................</span><span>التاريخ: ......................................................</span><span className="signature-line">التوقيع:</span></div><div><b>ممثل المقاول</b><span>الاسم: ........................................................</span><span>التاريخ: ......................................................</span><span className="signature-line">التوقيع:</span></div></div>;
 
+  let flowContent;
+
+  if (query.mode === 'paper') {
+    const paperRows = [...workers,{id:'blank-1'},{id:'blank-2'}];
+    flowContent = <>
+      {fullHeader(`تاريخ الحضور ${displayDate(query.from)}`)}
+      <div className="ts-paper-instruction" data-print-keep-with-next="true">يضع المشرف علامة ✓ للحضور الكامل أو ½ لنصف اليوم. غير الحاضر يترك بلا علامة، وتكتب الملاحظة عند الحاجة.</div>
+      <table className="ts-table ts-paper-table" data-print-flow="repeatable-table">
+        <colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/><col className="ts-col-mark"/><col/></colgroup>
+        <thead><tr><th>م</th><th>اسم العامل</th><th>المهنة</th><th>العلامة</th><th>ملاحظات المشرف</th></tr></thead>
+        <tbody>{paperRows.map((worker,index) => <tr key={worker.id} data-print-flow-item="row"><td>{index+1}</td><td>{worker.name || ''}</td><td>{worker.trade || CLASS_AR[worker.laborClass] || ''}</td><td className="ts-hand-cell"/><td/></tr>)}</tbody>
+      </table>
+      <div className="ts-paper-count">الحضور الكامل: ............ · أنصاف الأيام: ............ · يوميات الصنايعية: ............ · يوميات العمال: ............ · الإجمالي: ............</div>
+      {manualSignatures()}
+    </>;
+  } else if (query.mode === 'worker' && workers.length === 1) {
+    const worker = workers[0];
+    flowContent = <>
+      {fullHeader(`${worker.name} · ${worker.trade || CLASS_AR[worker.laborClass] || 'عامل'}`)}
+      <table className="ts-table ts-detail-table" data-print-flow="repeatable-table">
+        <thead><tr><th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>اليومية</th><th>الملاحظات</th></tr></thead>
+        <tbody>{dates.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <tr key={date} className={`ts-status-${record?.status || 'absent'}`} data-print-flow-item="row"><td className="ltr">{displayDate(date)}</td><td>{arabicDayName(date)}</td><td><b className="ts-symbol">{status.short}</b> {status.label}</td><td className="ltr">{status.factor}</td><td>{record?.notes || record?.stop_reason || '—'}</td></tr>; })}</tbody>
+      </table>
+      <div className="ts-summary"><span><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b> إجمالي يوميات العامل</span></div>
+      {legend()}
+    </>;
+  } else {
+    flowContent = <>
+      {fullHeader()}
+      {matrixDateGroups.map((dateGroup,dateGroupIndex)=><Fragment key={`matrix-group-${dateGroupIndex}`}>
+        <table
+          className="ts-table ts-matrix-table"
+          data-print-flow="repeatable-table"
+        >
+          <colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/>{dateGroup.map((date) => <col key={date} className="ts-col-day"/>)}</colgroup>
+          {weekTableHead(dateGroup)}
+          <tbody>{workers.map((worker,index) => <tr key={worker.id} data-print-flow-item="row"><td>{index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'عامل'}{worker.trade ? ` — ${worker.trade}` : ''}</td>{dateGroup.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <td key={date} className={`ts-mark ts-status-${record?.status || 'absent'}`} title={status.label}>{status.short}</td>; })}</tr>)}</tbody>
+        </table>
+        {legend()}
+      </Fragment>)}
+
+      <div data-print-boundary-before="force-page">
+        {compactHeader('ختام التقرير · ملخص الفترة')}
+        <div className="ts-doc-title" data-print-keep-with-next="true"><h1>ملخص الفترة</h1><span /></div>
+      </div>
+      <table className="ts-table ts-detail-table" data-print-flow="repeatable-table">
+        <thead><tr><th>م</th><th>اسم العامل</th><th>الصفة</th><th>المهنة</th><th>إجمالي أيام الفترة</th></tr></thead>
+        <tbody>{workers.map((worker,index) => <tr key={worker.id} data-print-flow-item="row"><td>{index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'غير مصنف'}</td><td>{worker.trade || '—'}</td><td><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b></td></tr>)}</tbody>
+      </table>
+      <table className="ts-table ts-financial-summary" data-print-flow="repeatable-table">
+        <colgroup><col style={{width:'58%'}}/><col style={{width:'18%'}}/><col style={{width:'24%'}}/></colgroup>
+        <thead><tr><th>البيان</th><th>عدد اليوميات</th><th>المبلغ</th></tr></thead>
+        <tbody>{financialRows.map((row)=><tr key={row.key} data-print-flow-item="row"><td className="ts-name-cell">{row.label}</td><td><b>{workdayNumber(row.days)}</b></td><td className="ltr"><b>{moneyNumber(row.amount)} ريال</b></td></tr>)}</tbody>
+        <tfoot><tr data-print-row-role="total" data-print-row-atomic="true"><td className="ts-name-cell"><b>إجمالي اليوميات</b></td><td><b>{workdayNumber(financialTotal.days)}</b></td><td className="ltr"><b>{moneyNumber(financialTotal.amount)} ريال</b></td></tr></tfoot>
+      </table>
+      {legend()}
+    </>;
+  }
+
   return <>
-    <div className="timesheet-print-toolbar no-print"><button type="button" className="primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button><span>{title} · {pageModels.length} صفحة</span></div>
-    <ConstitutionPagedFrame documentKey="timesheet_report" cfg={cfg} contentTopMm={REPORT_LAYOUT.topMm} contentBottomMm={REPORT_LAYOUT.bottomMm} contentSideMm={REPORT_LAYOUT.sideMm}>
-      {pageModels.map((page,pageIndex) => {
-        if (page.kind === 'paper') {
-          const isLast = pageIndex === pageModels.length - 1;
-          const blankRows = isLast ? [{id:'blank-1'},{id:'blank-2'}] : [];
-          return <div className="ts-page ts-paper-page" key={`paper-${pageIndex}`}>
-            {fullHeader(`ورقة ${page.workerPageIndex+1} من ${page.workerPageCount} · تاريخ الحضور ${displayDate(query.from)}`)}
-            <div className="ts-paper-instruction">يضع المشرف علامة ✓ للحضور الكامل أو ½ لنصف اليوم. غير الحاضر يترك بلا علامة، وتكتب الملاحظة عند الحاجة.</div>
-            <table className="ts-table ts-paper-table"><colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/><col className="ts-col-mark"/><col/></colgroup><thead><tr><th>م</th><th>اسم العامل</th><th>المهنة</th><th>العلامة</th><th>ملاحظات المشرف</th></tr></thead><tbody>{[...page.workers,...blankRows].map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td>{worker.name || ''}</td><td>{worker.trade || CLASS_AR[worker.laborClass] || ''}</td><td className="ts-hand-cell"/><td/></tr>)}</tbody></table>
-            <div className="ts-paper-count">الحضور الكامل: ............ · أنصاف الأيام: ............ · يوميات الصنايعية: ............ · يوميات العمال: ............ · الإجمالي: ............</div>
-            {manualSignatures()}
-          </div>;
-        }
-
-        if (page.kind === 'detail') {
-          const worker = workers[0];
-          return <div className="ts-page" key={`detail-${pageIndex}`}>
-            {pageIndex === 0 ? fullHeader(`${worker.name} · ${worker.trade || CLASS_AR[worker.laborClass] || 'عامل'}`) : compactHeader(`${worker.name} · صفحة ${page.datePageIndex+1} من ${page.datePageCount}`)}
-            <table className="ts-table ts-detail-table"><thead><tr><th>التاريخ</th><th>اليوم</th><th>الحالة</th><th>اليومية</th><th>الملاحظات</th></tr></thead><tbody>{page.dates.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <tr key={date} className={`ts-status-${record?.status || 'absent'}`}><td className="ltr">{displayDate(date)}</td><td>{arabicDayName(date)}</td><td><b className="ts-symbol">{status.short}</b> {status.label}</td><td className="ltr">{status.factor}</td><td>{record?.notes || record?.stop_reason || '—'}</td></tr>; })}</tbody></table>
-            {page.datePageIndex === page.datePageCount-1 && <div className="ts-summary"><span><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b> إجمالي يوميات العامل</span></div>}
-            {legend()}
-          </div>;
-        }
-
-        if (page.kind === 'summary') {
-          const finalSummaryPage = page.summaryPageIndex === page.summaryPageCount - 1;
-          return <div className="ts-page" key={`summary-${page.summaryPageIndex}`}>
-            {compactHeader(`ختام التقرير · ملخص الفترة${page.summaryPageCount>1 ? ` · ${page.summaryPageIndex+1} من ${page.summaryPageCount}` : ''}`)}
-            <div className="ts-doc-title"><h1>ملخص الفترة</h1><span /></div>
-            <table className="ts-table ts-detail-table"><thead><tr><th>م</th><th>اسم العامل</th><th>الصفة</th><th>المهنة</th><th>إجمالي أيام الفترة</th></tr></thead><tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'غير مصنف'}</td><td>{worker.trade || '—'}</td><td><b>{workdayNumber(workerPeriodDays(worker.id,attendance))}</b></td></tr>)}</tbody></table>
-            {finalSummaryPage && <>
-              <table className="ts-table" style={{marginTop:12}}>
-                <colgroup><col style={{width:'58%'}}/><col style={{width:'18%'}}/><col style={{width:'24%'}}/></colgroup>
-                <thead><tr><th>البيان</th><th>عدد اليوميات</th><th>المبلغ</th></tr></thead>
-                <tbody>
-                  {financialRows.map((row)=><tr key={row.key}><td className="ts-name-cell">{row.label}</td><td><b>{workdayNumber(row.days)}</b></td><td className="ltr"><b>{moneyNumber(row.amount)} ريال</b></td></tr>)}
-                  <tr><td className="ts-name-cell"><b>إجمالي اليوميات</b></td><td><b>{workdayNumber(financialTotal.days)}</b></td><td className="ltr"><b>{moneyNumber(financialTotal.amount)} ريال</b></td></tr>
-                </tbody>
-              </table>
-              {legend()}
-            </>}
-          </div>;
-        }
-
-        return <div className="ts-page" key={`matrix-${page.datePageIndex}-${page.workerPageIndex}`}>
-          {page.attendancePageNumber === 1
-            ? fullHeader(`الحضور · ${displayDate(page.dates[0])} — ${displayDate(page.dates.at(-1))} · صفحة ${page.attendancePageNumber} من ${page.attendancePageCount}`)
-            : compactHeader(`الحضور · ${displayDate(page.dates[0])} — ${displayDate(page.dates.at(-1))} · صفحة ${page.attendancePageNumber} من ${page.attendancePageCount}`)}
-          <table className="ts-table ts-matrix-table">
-            <colgroup><col className="ts-col-index"/><col className="ts-col-name"/><col className="ts-col-trade"/>{page.dates.map((date) => <col key={date} className="ts-col-day"/>)}</colgroup>
-            <thead><tr><th>م</th><th>اسم العامل</th><th>الصفة / المهنة</th>{page.dates.map((date) => <th key={date}><span>{arabicDayName(date)}</span><small>{displayDate(date).slice(0,5)}</small></th>)}</tr></thead>
-            <tbody>{page.workers.map((worker,index) => <tr key={worker.id}><td>{page.startIndex+index+1}</td><td className="ts-name-cell">{worker.name}</td><td>{CLASS_AR[worker.laborClass] || 'عامل'}{worker.trade ? ` — ${worker.trade}` : ''}</td>{page.dates.map((date) => { const record=attendanceMap[`${worker.id}|${date}`]; const status=statusDefinition(record?.status); return <td key={date} className={`ts-mark ts-status-${record?.status || 'absent'}`} title={status.label}>{status.short}</td>; })}</tr>)}</tbody>
-          </table>
-          {legend()}
-        </div>;
-      })}
-    </ConstitutionPagedFrame>
+    <div className="timesheet-print-toolbar no-print"><button type="button" className="primary" onClick={() => window.print()}>طباعة أو حفظ PDF</button><span>{title} · التقسيم الرأسي يديره القبطان تلقائيًا</span></div>
+    <ConstitutionPrintFrame documentKey="timesheet_report" cfg={cfg}>
+      <div className="timesheet-flow">{flowContent}</div>
+    </ConstitutionPrintFrame>
   </>;
 }

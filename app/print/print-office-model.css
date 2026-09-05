@@ -1,5 +1,5 @@
 /* ============================================================
-   ARKAN PRINT OFFICE MODEL v1
+   ARKAN PRINT OFFICE MODEL v2
    مطبوعات أركان المكان = أفضل ما في Word + أفضل ما في Excel.
 
    Word owns:
@@ -8,9 +8,10 @@
 
    Excel owns:
    - tables, quantities, money, percentages, dates and totals
-   - stable columns, tabular numerals, repeated headers, non-splitting rows
+   - stable columns, tabular numerals, repeated headers, structured grids
 
-   The paper is a document first. Tables are structured data regions inside it.
+   Physical paper geometry is NOT owned here. ConstitutionPagedFrame is the
+   single owner of A4 size, orientation, margins, letterhead and pagination.
    ============================================================ */
 
 .print-constitution{
@@ -43,9 +44,7 @@
 
 .print-constitution .print-prose,
 .print-constitution .letter-body,
-.print-constitution .dc-body{
-  white-space:pre-wrap;
-}
+.print-constitution .dc-body{white-space:pre-wrap}
 
 .print-constitution .letter-body{
   text-align:justify;
@@ -56,15 +55,11 @@
 .print-constitution .dc-body,
 .print-constitution .q-intro,
 .print-constitution .q-closing,
-.print-constitution .print-signoff-declaration{
-  margin-block-end:var(--office-prose-gap);
-}
+.print-constitution .print-signoff-declaration{margin-block-end:var(--office-prose-gap)}
 
 .print-constitution .print-prose p,
 .print-constitution p.print-prose,
-.print-constitution .dc-body p{
-  margin:0 0 var(--office-prose-gap);
-}
+.print-constitution .dc-body p{margin:0 0 var(--office-prose-gap)}
 .print-constitution .print-prose p:last-child,
 .print-constitution .dc-body p:last-child{margin-bottom:0}
 
@@ -87,18 +82,14 @@
 .print-constitution .print-prose h2,
 .print-constitution .print-prose h3,
 .print-constitution .dc-body h2,
-.print-constitution .dc-body h3{
-  margin:var(--office-heading-gap-before) 0 var(--office-heading-gap-after);
-}
+.print-constitution .dc-body h3{margin:var(--office-heading-gap-before) 0 var(--office-heading-gap-after)}
 
-/* Ordinary unclassed paragraphs should behave like document paragraphs, not UI labels. */
 .print-constitution p:not([class]){
   line-height:var(--office-prose-leading);
   orphans:3;
   widows:3;
 }
 
-/* Clauses/terms are editorial paragraphs: title inline, then punctuation, then body. */
 .print-constitution .print-clause{
   margin:0 0 var(--office-prose-gap);
   font-size:var(--office-prose-size);
@@ -106,11 +97,7 @@
   break-inside:avoid;
   page-break-inside:avoid;
 }
-.print-constitution .print-clause-title{
-  display:inline;
-  color:var(--arkan-print-accent);
-  font-weight:700;
-}
+.print-constitution .print-clause-title{display:inline;color:var(--arkan-print-accent);font-weight:700}
 .print-constitution .print-clause-title::after{content:'.\00a0'}
 .print-constitution .print-clause-body{display:inline}
 
@@ -124,9 +111,7 @@
 .print-constitution .summary-table,
 .print-constitution .payment-table,
 .print-constitution .r-table,
-.print-constitution .sigtable{
-  font-variant-numeric:tabular-nums;
-}
+.print-constitution .sigtable{font-variant-numeric:tabular-nums}
 
 .print-constitution .print-data-table,
 .print-constitution .amounts,
@@ -141,11 +126,8 @@
 }
 
 .print-constitution .print-data-table th,
-.print-constitution .print-data-table td{
-  padding:var(--office-cell-y) var(--office-cell-x);
-}
+.print-constitution .print-data-table td{padding:var(--office-cell-y) var(--office-cell-x)}
 
-/* Excel alignment: numbers stay visually scannable and never wrap like prose. */
 .print-constitution .num,
 .print-constitution .mono,
 .print-constitution [data-print-type="number"],
@@ -155,9 +137,7 @@
 .print-constitution [data-print-column-role="quantity"],
 .print-constitution [data-print-column-role="unit-price"],
 .print-constitution [data-print-column-role="amount"],
-.print-constitution [data-print-column-role="measurement-number"]{
-  font-variant-numeric:tabular-nums;
-}
+.print-constitution [data-print-column-role="measurement-number"]{font-variant-numeric:tabular-nums}
 
 .print-constitution td.num,
 .print-constitution th.num,
@@ -178,7 +158,6 @@
   word-break:keep-all;
 }
 
-/* Dates behave like spreadsheet values when used in a table. */
 .print-constitution table [data-print-type="date"],
 .print-constitution table .date,
 .print-constitution table [data-print-column-role="date-range"]{
@@ -188,7 +167,6 @@
   font-variant-numeric:tabular-nums;
 }
 
-/* Excel page behavior: header repeats; a record is one indivisible visual row. */
 .print-constitution table thead{display:table-header-group}
 .print-constitution table tfoot{display:table-footer-group}
 .print-constitution table tr{
@@ -196,26 +174,118 @@
   page-break-inside:avoid!important;
 }
 
-/* Totals look like spreadsheet totals without turning the whole document into a spreadsheet. */
 .print-constitution .print-total-row,
 .print-constitution table tfoot tr,
-.print-constitution .summary-table tr.total{
-  font-weight:700;
-}
+.print-constitution .summary-table tr.total{font-weight:700}
 
-/* Avoid UI-card rhythm in narrative areas. Cards stay allowed only for actual metadata/data regions. */
 .print-constitution .print-prose,
 .print-constitution .letter-body,
-.print-constitution .q-term-flow{
-  border-radius:0;
-  box-shadow:none;
-}
+.print-constitution .q-term-flow{border-radius:0;box-shadow:none}
+
+/* ---------- Shared 12-column spreadsheet-like content grid ---------- */
+.print-constitution .xlsx-doc{direction:rtl;color:#222}
+.print-constitution .xlsx-title{position:relative;text-align:center;margin:0 0 2.2mm;break-after:avoid;page-break-after:avoid}
+.print-constitution .xlsx-title h1{margin:0;color:#7C2B28;font-size:14pt;line-height:1.2}
+.print-constitution .xlsx-title .rule{display:block;width:24mm;border-top:.55mm solid #8B3332;margin:1.1mm auto 0}
+.print-constitution .xlsx-title + .xlsx-grid{margin-top:1mm}
+.print-constitution .xlsx-meta{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin:0 0 1.8mm;font-size:7.8pt;color:#3d3d3d}
+.print-constitution .xlsx-meta span:last-child{text-align:left;direction:ltr}
+.print-constitution .xlsx-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0;border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;margin:0 0 2.2mm;break-inside:avoid;page-break-inside:avoid}
+.print-constitution .xlsx-cell{min-height:6.2mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;padding:1.05mm 1.35mm;display:flex;align-items:center;min-width:0;overflow-wrap:anywhere;font-size:8.15pt;line-height:1.35;background:#fff}
+.print-constitution .xlsx-label{font-weight:700;background:#f1f1f1;color:#292929;white-space:nowrap}
+.print-constitution .xlsx-value{color:#222}
+.print-constitution .xlsx-value.num{direction:ltr;text-align:left;justify-content:flex-end;font-variant-numeric:tabular-nums;white-space:nowrap}
+.print-constitution .xlsx-head{background:#8B3332;color:#fff;font-weight:700;border-color:#8B3332!important;font-size:8.15pt}
+.print-constitution .xlsx-section{background:#8B3332;color:#fff;font-weight:700;border-color:#8B3332!important;font-size:8.55pt;min-height:6mm}
+.print-constitution .xlsx-strong{background:#eee5e5;font-weight:700;border-top:.45mm solid #8B3332;color:#222}
+.print-constitution .xlsx-note{font-size:7.35pt;line-height:1.55;color:#333;padding:1.4mm 1.8mm;background:#fff}
+.print-constitution .xlsx-sign{min-height:15mm;display:flex;flex-direction:column;justify-content:space-between;align-items:center;text-align:center;padding:1.2mm 1.4mm}
+.print-constitution .xlsx-sign b{font-size:8.1pt;color:#7C2B28}
+.print-constitution .xlsx-sign span{font-size:7pt;color:#555;border-top:.2mm solid #777;width:80%;padding-top:1mm}
+.print-constitution .s1{grid-column:span 1}.print-constitution .s2{grid-column:span 2}.print-constitution .s3{grid-column:span 3}.print-constitution .s4{grid-column:span 4}.print-constitution .s5{grid-column:span 5}.print-constitution .s6{grid-column:span 6}.print-constitution .s7{grid-column:span 7}.print-constitution .s8{grid-column:span 8}.print-constitution .s9{grid-column:span 9}.print-constitution .s10{grid-column:span 10}.print-constitution .s11{grid-column:span 11}.print-constitution .s12{grid-column:span 12}
+
+/* ---------- Projects + finance family content model ---------- */
+.print-family-projects-finance .project-finance-document{--pf-border:#9b9b9b;--pf-label:#f1f1f1;--pf-accent:#8B3332;color:#222}
+.print-family-projects-finance .doc-meta{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:2mm;margin:0 0 1.8mm;font-size:7.8pt;color:#3d3d3d}
+.print-family-projects-finance .doc-meta span:last-child{text-align:left;direction:ltr}
+.print-family-projects-finance .doc-title{text-align:center;margin:0 0 2.2mm;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .doc-title h1{margin:0;font-size:14pt;font-weight:700;color:#7C2B28;line-height:1.2}
+.print-family-projects-finance .doc-title .rule{display:block;width:24mm;border-top:.55mm solid var(--pf-accent);margin:1.1mm auto 0}
+.print-family-projects-finance .recipient{margin-bottom:1mm;font-size:8.8pt;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .salutation{margin-bottom:1.3mm;font-size:8.6pt;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .letter-body{white-space:pre-line;font-size:8.8pt;line-height:1.55;margin:0 0 2.4mm;color:#222;orphans:3;widows:3}
+.print-family-projects-finance .info-table,
+.print-family-projects-finance .data-table,
+.print-family-projects-finance .summary-table,
+.print-family-projects-finance .payment-table{width:100%;border-collapse:collapse;margin:0;table-layout:fixed}
+.print-family-projects-finance .info-table th,.print-family-projects-finance .info-table td,
+.print-family-projects-finance .data-table th,.print-family-projects-finance .data-table td,
+.print-family-projects-finance .summary-table th,.print-family-projects-finance .summary-table td,
+.print-family-projects-finance .payment-table th,.print-family-projects-finance .payment-table td{border:.22mm solid var(--pf-border);min-height:6.2mm;padding:1.05mm 1.35mm;vertical-align:middle;color:#222;overflow-wrap:anywhere}
+.print-family-projects-finance .info-table{margin-bottom:0;break-inside:avoid;page-break-inside:avoid}
+.print-family-projects-finance .info-table th{width:auto;background:var(--pf-label);font-weight:700;white-space:nowrap;font-size:8.15pt}
+.print-family-projects-finance .info-table td{font-size:8.15pt}
+.print-family-projects-finance .data-table{margin-bottom:0}
+.print-family-projects-finance .data-table thead th{background:var(--pf-label);color:#222;border-color:var(--pf-border);font-weight:700;text-align:right}
+.print-family-projects-finance .data-table th,.print-family-projects-finance .data-table td{font-size:8.05pt;padding-top:1.05mm;padding-bottom:1.05mm}
+.print-family-projects-finance .data-table td.num,.print-family-projects-finance .data-table th.num,
+.print-family-projects-finance .summary-table td.num,.print-family-projects-finance .summary-table th.num{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap}
+.print-family-projects-finance .claim-lines-table [data-print-column-role="row-index"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="measurement-number"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="date-range"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="unit"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="quantity"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="unit-price"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="amount"]{white-space:nowrap;overflow-wrap:normal;word-break:keep-all}
+.print-family-projects-finance .claim-lines-table td[data-print-column-role="date-range"]{direction:ltr;unicode-bidi:isolate;text-align:right;font-variant-numeric:tabular-nums}
+.print-family-projects-finance .claim-lines-table [data-print-column-role="row-index"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="measurement-number"],
+.print-family-projects-finance .claim-lines-table [data-print-column-role="unit"]{text-align:center}
+.print-family-projects-finance .data-table tbody tr:nth-child(even),.print-family-projects-finance .summary-table tbody tr:nth-child(even){background:#f8f4f4}
+.print-family-projects-finance .data-table thead{display:table-header-group}
+.print-family-projects-finance .summary-table{margin-top:-.22mm;margin-bottom:0;break-inside:avoid;page-break-inside:avoid}
+.print-family-projects-finance .summary-table td{font-size:8.15pt;padding-top:1.05mm;padding-bottom:1.05mm}
+.print-family-projects-finance .summary-table tr.total td{background:#eee5e5;color:#222;font-weight:700;border-top:.55mm solid #8B3332;font-size:9.2pt}
+.print-family-projects-finance .payment-table{margin-top:-.22mm;margin-bottom:2.2mm;break-inside:avoid;page-break-inside:avoid;direction:rtl}
+.print-family-projects-finance .payment-table th{background:#f1f1f1;font-weight:700;white-space:nowrap;font-size:8.3pt;text-align:right;padding:1.15mm 1.35mm}
+.print-family-projects-finance .payment-table td{background:#fff;font-size:8.35pt;text-align:right;padding:1.15mm 1.6mm;vertical-align:middle}
+.print-family-projects-finance .payment-table tr:first-child>th:nth-child(1),.print-family-projects-finance .payment-table tr:nth-child(2)>th:nth-child(1){width:20mm}
+.print-family-projects-finance .payment-table tr:first-child>td:nth-child(2),.print-family-projects-finance .payment-table tr:nth-child(2)>td:nth-child(2){width:66mm}
+.print-family-projects-finance .payment-table tr:first-child>th:nth-child(3),.print-family-projects-finance .payment-table tr:nth-child(2)>th:nth-child(3){width:20mm}
+.print-family-projects-finance .payment-table tr:first-child>td:nth-child(4),.print-family-projects-finance .payment-table tr:nth-child(2)>td:nth-child(4){width:66mm}
+.print-family-projects-finance .payment-table .bank-value{direction:ltr;unicode-bidi:isolate;text-align:left;font-variant-numeric:tabular-nums;font-size:8.15pt;letter-spacing:.12px;white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.print-family-projects-finance .payment-table tr:last-child th{width:20mm}
+.print-family-projects-finance .payment-table tr:last-child td{font-size:8.25pt}
+.print-family-projects-finance .section-title{min-height:6mm;display:flex;align-items:center;font-weight:700;font-size:8.55pt;color:#fff;background:var(--pf-accent);border:.22mm solid var(--pf-accent);padding:1.05mm 1.35mm;margin:2.2mm 0 0;break-after:avoid;page-break-after:avoid}
+.print-family-projects-finance .financial-payment-grid + .procedure-electronic .xlsx-grid{margin-top:0!important}
+
+/* ---------- Compact legacy-looking content, now scoped to governed document content ---------- */
+.print-constitution .governed-document-sheet{--g-gap:0mm!important;--g-row:3mm!important}
+.print-constitution .governed-document-sheet .cards{gap:0!important;margin-bottom:3mm!important}
+.print-constitution .governed-document-sheet .card-doc{border:.22mm solid #9b9b9b!important;border-radius:0!important;background:#fff!important;overflow:hidden!important}
+.print-constitution .governed-document-sheet .card-head{background:#f1f1f1!important;color:#7C2B28!important;border-bottom:.22mm solid #9b9b9b!important;padding:1mm 1.5mm!important;font-size:8pt!important}
+.print-constitution .governed-document-sheet .card-doc td{padding:1mm 1.5mm!important;border-bottom:.18mm solid #cfcfcf!important;line-height:1.35!important}
+.print-constitution .governed-document-sheet .card-doc .k{font-size:8pt!important;color:#444!important}
+.print-constitution .governed-document-sheet .card-doc .v{font-size:8.3pt!important;color:#222!important}
+.print-constitution .governed-document-sheet .amounts,
+.print-constitution .governed-document-sheet .sigtable,
+.print-constitution .governed-document-sheet .declare,
+.print-constitution .governed-document-sheet .tafqit,
+.print-constitution .governed-document-sheet .plain-card,
+.print-constitution .governed-document-sheet .pt-wrap{margin-bottom:3mm!important}
+.print-constitution .governed-document-sheet .plain-card{width:100%!important;border-color:#9b9b9b!important}
+.print-constitution .governed-document-sheet .pc-table td{padding:1.05mm 1.6mm!important}
+.print-constitution .governed-document-sheet .sigtable td,
+.print-constitution .governed-document-sheet .sigtable td:empty{height:11mm!important;padding:1mm!important}
+.print-constitution .governed-document-sheet .letter-body{line-height:1.7!important;margin-bottom:3mm!important}
+.print-constitution .r-title{margin-bottom:3mm!important}
+.print-constitution .r-table th{padding:1.1mm 1.35mm!important;font-size:7.8pt!important}
+.print-constitution .r-table td{padding:1mm 1.35mm!important;font-size:8pt!important;line-height:1.35!important}
+.print-constitution .r-sign{margin-top:4mm!important;padding-top:2mm!important}
 
 @media print{
   .print-constitution .print-prose,
   .print-constitution .letter-body,
   .print-constitution .dc-body,
-  .print-constitution .q-term-flow{
-    box-shadow:none!important;
-  }
+  .print-constitution .q-term-flow{box-shadow:none!important}
 }

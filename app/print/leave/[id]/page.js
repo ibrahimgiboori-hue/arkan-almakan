@@ -104,14 +104,14 @@ export default function LeavePrint() {
         <span className="note">طلب إجازة — {emp.full_name_ar}</span>
       </div>
 
-      <ConstitutionPrintFrame documentKey="leave_request" cfg={cfg} showLetterhead>
+      <ConstitutionPrintFrame documentKey="leave_request" cfg={cfg}>
         <div className="xlsx-doc">
-          <div className="xlsx-meta">
+          <div className="xlsx-meta" data-print-keep-with-next="true">
             <span>{cfg.company_name_ar}</span>
             <span>{dateAr(row.paper_document_date || row.created_at)}</span>
           </div>
 
-          <div className="xlsx-title">
+          <div className="xlsx-title" data-print-keep-with-next="true">
             <h1>طلب إجازة</h1>
             <span className="rule" />
           </div>

@@ -26,8 +26,8 @@
     width: 100%;
     min-width: 0;
     min-height: 100dvh;
-    padding-inline-end: 0;
-    transition: padding-inline-end 170ms cubic-bezier(.2,.72,.28,1);
+    padding-right: 0;
+    transition: padding-right 170ms cubic-bezier(.2,.72,.28,1);
   }
 
   .rawDashboardContent {
@@ -224,15 +224,16 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* Temporary navigation overlays the work. Pinning is an explicit user act,
-     so only the pinned desktop state reserves body space instead of covering
-     the current work. */
+  /* Desktop navigation is physically on the right edge. In an RTL document
+     inline-end points left, so reserving inline-end made the body yield on the
+     wrong side while the fixed navigation still covered the work. The body now
+     reserves the exact physical side occupied by the summoned navigation. */
   .rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='true']) .appBodyStage {
-    padding-inline-end: var(--app-body-nav-width);
+    padding-right: var(--app-body-nav-width);
   }
 
   .rawDashboardShell:has(.appContextNav[data-open='true'][data-pinned='false']) .appBodyStage {
-    padding-inline-end: 0;
+    padding-right: 0;
   }
 
   .appContextNav[data-open='true'][data-pinned='true'] {
@@ -256,7 +257,7 @@
 
 @media screen and (max-width: 900px), screen and (hover: none), screen and (pointer: coarse) {
   .appBodyStage {
-    padding-inline-end: 0 !important;
+    padding-right: 0 !important;
   }
 
   .rawDashboardContent > .workSheetMount {

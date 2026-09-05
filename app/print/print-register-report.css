@@ -1,0 +1,110 @@
+/* Shared content profile for governed register-style reports.
+   Physical paper, pagination, margins and marks remain captain-owned. */
+
+.print-doc-employee_report,
+.print-doc-board_report{
+  --register-accent:#7C2B28;
+  --register-border:#CDBABA;
+  --register-muted:#6B6B6D;
+}
+
+.print-doc-employee_report .rtoolbar,
+.print-doc-board_report .rtoolbar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 18px;
+  flex-wrap:wrap;
+  background:#fff;
+  border-bottom:1px solid #d7d7d7;
+}
+.print-doc-employee_report .rtoolbar .tb-group,
+.print-doc-board_report .rtoolbar .tb-group{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.print-doc-employee_report .rtoolbar label,
+.print-doc-board_report .rtoolbar label{display:flex;align-items:center;gap:6px;font-size:13px;color:#555;cursor:pointer}
+.print-doc-employee_report .rtoolbar button,
+.print-doc-board_report .rtoolbar button{border:1px solid #aaa;background:#fff;padding:7px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+.print-doc-employee_report .rtoolbar button.primary,
+.print-doc-board_report .rtoolbar button.primary{background:var(--register-accent);border-color:var(--register-accent);color:#fff}
+.print-doc-employee_report .rt-note,
+.print-doc-board_report .rt-note{font-size:12.5px;color:#555}
+
+.print-doc-employee_report .r-title,
+.print-doc-board_report .r-title{margin-bottom:4mm;break-after:avoid;page-break-after:avoid}
+.print-doc-employee_report .r-title h1,
+.print-doc-board_report .r-title h1{font-size:16pt;color:var(--register-accent);margin:0;text-align:center}
+.print-doc-employee_report .r-meta,
+.print-doc-board_report .r-meta{display:flex;justify-content:space-between;font-size:8.5pt;color:var(--register-muted);margin-top:2mm}
+.print-doc-employee_report .r-rule,
+.print-doc-board_report .r-rule{display:block;width:100%;height:.5mm;background:var(--register-accent);margin:2mm 0}
+.print-doc-employee_report .r-stats,
+.print-doc-board_report .r-stats{display:flex;gap:8mm;font-size:9pt;color:#4A4A4C;background:rgba(244,244,244,.9);padding:2mm 3mm}
+.print-doc-employee_report .r-stats b,
+.print-doc-board_report .r-stats b{color:var(--register-accent);font-weight:700}
+.print-doc-employee_report .r-stats .mono,
+.print-doc-board_report .r-stats .mono{font-variant-numeric:tabular-nums;direction:ltr;display:inline-block;unicode-bidi:isolate}
+
+.print-doc-employee_report .r-table,
+.print-doc-board_report .r-table{width:100%;border-collapse:collapse;font-size:8.2pt;table-layout:fixed}
+.print-doc-employee_report .r-table col.c-no,
+.print-doc-board_report .r-table col.c-no{width:8mm}
+.print-doc-employee_report .r-table col.c-name,
+.print-doc-board_report .r-table col.c-name{width:36mm}
+.print-doc-employee_report .r-table col.c-id,
+.print-doc-board_report .r-table col.c-id{width:22mm}
+.print-doc-employee_report .r-table col.c-job,
+.print-doc-board_report .r-table col.c-job{width:28mm}
+.print-doc-employee_report .r-table col.c-date,
+.print-doc-board_report .r-table col.c-date{width:22mm}
+.print-doc-employee_report .r-table col.c-pay,
+.print-doc-board_report .r-table col.c-pay{width:20mm}
+.print-doc-employee_report .r-table th,
+.print-doc-board_report .r-table th{background:var(--register-accent);color:#fff;font-weight:600;font-size:8pt;padding:1.15mm 1.35mm;text-align:right;border:.25mm solid var(--register-accent);vertical-align:middle}
+.print-doc-employee_report .r-table td,
+.print-doc-board_report .r-table td{border:.25mm solid var(--register-border);padding:1mm 1.35mm;vertical-align:top;color:#2E2E30;word-break:normal;overflow-wrap:break-word;line-height:1.4}
+.print-doc-employee_report .r-table .ctr,
+.print-doc-board_report .r-table .ctr{text-align:center}
+.print-doc-employee_report .r-table .num,
+.print-doc-board_report .r-table .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;white-space:nowrap}
+.print-doc-employee_report .r-table td.mono,
+.print-doc-board_report .r-table td.mono{display:table-cell;font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.print-doc-employee_report .r-table .n1,
+.print-doc-board_report .r-table .n1{display:block;font-weight:600;line-height:1.4}
+.print-doc-employee_report .r-table .n2,
+.print-doc-board_report .r-table .n2{display:block;font-size:7pt;color:var(--register-muted);font-weight:400;margin-top:.5mm}
+.print-doc-employee_report .r-table .d1,
+.print-doc-board_report .r-table .d1{display:block;white-space:nowrap;direction:ltr;unicode-bidi:isolate;font-size:8.2pt}
+.print-doc-employee_report .r-table .pay,
+.print-doc-board_report .r-table .pay{font-weight:600}
+.print-doc-employee_report .r-table .duties,
+.print-doc-board_report .r-table .duties{font-size:8pt;line-height:1.55;color:#4A4A4C}
+.print-doc-employee_report .r-table tbody tr:nth-child(even) td,
+.print-doc-board_report .r-table tbody tr:nth-child(even) td{background:rgba(246,238,238,.5)}
+.print-doc-employee_report .r-table tr.ended td,
+.print-doc-board_report .r-table tr.ended td{opacity:.55}
+.print-doc-employee_report .r-table tfoot td,
+.print-doc-board_report .r-table tfoot td,
+.print-doc-employee_report .r-table tr.r-total td,
+.print-doc-board_report .r-table tr.r-total td{background:var(--register-accent);color:#fff;font-weight:700;font-size:9pt;padding:1.4mm 1.35mm;border-color:var(--register-accent)}
+
+.print-doc-employee_report .r-sign,
+.print-doc-board_report .r-sign{display:flex;justify-content:space-between;align-items:flex-end;gap:8mm;margin-top:4mm;padding-top:2mm;border-top:.25mm dashed var(--register-border);break-inside:avoid;page-break-inside:avoid}
+.print-doc-employee_report .rs-stamp,
+.print-doc-board_report .rs-stamp{width:42mm;display:flex;align-items:flex-end;justify-content:flex-start}
+.print-doc-employee_report .rs-stamp img,
+.print-doc-board_report .rs-stamp img{max-width:100%;object-fit:contain}
+.print-doc-employee_report .rs-info,
+.print-doc-board_report .rs-info{text-align:left;font-size:8pt;color:#4A4A4C;line-height:1.7}
+.print-doc-employee_report .ri-t,
+.print-doc-board_report .ri-t{font-size:9pt;color:var(--register-accent);font-weight:700;margin-bottom:.5mm}
+.print-doc-employee_report .rs-info .mono,
+.print-doc-board_report .rs-info .mono{direction:ltr;unicode-bidi:isolate;display:inline-block}
+
+@media print{
+  .print-doc-employee_report .rtoolbar,
+  .print-doc-board_report .rtoolbar{display:none!important}
+}

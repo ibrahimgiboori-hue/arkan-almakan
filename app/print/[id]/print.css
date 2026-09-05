@@ -1,371 +1,156 @@
 /* ============================================================
-   نظام تصميم مطبوعات أركان المكان
-   الشبكة  : مساحة المحتوى 170 مم = 12 عموداً مرئياً / 48 وحدة داخلية
-   الصف    : 6 مم وكل عنصر يأخذ مضاعفاته
-   النمطان : بطاقة معلومات رمادية ناعمة | بطاقة إلزامية شفافة حادة
+   Generic document content profile
+   -------------------------------
+   Content styling only. No paper geometry, page engine, global body rules,
+   print-only page sizing, letterhead placement or browser pagination hacks.
    ============================================================ */
-:root{
-  --g-gap: 3mm;
-  --g-row: 6mm;
 
-  /* بطاقة المعلومات: رمادي شفاف 90% يُظهر العلامة المائية للشعار */
-  --info-bg: rgba(244,244,244,.90);
-  --info-radius: 1.2mm;
-  --info-pad: 2mm 2.6mm;
-
-  /* البطاقة الإلزامية والمالية: شفافة تماماً بحد حاد */
-  --strict-border: .35mm solid #8B3332;
-  --strict-hair: .2mm solid #CDBABA;
-  --strict-pad: 2mm 2.6mm;
-
-  --ink-print: #2E2E30;
-  --ink-soft-print: #6B6B6D;
+.print-doc-generic_document{
+  --g-gap:3mm;
+  --g-row:6mm;
+  --info-bg:rgba(244,244,244,.90);
+  --info-radius:1.2mm;
+  --info-pad:2mm 2.6mm;
+  --strict-border:.35mm solid #8B3332;
+  --strict-hair:.2mm solid #CDBABA;
+  --strict-pad:2mm 2.6mm;
+  --ink-print:#2E2E30;
+  --ink-soft-print:#6B6B6D;
 }
 
-/* ---------- الشبكة ---------- */
-.g-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap)}
-.c2{grid-column:span 2}  .c3{grid-column:span 3}
-.c4{grid-column:span 4}  .c5{grid-column:span 5}
-.c6{grid-column:span 6}  .c7{grid-column:span 7}
-.c8{grid-column:span 8}  .c9{grid-column:span 9}
-.c12{grid-column:span 12}
+.print-doc-generic_document .g-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap)}
+.print-doc-generic_document .c2{grid-column:span 2}.print-doc-generic_document .c3{grid-column:span 3}
+.print-doc-generic_document .c4{grid-column:span 4}.print-doc-generic_document .c5{grid-column:span 5}
+.print-doc-generic_document .c6{grid-column:span 6}.print-doc-generic_document .c7{grid-column:span 7}
+.print-doc-generic_document .c8{grid-column:span 8}.print-doc-generic_document .c9{grid-column:span 9}
+.print-doc-generic_document .c12{grid-column:span 12}
 
-/* ---------- النمط الأول : بطاقة معلومات ---------- */
-.info{
-  background:var(--info-bg);
-  border:none;
-  border-radius:var(--info-radius);
-  padding:var(--info-pad);
-}
-.info .k{display:block;font-size:7pt;color:#8B3332;letter-spacing:.01em;margin-bottom:.4mm}
-.info .v{display:block;font-size:9.5pt;color:var(--ink-print);font-weight:600;line-height:1.4}
-.info .s{display:block;font-size:8pt;color:var(--ink-soft-print);margin-top:.3mm}
+.print-doc-generic_document .info{background:var(--info-bg);border:none;border-radius:var(--info-radius);padding:var(--info-pad)}
+.print-doc-generic_document .info .k{display:block;font-size:7pt;color:#8B3332;letter-spacing:.01em;margin-bottom:.4mm}
+.print-doc-generic_document .info .v{display:block;font-size:9.5pt;color:var(--ink-print);font-weight:600;line-height:1.4}
+.print-doc-generic_document .info .s{display:block;font-size:8pt;color:var(--ink-soft-print);margin-top:.3mm}
 
-/* ---------- النمط الثاني : بطاقة إلزامية / مالية ---------- */
-.strict{
-  background:transparent;
-  border:var(--strict-border);
-  border-radius:0;
-  padding:0;
-}
-.strict > .head{
-  border-bottom:var(--strict-border);
-  padding:1.4mm 2.6mm;
-  font-size:8.5pt;font-weight:700;color:#8B3332;
-  background:transparent;
-}
-.strict > .body{padding:var(--strict-pad);font-size:9pt;line-height:1.85;color:var(--ink-print)}
+.print-doc-generic_document .strict{background:transparent;border:var(--strict-border);border-radius:0;padding:0}
+.print-doc-generic_document .strict>.head{border-bottom:var(--strict-border);padding:1.4mm 2.6mm;font-size:8.5pt;font-weight:700;color:#8B3332;background:transparent}
+.print-doc-generic_document .strict>.body{padding:var(--strict-pad);font-size:9pt;line-height:1.85;color:var(--ink-print)}
 
-/* ============================================================
-   طباعة النماذج الإدارية
-   ============================================================ */
-.toolbar{
-  position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--hair);
-  display:flex;align-items:center;justify-content:space-between;gap:14px;
-  padding:10px 18px;flex-wrap:wrap;
-}
-.tb-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.tb-warn{font-size:12px;color:var(--warn)}
-.toolbar button{border:1px solid var(--hair-strong);background:none;padding:7px 13px;
-  font-size:13.5px;color:var(--ink-soft);cursor:pointer}
-.toolbar button:hover{border-color:var(--maroon);color:var(--maroon)}
-.toolbar button.on{background:var(--rose-wash);border-color:var(--maroon);color:var(--maroon-dark)}
-.toolbar button.primary{background:var(--maroon);border-color:var(--maroon);color:#fff}
-.toolbar button.primary:hover{background:var(--maroon-dark)}
+.print-doc-generic_document .toolbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 18px;flex-wrap:wrap}
+.print-doc-generic_document .tb-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.print-doc-generic_document .tb-warn{font-size:12px;color:var(--warn)}
+.print-doc-generic_document .toolbar button{border:1px solid var(--hair-strong);background:none;padding:7px 13px;font-size:13.5px;color:var(--ink-soft);cursor:pointer}
+.print-doc-generic_document .toolbar button:hover{border-color:var(--maroon);color:var(--maroon)}
+.print-doc-generic_document .toolbar button.on{background:var(--rose-wash);border-color:var(--maroon);color:var(--maroon-dark)}
+.print-doc-generic_document .toolbar button.primary{background:var(--maroon);border-color:var(--maroon);color:#fff}
+.print-doc-generic_document .toolbar button.primary:hover{background:var(--maroon-dark)}
 
-.sheet-wrap{padding:26px 14px 60px;display:flex;justify-content:center;background:#EFEAEA}
-.sheet{
-  min-background:#fff;box-sizing:border-box;
-  box-shadow:0 1px 5px rgba(0,0,0,.15);display:flex;flex-direction:column;
-  background-repeat:repeat-y;background-position:top center;
-}
-.print-doc-generic_document .governed-document-sheet{
-  width:100%;min-height:0;padding:0;background:none;box-shadow:none;overflow:visible;
-}
-.fill{flex:1;min-height:var(--g-row)}
+.print-doc-generic_document .governed-document-sheet{width:100%;min-height:0;padding:0;background:none;box-shadow:none;overflow:visible}
+.print-doc-generic_document .fill{min-height:var(--g-row)}
 
-.title-block{text-align:center;margin-bottom:var(--g-row)}
-.title-block h1{font-size:15pt;font-weight:600;color:var(--maroon-dark);margin:0}
-.title-en{font-size:7.5pt;letter-spacing:.16em;color:var(--ink-soft-print);
-  margin-top:.5mm;direction:ltr}
-.title-rule{display:block;width:26mm;height:.6mm;background:var(--maroon);margin:1.2mm auto 0}
+.print-doc-generic_document .title-block{text-align:center;margin-bottom:var(--g-row)}
+.print-doc-generic_document .title-block h1{font-size:15pt;font-weight:600;color:var(--maroon-dark);margin:0}
+.print-doc-generic_document .title-en{font-size:7.5pt;letter-spacing:.16em;color:var(--ink-soft-print);margin-top:.5mm;direction:ltr}
+.print-doc-generic_document .title-rule{display:block;width:26mm;height:.6mm;background:var(--maroon);margin:1.2mm auto 0}
 
-/* ---------- بطاقتا المعلومات على الشبكة : 6 + 6 ---------- */
-.cards{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap);
-  margin-bottom:var(--g-row)}
-.card-doc{grid-column:span 6;background:var(--info-bg);border:none;
-  border-radius:var(--info-radius);overflow:hidden}
-.card-head{background:transparent;color:#8B3332;font-size:8pt;font-weight:700;
-  padding:1.2mm 2.6mm;border-bottom:.2mm solid rgba(139,51,50,.2)}
-.card-doc table{width:100%;border-collapse:collapse;font-size:9pt}
-.card-doc td{padding:1.1mm 2.6mm;border-bottom:.2mm solid rgba(139,51,50,.10);
-  vertical-align:top}
-.card-doc tr:last-child td{border-bottom:none}
-.card-doc .k{color:var(--ink-soft-print);width:46%;font-size:8.5pt}
-.card-doc .v{color:var(--ink-print);font-weight:600}
+.print-doc-generic_document .cards{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap);margin-bottom:var(--g-row)}
+.print-doc-generic_document .card-doc{grid-column:span 6;background:var(--info-bg);border:none;border-radius:var(--info-radius);overflow:hidden}
+.print-doc-generic_document .card-head{background:transparent;color:#8B3332;font-size:8pt;font-weight:700;padding:1.2mm 2.6mm;border-bottom:.2mm solid rgba(139,51,50,.2)}
+.print-doc-generic_document .card-doc table{width:100%;border-collapse:collapse;font-size:9pt}
+.print-doc-generic_document .card-doc td{padding:1.1mm 2.6mm;border-bottom:.2mm solid rgba(139,51,50,.10);vertical-align:top}
+.print-doc-generic_document .card-doc tr:last-child td{border-bottom:none}
+.print-doc-generic_document .card-doc .k{color:var(--ink-soft-print);width:46%;font-size:8.5pt}
+.print-doc-generic_document .card-doc .v{color:var(--ink-print);font-weight:600}
 
-/* ---------- المبالغ : مالية ← حادة وشفافة ---------- */
-.amounts{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:var(--g-row);
-  border:var(--strict-border);table-layout:fixed}
-.amounts td{word-wrap:break-word;overflow-wrap:break-word}
-.amounts thead{display:table-header-group}
-.amounts tbody tr{break-inside:avoid;page-break-inside:avoid}
-.amounts .serial-col{width:7mm;text-align:center;white-space:nowrap}
-.amounts .nowrap{white-space:nowrap;overflow-wrap:normal;word-break:normal}
-.amounts th{background:var(--maroon);color:#fff;font-weight:600;font-size:9pt;
-  padding:1.4mm 2.2mm;text-align:right;border:.25mm solid var(--maroon)}
-.amounts td{border:.25mm solid #CDBABA;padding:1.3mm 2.2mm;background:transparent;
-  color:var(--ink-print)}
-.amounts .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;width:36%}
-/* ------------------------------------------------------------
-   الصنف mono يضبط اتجاه الأرقام، لكنه يحمل display:inline-block
-   في التنسيق العام — وهذا يُخرج خلية الجدول من بنيته فيسقط حدها.
-   نعيدها خلية طبيعية هنا.
-   ------------------------------------------------------------ */
-td.mono, th.mono{
-  display:table-cell!important;
-  font-variant-numeric:tabular-nums;
-  direction:ltr;
-}
-td.mono{unicode-bidi:isolate}
+.print-doc-generic_document .amounts{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:var(--g-row);border:var(--strict-border);table-layout:fixed}
+.print-doc-generic_document .amounts td{word-wrap:break-word;overflow-wrap:break-word}
+.print-doc-generic_document .amounts thead{display:table-header-group}
+.print-doc-generic_document .amounts .serial-col{width:7mm;text-align:center;white-space:nowrap}
+.print-doc-generic_document .amounts .nowrap{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.print-doc-generic_document .amounts th{background:var(--maroon);color:#fff;font-weight:600;font-size:9pt;padding:1.4mm 2.2mm;text-align:right;border:.25mm solid var(--maroon)}
+.print-doc-generic_document .amounts td{border:.25mm solid #CDBABA;padding:1.3mm 2.2mm;background:transparent;color:var(--ink-print)}
+.print-doc-generic_document .amounts .num{font-variant-numeric:tabular-nums;direction:ltr;text-align:left;width:36%}
+.print-doc-generic_document td.mono,.print-doc-generic_document th.mono{display:table-cell!important;font-variant-numeric:tabular-nums;direction:ltr}
+.print-doc-generic_document td.mono{unicode-bidi:isolate}
 
-.amounts tbody tr:last-child td{border-top:var(--strict-border);font-weight:700;
-  color:var(--maroon-dark)}
+.print-doc-generic_document .tafqit{display:flex;align-items:center;gap:2.2mm;border:var(--strict-border);background:transparent;padding:1.4mm 2.6mm;font-size:9pt;margin-bottom:var(--g-row)}
+.print-doc-generic_document .tf-lbl{color:var(--ink-soft-print);font-size:8pt;white-space:nowrap}
+.print-doc-generic_document .tf-val{flex:1;color:var(--maroon-dark);font-weight:700}
+.print-doc-generic_document .tf-num{color:var(--ink-print);white-space:nowrap;font-variant-numeric:tabular-nums}
 
-/* ---------- التفقيط : التزام ---------- */
-.tafqit{display:flex;align-items:center;gap:2.2mm;border:var(--strict-border);
-  background:transparent;padding:1.4mm 2.6mm;font-size:9pt;margin-bottom:var(--g-row)}
-.tf-lbl{color:var(--ink-soft-print);font-size:8pt;white-space:nowrap}
-.tf-val{flex:1;color:var(--maroon-dark);font-weight:700}
-.tf-num{color:var(--ink-print);white-space:nowrap;font-variant-numeric:tabular-nums}
+.print-doc-generic_document .declare{border:var(--strict-border);margin-bottom:var(--g-row);background:transparent}
+.print-doc-generic_document .dc-head{background:transparent;color:#8B3332;font-size:8.5pt;font-weight:700;padding:1.4mm 2.6mm;border-bottom:var(--strict-border)}
+.print-doc-generic_document .dc-body{padding:2mm 2.6mm;font-size:9pt;line-height:1.85;white-space:pre-wrap;color:var(--ink-print)}
 
-/* ---------- الإقرار والتعهد : أقوى التزام ---------- */
-.declare{border:var(--strict-border);margin-bottom:var(--g-row);background:transparent}
-.dc-head{background:transparent;color:#8B3332;font-size:8.5pt;font-weight:700;
-  padding:1.4mm 2.6mm;border-bottom:var(--strict-border)}
-.dc-body{padding:2mm 2.6mm;font-size:9pt;line-height:1.85;white-space:pre-wrap;
-  color:var(--ink-print)}
+.print-doc-generic_document .sigtable{width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:var(--g-row);border:var(--strict-border)}
+.print-doc-generic_document .sigtable th{background:transparent;color:#8B3332;font-weight:700;padding:1.2mm 1.6mm;border:.25mm solid #CDBABA;text-align:center;font-size:8pt}
+.print-doc-generic_document .sigtable td{border:.25mm solid #CDBABA;padding:2.4mm 1.6mm;text-align:center;color:var(--maroon-light);font-size:7.5pt;height:15mm;vertical-align:bottom;background:transparent}
+.print-doc-generic_document .sigtable td:empty{height:16mm}
+.print-doc-generic_document .sigtable td:empty::after{content:''}
 
-/* ---------- التواقيع : التزام ---------- */
-.sigtable{width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:var(--g-row);
-  border:var(--strict-border)}
-.sigtable th{background:transparent;color:#8B3332;font-weight:700;
-  padding:1.2mm 1.6mm;border:.25mm solid #CDBABA;text-align:center;font-size:8pt}
-.sigtable td{border:.25mm solid #CDBABA;padding:2.4mm 1.6mm;text-align:center;
-  color:var(--maroon-light);font-size:7.5pt;height:15mm;vertical-align:bottom;
-  background:transparent}
+.print-doc-generic_document .footer-row{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap);align-items:stretch}
+.print-doc-generic_document .stamp-box{grid-column:span 4;border:var(--strict-border);display:flex;align-items:center;justify-content:center;padding:1.4mm;min-height:30mm}
+.print-doc-generic_document .bank{grid-column:span 8;border:var(--strict-border);padding:1.4mm 2.6mm;text-align:right;background:transparent}
+.print-doc-generic_document .bank-head{font-size:8.5pt;color:#8B3332;font-weight:700;margin-bottom:.6mm}
+.print-doc-generic_document .bank-line{font-size:8pt;color:var(--ink-print);line-height:1.7}
+.print-doc-generic_document .bank-line.iban{color:var(--maroon);direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.print-doc-generic_document .stamp-box:empty{display:none}
+.print-doc-generic_document .footer-row:not(:has(.stamp-box)):not(:has(.bank)){display:none}
 
-/* ---------- الختم والحساب ---------- */
-.footer-row{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--g-gap);
-  align-items:stretch}
-.stamp-box{grid-column:span 4;border:var(--strict-border);display:flex;
-  align-items:center;justify-content:center;padding:1.4mm;min-height:30mm}
-.stamp-box img{max-width:100%;max-height:100%;object-fit:contain}
-.stamp-ph{font-size:7.5pt;color:var(--maroon-light);text-align:center;line-height:1.5}
-.bank{grid-column:span 8;border:var(--strict-border);padding:1.4mm 2.6mm;
-  text-align:right;background:transparent}
-.bank-head{font-size:8.5pt;color:#8B3332;font-weight:700;margin-bottom:.6mm}
-.bank-line{font-size:8pt;color:var(--ink-print);line-height:1.7}
-.bank-line.iban{color:var(--maroon);direction:ltr;text-align:right;
-  font-variant-numeric:tabular-nums}
+.print-doc-generic_document .letter-body{font-size:10.5pt;line-height:2.05;color:var(--ink-print);white-space:pre-wrap;margin:0 0 var(--g-row);padding:0 1mm;text-align:justify}
+.print-doc-generic_document .cards .card-doc.to-left{grid-column:span 6;margin-right:auto}
 
-@media print{
-  .toolbar{display:none}
-  .sheet-wrap{padding:0;background:#fff}
-  .sheet{width:auto;min-box-shadow:none}
-  .print-doc-generic_document .governed-document-sheet{width:100%;min-height:0}
-  .card-doc,.plain-card,.sigtable,.declare,.tafqit,.footer-row,.stampbox-row,.pt-wrap,.report-item-block{break-inside:avoid;page-break-inside:avoid}
-  .amounts tbody tr{break-inside:avoid;page-break-inside:avoid}
-  .amounts thead{display:table-header-group}
-  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
-    box-shadow:none!important}
-}
+/* Inline stamp/signature content is rendered by PrintMark; this profile only places that semantic block. */
+.print-doc-generic_document .stampbox-row{display:flex;justify-content:center;margin:var(--g-row) 0}
+.print-doc-generic_document .stampbox{position:relative;width:52mm;height:38mm}
+.print-doc-generic_document .stampbox .print-inline-stamp{position:absolute;left:50%;bottom:0;transform:translateX(-50%)}
+.print-doc-generic_document .stampbox .print-inline-signature{position:absolute;left:50%;bottom:8mm;transform:translateX(-50%) rotate(-4deg);opacity:.92}
+.print-doc-generic_document .stampbox:empty{display:none}
 
-/* ============================================================
-   نموذج الخطاب العام
-   ============================================================ */
-.letter-body{
-  font-size:10.5pt;line-height:2.05;color:var(--ink-print);
-  white-space:pre-wrap;margin:0 0 var(--g-row);padding:0 1mm;
-  text-align:justify;
-}
+.print-doc-generic_document .ltr-meta{display:flex;justify-content:space-between;font-size:8.5pt;color:var(--ink-soft-print);margin-bottom:6mm;padding-bottom:1mm;border-bottom:.2mm solid var(--hair)}
+.print-doc-generic_document .ltr-head{margin-bottom:7mm}
+.print-doc-generic_document .ltr-refs{display:flex;gap:8mm;font-size:8.5pt;color:var(--ink-soft-print);margin-bottom:4mm}
+.print-doc-generic_document .ltr-subject{font-size:13pt;font-weight:700;color:var(--maroon-dark);text-align:center;margin:0 0 6mm;line-height:1.6}
+.print-doc-generic_document .ltr-to{display:flex;justify-content:space-between;align-items:flex-end;gap:8mm;font-size:11pt;font-weight:600;color:var(--ink-print);line-height:1.7;margin-bottom:4mm}
+.print-doc-generic_document .ltr-to .to-name{flex:1}
+.print-doc-generic_document .ltr-to .to-title{white-space:nowrap;font-weight:600}
+.print-doc-generic_document .ltr-salut{font-size:10.5pt;color:var(--ink-print);margin-bottom:4mm}
 
-/* بطاقة مُقدِّم الخطاب — أسفل يسار */
-.cards .card-doc.to-left{grid-column:span 6;margin-right:auto}
+.print-doc-generic_document .plain-card{border:.25mm solid #CDBABA;background:transparent;margin-bottom:var(--g-row);width:82mm}
+.print-doc-generic_document .plain-card.to-left{margin-right:auto;margin-left:0}
+.print-doc-generic_document .pc-head{background:var(--maroon);color:#fff;font-size:9pt;font-weight:600;padding:1.6mm 2.6mm;text-align:right}
+.print-doc-generic_document .pc-table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+.print-doc-generic_document .pc-table td{padding:1.5mm 2.6mm;border-top:.25mm solid #CDBABA;vertical-align:top}
+.print-doc-generic_document .pc-table tr:first-child td{border-top:none}
+.print-doc-generic_document .pc-k{color:var(--ink-soft-print);width:34%;font-size:9pt;border-left:.25mm solid #CDBABA}
+.print-doc-generic_document .pc-v{color:var(--ink-print);font-weight:600;word-wrap:break-word}
 
-/* صندوق الختم — أسفل الوسط */
-.stampbox-row{display:flex;justify-content:center;margin:var(--g-row) 0}
-.stampbox{position:relative;width:52mm;height:38mm}
-.stampbox .sb-stamp{position:absolute;left:50%;bottom:0;transform:translateX(-50%)}
-.stampbox .sb-sign{position:absolute;left:50%;bottom:8mm;
-  transform:translateX(-50%) rotate(-4deg);opacity:.92}
+.print-doc-generic_document .pt-wrap{display:grid;gap:var(--g-gap);margin-bottom:var(--g-row);page-break-inside:avoid}
+.print-doc-generic_document .pt-wrap.single{grid-template-columns:82mm;justify-content:flex-start}
+.print-doc-generic_document .pt-wrap.double{grid-template-columns:1fr 1fr}
+.print-doc-generic_document .pt-card{border:.25mm solid #CDBABA;background:transparent;display:flex;flex-direction:column}
+.print-doc-generic_document .pt-head{background:var(--maroon);color:#fff;font-size:9pt;font-weight:600;padding:1.6mm 2.6mm;text-align:right}
+.print-doc-generic_document .pt-table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
+.print-doc-generic_document .pt-table td{padding:1.5mm 2.6mm;border-top:.25mm solid #CDBABA;vertical-align:top;word-wrap:break-word;overflow-wrap:break-word}
+.print-doc-generic_document .pt-table tr:first-child td{border-top:none}
+.print-doc-generic_document .pt-k{color:var(--ink-soft-print);font-size:9pt;border-left:.25mm solid #CDBABA}
+.print-doc-generic_document .pt-v{color:var(--ink-print);font-weight:600}
+.print-doc-generic_document .pt-middle{font-size:9pt;line-height:1.9;color:var(--ink-print);text-align:justify;margin:0 0 var(--g-row);padding:2mm 2.6mm;background:var(--info-bg);border-radius:var(--info-radius)}
 
-/* ------------------------------------------------------------
-   أماكن الختم والتوقيع تختفي كلياً حين لا صورة فيها
-   ------------------------------------------------------------ */
-.stamp-box:empty,.qs-marks:empty{display:none}
-.stamp-ph{display:none}
-.footer-row:not(:has(.stamp-box)):not(:has(.bank)){display:none}
-
-/* خلايا التواقيع الفارغة: مساحة توقيع بلا نص */
-.sigtable td:empty{height:16mm}
-.sigtable td:empty::after{content:''}
-
-/* ============================================================
-   ترويسة الخطاب الرسمي — لا جدول ولا عناوين حقول
-   ============================================================ */
-.ltr-meta{display:flex;justify-content:space-between;font-size:8.5pt;
-  color:var(--ink-soft-print);margin-bottom:6mm;padding-bottom:1mm;
-  border-bottom:.2mm solid var(--hair)}
-
-.ltr-head{margin-bottom:7mm}
-.ltr-refs{display:flex;gap:8mm;font-size:8.5pt;color:var(--ink-soft-print);
-  margin-bottom:4mm}
-.ltr-subject{
-  font-size:13pt;font-weight:700;color:var(--maroon-dark);
-  text-align:center;margin:0 0 6mm;line-height:1.6;
-}
-.ltr-to{
-  display:flex;justify-content:space-between;align-items:flex-end;gap:8mm;
-  font-size:11pt;font-weight:600;color:var(--ink-print);line-height:1.7;
-  margin-bottom:4mm;
-}
-.ltr-to .to-name{flex:1}
-.ltr-to .to-title{white-space:nowrap;font-weight:600}
-.ltr-salut{font-size:10.5pt;color:var(--ink-print);margin-bottom:4mm}
-
-/* ============================================================
-   بطاقة نصية بحد حاد — بيان وقيمة بلا رأس مالي
-   ============================================================ */
-.plain-card{
-  border:.25mm solid #CDBABA;background:transparent;
-  margin-bottom:var(--g-row);width:82mm;
-}
-.plain-card.to-left{margin-right:auto;margin-left:0}
-
-/* سطر العنوان: يمتد بعرض البطاقة كاملاً */
-.pc-head{
-  background:var(--maroon);color:#fff;font-size:9pt;font-weight:600;
-  padding:1.6mm 2.6mm;text-align:right;
-}
-
-.pc-table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
-.pc-table td{padding:1.5mm 2.6mm;border-top:.25mm solid #CDBABA;vertical-align:top}
-.pc-table tr:first-child td{border-top:none}
-.pc-k{color:var(--ink-soft-print);width:34%;font-size:9pt;
-  border-left:.25mm solid #CDBABA}
-.pc-v{color:var(--ink-print);font-weight:600;word-wrap:break-word}
-
-/* ============================================================
-   بطاقات الأطراف — مفردة ومزدوجة ورباعية
-   ============================================================ */
-.pt-wrap{display:grid;gap:var(--g-gap);margin-bottom:var(--g-row);
-  page-break-inside:avoid}
-.pt-wrap.single{grid-template-columns:82mm;justify-content:flex-start}
-.pt-wrap.double{grid-template-columns:1fr 1fr}
-
-.pt-card{border:.25mm solid #CDBABA;background:transparent;
-  display:flex;flex-direction:column}
-.pt-head{background:var(--maroon);color:#fff;font-size:9pt;font-weight:600;
-  padding:1.6mm 2.6mm;text-align:right}
-.pt-table{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}
-.pt-table td{padding:1.5mm 2.6mm;border-top:.25mm solid #CDBABA;vertical-align:top;
-  word-wrap:break-word;overflow-wrap:break-word}
-.pt-table tr:first-child td{border-top:none}
-.pt-k{color:var(--ink-soft-print);font-size:9pt;border-left:.25mm solid #CDBABA}
-.pt-v{color:var(--ink-print);font-weight:600}
-
-.pt-middle{font-size:9pt;line-height:1.9;color:var(--ink-print);
-  text-align:justify;margin:0 0 var(--g-row);padding:2mm 2.6mm;
-  background:var(--info-bg);border-radius:var(--info-radius)}
-
-/* ============================================================
-   تقرير متابعة الأعمال والمستخلصات — رحلة البند
-   البند نفسه وحدة القراءة ووحدة كسر الصفحة.
-   ============================================================ */
-.report-item-block{
-  width:100%;
-  margin:0 0 4mm;
-  border:.35mm solid #8B3332;
-  background:rgba(255,255,255,.72);
-  break-inside:avoid;
-  page-break-inside:avoid;
-  box-sizing:border-box;
-}
-.report-items-title{
-  background:#8B3332;
-  color:#fff;
-  font-size:9pt;
-  font-weight:700;
-  padding:1.5mm 2.2mm;
-  border-bottom:.25mm solid #8B3332;
-}
-.report-item-summary{
-  display:grid;
-  grid-template-columns:7mm minmax(32mm,1.9fr) 15mm 14mm minmax(21mm,1fr) minmax(20mm,1fr) minmax(24mm,1.1fr) minmax(24mm,1.1fr);
-  width:100%;
-  align-items:stretch;
-}
-.report-metric{
-  min-width:0;
-  padding:1.25mm 1.35mm;
-  border-left:.2mm solid #D8C9C9;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap:.45mm;
-  box-sizing:border-box;
-}
-.report-metric:last-child{border-left:none}
-.report-metric-label{
-  display:block;
-  color:#7B5555;
-  font-size:6.7pt;
-  line-height:1.2;
-  font-weight:600;
-  white-space:normal;
-}
-.report-metric-value{
-  display:block;
-  color:#2E2E30;
-  font-size:8.2pt;
-  line-height:1.35;
-  font-weight:700;
-  min-width:0;
-  overflow-wrap:anywhere;
-}
-.report-metric-item .report-metric-value{font-size:8.7pt;overflow-wrap:normal;word-break:normal}
-.report-metric-money .report-metric-value,
-.report-metric-po .report-metric-value,
-.report-metric-serial .report-metric-value{
-  white-space:nowrap;
-  overflow-wrap:normal;
-  word-break:normal;
-}
-.report-metric-money .report-metric-value{direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
-.report-metric-po .report-metric-value{font-size:7.8pt;direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
-.report-operational-lines{border-top:.3mm solid #8B3332}
-.report-operational-row{
-  display:grid;
-  grid-template-columns:29mm minmax(0,1fr);
-  break-inside:avoid;
-  page-break-inside:avoid;
-}
-.report-operational-row + .report-operational-row{border-top:.2mm solid #D8C9C9}
-.report-operational-label{
-  padding:1.25mm 1.7mm;
-  color:#8B3332;
-  font-size:7.6pt;
-  font-weight:700;
-  border-left:.2mm solid #D8C9C9;
-  background:rgba(244,244,244,.62);
-}
-.report-operational-value{
-  padding:1.25mm 1.9mm;
-  color:#2E2E30;
-  font-size:8.3pt;
-  line-height:1.65;
-  white-space:pre-wrap;
-  overflow-wrap:break-word;
-  word-break:normal;
-}
+/* Project work/claims journey: content anatomy, not page anatomy. */
+.print-doc-generic_document .report-item-block{width:100%;margin:0 0 4mm;border:.35mm solid #8B3332;background:rgba(255,255,255,.72);box-sizing:border-box}
+.print-doc-generic_document .report-items-title{background:#8B3332;color:#fff;font-size:9pt;font-weight:700;padding:1.5mm 2.2mm;border-bottom:.25mm solid #8B3332}
+.print-doc-generic_document .report-item-summary{display:grid;grid-template-columns:7mm minmax(32mm,1.9fr) 15mm 14mm minmax(21mm,1fr) minmax(20mm,1fr) minmax(24mm,1.1fr) minmax(24mm,1.1fr);width:100%;align-items:stretch}
+.print-doc-generic_document .report-metric{min-width:0;padding:1.25mm 1.35mm;border-left:.2mm solid #D8C9C9;display:flex;flex-direction:column;justify-content:center;gap:.45mm;box-sizing:border-box}
+.print-doc-generic_document .report-metric:last-child{border-left:none}
+.print-doc-generic_document .report-metric-label{display:block;color:#7B5555;font-size:6.7pt;line-height:1.2;font-weight:600;white-space:normal}
+.print-doc-generic_document .report-metric-value{display:block;color:#2E2E30;font-size:8.2pt;line-height:1.35;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.print-doc-generic_document .report-metric-item .report-metric-value{font-size:8.7pt;overflow-wrap:normal;word-break:normal}
+.print-doc-generic_document .report-metric-money .report-metric-value,
+.print-doc-generic_document .report-metric-po .report-metric-value,
+.print-doc-generic_document .report-metric-serial .report-metric-value{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.print-doc-generic_document .report-metric-money .report-metric-value{direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.print-doc-generic_document .report-metric-po .report-metric-value{font-size:7.8pt;direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.print-doc-generic_document .report-operational-lines{border-top:.3mm solid #8B3332}
+.print-doc-generic_document .report-operational-row{display:grid;grid-template-columns:29mm minmax(0,1fr)}
+.print-doc-generic_document .report-operational-row+.report-operational-row{border-top:.2mm solid #D8C9C9}
+.print-doc-generic_document .report-operational-label{padding:1.25mm 1.7mm;color:#8B3332;font-size:7.6pt;font-weight:700;border-left:.2mm solid #D8C9C9;background:rgba(244,244,244,.62)}
+.print-doc-generic_document .report-operational-value{padding:1.25mm 1.9mm;color:#2E2E30;font-size:8.3pt;line-height:1.65;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal}

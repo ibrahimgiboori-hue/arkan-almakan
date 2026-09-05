@@ -15,17 +15,26 @@ const requireFile = (rel) => {
 
 const anatomy = requireFile('lib/anatomical-navigation.js');
 for (const required of [
-  'implicit-consciousness-v1',
+  'place-first-navigation-v2',
   'implicit-consciousness-not-navigation-root',
-  'return-to-user-work-perspective-when-anatomical-parent-ends',
+  'real-portal-hall-not-menu-root',
+  'move-between-places-siblings-or-deeper-context',
+  'return-to-portal-hall-when-leaving-current-place',
   'anatomical-zoom-out-not-browser-history',
   'show-real-parent-label-never-generic-back-or-all',
   'child-must-add-meaning-and-must-not-repeat-parent-label',
   'do-not-invent-a-navigation-level-for-a-single-child',
-  "label: 'مركز العمل'",
-  'workCenterMustNotAppearInNavigation',
-  "visibility:'idle-body-only'",
-  'navigationAccess:false',
+  "label:'بوابات العمل'",
+  "visibility:'body-place'",
+  'portalHallMustBeBodySurface',
+  'portalHallMustNotRequireNavigationMenu',
+  'interior-portal-hall-v1',
+  "primaryZone:'live-operational-work'",
+  "secondaryZone:'registry-and-history'",
+  "registryDefault:'quiet-collapsed-until-requested'",
+  "toolsOwner:'contextual-navigation-not-body-duplicate'",
+  'reusableAcrossPortals:true',
+  "pilotPortal:'projects'",
   "label:'البوابات'",
   "'/dashboard/projects': 'سجل المشاريع'",
   "'/dashboard/employees': 'سجل الموظفين'",
@@ -36,7 +45,7 @@ for (const required of [
 }
 
 if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*;?\s*\}/s.test(anatomy)) {
-  failures.push('مركز العمل: العدسات الشخصية لا يجوز أن تعود كروابط داخل القائمة.');
+  failures.push('العدسات الشخصية لا يجوز أن تعود كروابط متكررة داخل القائمة المساعدة.');
 }
 
 const nav = requireFile('components/ui/ContextualDashboardNavigation.js');
@@ -55,9 +64,6 @@ for (const required of [
 if (/>\s*أركان المكان\s*</.test(nav)) {
   failures.push('الوعي المستتر: اسم أركان المكان عاد كعنصر مرئي داخل الملاحة اليومية.');
 }
-if (/>\s*مركز العمل\s*</.test(nav)) {
-  failures.push('مركز العمل: عاد كوجهة مرئية داخل القائمة رغم أنه وضع خمول فقط.');
-}
 if (/>\s*الكل\s*</.test(nav)) {
   failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل اسم الأب أو منظور المستخدم.');
 }
@@ -68,15 +74,51 @@ if (nav.includes('router.back(')) {
   failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
 }
 
-const idle = requireFile('app/dashboard/page.js');
+const hall = requireFile('app/dashboard/page.js');
 for (const required of [
-  'data-idle-work-surface="true"',
-  'data-work-center-visibility="idle-only"',
-  'مركز العمل',
+  'data-portal-hall="true"',
+  'بوابات العمل',
+  'filterAreasForAccess(AREAS',
+  "area.key !== 'home'",
   'أعمالي',
   'بانتظار قراري',
 ]) {
-  if (!idle.includes(required)) failures.push(`وضع الخمول: مفقود ${required}`);
+  if (!hall.includes(required)) failures.push(`صالة البوابات: مفقود ${required}`);
+}
+
+if (hall.includes('مركز العمل')) {
+  failures.push('صالة البوابات: عاد مفهوم «مركز العمل» القديم بدل المكان الأعلى الفعلي.');
+}
+if (!hall.includes('href={portal.href}')) {
+  failures.push('صالة البوابات: يجب أن تدخل البوابة من مسارها الدستوري بدل خريطة روابط موازية.');
+}
+
+const interiorHall = requireFile('components/ui/PortalHall.js');
+for (const required of [
+  'data-interior-portal-hall="true"',
+  'data-portal-body-role="work-first"',
+  'data-portal-zone="live-operational-work"',
+  'data-portal-zone="registry-and-history"',
+  'PortalLiveZone',
+  'PortalRegistry',
+]) {
+  if (!interiorHall.includes(required)) failures.push(`صالة البوابة الداخلية: مفقود ${required}`);
+}
+
+const projectsHall = requireFile('app/dashboard/projects/page.js');
+for (const required of [
+  "from '@/components/ui/PortalHall'",
+  '<PortalHall portalKey="projects">',
+  '<PortalLiveZone',
+  '<PortalRegistry',
+  'قيد التنفيذ الآن',
+  'بقية المشاريع',
+  "row.stage==='execution'",
+]) {
+  if (!projectsHall.includes(required)) failures.push(`بوابة المشاريع التجريبية: مفقود ${required}`);
+}
+if (projectsHall.includes('<SummaryStrip')) {
+  failures.push('بوابة المشاريع: لا تعُد إلى شريط مؤشرات عام قبل العمل الحي؛ المدخل أصبح work-first.');
 }
 
 if (failures.length) {
@@ -85,4 +127,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: product consciousness stays implicit, work center exists only as the idle body surface, visible navigation starts from portals, parent zoom-out is semantic, and single-child pseudo-levels are flattened.');
+console.log('Anatomical navigation audit passed: the top level is a real portal hall, interior portals are work-first with a quiet registry layer, projects pilot the shared pattern, navigation remains secondary and anatomical, and single-child pseudo-levels stay flattened.');

@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
 import { normalizeProjectView } from '@/lib/app-constitution';
+import { WORK_COMPLETION_KIND } from '@/lib/work-session-constitution';
 import { useLiveRefresh, notifyChange } from '@/lib/live';
+import { emitWorkSessionCompletion } from '@/components/ui/WorkSessionRuntime';
 import ProjScope from '@/components/ProjScope';
 import ProjProgress from '@/components/ProjProgress';
 import ProjClaims from '@/components/ProjClaims';
@@ -23,6 +25,8 @@ export default function ProjectCard() {
   const [emps, setEmps] = useState([]);
   const [ents, setEnts] = useState([]);
   const [access, setAccess] = useState({ full:false, keys:[] });
+  const [projectSetupAction, setProjectSetupAction] = useState(null);
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
 
@@ -33,6 +37,15 @@ export default function ProjectCard() {
     ]);
     setFin(fr.data || null);
     setTot(tr.data || null);
+  }, [id]);
+
+  const loadProjectSetupAction = useCallback(async () => {
+    const { data, error } = await supabase.rpc('fn_project_approval_queue', { p_project_id:id });
+    if (error) {
+      setProjectSetupAction(null);
+      return;
+    }
+    setProjectSetupAction((data || []).find((row) => row.source_type === 'project_setup') || null);
   }, [id]);
 
   const load = useCallback(async () => {
@@ -53,11 +66,11 @@ export default function ProjectCard() {
     setEmps(e.data || []);
     setEnts(en.data || []);
     setAccess({full:portalFull,keys:[...new Set(caps.map((cap)=>cap.capability_key))]});
-    await loadFin();
-  }, [id, loadFin]);
+    await Promise.all([loadFin(), loadProjectSetupAction()]);
+  }, [id, loadFin, loadProjectSetupAction]);
 
   useEffect(() => { load(); }, [load]);
-  useLiveRefresh(loadFin, ['all']);
+  useLiveRefresh(() => Promise.all([loadFin(), loadProjectSetupAction()]), ['all']);
 
   const has = (key) => access.full || access.keys.includes(key);
   const canWrite = activeView === 'scope'
@@ -69,7 +82,6 @@ export default function ProjectCard() {
         : activeView === 'docs'
           ? (has('projects.documents.edit') || has('projects.documents.create') || has('projects.materials.edit') || has('projects.materials.create'))
           : has('projects.projects.edit');
-  const canApproveContractValue = has('projects.contract_value.approve');
 
   async function patch(fields) {
     setP({ ...p, ...fields });
@@ -83,13 +95,51 @@ export default function ProjectCard() {
     }
   }
 
-  async function approveContractValue() {
-    const { data, error } = await supabase.rpc('approve_project_contract_value', { p_project_id:id });
-    if (error) { setErr('تعذّر الاعتماد: ' + error.message); return; }
-    setMsg('اعتُمدت قيمة العقد ' + money(data));
-    setTimeout(() => setMsg(''), 1800);
-    load();
-    notifyChange('project');
+  async function submitProjectSetupForApproval() {
+    if (!projectSetupAction?.can_submit || approvalBusy) return;
+    setApprovalBusy(true);
+    setErr('');
+    setMsg('');
+    try {
+      const { data:workflowId, error } = await supabase.rpc('fn_submit_project_setup_for_approval', {
+        p_project_id:id,
+        p_note:null,
+      });
+      if (error) throw error;
+      if (!workflowId) throw new Error('لم يعد الخادم بمعرّف رحلة الاعتماد');
+
+      // نجاح RPC وحده لا يغلق جلسة العمل. نقرأ رحلة الاعتماد نفسها من الخادم
+      // ثم نعلن الخاتمة فقط بعد ثبوت أن المصدر انتقل إلى محرك الاعتمادات.
+      const { data:proof, error:proofError } = await supabase.rpc('fn_approval_get', {
+        p_workflow_id:workflowId,
+      });
+      if (proofError) throw proofError;
+      if (!proof?.workflow?.id || proof.workflow.id !== workflowId) {
+        throw new Error('تعذر إثبات انتقال تأسيس المشروع إلى رحلة الاعتماد');
+      }
+
+      await Promise.all([loadFin(), loadProjectSetupAction()]);
+      notifyChange('project');
+      emitWorkSessionCompletion({
+        serverConfirmed:true,
+        kind:WORK_COMPLETION_KIND.SENT_FOR_APPROVAL,
+        title:'تم إرسال تأسيس المشروع للاعتماد',
+        message:'ثُبتت نسخة تأسيس وتسعير المشروع في محرك الاعتمادات. أي إرجاع سيعود إلى نفس المشروع للتعديل وإعادة الإرسال.',
+        reference:proof.workflow.workflow_no || '',
+        destination:proof.current_stage_label || proof.steps?.find((step)=>step.status==='pending')?.target_group_label || 'الجهة المختصة',
+        subject:{
+          entityType:'project_setup',
+          entityId:id,
+          projectId:id,
+          stageKey:'approval',
+        },
+        primaryAction:{label:'العودة إلى موقف المشروع',reset:true},
+      });
+    } catch (error) {
+      setErr('تعذّر إرسال تأسيس المشروع للاعتماد: ' + (error?.message || error));
+    } finally {
+      setApprovalBusy(false);
+    }
   }
 
   if (err && !p) return <div className="msg err">{err}</div>;
@@ -105,6 +155,9 @@ export default function ProjectCard() {
   const contractApproved = !!t.contract_value_approved;
   const profit = Number(f.current_profit || 0);
   const daysLeft = f.days_remaining;
+  const setupPending = projectSetupAction?.approval_status === 'pending';
+  const setupReturned = projectSetupAction?.approval_status === 'returned';
+  const setupRejected = projectSetupAction?.approval_status === 'rejected';
 
   return (
     <>
@@ -170,7 +223,7 @@ export default function ProjectCard() {
                   {t.contract_value_mismatch && (
                     <tr>
                       <td colSpan={2} style={{color:'var(--bad)',fontSize:12.5}}>
-                        المعتمد {money(t.contract_value_signed)} يخالف مجموع البنود {money(t.items_contract_value)} — سجّل أمر تغيير مرقّماً بالفرق أو أعد الاعتماد
+                        المعتمد {money(t.contract_value_signed)} يخالف مجموع البنود {money(t.items_contract_value)} — سجّل أمر تغيير مرقّماً بالفرق أو أعد الاعتماد عبر الرحلة النظامية
                       </td>
                     </tr>
                   )}
@@ -187,10 +240,34 @@ export default function ProjectCard() {
                   ))}
                 </tbody>
               </table>
-              {canApproveContractValue && !contractApproved && Number(t.items_contract_value || 0) > 0 && (
-                <div style={{padding:'12px 18px'}}>
-                  <button className="btn" onClick={approveContractValue}>اعتماد قيمة البنود كقيمة عقد</button>
-                  <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:6}}>بعد الاعتماد لا تتغير قيمة العقد إلا بأمر تغيير مرقّم</div>
+
+              {!contractApproved && projectSetupAction && (
+                <div style={{padding:'12px 18px',borderTop:'1px solid var(--hair)'}} data-project-setup-journey="true">
+                  {setupPending ? (
+                    <>
+                      <div style={{fontWeight:700}}>تأسيس المشروع في رحلة الاعتماد</div>
+                      <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:5}}>
+                        الآن لدى {projectSetupAction.current_group_label || 'الجهة المختصة'}{projectSetupAction.workflow_no ? ` · ${projectSetupAction.workflow_no}` : ''}.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {(setupReturned || setupRejected) && (
+                        <div style={{fontSize:12.5,color:'var(--bad)',marginBottom:8}}>
+                          {setupReturned ? 'أُعيد تأسيس المشروع للتعديل.' : 'رُفضت النسخة السابقة.'}
+                          {projectSetupAction.return_note ? ` ${projectSetupAction.return_note}` : ''}
+                        </div>
+                      )}
+                      {projectSetupAction.can_submit && (
+                        <button className="btn" disabled={approvalBusy} onClick={submitProjectSetupForApproval}>
+                          {approvalBusy ? 'جارٍ الإرسال…' : (setupReturned || setupRejected ? 'إعادة إرسال تأسيس المشروع للاعتماد' : 'إرسال تأسيس المشروع للاعتماد')}
+                        </button>
+                      )}
+                      <div style={{fontSize:12.5,color:'var(--ink-soft)',marginTop:6}}>
+                        قيمة العقد لا تُعتمد مباشرة؛ تُثبت نسخة البنود والتسعير ثم تمر بمحرك الاعتمادات. وبعد الاعتماد لا يتغير العقد إلا بأمر تغيير مرقّم.
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

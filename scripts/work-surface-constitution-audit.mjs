@@ -53,7 +53,7 @@ if (/localStorage|sessionStorage/.test(constitution)) failures.push('work-surfac
 if (/export\s+const\s+AREAS\s*=/.test(constitution)) failures.push('work-surface constitution: ممنوع نسخ خريطة البوابات بدل اشتقاقها من app-constitution.');
 
 const sessionConstitution = requireText('lib/work-session-constitution.js', [
-  'zero-residue-work-session-v1',
+  'zero-residue-work-session-v2',
   'user-work-session-not-page',
   'being-in-a-work-zone-does-not-mean-a-work-session-has-started',
   'a-procedural-session-must-end-with-an-explicit-terminal-action',
@@ -62,13 +62,30 @@ const sessionConstitution = requireText('lib/work-session-constitution.js', [
   'replace-active-route-organ-with-clean-completion-surface',
   'no-form-no-old-record-list-no-session-actions-after-release',
   'past-transactions-live-in-register-search-reports-not-under-active-work',
+  'live-work-must-be-resolved-before-route-release',
+  'navigation-cannot-silently-abandon-dirty-work',
+  'draft-preserves-editable-work-state-without-creating-business-effect',
+  'the-organ-owns-draft-persistence-the-body-only-orchestrates-leaving',
+  'operation-settlement-journey-output-v1',
+  'WORK_JOURNEY_LAYER',
+  'WORK_OUTPUT_KIND',
+  'operational-fact-is-truth-not-automatically-an-action-transaction',
+  'explicit-user-settlement-decision-selects-and-freezes-eligible-operational-facts',
+  'cross-portal-action-begins-only-when-a-governed-transition-is-requested',
+  'requires-action-belongs-to-governed-transition-not-routine-operational-write',
+  'same-operational-stream-may-produce-multiple-non-overlapping-settlements-over-time',
+  'one-transaction-one-body-inbox-points-to-source-owner',
+  'report-does-not-create-truth-truth-creates-report',
+  'contractor-laborers-belong-to-project-operations-not-employee-hr-lifecycle',
   'bodyMustNotInferCompletionFromButtonClick',
   'bodyMustNotInferCompletionFromToast',
   'bodyMustNotOwnBusinessTransition',
+  'bodyMustNotInventDraftPersistence',
   'WORK_COMPLETION_KIND',
   'WORK_SESSION_STATE',
+  'WORK_LEAVE_DECISION',
 ]);
-if (/localStorage|sessionStorage/.test(sessionConstitution)) failures.push('work-session constitution: خاتمة الجلسة لا يجوز أن تعيش في تخزين متصفح موازٍ.');
+if (/localStorage|sessionStorage/.test(sessionConstitution)) failures.push('work-session constitution: خاتمة الجلسة أو العمل الحي لا يجوز أن يعيش في تخزين متصفح موازٍ.');
 
 const runtime = requireText('components/ui/WorkSurfaceRuntime.js', [
   'resolveWorkSurface',
@@ -83,20 +100,30 @@ if (/localStorage|sessionStorage/.test(runtime)) failures.push('WorkSurfaceRunti
 const sessionRuntime = requireText('components/ui/WorkSessionRuntime.js', [
   "from '@/lib/work-session-constitution'",
   "BEGIN: 'arkan:work-session-begin'",
+  "DIRTY: 'arkan:work-session-dirty'",
+  "CLEAN: 'arkan:work-session-clean'",
+  "NAVIGATE: 'arkan:work-session-navigate'",
   'arkan:work-session-completed',
   'serverConfirmed !== true',
   'emitWorkSessionCompletion',
+  'emitWorkSessionDirty',
+  'requestWorkNavigation',
   'data-work-session-state',
+  'data-work-dirty',
   'CompletedSurface',
+  'LeaveWorkDialog',
   'WORK_SESSION_STATE.IDLE',
   'const [started, setStarted] = useState(false)',
+  'const [pendingWork, setPendingWork] = useState(null)',
   'setStarted(true)',
   'setCompletion(null)',
+  'beforeunload',
 ]);
-if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل لا تُخزن محليًا ولا تعيش بعد تغيير المسار.');
+if (/localStorage|sessionStorage/.test(sessionRuntime)) failures.push('WorkSessionRuntime: حالة انتهاء جلسة العمل أو بوابة المغادرة لا تُخزن محليًا.');
 if (!/completion\s*\?\s*<CompletedSurface[\s\S]{0,180}:\s*children/.test(sessionRuntime)) {
   failures.push('WorkSessionRuntime: الخاتمة يجب أن تستبدل مشهد العمل المنتهي بدل إبقاء العضو والقوائم تحته.');
 }
+if (!sessionRuntime.includes('pendingWork?.dirty')) failures.push('WorkSessionRuntime: الملاحة يجب أن تمر على حالة العمل الحي قبل تحرير المسار.');
 
 const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
@@ -121,7 +148,7 @@ const bodyCss = requireText('app/dashboard/app-body-v3.css', [
   'APPLICATION BODY V3',
   "[data-organ-host='route-content']",
   ".appContextNav[data-open='true'][data-pinned='true']",
-  'padding-inline-end: var(--app-body-nav-width)',
+  'padding-right: var(--app-body-nav-width)',
   'content: none !important',
   '.appCompletedSurface',
   '.appCompletedActions',
@@ -201,11 +228,34 @@ const projects = requireText('app/dashboard/projects/page.js', [
   'RecordList',
   'RecordRow',
   'RecordSummary',
-  'SummaryStrip',
+  'PortalHall',
+  'PortalLiveZone',
+  'PortalRegistry',
   'FilterSurface',
 ]);
 if (/projects-redesign\.module\.css|projectCard|projectGrid/.test(projects)) failures.push('/dashboard/projects: سجل المشاريع لا يجوز أن يعود إلى بطاقات Dashboard محلية.');
 if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(projects)) failures.push('/dashboard/projects: الصفحة أعادت اختراع حقيقة صلاحيات العرض بدل DashboardSession.');
+if (projects.includes('SummaryStrip')) failures.push('/dashboard/projects: الحارس يتبع قانون البوابة work-first؛ لا يعيد شريط المؤشرات العام إلى مدخل المشاريع.');
+
+const projectStatus = requireText('app/dashboard/projects/[id]/page.js', [
+  'fn_project_approval_queue',
+  'fn_submit_project_setup_for_approval',
+  'fn_approval_get',
+  'emitWorkSessionCompletion',
+  'WORK_COMPLETION_KIND.SENT_FOR_APPROVAL',
+  'data-project-setup-journey="true"',
+  'إرسال تأسيس المشروع للاعتماد',
+]);
+if (projectStatus.includes("supabase.rpc('approve_project_contract_value'")) {
+  failures.push('موقف المشروع: عاد مسار اعتماد قيمة العقد المباشر؛ التأسيس يجب أن يمر بمحرك الاعتمادات.');
+}
+
+requireText('supabase/migrations/20260904233000_remove_misclassified_project_transaction_hooks.sql', [
+  "source_table = 'change_orders' and transaction_key = 'job_offer'",
+  "source_table = 'project_change_events' and transaction_key = 'payroll_run'",
+  "transaction_key = 'project_change'",
+  'إحلال وإلغاء',
+]);
 
 const quotes = requireText('app/dashboard/quotes/page.js', [
   'ConstitutionPage',
@@ -240,4 +290,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Program-driven work surface audit passed: one notebook body preserves route organs, enforces zero-residue completion, and controls surfaces, selection scopes, actions and interaction grammar.');
+console.log('Program-driven work surface audit passed: one notebook body preserves route organs, the four-layer operation → settlement → journey → output law is constitutional, project setup uses the governed approval journey, and reports remain read-only truth outputs.');

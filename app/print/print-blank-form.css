@@ -1,11 +1,9 @@
 /* ============================================================
    النموذج الورقي الفارغ — خاصية دستورية لمحرك المستندات
-   ------------------------------------------------------------
-   هذا الملف يملك فقط شكل مساحات الكتابة اليدوية. هندسة الورق،
-   حدود الليترهيد وكسر الصفحات تبقى ملك القبطان المركزي.
+   كل selector محصور داخل جذر الطباعة حتى لا يتسرب للواجهة.
    ============================================================ */
 
-.blank-row-control{
+.print-route-root .blank-row-control{
   display:flex;
   align-items:center;
   gap:6px;
@@ -15,16 +13,16 @@
   color:var(--ink-soft,#555);
   background:#fff;
 }
-.blank-row-control input{
+.print-route-root .blank-row-control input{
   width:54px;
   padding:4px 5px;
   border:1px solid var(--hair-strong,#b9b3b3);
   font:inherit;
   text-align:center;
 }
-.toolbar button:disabled{opacity:.55;cursor:not-allowed}
+.print-route-root .toolbar button:disabled{opacity:.55;cursor:not-allowed}
 
-.blank-form-mode .blank-write-line{
+.print-route-root .blank-form-mode .blank-write-line{
   display:inline-block;
   width:28mm;
   min-width:16mm;
@@ -34,20 +32,20 @@
   vertical-align:bottom;
   box-sizing:border-box;
 }
-.blank-form-mode .blank-write-line.wide{width:min(100%,80mm)}
-.blank-form-mode .blank-write-line.blank-date{width:27mm}
-.blank-form-mode .blank-write-line.blank-number{width:18mm}
-.blank-form-mode .blank-write-line.blank-money{width:25mm}
-.blank-form-mode .blank-party-value{width:100%}
+.print-route-root .blank-form-mode .blank-write-line.wide{width:min(100%,80mm)}
+.print-route-root .blank-form-mode .blank-write-line.blank-date{width:27mm}
+.print-route-root .blank-form-mode .blank-write-line.blank-number{width:18mm}
+.print-route-root .blank-form-mode .blank-write-line.blank-money{width:25mm}
+.print-route-root .blank-form-mode .blank-party-value{width:100%}
 
-.blank-form-mode .blank-writing-lines{
+.print-route-root .blank-form-mode .blank-writing-lines{
   display:flex;
   flex-direction:column;
   width:100%;
   gap:2mm;
   min-width:0;
 }
-.blank-form-mode .blank-writing-lines > span{
+.print-route-root .blank-form-mode .blank-writing-lines>span{
   display:block;
   width:100%;
   height:5.5mm;
@@ -55,46 +53,43 @@
   box-sizing:border-box;
 }
 
-.blank-form-mode .card-doc .v,
-.blank-form-mode .pc-v,
-.blank-form-mode .amounts td.num,
-.blank-form-mode .report-metric-value,
-.blank-form-mode .pt-v{
-  min-height:6mm;
-}
-.blank-form-mode .amounts tbody td{height:8mm;vertical-align:middle}
-.blank-form-mode .report-item-block{background:#fff}
-.blank-form-mode .report-operational-value{min-height:15mm}
-.blank-form-mode .report-operational-row{break-inside:avoid;page-break-inside:avoid}
-.blank-form-mode .letter-body,
-.blank-form-mode .dc-body{min-height:18mm}
+.print-route-root .blank-form-mode .card-doc .v,
+.print-route-root .blank-form-mode .pc-v,
+.print-route-root .blank-form-mode .amounts td.num,
+.print-route-root .blank-form-mode .report-metric-value,
+.print-route-root .blank-form-mode .pt-v{min-height:6mm}
+.print-route-root .blank-form-mode .amounts tbody td{height:8mm;vertical-align:middle}
+.print-route-root .blank-form-mode .report-item-block{background:#fff}
+.print-route-root .blank-form-mode .report-operational-value{min-height:15mm}
+.print-route-root .blank-form-mode .report-operational-row{break-inside:avoid;page-break-inside:avoid}
+.print-route-root .blank-form-mode .letter-body,
+.print-route-root .blank-form-mode .dc-body{min-height:18mm}
 
-.blank-letterhead-fields{display:flex;flex-direction:column;gap:3mm}
-.blank-letter-field{
+.print-route-root .blank-letterhead-fields{display:flex;flex-direction:column;gap:3mm}
+.print-route-root .blank-letter-field{
   display:flex;
   align-items:flex-end;
   gap:3mm;
   font-size:9.5pt;
   color:#2E2E30;
 }
-.blank-letter-field strong{white-space:nowrap;color:#8B3332}
-.blank-letter-field .blank-write-line{flex:1;width:auto}
+.print-route-root .blank-letter-field strong{white-space:nowrap;color:#8B3332}
+.print-route-root .blank-letter-field .blank-write-line{flex:1;width:auto}
 
-/* البند/الصف الفارغ يبقى وحدة كاملة عند كسر الصفحة. */
-.blank-form-mode .report-item-block,
-.blank-form-mode .amounts tbody tr,
-.blank-form-mode .pt-card,
-.blank-form-mode .declare,
-.blank-form-mode .plain-card,
-.blank-form-mode .sigtable{
+.print-route-root .blank-form-mode .report-item-block,
+.print-route-root .blank-form-mode .amounts tbody tr,
+.print-route-root .blank-form-mode .pt-card,
+.print-route-root .blank-form-mode .declare,
+.print-route-root .blank-form-mode .plain-card,
+.print-route-root .blank-form-mode .sigtable{
   break-inside:avoid;
   page-break-inside:avoid;
 }
 
 @media print{
-  .blank-row-control{display:none!important}
-  .blank-form-mode .blank-write-line,
-  .blank-form-mode .blank-writing-lines > span{
+  .print-route-root .blank-row-control{display:none!important}
+  .print-route-root .blank-form-mode .blank-write-line,
+  .print-route-root .blank-form-mode .blank-writing-lines>span{
     -webkit-print-color-adjust:exact!important;
     print-color-adjust:exact!important;
   }

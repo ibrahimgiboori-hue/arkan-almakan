@@ -2,225 +2,254 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
-const printRoot = path.join(root, 'app', 'print');
-const centralFiles = new Set([
-  path.normalize('app/print/print-system.css'),
-  path.normalize('app/print/print-constitution.css'),
-  path.normalize('app/print/print-office-model.css'),
-]);
+const printRoot = path.join(root,'app','print');
+const printComponentsRoot = path.join(root,'components','print');
+const violations=[];
 
-const inlineMarkOwnerFiles = new Set([
-  path.normalize('app/print/[id]/page.js'),
-]);
-
-const geometryRules = [
-  { re:/@page\b/i, label:'تعريف @page محلي' },
-  { re:/\bsize\s*:\s*A4\b/i, label:'تعريف حجم A4 محلي' },
-  { re:/(^|[\s,{])html\s*,\s*body\s*\{/i, label:'تعريف html/body للطباعة محليًا' },
-  { re:/\.print-page\s*\{/i, label:'إعادة تعريف هندسة .print-page' },
-  { re:/\.constitution-paged-sheet\s*\{/i, label:'إعادة تعريف هندسة الصفحة متعددة الصفحات' },
-];
-
-const markRules = [
-  { re:/\bstamp_image_path\b/i, label:'قراءة ملف الختم خارج طبقة الطباعة المركزية' },
-  { re:/\bsignature_image_path\b/i, label:'قراءة ملف التوقيع خارج طبقة الطباعة المركزية' },
-  { re:/\.print-master-stamp\s*\{/i, label:'تعريف هندسة الختم محليًا خارج دستور الطباعة' },
-  { re:/\.print-master-signature\s*\{/i, label:'تعريف هندسة التوقيع محليًا خارج دستور الطباعة' },
-];
-
-function walk(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes:true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return walk(full);
-    return [full];
+function walk(dir){
+  if(!fs.existsSync(dir))return[];
+  return fs.readdirSync(dir,{withFileTypes:true}).flatMap((entry)=>{
+    const full=path.join(dir,entry.name);
+    return entry.isDirectory()?walk(full):[full];
   });
 }
+function rel(file){return path.normalize(path.relative(root,file));}
+function read(relative){
+  const full=path.join(root,relative);
+  if(!fs.existsSync(full)){violations.push(`${relative}: الملف مفقود`);return'';}
+  return fs.readFileSync(full,'utf8');
+}
+function requireTokens(relative,tokens){
+  const text=read(relative);
+  for(const token of tokens)if(!text.includes(token))violations.push(`${relative}: missing governed print contract ${token}`);
+  return text;
+}
+function forbidTokens(relative,tokens){
+  const text=read(relative);
+  for(const token of tokens)if(text.includes(token))violations.push(`${relative}: بقايا متقاعدة ممنوعة (${token})`);
+  return text;
+}
 
-const candidates = walk(printRoot).filter((file) => /\.(?:js|jsx|ts|tsx|css)$/.test(file));
-const violations = [];
+const printFiles=walk(printRoot).filter((file)=>/\.(?:js|jsx|ts|tsx|css)$/.test(file));
+const printComponentFiles=walk(printComponentsRoot).filter((file)=>/\.(?:js|jsx|ts|tsx)$/.test(file));
 
-for (const file of candidates) {
-  const rel = path.normalize(path.relative(root, file));
-  if (centralFiles.has(rel)) continue;
-  const content = fs.readFileSync(file, 'utf8');
-  for (const rule of geometryRules) {
-    if (rule.re.test(content)) violations.push(`${rel}: ${rule.label}`);
-  }
-  if (!inlineMarkOwnerFiles.has(rel)) {
-    for (const rule of markRules) {
-      if (rule.re.test(content)) violations.push(`${rel}: ${rule.label}`);
-    }
+for(const retired of [
+  'app/print/print-system.css',
+  'app/print/employees/emp-report.css',
+  'components/print/PrintFrame.js',
+  'lib/quote-pagination.mjs',
+  'tests/quote-pagination.test.mjs',
+]){
+  if(fs.existsSync(path.join(root,retired)))violations.push(`${retired}: ملف متقاعد عاد بعد الإحلال`);
+}
+
+const retiredRuntimeTokens=[
+  'paginateRows',
+  'positiveRowCap',
+  'autoPaginate',
+  'showLetterhead',
+  'margin_top_mm',
+  'margin_bottom_mm',
+  'margin_side_mm',
+  'stamp_x_mm',
+  'stamp_y_mm',
+  'sign_x_mm',
+  'sign_y_mm',
+  'letterhead_top_mm',
+  'letterhead_bottom_mm',
+  'safeBottomMm',
+];
+for(const file of [...printFiles,...printComponentFiles]){
+  const relative=rel(file);
+  const text=fs.readFileSync(file,'utf8');
+  for(const token of retiredRuntimeTokens){
+    if(text.includes(token))violations.push(`${relative}: API/إعداد طباعة متقاعد ما زال حيًا (${token})`);
   }
 }
 
-const layoutPath = path.join(printRoot, 'layout.js');
-if (fs.existsSync(layoutPath)) {
-  const layout = fs.readFileSync(layoutPath, 'utf8');
-  if (!layout.includes("import './print-constitution.css'")) {
-    violations.push('app/print/layout.js: نقطة الدخول ليست print-constitution.css');
-  }
-  if (!layout.includes("import './print-office-model.css'")) {
-    violations.push('app/print/layout.js: نموذج Word + Excel غير مطبق على كل المطبوعات');
-  }
-  for (const legacy of ['procedure-system.css','print-constitution-hardening.css']) {
-    if (layout.includes(legacy)) violations.push(`app/print/layout.js: استيراد طبقة طباعة قديمة ${legacy}`);
-  }
+for(const file of printFiles){
+  const relative=rel(file);
+  const text=fs.readFileSync(file,'utf8');
+  if(/@page\b/i.test(text))violations.push(`${relative}: @page خارج القبطان`);
+  if(/\bsize\s*:\s*A4\b/i.test(text))violations.push(`${relative}: حجم A4 محلي خارج القبطان`);
+  if(/(^|[\s,{])html\s*,\s*body\s*\{/i.test(text))violations.push(`${relative}: html/body عالمي داخل طبقة طباعة`);
+  if(/\.constitution-paged-sheet\s*\{/i.test(text))violations.push(`${relative}: إعادة تعريف هندسة صفحة القبطان`);
+  if(/\.print-page\s*\{/i.test(text))violations.push(`${relative}: إعادة تعريف هندسة .print-page`);
 }
 
-const officeModelPath = path.join(printRoot, 'print-office-model.css');
-if (!fs.existsSync(officeModelPath)) {
-  violations.push('app/print/print-office-model.css: نموذج Word + Excel المركزي مفقود');
-} else {
-  const officeModel = fs.readFileSync(officeModelPath, 'utf8');
-  for (const token of [
-    '--office-prose-leading',
-    '--office-prose-gap',
-    '--office-table-leading',
-    '.print-prose',
-    '.print-data-table',
-    'table thead{display:table-header-group}',
-    'page-break-inside:avoid!important',
-    '[data-print-type="money"]',
-  ]) {
-    if (!officeModel.includes(token)) violations.push(`print-office-model.css: missing governed Office Model contract ${token}`);
-  }
+for(const file of printFiles.filter((file)=>/\.(?:js|jsx|ts|tsx)$/.test(file))){
+  const relative=rel(file);
+  const text=fs.readFileSync(file,'utf8');
+  if(/\bstamp_image_path\b/.test(text))violations.push(`${relative}: الختم يجب أن يمر عبر PrintMark/PrintMarks`);
+  if(/\bsignature_image_path\b/.test(text))violations.push(`${relative}: التوقيع يجب أن يمر عبر PrintMark/PrintMarks`);
 }
 
-const framePath = path.join(root, 'components', 'print', 'ConstitutionPrintFrame.js');
-if (!fs.existsSync(framePath)) {
-  violations.push('components/print/ConstitutionPrintFrame.js: محول القبطان العام مفقود');
-} else {
-  const frame = fs.readFileSync(framePath, 'utf8');
-  for (const token of [
-    'cfg?.letterhead_top_mm',
-    'cfg?.letterhead_bottom_mm',
-    'Math.max(finiteMm(requestedTop), letterheadTop)',
-    'Math.max(finiteMm(requestedBottom), letterheadBottom)',
-    'Children.toArray(children)',
-    'cloneElement(childArray[0]',
-    'className:mergeClassName(childArray[0].props.className, className)',
-    '{flowChildren}',
-  ]) {
-    if (!frame.includes(token)) violations.push(`ConstitutionPrintFrame.js: missing physical-page ownership contract ${token}`);
-  }
-  if (frame.includes('<div className={className}>{children}</div>')) {
-    violations.push('ConstitutionPrintFrame.js: الغلاف الزائد يعيد المستند كله ككتلة واحدة ويمنح المتصفح حق كسر الصفحة');
-  }
+const governance=requireTokens('lib/print-governance.js',[
+  "PRINT_GOVERNANCE_VERSION = '3.2'",
+  "GOVERNED: 'governed'",
+  'PRINT_WORD_STANDARD',
+  'bodyMarginMm:25.4',
+  'headerFromEdgeMm:12.7',
+  'footerFromEdgeMm:12.7',
+  'ARKAN_LETTERHEAD_PROFILE',
+  'portraitTopArtworkMm:34.23',
+  'portraitBottomArtworkMm:19.13',
+  'PRINT_LINE_FLOW_POLICY',
+  "owner:'ConstitutionPagedFrame'",
+  "measurementUnit:'visual-line-box'",
+  'PRINT_LETTERHEAD_SOURCE',
+  'PRINT_PAPER_ROTATION',
+  'PRINT_FLOW_BOUNDARY',
+  'PRINT_FLOW_KIND',
+  "REPEATABLE_TABLE: 'repeatable-table'",
+  'claim_documents',
+  'quotation',
+  'employee_report',
+  'timesheet_report',
+  'expense_report',
+  'board_report',
+  'generic_document',
+]);
+for(const forbidden of ['MIGRATING','LEGACY','recruitment_offer_public','recruitment_contract_public','pagination:Object.freeze','paginateRows','positiveRowCap']){
+  if(governance.includes(forbidden))violations.push(`lib/print-governance.js: سجل الهجرة لم يُغلق (${forbidden})`);
 }
 
-// رحلة تقرير المشروع أصبحت مكوّناً مركزياً: السطر الرقمي ثم قائمة أسطر حرة
-// (عنوان + نص) لا أسماء تشغيلية مفروضة. والملخصات ناتج محسوب وليست حقول إدخال.
-const genericPrintPath = path.join(printRoot, '[id]', 'page.js');
-const journeyPrintPath = path.join(root, 'components', 'print', 'ProjectReportJourneyPrint.js');
-const journeyEditorPath = path.join(root, 'components', 'documents', 'ProjectReportJourneyEditor.js');
-const reportFormPath = path.join(root, 'components', 'documents', 'ProjectReportDocumentForm.js');
-const formRouterPath = path.join(root, 'components', 'documents', 'DocumentFormRouter.js');
+const reportPreparation=requireTokens('lib/report-preparation.js',[
+  'filter-sort-group-before-print-v1',
+  "owner:'report-definition'",
+  "sourceMutation:'forbidden'",
+  "grouping:'semantic-sections-not-physical-pages'",
+  "captainRole:'pagination-only'",
+  'reportCreatesTruth:false',
+  'prepareReportRows',
+  'groupPreparedReportRows',
+]);
+if(/force-page|page-break|@page/i.test(reportPreparation))violations.push('report-preparation: إعداد التقرير لا يجوز أن يملك هندسة صفحات أو فرض كسر صفحة.');
 
-if (!fs.existsSync(genericPrintPath)) {
-  violations.push('app/print/[id]/page.js: محرك طباعة المستندات العام مفقود');
-} else {
-  const genericPrint = fs.readFileSync(genericPrintPath, 'utf8');
-  for (const token of [
-    "PROJECT_REPORT_PROFILE = 'project_work_claims_report'",
-    'ProjectReportJourneyPrint',
-    'blankStatusRows',
-  ]) {
-    if (!genericPrint.includes(token)) violations.push(`app/print/[id]/page.js: missing central project-report journey bridge ${token}`);
-  }
-  if (genericPrint.includes('PROJECT_REPORT_OPERATIONAL_FIELDS')) {
-    violations.push('app/print/[id]/page.js: عناوين رحلة البند لا يجوز أن تعود ثابتة داخل صفحة الطباعة');
-  }
-}
+const layout=requireTokens('app/print/layout.js',[
+  "import './print-constitution.css'",
+  "import './print-office-model.css'",
+  'print-route-root',
+  'PrintGovernanceBoundary',
+]);
+if(layout.includes('print-system.css'))violations.push('app/print/layout.js: استيراد print-system.css المتقاعد');
 
-if (!fs.existsSync(journeyPrintPath)) {
-  violations.push('components/print/ProjectReportJourneyPrint.js: مكوّن طباعة رحلة البند مفقود');
-} else {
-  const journeyPrint = fs.readFileSync(journeyPrintPath, 'utf8');
-  for (const token of [
-    'operational_lines',
-    'report-item-block',
-    'report-operational-row',
-    'report-operational-label',
-    'المتبقي / قيد التحويل',
-    'generatedSummary',
-    'generatedConclusion',
-    '_report_sections',
-  ]) {
-    if (!journeyPrint.includes(token)) violations.push(`ProjectReportJourneyPrint.js: missing flexible item-journey contract ${token}`);
-  }
+const constitution=requireTokens('app/print/print-constitution.css',[
+  'ARKAN PRINT CONSTITUTION v3.2',
+  '.print-route-root',
+  '.print-constitution table',
+  '--arkan-print-table-head-text:#111',
+  '.print-constitution thead th',
+  '-webkit-text-fill-color:var(--arkan-print-table-head-text)!important',
+  '.print-signoff-block',
+  '.procedure-stage-grid',
+]);
+for(const forbidden of ["@import './print-system.css'",'--arkan-print-page-width','--arkan-print-page-height','--arkan-print-side-margin','@page arkan-portrait','@page arkan-landscape','html,body']){
+  if(constitution.includes(forbidden))violations.push(`print-constitution.css: هندسة/نطاق عالمي قديم بقي (${forbidden})`);
 }
 
-if (!fs.existsSync(journeyEditorPath)) {
-  violations.push('components/documents/ProjectReportJourneyEditor.js: محرر رحلة البند المرن مفقود');
-} else {
-  const journeyEditor = fs.readFileSync(journeyEditorPath, 'utf8');
-  for (const token of [
-    'operational_lines',
-    'اكتب عنوان السطر',
-    'إضافة سطر',
-    'عنوان القسم',
-    'إضافة قسم',
-  ]) {
-    if (!journeyEditor.includes(token)) violations.push(`ProjectReportJourneyEditor.js: missing flexible journey editor contract ${token}`);
-  }
+const office=requireTokens('app/print/print-office-model.css',[
+  'ARKAN PRINT OFFICE MODEL v2',
+  '--office-prose-leading',
+  '--office-table-leading',
+  '.print-constitution .xlsx-grid',
+  '.print-family-projects-finance .project-finance-document',
+  '.print-constitution .governed-document-sheet',
+  '[data-print-type="money"]',
+]);
+if(/(^|\n)\.sheet\b/.test(office))violations.push('print-office-model.css: selector .sheet غير المحكوم عاد');
+
+const wrapper=requireTokens('components/print/ConstitutionPrintFrame.js',[
+  'ConstitutionPagedFrame',
+  'expandCaptainFlowBlocks',
+  'showPageNumbers={false}',
+]);
+for(const forbidden of ['contentTopMm','contentBottomMm','contentSideMm','contentLeftMm','contentRightMm','getPrintLayoutPolicy']){
+  if(wrapper.includes(forbidden))violations.push(`ConstitutionPrintFrame.js: wrapper ما زال يملك/يمرر هندسة (${forbidden})`);
 }
 
-if (!fs.existsSync(reportFormPath)) {
-  violations.push('components/documents/ProjectReportDocumentForm.js: سطح إدخال التقرير القائم على بيانات المصدر مفقود');
-} else {
-  const reportForm = fs.readFileSync(reportFormPath, 'utf8');
-  for (const token of ['GENERATED_KEYS','_report_sections','ProjectReportJourneyEditor']) {
-    if (!reportForm.includes(token)) violations.push(`ProjectReportDocumentForm.js: missing generated-summary/source-only contract ${token}`);
-  }
+const paged=requireTokens('components/print/ConstitutionPagedFrame.js',[
+  'CAPTAIN_GEOMETRY_SCHEMA = 6',
+  'PRINT_LETTERHEAD_SOURCE',
+  'PRINT_PAPER_ROTATION',
+  'data-print-letterhead-source',
+  'data-print-paper-rotation',
+  'data-print-geometry-schema',
+  'data-print-line-seams="visual-line-box"',
+  'measuredLineBands(',
+  'visualLineSeams(',
+  'chooseVisualLineBreak(',
+  'measuredRowSlice(',
+  'letterheadTop + headerClearanceMm',
+  'letterheadBottom + footerClearanceMm',
+  'sideReservedLetterhead',
+  'rotatedDigitalMaster',
+  "@page{size:A4 ${orientation};margin:0}",
+]);
+for(const forbidden of ['cfg?.letterhead_top_mm','cfg?.letterhead_bottom_mm','safeBottomMm','NORMAL_TOP_MM','NORMAL_BOTTOM_MM','setFlowPagination','samePagination']){
+  if(paged.includes(forbidden))violations.push(`ConstitutionPagedFrame.js: بقايا محرك/هندسة قديمة (${forbidden})`);
 }
 
-if (!fs.existsSync(formRouterPath) || !fs.readFileSync(formRouterPath, 'utf8').includes('ProjectReportDocumentForm')) {
-  violations.push('DocumentFormRouter.js: ملف التقرير لا يمر عبر سطح المستندات الموحد');
-}
+const governedRoutes={
+  'app/print/operating-budget/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
+  'app/print/payroll/[id]/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
+  'app/print/expenses/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
+  'app/print/employees/page.js':['ConstitutionPrintFrame','data-print-flow="repeatable-table"'],
+  'app/print/timesheet/page.js':['ConstitutionPrintFrame','data-print-flow="repeatable-table"'],
+  'app/print/timesheet/blank/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
+  'app/print/board/page.js':['ConstitutionPrintFrame','data-print-flow="repeatable-table"'],
+  'app/print/quote/[id]/page.js':['ConstitutionPrintFrame','data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}'],
+  'app/print/[id]/page.js':['ConstitutionPrintFrame','PRINT_FLOW_KIND.REPEATABLE_TABLE','PrintMark'],
+};
+for(const [relative,tokens] of Object.entries(governedRoutes))requireTokens(relative,tokens);
 
-const textGovernancePath = path.join(root, 'lib', 'print-text-governance.js');
-const textEditorPath = path.join(root, 'components', 'print', 'PrintTextAlignmentEditor.js');
-const boundaryPath = path.join(root, 'components', 'print', 'PrintGovernanceBoundary.js');
-if (!fs.existsSync(textGovernancePath)) {
-  violations.push('lib/print-text-governance.js: دستور المحاذاة اليدوية مفقود');
-} else {
-  const textGovernance = fs.readFileSync(textGovernancePath, 'utf8');
-  for (const token of [
-    "owner:'user'",
-    "manualOverridePriority:'absolute'",
-    "automaticAlignment:'fallback-only'",
-    "RIGHT: 'right'",
-    "CENTER: 'center'",
-    "LEFT: 'left'",
-    "JUSTIFY: 'justify'",
-  ]) {
-    if (!textGovernance.includes(token)) violations.push(`print-text-governance.js: missing manual text contract ${token}`);
-  }
-}
-if (!fs.existsSync(textEditorPath)) {
-  violations.push('components/print/PrintTextAlignmentEditor.js: أداة المحاذاة المركزية مفقودة');
-} else {
-  const textEditor = fs.readFileSync(textEditorPath, 'utf8');
-  for (const token of [
-    'PRINT_TEXT_ALIGNMENT_OPTIONS',
-    'textAlignments',
-    'data-print-text-align',
-    'text-align:justify!important',
-    'text-align-last:justify!important',
-  ]) {
-    if (!textEditor.includes(token)) violations.push(`PrintTextAlignmentEditor.js: missing governed manual-alignment behavior ${token}`);
-  }
-}
-if (!fs.existsSync(boundaryPath) || !fs.readFileSync(boundaryPath, 'utf8').includes('PrintTextAlignmentEditor')) {
-  violations.push('PrintGovernanceBoundary.js: أداة تنسيق النص ليست مركبة في القبطان العام لكل المطبوعات');
-}
+const budgetPrint=requireTokens('app/print/operating-budget/page.js',[
+  "from '@/lib/report-preparation'",
+  'prepareReportRows',
+  'groupPreparedReportRows',
+  'data-report-preparation="filter-sort-group-before-print-v1"',
+  'تقسيم التقرير',
+  'أجزاء حسب التصنيف',
+  'أجزاء حسب حالة السداد',
+  'data-report-section',
+]);
+if(/data-print-boundary-before|PRINT_FLOW_BOUNDARY|force-page/i.test(budgetPrint))violations.push('operating-budget print: تقسيم التقرير يجب أن يبقى دلاليًا؛ القبطان وحده يملك حدود الصفحات.');
 
-if (violations.length) {
+const generic=forbidTokens('app/print/[id]/page.js',[
+  'margin_top_mm','margin_bottom_mm','margin_side_mm','contentTopMm','contentBottomMm','contentSideMm','stamp_image_path','signature_image_path',
+]);
+if(!generic.includes('className="governed-document-sheet"'))violations.push('app/print/[id]/page.js: المستند العام ليس داخل سطح المحتوى المحكوم');
+
+const timesheet=forbidTokens('app/print/timesheet/page.js',['paginateRows','getPrintLayoutPolicy','REPORT_LAYOUT.pagination','pageModels']);
+if(!timesheet.includes('chunk(dates,7)'))violations.push('timesheet: تجميع الأيام الأفقي المبرر اختفى');
+
+const quoteCss=forbidTokens('app/print/quote/[id]/quote-print.css',['210×297','210mm','297mm','.measure{','.pages{','.sheet{','.content{','@media print']);
+if(!quoteCss.includes('Quotation content profile'))violations.push('quote-print.css: الملف لم يتحول إلى content profile');
+const quoteFlow=forbidTokens('app/print/quote/[id]/quote-flow.css',['.quote-document-page','@media print']);
+if(!quoteFlow.includes('.quote-document-flow'))violations.push('quote-flow.css: مسار المحتوى الحالي غير مثبت');
+
+const claims=read('app/print/claims/[id]/page.js');
+if(!claims.includes('ConstitutionPrintFrame'))violations.push('claims: المستخلص خارج القبطان');
+if(!claims.includes('PRINT_FLOW_KIND.REPEATABLE_TABLE'))violations.push('claims: جدول المستخلص ليس repeatable flow');
+
+requireTokens('components/print/PrintPresentationContext.js',['PrintPresentationProvider','PrintColumnLabel','labels']);
+requireTokens('components/print/PagedTableGridEditor.js',[
+  'logicalColumnCount',
+  'addTableOuterBoundary',
+  'paged-grid-boundary',
+  'paged-table-row-boundary',
+  '.constitution-flow-measure table',
+  'BoundaryBoxEditor',
+]);
+requireTokens('components/print/PrintMarks.js',['PrintMark','print-master-stamp','print-master-signature']);
+requireTokens('components/print/PrintTextAlignmentEditor.js',['PRINT_TEXT_ALIGNMENT_OPTIONS','data-print-text-align']);
+requireTokens('components/print/PrintGovernanceBoundary.js',['resolvePrintDocument','PrintTextAlignmentEditor','print-unregistered']);
+
+if(violations.length){
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('صفحات المحتوى لا تملك هندسة الورق أو أصول الهوية، ونموذج Word + Excel والتحكم اليدوي في النص يجب أن تبقى مركزية ومطبقة على جميع المطبوعات.\n');
-  for (const item of violations) console.error(`- ${item}`);
+  console.error('القانون: قبطان واحد يملك الورقة والهندسة والليترهيد والتقسيم؛ إعداد التقرير يفلتر ويرتب ويقسم دلاليًا فقط، ورؤوس الجداول يجب أن تبقى عالية التباين في كل المطبوعات المحكومة.\n');
+  for(const item of violations)console.error(`- ${item}`);
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${candidates.length} print source files checked; Word + Excel model, physical page ownership, letterhead safety, flexible item journeys and manual text alignment active).`);
+console.log(`Print constitution audit passed (${printFiles.length} print source files checked; all registered /print routes are governed by one captain, report preparation remains read-only and semantic, and table headers are protected by the shared readability law).`);
