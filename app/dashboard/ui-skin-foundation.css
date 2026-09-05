@@ -1,0 +1,418 @@
+/*
+  UI SKIN FOUNDATION — transitional compatibility base
+  ---------------------------------------------------
+  raw-tokens.css supplies values. The semantic skin owns the application body,
+  route mount and current contextual navigation. This foundation keeps only
+  shared legacy page, section, ledger, form and action styling while those
+  surfaces are progressively expressed through semantic UI slots.
+
+  It owns no business logic, route permissions, navigation anatomy or print
+  constitution. Printable documents remain outside this screen-only layer.
+*/
+@media screen {
+  html {
+    scrollbar-gutter: stable both-edges;
+    background: var(--raw-bg);
+  }
+
+  body {
+    margin: 0;
+    background: var(--raw-bg) !important;
+    color: var(--raw-ink);
+    font-size: 17px;
+    line-height: 1.65;
+  }
+
+  .rawDashboardShell {
+    --work-sheet-inline: 16px;
+    --work-sheet-top: 12px;
+    --work-sheet-bottom: 58px;
+    --work-header-min-height: 76px;
+    --work-section-header-min-height: 52px;
+    --work-dock-height: 46px;
+    --work-rule: var(--raw-border, #d8d3c8);
+    --work-rule-soft: var(--raw-border-soft, #e8e4dc);
+
+    min-height: 100dvh;
+    width: 100%;
+    min-width: 0;
+    background: var(--raw-bg);
+  }
+
+  /* Legacy application shells are semantic only; they cannot create geometry. */
+  .shell { display: block !important; min-height: 0 !important; }
+  .shell > .side,
+  .side { display: none !important; }
+  .shell > .main,
+  .main { width: 100% !important; min-width: 0 !important; display: block !important; }
+  .topbar { display: none !important; }
+
+  .rawDashboardContent .workSheetMount [data-work-sheet='true'],
+  .rawDashboardContent .workSheetMount [data-page-surface='true'],
+  .rawDashboardContent .workSheetMount .page {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative;
+  }
+
+  /* =========================================================
+     HEADER RAIL — same baseline on portal, tool and project pages.
+     ========================================================= */
+  .rawDashboardContent [data-work-header='true'],
+  .rawDashboardContent [data-page-header='true'],
+  .rawDashboardContent .page-head,
+  .rawDashboardContent [data-work-context-bar='true'] {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--work-header-min-height) !important;
+    margin: 0 0 10px !important;
+    padding: 6px 0 10px !important;
+    border-bottom: 1px solid var(--work-rule) !important;
+  }
+
+  .rawDashboardContent [data-work-header='true'],
+  .rawDashboardContent [data-page-header='true'],
+  .rawDashboardContent .page-head {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end !important;
+    gap: 16px;
+  }
+
+  .rawDashboardContent [data-work-header='true'] > :first-child,
+  .rawDashboardContent [data-page-header='true'] > :first-child,
+  .rawDashboardContent .page-head > :first-child { min-width: 0; }
+
+  .page-head h1,
+  .page h1,
+  .rawDashboardContent [data-work-header='true'] h1,
+  .rawDashboardContent [data-page-header='true'] h1 {
+    margin: 0 !important;
+    color: var(--raw-ink) !important;
+    font-size: 28px !important;
+    line-height: 1.22 !important;
+  }
+
+  .page-head p,
+  .page p,
+  .rawDashboardContent [data-work-header='true'] p,
+  .rawDashboardContent [data-page-header='true'] p {
+    margin: 5px 0 0 !important;
+    max-width: 78ch;
+    color: var(--raw-muted);
+    font-size: 16px;
+    line-height: 1.55 !important;
+  }
+
+  .page h2,
+  .section > header h2 {
+    color: var(--raw-ink) !important;
+    font-size: 20px !important;
+  }
+
+  .page h3,
+  .card h3,
+  .empty h3 {
+    color: var(--raw-ink) !important;
+    font-size: 17px !important;
+  }
+
+  /* =========================================================
+     SECTIONS — same horizontal rails and vertical rhythm.
+     ========================================================= */
+  .rawDashboardContent [data-work-section='true'],
+  .rawDashboardContent [data-data-surface='true'],
+  .rawDashboardContent .section,
+  .rawDashboardContent .card {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin-inline: 0 !important;
+    background: var(--raw-paper) !important;
+    border: 1px solid var(--raw-border) !important;
+    border-radius: var(--raw-radius) !important;
+    box-shadow: none !important;
+  }
+
+  .card { padding: 16px 18px !important; }
+
+  .section {
+    margin-top: 10px !important;
+    overflow: hidden;
+    font-size: 16px;
+  }
+
+  .rawDashboardContent [data-work-section='true'] + [data-work-section='true'],
+  .rawDashboardContent [data-data-surface='true'] + [data-data-surface='true'],
+  .rawDashboardContent .section + .section { margin-top: 10px !important; }
+
+  .rawDashboardContent [data-work-section='true'] > header,
+  .rawDashboardContent [data-data-surface='true'] > header,
+  .rawDashboardContent .section > header {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--work-section-header-min-height);
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: 14px;
+    padding: 12px 16px !important;
+    background: var(--raw-paper) !important;
+    border-bottom: 1px solid var(--raw-border) !important;
+  }
+
+  .grid { gap: 12px !important; }
+
+  /* =========================================================
+     LEDGER — one table language everywhere.
+     ========================================================= */
+  .rawDashboardContent [data-work-ledger='true'],
+  .rawDashboardContent [data-table-surface='true'] {
+    width: 100%;
+    min-width: 0;
+    overflow: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-gutter: stable;
+  }
+
+  table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse !important;
+    background: var(--raw-paper);
+    color: var(--raw-ink);
+    font-size: 15.5px !important;
+  }
+
+  thead th {
+    padding: 9px 8px !important;
+    background: var(--raw-border-soft) !important;
+    color: var(--raw-muted) !important;
+    border: 1px solid var(--raw-border) !important;
+    font-size: 14.5px !important;
+    font-weight: 750 !important;
+    line-height: 1.45;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    min-height: var(--raw-row-height);
+    padding: 7px 8px !important;
+    background: var(--raw-paper) !important;
+    color: var(--raw-ink);
+    border: 1px solid var(--raw-border-soft) !important;
+    font-size: 15.5px !important;
+    line-height: 1.55;
+    vertical-align: middle;
+  }
+
+  tbody tr:nth-child(even),
+  tbody tr:hover { background: transparent !important; }
+  tbody tr:hover td { background: color-mix(in srgb, var(--raw-wine) 3%, var(--raw-paper)) !important; }
+
+  /* =========================================================
+     FIELDS + ACTIONS — one vocabulary, no page-specific skin.
+     ========================================================= */
+  input,
+  select,
+  textarea,
+  button,
+  .btn,
+  .search,
+  .tabs button { font-size: 15.5px !important; }
+
+  input,
+  select,
+  textarea,
+  .search,
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: 40px;
+    padding: 8px 10px !important;
+    border: 1px solid var(--raw-border) !important;
+    border-radius: var(--raw-radius-sm) !important;
+    background: var(--raw-paper-strong) !important;
+    color: var(--raw-ink) !important;
+    line-height: 1.5;
+    box-shadow: none !important;
+    outline: 0;
+  }
+
+  textarea { min-height: 92px; }
+
+  input:focus,
+  select:focus,
+  textarea:focus,
+  .search:focus {
+    border-color: var(--raw-wine) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--raw-wine) 8%, transparent) !important;
+  }
+
+  label,
+  .field label {
+    color: var(--raw-muted) !important;
+    font-size: 14.5px !important;
+    font-weight: 650;
+  }
+
+  .hint,
+  .field .hint,
+  small {
+    color: var(--raw-muted);
+    font-size: 13.5px !important;
+    line-height: 1.55;
+  }
+
+  .btn {
+    min-height: 40px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 15px !important;
+    border: 1px solid var(--raw-wine) !important;
+    border-radius: var(--raw-radius-sm) !important;
+    background: var(--raw-wine) !important;
+    color: var(--raw-on-accent) !important;
+    font-weight: 750;
+    box-shadow: none !important;
+  }
+
+  .btn:hover {
+    background: var(--raw-wine-dark) !important;
+    border-color: var(--raw-wine-dark) !important;
+  }
+
+  .btn.ghost {
+    background: var(--raw-paper) !important;
+    color: var(--raw-ink) !important;
+    border-color: var(--raw-border) !important;
+  }
+
+  .btn.ghost:hover {
+    background: var(--raw-border-soft) !important;
+    border-color: var(--raw-ink) !important;
+  }
+
+  .pill { border-radius: 999px !important; font-size: 13.5px !important; }
+  .msg { border-radius: var(--raw-radius-sm) !important; font-size: 15px !important; }
+  .empty { color: var(--raw-muted) !important; font-size: 16px; }
+
+  .tabs {
+    display: flex;
+    gap: 7px !important;
+    flex-wrap: wrap;
+    margin-bottom: 16px !important;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--raw-border) !important;
+  }
+
+  .tabs button {
+    min-height: 36px;
+    padding: 0 12px !important;
+    border: 1px solid var(--raw-border) !important;
+    border-radius: var(--raw-radius-sm) !important;
+    background: var(--raw-paper) !important;
+    color: var(--raw-ink) !important;
+  }
+
+  .tabs button.on {
+    background: var(--raw-wine) !important;
+    border-color: var(--raw-wine) !important;
+    color: var(--raw-on-accent) !important;
+  }
+
+  /* =========================================================
+     ACTION DOCK — the same bottom rail when a page needs actions.
+     ========================================================= */
+  .rawDashboardContent [data-work-dock='true'] {
+    box-sizing: border-box;
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+    min-height: var(--work-dock-height);
+    margin: 12px calc(var(--work-sheet-inline) * -1) calc(var(--work-sheet-bottom) * -1);
+    padding: 6px var(--work-sheet-inline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid var(--work-rule);
+    background: color-mix(in srgb, var(--raw-paper) 96%, transparent);
+    backdrop-filter: blur(5px);
+  }
+
+  .rawDashboardContent [data-work-dock='true'] [data-work-dock-actions='true'] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .rawDashboardContent [data-work-dock='true'] [data-work-dock-status='true'] {
+    min-width: 0;
+    color: var(--raw-muted);
+    font-size: var(--raw-font-size-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rawDashboardContent [data-work-form-grid='true'] {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 10px 12px;
+  }
+
+  .stickybar {
+    position: static !important;
+    top: auto !important;
+    background: transparent !important;
+  }
+
+  /* Route changes replace content, not the stable work frame. */
+  .rawDashboardContent,
+  .rawDashboardContent > .workSheetMount,
+  .rawDashboardContent [data-work-sheet='true'],
+  .rawDashboardContent [data-page-surface='true'],
+  .rawDashboardContent .page {
+    transition: none !important;
+  }
+
+  @media (max-width: 820px) {
+    .rawDashboardShell {
+      --work-sheet-inline: 10px;
+      --work-sheet-top: 10px;
+      --work-sheet-bottom: 54px;
+      --work-header-min-height: 70px;
+    }
+
+    .rawDashboardContent [data-work-header='true'],
+    .rawDashboardContent [data-page-header='true'],
+    .rawDashboardContent .page-head,
+    .rawDashboardContent [data-work-section='true'] > header,
+    .rawDashboardContent [data-data-surface='true'] > header,
+    .rawDashboardContent .section > header {
+      grid-template-columns: minmax(0, 1fr) !important;
+      align-items: start !important;
+    }
+
+    .rawDashboardContent [data-work-dock='true'] {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .grid.k4,
+    .grid.k2,
+    .form-grid { grid-template-columns: 1fr !important; }
+  }
+}
