@@ -22,8 +22,10 @@ function annotate(root = document) {
   markAll(root, '.appNavRow, .appNavBack, .appNavProjectGroupTitle', { 'data-ui-slot':uiSlot('navigationRow') });
   markAll(root, '.appNavBottomActions', { 'data-ui-slot':uiSlot('navigationFooter') });
   markAll(root, '.appNavTouchTrigger, .appNavHotZone', { 'data-ui-slot':uiSlot('navigationTrigger') });
-  markAll(root, '.rawDashboardContent', { 'data-ui-role':'application-content' });
-  markAll(root, '.workSheetMount', { 'data-ui-role':'route-mount' });
+  markAll(root, '.appBodyStage', { 'data-ui-slot':uiSlot('applicationStage') });
+  markAll(root, '.rawDashboardContent', { 'data-ui-slot':uiSlot('applicationContent'), 'data-ui-role':'application-content' });
+  markAll(root, '.workSheetMount', { 'data-ui-slot':uiSlot('routeMount'), 'data-ui-role':'route-mount' });
+  markAll(root, '.appActionContextAlert', { 'data-ui-slot':uiSlot('actionContextBanner') });
   markAll(root, '.appActionFailure', { 'data-ui-role':'action-failure', 'data-ui-tone':'error' });
   markAll(root, '.appOfflineNotice', { 'data-ui-role':'network-notice', 'data-ui-tone':'warning' });
 }
