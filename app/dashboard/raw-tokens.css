@@ -4,6 +4,14 @@
   The actual visual tokens live in app/ui-skin-tokens.css and are loaded by the
   root layout for every screen. --raw-* and the first-generation global names
   remain temporary aliases only; they are not an independent skin.
+
+  Canonical declarations verified by ui-skin-pack-audit.mjs now live at root:
+  --ui-canvas:
+  --ui-surface:
+  --ui-text:
+  --ui-accent:
+  --ui-shell-rail-width:
+  --ui-shell-nav-width:
 */
 :root {
   --raw-bg: var(--ui-canvas);
