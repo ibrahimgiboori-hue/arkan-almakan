@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef } from 'react';
+import { uiSlot } from '@/lib/ui-skin-contract';
 import styles from './constitution-dialog.module.css';
 
 const FOCUSABLE = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -93,7 +94,7 @@ export default function ConstitutionDialog({
   const close = () => onCloseRef.current?.();
 
   return (
-    <div className={styles.backdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+    <div className={styles.backdrop} data-ui-part="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section
         ref={dialogRef}
         className={`${styles.dialog} ${styles[`size_${size}`] || ''}`}
@@ -103,21 +104,23 @@ export default function ConstitutionDialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         data-constitution-dialog="true"
+        data-ui-slot={uiSlot('dialog')}
+        data-ui-state="open"
         data-dialog-size={size}
       >
-        <header className={`${styles.header} ${!showBack ? styles.headerWithoutBack : ''}`}>
+        <header className={`${styles.header} ${!showBack ? styles.headerWithoutBack : ''}`} data-ui-part="dialog-header">
           {showBack ? (
-            <button type="button" className={styles.back} onClick={close} aria-label="رجوع">
+            <button type="button" className={styles.back} onClick={close} aria-label="رجوع" data-ui-control="dialog-back">
               <span aria-hidden="true">←</span>
               <span>رجوع</span>
             </button>
           ) : null}
-          <div className={styles.heading}>
-            <h2 id={titleId}>{title}</h2>
-            {description ? <p id={descriptionId}>{description}</p> : null}
+          <div className={styles.heading} data-ui-part="dialog-heading">
+            <h2 id={titleId} data-ui-part="title">{title}</h2>
+            {description ? <p id={descriptionId} data-ui-part="description">{description}</p> : null}
           </div>
         </header>
-        <div className={styles.body}>{children}</div>
+        <div className={styles.body} data-ui-part="dialog-body">{children}</div>
       </section>
     </div>
   );
