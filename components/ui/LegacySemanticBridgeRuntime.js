@@ -4,16 +4,35 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { uiSlot } from '@/lib/ui-skin-contract';
 
-function mark(root, selector, attributes) {
+function collect(root, selector) {
   const nodes = [];
   if (root instanceof Element && root.matches(selector)) nodes.push(root);
   root.querySelectorAll?.(selector).forEach((node) => nodes.push(node));
-  nodes.forEach((node) => {
+  return nodes;
+}
+
+function mark(root, selector, attributes) {
+  collect(root, selector).forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
     Object.entries(attributes).forEach(([name, value]) => {
       if (!node.hasAttribute(name)) node.setAttribute(name, value);
     });
     node.setAttribute('data-ui-legacy-adapted', 'true');
+  });
+}
+
+function markLoading(root) {
+  collect(root, ".empty, [data-ui-slot='empty']").forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    const text = String(node.textContent || '').trim();
+    const loading = /^(?:جار(?:ٍ|ي)?|جاري)\s+(?:تحميل|التحميل|جلب|تجهيز|تهيئة)/u.test(text);
+    if (loading) {
+      node.setAttribute('data-ui-state', 'loading');
+      node.setAttribute('aria-busy', 'true');
+    } else if (node.getAttribute('data-ui-state') === 'loading') {
+      node.removeAttribute('data-ui-state');
+      node.removeAttribute('aria-busy');
+    }
   });
 }
 
@@ -64,6 +83,18 @@ function annotate(root = document) {
   mark(root, '.grid:not([data-ui-role])', {
     'data-ui-role':'legacy-grid',
   });
+  mark(root, '.field:not([data-ui-role])', {
+    'data-ui-role':'field-group',
+  });
+  mark(root, '.form-grid:not([data-ui-role])', {
+    'data-ui-role':'form-grid',
+  });
+  mark(root, '.rowsplit:not([data-ui-role])', {
+    'data-ui-role':'row-split',
+  });
+  mark(root, 'table:not([data-ui-role])', {
+    'data-ui-role':'table',
+  });
   mark(root, '.shell:not([data-ui-role])', {
     'data-ui-role':'legacy-shell',
   });
@@ -76,6 +107,7 @@ function annotate(root = document) {
   mark(root, '.topbar:not([data-ui-role])', {
     'data-ui-role':'legacy-topbar',
   });
+  markLoading(root);
 }
 
 export default function LegacySemanticBridgeRuntime({ children }) {
@@ -90,9 +122,12 @@ export default function LegacySemanticBridgeRuntime({ children }) {
         mutation.addedNodes.forEach((node) => {
           if (node instanceof HTMLElement) annotate(node);
         });
+        if (mutation.type === 'characterData' && mutation.target?.parentElement) {
+          annotate(mutation.target.parentElement);
+        }
       }
     });
-    observer.observe(host, { childList:true, subtree:true });
+    observer.observe(host, { childList:true, subtree:true, characterData:true });
     return () => observer.disconnect();
   }, [pathname]);
 
