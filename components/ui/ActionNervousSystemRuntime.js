@@ -51,8 +51,6 @@ export default function ActionNervousSystemRuntime({ children }) {
       return { ok:false, duplicate:true, error:'الإجراء قيد التنفيذ بالفعل.' };
     }
 
-    // الاتصال بالعصب المركزي يعني أن المستخدم بدأ فعلًا إجراءً؛ هنا فقط
-    // تتحول جلسة العمل من IDLE إلى WORKING. مجرد دخول منطقة العمل لا يفعل ذلك.
     workSession.begin({ subject:spec.subject || null });
     activeKeysRef.current.add(spec.key);
     setSignal({
@@ -152,8 +150,19 @@ export default function ActionNervousSystemRuntime({ children }) {
     isActing:(key = null) => signal.phase === ACTION_SIGNAL_STATE.ACTING && (!key || signal.activeKey === key),
   }), [clearError, run, signal]);
 
+  const failed = signal.phase === ACTION_SIGNAL_STATE.FAILED && Boolean(signal.error);
+
   return (
     <ActionNervousSystemContext.Provider value={value}>
+      {failed ? (
+        <div className="appActionFailure" role="alert" aria-live="assertive" data-action-failure="true">
+          <div>
+            <strong>تعذر إكمال {signal.label || 'الإجراء'}</strong>
+            <span>{signal.error}</span>
+          </div>
+          <button type="button" onClick={clearError} aria-label="إغلاق رسالة الخطأ">إغلاق</button>
+        </div>
+      ) : null}
       {children}
     </ActionNervousSystemContext.Provider>
   );
