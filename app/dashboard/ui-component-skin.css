@@ -1,0 +1,282 @@
+/*
+  NATIVE COMPONENT SKIN
+  ---------------------
+  Visual treatment for semantic work components. No business logic and no
+  component-local class names live here; a replacement identity may swap this
+  file without changing React structure or data behavior.
+*/
+@media screen {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='entry'] {
+    scroll-margin-top: 112px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='status'] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    color: var(--ui-tone-color, var(--ui-text-muted));
+    font-size: 12px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='context-actions'] [data-ui-part='primary-action'] {
+    display: flex;
+    align-items: center;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='secondary-actions'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='view-options'] {
+    position: relative;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='secondary-trigger'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='view-options-trigger'] {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='secondary-trigger']::-webkit-details-marker,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='view-options-trigger']::-webkit-details-marker {
+    display: none;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='secondary-trigger'] {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius-sm);
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='secondary-trigger']:hover,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] details[open] > [data-ui-part='secondary-trigger'] {
+    border-color: var(--ui-border);
+    background: var(--ui-surface);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='menu-body'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='view-options-body'] {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 5px);
+    inset-inline-end: 0;
+    min-width: 190px;
+    padding: 6px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-strong);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--ui-text) 12%, transparent);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='menu-body'] > * {
+    display: block;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='menu-body'] button,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='menu-body'] a {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='view-options-trigger'] {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 9px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='view-options-body'] {
+    min-width: 230px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row'] [data-ui-part='record-primary'] {
+    min-width: 0;
+    width: 100%;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 7px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-decoration: none;
+    text-align: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row'] [data-ui-part='record-actions'] {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-inline: 6px;
+    opacity: .18;
+    transition: opacity .12s ease;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row']:hover [data-ui-part='record-actions'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row']:focus-within [data-ui-part='record-actions'] {
+    opacity: 1;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] {
+    min-width: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='identity'] {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='title-line'] {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='title'] {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 15px;
+    font-weight: 820;
+    white-space: nowrap;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='badge'] {
+    flex: 0 0 auto;
+    padding: 2px 7px;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 720;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='kicker'] {
+    order: -1;
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='meta'] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='meta'] span + span::before {
+    content: '·';
+    margin-inline-end: 8px;
+    color: var(--ui-border);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='note'] {
+    color: var(--ui-text-muted);
+    font-size: 11.5px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='measures'] {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    white-space: nowrap;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='measures'] > span {
+    display: grid;
+    gap: 2px;
+    text-align: start;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='measures'] small {
+    color: var(--ui-text-muted);
+    font-size: 10.5px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='measures'] strong {
+    font-size: 13px;
+    font-weight: 820;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] progress {
+    width: 92px;
+    height: 4px;
+    margin-top: 3px;
+    overflow: hidden;
+    appearance: none;
+    border: 0;
+    border-radius: 99px;
+    background: var(--ui-border-soft);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] progress::-webkit-progress-bar {
+    background: var(--ui-border-soft);
+    border-radius: 99px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] progress::-webkit-progress-value {
+    background: var(--ui-accent);
+    border-radius: 99px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] progress::-moz-progress-bar {
+    background: var(--ui-accent);
+    border-radius: 99px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='empty-state'] [data-ui-part='description'] {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  @media (max-width: 820px) {
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='actions'] {
+      width: 100%;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='toolbar'] {
+      justify-content: stretch;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row'] [data-ui-part='record-actions'] {
+      opacity: 1;
+      padding: 0 7px 7px;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-summary'] [data-ui-part='measures'] {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='menu-body'],
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='view-options-body'] {
+      max-width: min(86vw, 320px);
+    }
+  }
+}
