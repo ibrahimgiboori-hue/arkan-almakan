@@ -2,6 +2,7 @@ import './globals.css';
 import './ui-skin-tokens.css';
 import './ui-external-skin.css';
 import './ui-signature-skin.css';
+import './ui-signature-tailoring.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
