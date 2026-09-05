@@ -253,8 +253,14 @@ export function ActionDock({ actions, status, children, className = '' }) {
 }
 
 export function EmptyState({ title = 'لا توجد بيانات', description, actions }) {
+  const loading = /^(?:جار(?:ٍ|ي)?|جاري)\s+(?:تحميل|التحميل|جلب|تجهيز|تهيئة)/u.test(String(title || '').trim());
   return (
-    <div data-empty-state="true" data-ui-slot={uiSlot('empty')}>
+    <div
+      data-empty-state="true"
+      data-ui-slot={uiSlot('empty')}
+      data-ui-state={loading ? 'loading' : undefined}
+      aria-busy={loading ? 'true' : undefined}
+    >
       <strong data-ui-part="title">{title}</strong>
       {description ? <span data-ui-part="description">{description}</span> : null}
       {actions ? <div data-ui-part="actions">{actions}</div> : null}
