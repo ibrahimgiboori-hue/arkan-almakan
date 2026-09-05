@@ -22,6 +22,11 @@ requireText('lib/ui-skin-contract.js', [
   "principle:'business-and-interaction-contracts-stay-stable-while-skin-is-replaceable'",
   "navigation:'navigation'",
   "navigationRow:'navigation-row'",
+  "applicationStage:'application-stage'",
+  "applicationContent:'application-content'",
+  "routeMount:'route-mount'",
+  "systemState:'system-state'",
+  "actionContextBanner:'action-context-banner'",
   "form:'form'",
   "field:'field'",
   "action:'action'",
@@ -84,6 +89,10 @@ requireText('components/ui/UISkinBridgeRuntime.js', [
   "uiSlot('navigationRow')",
   "uiSlot('navigationFooter')",
   "uiSlot('navigationTrigger')",
+  "uiSlot('applicationStage')",
+  "uiSlot('applicationContent')",
+  "uiSlot('routeMount')",
+  "uiSlot('actionContextBanner')",
   "data-ui-role':'application-content'",
   "data-ui-role':'route-mount'",
 ]);
@@ -107,19 +116,38 @@ requireText('app/dashboard/raw-tokens.css', [
 
 requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-skin-contract='arkan-semantic-skin-v1']",
+  "[data-ui-slot='system-state']",
+  "[data-ui-slot='application-stage']",
+  "[data-ui-slot='application-content']",
+  "[data-ui-slot='route-mount']",
+  "[data-ui-slot='action-context-banner']",
   "[data-ui-slot='selection-dock']",
   "[data-ui-control='clear-selection']",
   "[data-ui-slot='action']",
 ]);
 
 requireText('app/dashboard/layout.js', [
-  "import { uiSkinDataAttributes } from '@/lib/ui-skin-contract'",
+  "import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract'",
   "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
   "import './ui-skin-contract.css'",
   'const skinAttrs = uiSkinDataAttributes()',
   '{...skinAttrs}',
+  "data-ui-slot={uiSlot('systemState')}",
+  "data-ui-slot={uiSlot('applicationStage')}",
+  "data-ui-slot={uiSlot('applicationContent')}",
+  "data-ui-slot={uiSlot('routeMount')}",
+  "data-ui-slot={uiSlot('actionContextBanner')}",
   '<UISkinBridgeRuntime>',
 ]);
+
+const layout = read('app/dashboard/layout.js');
+if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
+if (layout.includes('body-resuscitation.css')) failures.push('DashboardLayout: عاد لاستيراد رقعة إنعاش الجسم القديمة بعد امتصاصها في العقد الدلالي.');
+if (exists('app/dashboard/body-resuscitation.css')) failures.push('body-resuscitation.css: الرقعة الطارئة تم امتصاصها في الجسم المركزي ويجب ألا تعود كملف مستقل.');
+
+const shellCss = read('app/dashboard/app-shell-v2.css');
+if (shellCss.includes('.appActionContextAlert')) failures.push('app-shell-v2.css: شريط سياق الإجراء عاد إلى ملف الغلاف بدل الجلد الدلالي.');
+if (shellCss.includes('.rawDashboardContent > .workSheetMount')) failures.push('app-shell-v2.css: قاعدة بقاء جسم الصفحة عادت إلى ملف الغلاف بدل عقد الجلد.');
 
 if (failures.length) {
   console.error('\nUI skin contract audit failed:\n');
@@ -127,4 +155,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: shell, navigation, structure, forms, fields, actions and dialogs expose stable semantics while the native skin remains a replaceable adapter.');
+console.log('UI skin contract audit passed: shell survival, system states, navigation, structure, forms, fields, actions and dialogs are semantic; absorbed emergency patches cannot return.');
