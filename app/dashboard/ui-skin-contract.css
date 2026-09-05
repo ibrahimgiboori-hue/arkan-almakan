@@ -21,7 +21,8 @@
   flex: 1 1 auto;
 }
 
-.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='selection-dock'] [data-ui-part='selection-actions'] {
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='selection-dock'] [data-ui-part='selection-actions'],
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='dialog-actions'] {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -44,7 +45,20 @@
   background: color-mix(in srgb, var(--ui-accent) 5%, var(--ui-surface));
 }
 
-.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='error'] {
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='dialog-error'] {
+  margin-top: 10px;
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='action'][data-ui-state='acting'] {
+  cursor: progress;
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='action'][data-ui-state='disabled'] {
+  cursor: not-allowed;
+}
+
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='error'],
+.rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-tone='danger'] {
   --ui-tone-color: var(--ui-danger);
 }
 
