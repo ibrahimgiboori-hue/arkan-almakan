@@ -1,55 +1,48 @@
 /*
-  UI SKIN FOUNDATION — transitional compatibility base
-  ---------------------------------------------------
-  raw-tokens.css supplies values. The semantic skin owns the application body,
-  route mount and current contextual navigation. This foundation keeps only
-  shared legacy page, section, ledger, form and action styling while those
-  surfaces are progressively expressed through semantic UI slots.
+  UI SKIN FOUNDATION — semantic native structure
+  ---------------------------------------------
+  This file is part of the replaceable native skin. It styles only semantic
+  UI slots/roles/controls and global canvas primitives. Legacy class-based
+  compatibility is quarantined in legacy-ui-compat.css.
 
-  It owns no business logic, route permissions, navigation anatomy or print
-  constitution. Printable documents remain outside this screen-only layer.
+  No business logic, authorization, navigation anatomy or print constitution
+  belongs here.
 */
+
 @media screen {
   html {
     scrollbar-gutter: stable both-edges;
-    background: var(--raw-bg);
+    background: var(--ui-canvas, var(--raw-bg));
   }
 
   body {
     margin: 0;
-    background: var(--raw-bg) !important;
-    color: var(--raw-ink);
+    background: var(--ui-canvas, var(--raw-bg)) !important;
+    color: var(--ui-text, var(--raw-ink));
     font-size: 17px;
     line-height: 1.65;
   }
 
-  .rawDashboardShell {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] {
     --work-sheet-inline: 16px;
     --work-sheet-top: 12px;
     --work-sheet-bottom: 58px;
     --work-header-min-height: 76px;
-    --work-section-header-min-height: 52px;
+    --work-section-header-min-height: 44px;
     --work-dock-height: 46px;
-    --work-rule: var(--raw-border, #d8d3c8);
-    --work-rule-soft: var(--raw-border-soft, #e8e4dc);
-
+    --work-rule: var(--ui-border, var(--raw-border));
+    --work-rule-soft: var(--ui-border-soft, var(--raw-border-soft));
     min-height: 100dvh;
     width: 100%;
     min-width: 0;
-    background: var(--raw-bg);
+    background: var(--ui-canvas, var(--raw-bg));
   }
 
-  /* Legacy application shells are semantic only; they cannot create geometry. */
-  .shell { display: block !important; min-height: 0 !important; }
-  .shell > .side,
-  .side { display: none !important; }
-  .shell > .main,
-  .main { width: 100% !important; min-width: 0 !important; display: block !important; }
-  .topbar { display: none !important; }
-
-  .rawDashboardContent .workSheetMount [data-work-sheet='true'],
-  .rawDashboardContent .workSheetMount [data-page-surface='true'],
-  .rawDashboardContent .workSheetMount .page {
+  /* =========================================================
+     PAGE / SHEET
+     ========================================================= */
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='sheet'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page'] {
     box-sizing: border-box;
     width: 100% !important;
     max-width: none !important;
@@ -57,102 +50,108 @@
     margin: 0 !important;
     padding: 0 !important;
     position: relative;
+    color: var(--ui-text, var(--raw-ink));
+    background: transparent;
   }
 
   /* =========================================================
-     HEADER RAIL — same baseline on portal, tool and project pages.
+     PAGE HEADER
      ========================================================= */
-  .rawDashboardContent [data-work-header='true'],
-  .rawDashboardContent [data-page-header='true'],
-  .rawDashboardContent .page-head,
-  .rawDashboardContent [data-work-context-bar='true'] {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='header'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'] {
     box-sizing: border-box;
     width: 100%;
     min-height: var(--work-header-min-height) !important;
     margin: 0 0 10px !important;
     padding: 6px 0 10px !important;
-    border-bottom: 1px solid var(--work-rule) !important;
-  }
-
-  .rawDashboardContent [data-work-header='true'],
-  .rawDashboardContent [data-page-header='true'],
-  .rawDashboardContent .page-head {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end !important;
     gap: 16px;
+    border-bottom: 1px solid var(--work-rule) !important;
+    background: transparent !important;
   }
 
-  .rawDashboardContent [data-work-header='true'] > :first-child,
-  .rawDashboardContent [data-page-header='true'] > :first-child,
-  .rawDashboardContent .page-head > :first-child { min-width: 0; }
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'] [data-ui-part='header-copy'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='header'] > :first-child {
+    min-width: 0;
+  }
 
-  .page-head h1,
-  .page h1,
-  .rawDashboardContent [data-work-header='true'] h1,
-  .rawDashboardContent [data-page-header='true'] h1 {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'] [data-ui-part='eyebrow'] {
+    margin-bottom: 3px;
+    color: var(--ui-text-muted, var(--raw-muted));
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'] [data-ui-part='title'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='header'] h1 {
     margin: 0 !important;
-    color: var(--raw-ink) !important;
+    color: var(--ui-text, var(--raw-ink)) !important;
     font-size: 28px !important;
+    font-weight: 850;
     line-height: 1.22 !important;
   }
 
-  .page-head p,
-  .page p,
-  .rawDashboardContent [data-work-header='true'] p,
-  .rawDashboardContent [data-page-header='true'] p {
-    margin: 5px 0 0 !important;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'] [data-ui-part='description'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='header'] p {
     max-width: 78ch;
-    color: var(--raw-muted);
-    font-size: 16px;
+    margin: 5px 0 0 !important;
+    color: var(--ui-text-muted, var(--raw-muted));
+    font-size: 14px;
     line-height: 1.55 !important;
   }
 
-  .page h2,
-  .section > header h2 {
-    color: var(--raw-ink) !important;
-    font-size: 20px !important;
-  }
-
-  .page h3,
-  .card h3,
-  .empty h3 {
-    color: var(--raw-ink) !important;
-    font-size: 17px !important;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-part='actions'] {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
   }
 
   /* =========================================================
-     SECTIONS — same horizontal rails and vertical rhythm.
+     SECTIONS / ENTRY SURFACES
      ========================================================= */
-  .rawDashboardContent [data-work-section='true'],
-  .rawDashboardContent [data-data-surface='true'],
-  .rawDashboardContent .section,
-  .rawDashboardContent .card {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='entry'] {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    margin-inline: 0 !important;
-    background: var(--raw-paper) !important;
-    border: 1px solid var(--raw-border) !important;
-    border-radius: var(--raw-radius) !important;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section'] + [data-ui-slot='section'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section'] + [data-ui-slot='entry'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='entry'] + [data-ui-slot='section'] {
+    margin-top: 8px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-work-section-style='boundary'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='entry'] {
+    margin: 10px 0 !important;
+    background: var(--ui-surface, var(--raw-paper)) !important;
+    border: 1px solid var(--ui-border, var(--raw-border)) !important;
+    border-radius: var(--ui-radius, var(--raw-radius)) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-work-section-style='flow'] {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
+    overflow: visible !important;
   }
 
-  .card { padding: 16px 18px !important; }
-
-  .section {
-    margin-top: 10px !important;
-    overflow: hidden;
-    font-size: 16px;
-  }
-
-  .rawDashboardContent [data-work-section='true'] + [data-work-section='true'],
-  .rawDashboardContent [data-data-surface='true'] + [data-data-surface='true'],
-  .rawDashboardContent .section + .section { margin-top: 10px !important; }
-
-  .rawDashboardContent [data-work-section='true'] > header,
-  .rawDashboardContent [data-data-surface='true'] > header,
-  .rawDashboardContent .section > header {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section-header'] {
     box-sizing: border-box;
     width: 100%;
     min-height: var(--work-section-header-min-height);
@@ -160,178 +159,224 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center !important;
     gap: 14px;
-    padding: 12px 16px !important;
-    background: var(--raw-paper) !important;
-    border-bottom: 1px solid var(--raw-border) !important;
+    padding: 8px 0 !important;
+    background: transparent !important;
+    border-bottom: 1px solid var(--work-rule-soft) !important;
   }
 
-  .grid { gap: 12px !important; }
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-work-section-style='boundary'] > [data-ui-slot='section-header'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='entry'] > [data-ui-slot='section-header'] {
+    padding: 9px 14px !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section-header'] [data-ui-part='section-copy'] {
+    min-width: 0;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section-header'] [data-ui-part='title'] {
+    margin: 0;
+    color: var(--ui-text, var(--raw-ink));
+    font-size: 17px;
+    font-weight: 820;
+    line-height: 1.4;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section-header'] [data-ui-part='description'] {
+    margin: 3px 0 0;
+    color: var(--ui-text-muted, var(--raw-muted));
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section-body'] {
+    min-width: 0;
+  }
 
   /* =========================================================
-     LEDGER — one table language everywhere.
+     SUMMARY / FILTERS / NOTICE
      ========================================================= */
-  .rawDashboardContent [data-work-ledger='true'],
-  .rawDashboardContent [data-table-surface='true'] {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    min-height: 72px;
+    border-bottom: 1px solid var(--work-rule-soft);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] [data-ui-part='summary-item'] {
+    min-width: 150px;
+    flex: 1 1 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 12px 14px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] [data-ui-part='summary-item'] + [data-ui-part='summary-item'] {
+    border-inline-start: 1px solid var(--work-rule-soft);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] [data-ui-part='value'] {
+    font-size: 21px;
+    line-height: 1.1;
+    font-weight: 880;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] [data-ui-part='label'] {
+    margin-top: 5px;
+    color: var(--ui-text-muted, var(--raw-muted));
+    font-size: 12px;
+    font-weight: 720;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] [data-ui-part='note'] {
+    margin-top: 2px;
+    color: var(--ui-text-muted, var(--raw-muted));
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='filters'] {
+    display: flex;
+    align-items: end;
+    gap: 9px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='filters'] > :first-child {
+    flex: 1 1 280px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='notice'] {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 7px 0;
+    padding: 8px 10px;
+    border-inline-start: 3px solid var(--ui-tone-color, var(--ui-border, var(--raw-border)));
+    background: color-mix(in srgb, var(--ui-border-soft, var(--raw-border-soft)) 36%, transparent);
+    color: var(--ui-tone-color, var(--ui-text-muted, var(--raw-muted)));
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* =========================================================
+     LEDGERS / TABLES
+     ========================================================= */
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='ledger'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='table'] {
     width: 100%;
+    max-width: 100%;
     min-width: 0;
     overflow: auto;
     overscroll-behavior-inline: contain;
     scrollbar-gutter: stable;
+    border-top: 1px solid var(--work-rule-soft);
   }
 
-  table {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='table'] {
     width: 100%;
     margin: 0;
     border-collapse: collapse !important;
-    background: var(--raw-paper);
-    color: var(--raw-ink);
-    font-size: 15.5px !important;
+    background: var(--ui-surface, var(--raw-paper));
+    color: var(--ui-text, var(--raw-ink));
+    font-size: 14px !important;
   }
 
-  thead th {
-    padding: 9px 8px !important;
-    background: var(--raw-border-soft) !important;
-    color: var(--raw-muted) !important;
-    border: 1px solid var(--raw-border) !important;
-    font-size: 14.5px !important;
-    font-weight: 750 !important;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='table'] [data-ui-role='table'] {
+    min-width: 760px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='table'] thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px !important;
+    background: var(--ui-border-soft, var(--raw-border-soft)) !important;
+    color: var(--ui-text-muted, var(--raw-muted)) !important;
+    border: 1px solid var(--ui-border, var(--raw-border)) !important;
+    font-size: 13px !important;
+    font-weight: 780 !important;
     line-height: 1.45;
     text-align: right;
     white-space: nowrap;
   }
 
-  tbody td {
-    min-height: var(--raw-row-height);
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='table'] tbody td {
+    min-height: var(--ui-row-height, var(--raw-row-height));
     padding: 7px 8px !important;
-    background: var(--raw-paper) !important;
-    color: var(--raw-ink);
-    border: 1px solid var(--raw-border-soft) !important;
-    font-size: 15.5px !important;
+    background: var(--ui-surface, var(--raw-paper)) !important;
+    color: var(--ui-text, var(--raw-ink));
+    border: 1px solid var(--ui-border-soft, var(--raw-border-soft)) !important;
+    font-size: 14px !important;
     line-height: 1.55;
     vertical-align: middle;
   }
 
-  tbody tr:nth-child(even),
-  tbody tr:hover { background: transparent !important; }
-  tbody tr:hover td { background: color-mix(in srgb, var(--raw-wine) 3%, var(--raw-paper)) !important; }
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-role='table'] tbody tr:hover td {
+    background: color-mix(in srgb, var(--ui-accent, var(--raw-wine)) 3%, var(--ui-surface, var(--raw-paper))) !important;
+  }
 
   /* =========================================================
-     FIELDS + ACTIONS — one vocabulary, no page-specific skin.
+     FORMS / FIELDS
      ========================================================= */
-  input,
-  select,
-  textarea,
-  button,
-  .btn,
-  .search,
-  .tabs button { font-size: 15.5px !important; }
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='form'] {
+    min-width: 0;
+  }
 
-  input,
-  select,
-  textarea,
-  .search,
-  .field input,
-  .field select,
-  .field textarea {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='field'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-control='field'] {
+    box-sizing: border-box;
     min-height: 40px;
     padding: 8px 10px !important;
-    border: 1px solid var(--raw-border) !important;
-    border-radius: var(--raw-radius-sm) !important;
-    background: var(--raw-paper-strong) !important;
-    color: var(--raw-ink) !important;
+    border: 1px solid var(--ui-border, var(--raw-border)) !important;
+    border-radius: var(--ui-radius-sm, var(--raw-radius-sm)) !important;
+    background: var(--ui-surface-strong, var(--raw-paper-strong)) !important;
+    color: var(--ui-text, var(--raw-ink)) !important;
+    font: inherit;
+    font-size: 15.5px !important;
     line-height: 1.5;
     box-shadow: none !important;
     outline: 0;
   }
 
-  textarea { min-height: 92px; }
-
-  input:focus,
-  select:focus,
-  textarea:focus,
-  .search:focus {
-    border-color: var(--raw-wine) !important;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--raw-wine) 8%, transparent) !important;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] textarea[data-ui-slot='field'] {
+    min-height: 92px;
   }
 
-  label,
-  .field label {
-    color: var(--raw-muted) !important;
-    font-size: 14.5px !important;
-    font-weight: 650;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='field']:focus,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-control='field']:focus {
+    border-color: var(--ui-accent, var(--raw-wine)) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent, var(--raw-wine)) 8%, transparent) !important;
   }
 
-  .hint,
-  .field .hint,
-  small {
-    color: var(--raw-muted);
-    font-size: 13.5px !important;
-    line-height: 1.55;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='field'][data-ui-state='invalid'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-control='field'][data-ui-state='invalid'] {
+    border-color: var(--ui-danger, var(--raw-red)) !important;
   }
 
-  .btn {
-    min-height: 40px;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 0 15px !important;
-    border: 1px solid var(--raw-wine) !important;
-    border-radius: var(--raw-radius-sm) !important;
-    background: var(--raw-wine) !important;
-    color: var(--raw-on-accent) !important;
-    font-weight: 750;
-    box-shadow: none !important;
-  }
-
-  .btn:hover {
-    background: var(--raw-wine-dark) !important;
-    border-color: var(--raw-wine-dark) !important;
-  }
-
-  .btn.ghost {
-    background: var(--raw-paper) !important;
-    color: var(--raw-ink) !important;
-    border-color: var(--raw-border) !important;
-  }
-
-  .btn.ghost:hover {
-    background: var(--raw-border-soft) !important;
-    border-color: var(--raw-ink) !important;
-  }
-
-  .pill { border-radius: 999px !important; font-size: 13.5px !important; }
-  .msg { border-radius: var(--raw-radius-sm) !important; font-size: 15px !important; }
-  .empty { color: var(--raw-muted) !important; font-size: 16px; }
-
-  .tabs {
-    display: flex;
-    gap: 7px !important;
-    flex-wrap: wrap;
-    margin-bottom: 16px !important;
-    padding-bottom: 9px;
-    border-bottom: 1px solid var(--raw-border) !important;
-  }
-
-  .tabs button {
-    min-height: 36px;
-    padding: 0 12px !important;
-    border: 1px solid var(--raw-border) !important;
-    border-radius: var(--raw-radius-sm) !important;
-    background: var(--raw-paper) !important;
-    color: var(--raw-ink) !important;
-  }
-
-  .tabs button.on {
-    background: var(--raw-wine) !important;
-    border-color: var(--raw-wine) !important;
-    color: var(--raw-on-accent) !important;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='field'][data-ui-state='disabled'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-control='field'][data-ui-state='disabled'] {
+    opacity: .64;
+    cursor: not-allowed;
   }
 
   /* =========================================================
-     ACTION DOCK — the same bottom rail when a page needs actions.
+     TOOLBARS / CONTEXT ACTIONS / DOCKS
      ========================================================= */
-  .rawDashboardContent [data-work-dock='true'] {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='toolbar'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='context-actions'] {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='dock'] {
     box-sizing: border-box;
     position: sticky;
     bottom: 0;
@@ -344,75 +389,119 @@
     justify-content: space-between;
     gap: 10px;
     border-top: 1px solid var(--work-rule);
-    background: color-mix(in srgb, var(--raw-paper) 96%, transparent);
+    background: color-mix(in srgb, var(--ui-surface, var(--raw-paper)) 96%, transparent);
     backdrop-filter: blur(5px);
   }
 
-  .rawDashboardContent [data-work-dock='true'] [data-work-dock-actions='true'] {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='dock'] [data-ui-part='dock-actions'] {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
   }
 
-  .rawDashboardContent [data-work-dock='true'] [data-work-dock-status='true'] {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='dock'] [data-ui-part='dock-status'] {
     min-width: 0;
-    color: var(--raw-muted);
-    font-size: var(--raw-font-size-sm);
+    color: var(--ui-text-muted, var(--raw-muted));
+    font-size: var(--ui-font-size-sm, var(--raw-font-size-sm));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .rawDashboardContent [data-work-form-grid='true'] {
-    width: 100%;
+  /* =========================================================
+     RECORDS / EMPTY STATES — stable semantic frame only.
+     Detailed native skin remains free to redesign internals.
+     ========================================================= */
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-list'] {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 10px 12px;
+    width: 100%;
+    border-top: 1px solid var(--work-rule-soft);
   }
 
-  .stickybar {
-    position: static !important;
-    top: auto !important;
-    background: transparent !important;
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row'] {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border-bottom: 1px solid var(--work-rule-soft);
+    background: transparent;
   }
 
-  /* Route changes replace content, not the stable work frame. */
-  .rawDashboardContent,
-  .rawDashboardContent > .workSheetMount,
-  .rawDashboardContent [data-work-sheet='true'],
-  .rawDashboardContent [data-page-surface='true'],
-  .rawDashboardContent .page {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row']:hover,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row']:focus-within {
+    background: color-mix(in srgb, var(--ui-accent, var(--raw-wine)) 3%, var(--ui-surface, var(--raw-paper)));
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row'][data-record-selected='true'] {
+    background: color-mix(in srgb, var(--ui-accent, var(--raw-wine)) 5%, var(--ui-surface, var(--raw-paper)));
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='empty-state'] {
+    display: grid;
+    gap: 4px;
+    place-items: start;
+    min-height: 74px;
+    padding: 16px 4px;
+    color: var(--ui-text-muted, var(--raw-muted));
+    text-align: start;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='empty-state'] [data-ui-part='title'] {
+    color: var(--ui-text, var(--raw-ink));
+    font-size: 14px;
+  }
+
+  /* Route changes replace content; stable work frame itself does not animate. */
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-content'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='sheet'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page'] {
     transition: none !important;
   }
 
   @media (max-width: 820px) {
-    .rawDashboardShell {
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] {
       --work-sheet-inline: 10px;
       --work-sheet-top: 10px;
       --work-sheet-bottom: 54px;
       --work-header-min-height: 70px;
     }
 
-    .rawDashboardContent [data-work-header='true'],
-    .rawDashboardContent [data-page-header='true'],
-    .rawDashboardContent .page-head,
-    .rawDashboardContent [data-work-section='true'] > header,
-    .rawDashboardContent [data-data-surface='true'] > header,
-    .rawDashboardContent .section > header {
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='header'],
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'],
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='section-header'] {
       grid-template-columns: minmax(0, 1fr) !important;
       align-items: start !important;
     }
 
-    .rawDashboardContent [data-work-dock='true'] {
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='page-header'] [data-ui-part='title'] {
+      font-size: 24px !important;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='dock'] {
       align-items: stretch;
       flex-direction: column;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='record-row'] {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
   @media (max-width: 520px) {
-    .grid.k4,
-    .grid.k2,
-    .form-grid { grid-template-columns: 1fr !important; }
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] {
+      grid-template-columns: 1fr;
+    }
+
+    .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='summary'] [data-ui-part='summary-item'] + [data-ui-part='summary-item'] {
+      border-inline-start: 0;
+      border-top: 1px solid var(--work-rule-soft);
+    }
   }
 }
