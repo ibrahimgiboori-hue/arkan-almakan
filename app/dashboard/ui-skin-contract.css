@@ -148,7 +148,272 @@
   --ui-tone-color: var(--ui-info);
 }
 
+/* Absorbed application-body layer. This is native-skin geometry now, not a separate compatibility patch. */
+@media screen {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] {
+    --app-body-nav-width: min(232px, 82vw);
+    --app-body-inline: clamp(12px, 1.45vw, 22px);
+    --app-body-top: clamp(8px, 1vw, 14px);
+    --app-body-bottom: 56px;
+    position: relative;
+    isolation: isolate;
+    overflow-x: clip;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'] {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    padding-right: 0;
+    transition: padding-right 170ms cubic-bezier(.2,.72,.28,1);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-content'] {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 100dvh !important;
+    overflow-x: clip !important;
+    background: var(--raw-bg) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 100dvh !important;
+    margin: 0 !important;
+    padding: var(--app-body-top) var(--app-body-inline) var(--app-body-bottom) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'][data-work-posture='work-zone'] [data-ui-slot='application-content'] {
+    background: color-mix(in srgb, var(--raw-bg) 97.5%, var(--raw-paper)) !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appWorkThresholdLine {
+    box-sizing: border-box;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 7px var(--app-body-inline) 6px;
+    border-bottom: 1px solid color-mix(in srgb, var(--raw-border-soft) 82%, transparent);
+    color: var(--raw-muted);
+    background: transparent;
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appWorkThresholdZone {
+    font-weight: 740;
+    color: var(--raw-muted);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appWorkThresholdFunction {
+    color: var(--raw-ink);
+    font-weight: 680;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appWorkThresholdFunction::before {
+    content: '·';
+    margin-inline-end: 8px;
+    color: var(--raw-border);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'][data-work-posture='work-zone'][data-work-session-state='working'] .appWorkThresholdLine {
+    border-bottom-color: color-mix(in srgb, var(--raw-wine) 16%, var(--raw-border-soft));
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'][data-work-threshold-entry='true'] .appWorkThresholdLine,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'][data-work-threshold-entry='true'] [data-ui-slot='route-mount'] {
+    animation: appWorkThresholdArrive 170ms cubic-bezier(.2,.72,.28,1) both;
+  }
+
+  @keyframes appWorkThresholdArrive {
+    from { opacity: .9; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount']:not(:has(.page-head, [data-work-header='true'], [data-page-header='true'], [data-work-context-bar='true']))::before {
+    content: none !important;
+    display: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] .shell,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] .main,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] .page,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] [data-work-sheet='true'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] [data-page-surface='true'] {
+    min-width: 0 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedSurface,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedSurface[data-work-session-state='released'] {
+    box-sizing: border-box;
+    width: min(100%, 660px);
+    min-height: 100dvh;
+    margin: 0 auto;
+    padding: clamp(74px, 14vh, 150px) clamp(4px, 1vw, 12px) 84px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    color: var(--raw-ink, #2f2924);
+    background: transparent;
+    animation: appCompletionArrive 150ms cubic-bezier(.2,.72,.28,1) both;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedMark {
+    margin: 0 0 8px;
+    color: var(--raw-green, #47705b);
+    font-size: 11px;
+    font-weight: 820;
+    letter-spacing: .04em;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedSurface h1 {
+    margin: 0 !important;
+    color: var(--raw-ink, #2f2924) !important;
+    font-size: clamp(23px, 2vw, 29px) !important;
+    font-weight: 820 !important;
+    line-height: 1.3 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedSurface p {
+    max-width: 62ch;
+    margin: 9px 0 0 !important;
+    color: var(--raw-muted, #756d64) !important;
+    font-size: 14.5px !important;
+    line-height: 1.75 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 13px;
+    color: var(--raw-muted, #756d64);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedMeta span + span::before {
+    content: '·';
+    margin-inline-end: 14px;
+    color: var(--raw-border, #d8d3c8);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedActions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px 16px;
+    margin-top: 24px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedActions button {
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 2px 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--raw-muted, #756d64) !important;
+    font-family: inherit;
+    font-size: 12.5px !important;
+    font-weight: 680 !important;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedActions button:first-child {
+    color: var(--raw-wine, #7b2434) !important;
+    font-weight: 790 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedActions button:hover,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedActions button:focus-visible {
+    color: var(--raw-ink, #2f2924) !important;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  @keyframes appCompletionArrive {
+    from { opacity: 0; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1']:has(.appContextNav[data-open='true'][data-pinned='true']) [data-ui-slot='application-stage'] {
+    padding-right: var(--app-body-nav-width);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1']:has(.appContextNav[data-open='true'][data-pinned='false']) [data-ui-slot='application-stage'] {
+    padding-right: 0;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appContextNav[data-open='true'][data-pinned='true'] {
+    box-shadow: none;
+    border-inline-start: 1px solid var(--raw-border-soft, #e8e4dc);
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appContextNav[data-open='true'][data-pinned='false'] {
+    border-inline-start: 0;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] [data-work-ledger='true'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] [data-table-surface='true'],
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] .table-wrap,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] .tableWrap {
+    max-width: 100%;
+  }
+}
+
+@media screen and (max-width: 900px), screen and (hover: none), screen and (pointer: coarse) {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'] {
+    padding-right: 0 !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='route-mount'] {
+    padding-inline: 10px !important;
+    padding-top: 8px !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appWorkThresholdLine {
+    padding-inline: 10px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedSurface {
+    width: 100%;
+    padding: 72px 18px 64px;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appContextNav[data-open='true'][data-pinned='true'] {
+    box-shadow: -7px 0 22px rgba(46, 39, 31, .055);
+    border-inline-start: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'] {
+    transition: none !important;
+  }
+
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] .appCompletedSurface,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'][data-work-threshold-entry='true'] .appWorkThresholdLine,
+  .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'][data-work-threshold-entry='true'] [data-ui-slot='route-mount'] {
+    animation: none !important;
+  }
+
   .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] *,
   .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] *::before,
   .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] *::after {
