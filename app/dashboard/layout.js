@@ -15,6 +15,7 @@ import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkT
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
 import './raw-tokens.css';
+import './legacy-ui-compat.css';
 import './ui-skin-foundation.css';
 import './app-shell-v2.css';
 import './portal-experience.css';
