@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/framework-governance-audit.mjs && node scripts/navigation-cleanliness-audit.mjs && node scripts/anatomical-navigation-audit.mjs && node scripts/work-threshold-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/blank-form-audit.mjs && node scripts/work-sheet-kernel-audit.mjs && node scripts/work-surface-constitution-audit.mjs && node scripts/persistent-innervation-audit.mjs && node scripts/focus-valve-audit.mjs && node scripts/format-governance-audit.mjs && node scripts/ui-constitution-audit.mjs && node scripts/v2-constitution-audit.mjs && node scripts/action-context-governance-audit.mjs && node scripts/labor-entry-governance-audit.mjs",
+    "prebuild": "node scripts/framework-governance-audit.mjs && node scripts/navigation-cleanliness-audit.mjs && node scripts/anatomical-navigation-audit.mjs && node scripts/work-threshold-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/blank-form-audit.mjs && node scripts/work-sheet-kernel-audit.mjs && node scripts/work-surface-constitution-audit.mjs && node scripts/persistent-innervation-audit.mjs && node scripts/focus-valve-audit.mjs && node scripts/format-governance-audit.mjs && node scripts/ui-constitution-audit.mjs && node scripts/portal-experience-audit.mjs && node scripts/v2-constitution-audit.mjs && node scripts/action-context-governance-audit.mjs && node scripts/labor-entry-governance-audit.mjs",
     "build": "next build",
     "start": "next start",
     "framework:audit": "node scripts/framework-governance-audit.mjs",
@@ -23,10 +23,11 @@
     "focus:audit": "node scripts/focus-valve-audit.mjs",
     "format:audit": "node scripts/format-governance-audit.mjs",
     "ui:audit": "node scripts/ui-constitution-audit.mjs",
+    "portal:audit": "node scripts/portal-experience-audit.mjs",
     "budget:audit": "node scripts/v2-constitution-audit.mjs",
     "action:audit": "node scripts/action-context-governance-audit.mjs",
     "labor:audit": "node scripts/labor-entry-governance-audit.mjs",
-    "v2:audit": "node scripts/framework-governance-audit.mjs && node scripts/navigation-cleanliness-audit.mjs && node scripts/anatomical-navigation-audit.mjs && node scripts/work-threshold-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/blank-form-audit.mjs && node scripts/work-sheet-kernel-audit.mjs && node scripts/work-surface-constitution-audit.mjs && node scripts/persistent-innervation-audit.mjs && node scripts/focus-valve-audit.mjs && node scripts/format-governance-audit.mjs && node scripts/ui-constitution-audit.mjs && node scripts/v2-constitution-audit.mjs && node scripts/action-context-governance-audit.mjs && node scripts/labor-entry-governance-audit.mjs",
+    "v2:audit": "node scripts/framework-governance-audit.mjs && node scripts/navigation-cleanliness-audit.mjs && node scripts/anatomical-navigation-audit.mjs && node scripts/work-threshold-audit.mjs && node scripts/print-constitution-audit.mjs && node scripts/blank-form-audit.mjs && node scripts/work-sheet-kernel-audit.mjs && node scripts/work-surface-constitution-audit.mjs && node scripts/persistent-innervation-audit.mjs && node scripts/focus-valve-audit.mjs && node scripts/format-governance-audit.mjs && node scripts/ui-constitution-audit.mjs && node scripts/portal-experience-audit.mjs && node scripts/v2-constitution-audit.mjs && node scripts/action-context-governance-audit.mjs && node scripts/labor-entry-governance-audit.mjs",
     "v2:check": "npm run v2:audit && npm test && npm run build",
     "test:document-catalog": "node --test tests/document-catalog.test.mjs",
     "test": "node --test tests/*.test.mjs"
