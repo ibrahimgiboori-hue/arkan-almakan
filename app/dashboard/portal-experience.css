@@ -1,0 +1,45 @@
+@media screen {
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] .appNavRow:focus-visible,
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] .appNavBack:focus-visible,
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] .appNavTopLine button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--raw-wine, #7b2434) 58%, transparent) !important;
+    outline-offset: 2px;
+  }
+
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [data-table-surface='true'][data-ledger-scroll-ready='true'] {
+    overscroll-behavior-inline: contain;
+    scrollbar-gutter: stable both-edges;
+    scroll-behavior: smooth;
+    scroll-padding-inline: 18px;
+  }
+
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [data-table-surface='true']:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--raw-wine, #7b2434) 36%, transparent);
+    outline-offset: 2px;
+  }
+
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [data-record-row='true'][data-record-selected='true'] td,
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [data-record-row='true'][data-record-selected='true'] {
+    background: color-mix(in srgb, var(--raw-wine, #7b2434) 5%, var(--raw-paper, #fff));
+  }
+
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [aria-invalid='true'] {
+    border-color: var(--raw-red, #a93b3b) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--raw-red, #a93b3b) 12%, transparent) !important;
+  }
+
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] form[data-submit-guard='armed'] button[type='submit'] {
+    cursor: progress;
+  }
+
+  .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [data-inline-feedback='true'][role='alert'] {
+    scroll-margin-top: 96px;
+  }
+
+  @media (max-width: 820px) {
+    .rawDashboardShell[data-portal-experience='unified-portal-experience-v1'] [data-table-surface='true'][data-ledger-scroll-ready='true'] {
+      margin-inline: -2px;
+      padding-bottom: 3px;
+    }
+  }
+}
