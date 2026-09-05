@@ -20,8 +20,13 @@ function requireText(file, needles) {
 requireText('lib/ui-skin-contract.js', [
   "id:'arkan-semantic-skin-v1'",
   "principle:'business-and-interaction-contracts-stay-stable-while-skin-is-replaceable'",
-  "navigation:'navigation'",
+  "navigationRail:'navigation-rail'",
+  "navigationPanel:'navigation-panel'",
+  "navigationHeader:'navigation-header'",
+  "navigationGroup:'navigation-group'",
   "navigationRow:'navigation-row'",
+  "navigationFooter:'navigation-footer'",
+  "navigationTrigger:'navigation-trigger'",
   "applicationStage:'application-stage'",
   "applicationContent:'application-content'",
   "routeMount:'route-mount'",
@@ -33,6 +38,8 @@ requireText('lib/ui-skin-contract.js', [
   "dialog:'dialog'",
   "'--ui-canvas'",
   "'--ui-accent'",
+  "'--ui-shell-rail-width'",
+  "'--ui-shell-nav-width'",
   'uiSkinDataAttributes',
   'uiSlot',
 ]);
@@ -98,8 +105,10 @@ requireText('components/ui/ConfirmDialog.js', [
 ]);
 
 requireText('components/ui/UISkinBridgeRuntime.js', [
-  "uiSlot('navigation')",
+  "uiSlot('navigationRail')",
+  "uiSlot('navigationPanel')",
   "uiSlot('navigationHeader')",
+  "uiSlot('navigationGroup')",
   "uiSlot('navigationRow')",
   "uiSlot('navigationFooter')",
   "uiSlot('navigationTrigger')",
@@ -107,6 +116,8 @@ requireText('components/ui/UISkinBridgeRuntime.js', [
   "uiSlot('applicationContent')",
   "uiSlot('routeMount')",
   "uiSlot('actionContextBanner')",
+  "data-ui-role':'primary-navigation'",
+  "data-ui-role':'contextual-navigation'",
   "data-ui-role':'application-content'",
   "data-ui-role':'route-mount'",
 ]);
@@ -124,6 +135,8 @@ requireText('app/dashboard/raw-tokens.css', [
   '--ui-surface:',
   '--ui-text:',
   '--ui-accent:',
+  '--ui-shell-rail-width:',
+  '--ui-shell-nav-width:',
   '--raw-bg: var(--ui-canvas)',
   '--raw-wine: var(--ui-accent)',
 ]);
@@ -183,16 +196,21 @@ if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:/.tes
 
 requireText('app/dashboard/ui-shell-skin.css', [
   'NATIVE SHELL SKIN',
-  '.appNavHotZone',
+  '.appNavRail',
+  '.appRailItem',
   '.appContextNav',
-  ".appContextNav[data-open='true']",
-  '.appNavTopLine',
-  '.appNavBottomActions',
+  ".appContextNav[data-open='false']",
+  '.appNavContextHeader',
+  '.appNavContextSection',
+  '.appNavContextItem',
+  '.appNavMobileTrigger',
+  ".appContextNav[data-mobile-open='true']",
   "@media (prefers-reduced-motion: reduce)",
 ]);
 const shellSkin = read('app/dashboard/ui-shell-skin.css');
 if (shellSkin.includes('.appActionContextAlert')) failures.push('ui-shell-skin.css: شريط سياق الإجراء دخل جلد الملاحة بدل جلد الجسم الدلالي.');
 if (shellSkin.includes('.rawDashboardContent > .workSheetMount')) failures.push('ui-shell-skin.css: جلد الغلاف امتلك جسم الصفحة بدل عقد الجلد.');
+if (shellSkin.includes('.appNavHotZone')) failures.push('ui-shell-skin.css: عاد مدخل ملاحة مخفي بدل الشريط الثابت المرئي.');
 
 requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-skin-contract='arkan-semantic-skin-v1']",
@@ -204,7 +222,6 @@ requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-slot='selection-dock']",
   "[data-ui-control='clear-selection']",
   "[data-ui-slot='action']",
-  '--app-body-nav-width:',
   'appWorkThresholdArrive',
   '.appCompletedSurface',
   "[data-work-threshold-entry='true']",
@@ -253,4 +270,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: no legacy visual layer remains; native foundation, components, semantic adapter, shell and body are replaceable skin layers, with only non-visual pre-hydration containment outside them.');
+console.log('UI skin contract audit passed: the replaceable identity owns a semantic persistent rail, one contextual panel and a mobile drawer without hidden edge navigation or legacy visual layers.');
