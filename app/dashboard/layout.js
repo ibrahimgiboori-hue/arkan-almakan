@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/lib/action-context';
 import { applyUiTheme, DEFAULT_UI_THEME, UI_THEME_EVENT } from '@/lib/ui-theme';
-import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
+import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime';
@@ -18,7 +18,6 @@ import './raw-tokens.css';
 import './raw-phase.css';
 import './app-shell-v2.css';
 import './app-body-v3.css';
-import './body-resuscitation.css';
 import './portal-experience.css';
 import './ui-skin-contract.css';
 
@@ -174,17 +173,27 @@ export default function DashboardLayout({ children }) {
     router.replace('/login');
   }
 
+  const skinAttrs = uiSkinDataAttributes();
+
   if (!state.ready) {
-    return <div style={{padding:24,fontFamily:'inherit'}}>جارٍ التحميل…</div>;
+    return (
+      <div {...skinAttrs} data-ui-slot={uiSlot('systemState')} data-ui-state="loading" dir="rtl" role="status" aria-live="polite">
+        <strong data-ui-part="system-state-title">جارٍ التحميل…</strong>
+      </div>
+    );
   }
 
   if (!state.allowed) {
-    return <div style={{padding:24,fontFamily:'inherit'}}>{state.message}</div>;
+    return (
+      <div {...skinAttrs} data-ui-slot={uiSlot('systemState')} data-ui-state="denied" dir="rtl" role="alert">
+        <strong data-ui-part="system-state-title">تعذر الدخول</strong>
+        <span data-ui-part="system-state-message">{state.message}</span>
+      </div>
+    );
   }
 
   const actingOnBehalf = isOnBehalfMode(state.me?.actionContext);
   const showExceptionalIdentity = actingOnBehalf && state.me?.actionContext?.isPrimaryUser === true;
-  const skinAttrs = uiSkinDataAttributes();
 
   return (
     <DashboardSessionProvider value={state.me}>
@@ -202,7 +211,11 @@ export default function DashboardLayout({ children }) {
             <PortalExperienceRuntime>
               <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
               <WorkThresholdRuntime>
-                <div className="appBodyStage" data-application-body="work-first-v3">
+                <div
+                  className="appBodyStage"
+                  data-application-body="work-first-v3"
+                  data-ui-slot={uiSlot('applicationStage')}
+                >
                   <WorkSessionRuntime>
                     <ActionNervousSystemRuntime>
                       {showExceptionalIdentity ? (
@@ -211,19 +224,25 @@ export default function DashboardLayout({ children }) {
                           aria-live="polite"
                           data-action-context-banner="true"
                           data-action-context-active="true"
+                          data-ui-slot={uiSlot('actionContextBanner')}
                           className="appActionContextAlert"
                         >
                           <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
                           <a href="/dashboard/settings#primary-action-mode">تغيير</a>
                         </div>
                       ) : null}
-                      <main className="rawDashboardContent" data-work-book="true">
+                      <main
+                        className="rawDashboardContent"
+                        data-work-book="true"
+                        data-ui-slot={uiSlot('applicationContent')}
+                      >
                         <WorkThresholdMarker />
                         <div
                           className="workSheetMount"
                           data-work-sheet-mount="true"
                           data-organ-host="route-content"
                           data-organ-preservation="in-place"
+                          data-ui-slot={uiSlot('routeMount')}
                         >
                           {children}
                         </div>
