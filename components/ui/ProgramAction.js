@@ -3,6 +3,7 @@
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { canUseCapability } from '@/lib/access-ui';
 import {
+  WORK_ACTION_KIND,
   WORK_ACTION_PLACEMENT,
   WORK_ACTION_CONSEQUENCE,
   WORK_ACTION_SCOPE,
@@ -12,6 +13,21 @@ import { useActionNervousSystem } from './ActionNervousSystemRuntime';
 
 function cx(...values) {
   return values.filter(Boolean).join(' ');
+}
+
+function disabledReason({ allowed, disabled, acting, selectionRequired, selectionReady, selectionActionAllowed, minSelection }) {
+  if (!allowed) return 'لا تملك صلاحية تنفيذ هذا الإجراء.';
+  if (acting) return 'الإجراء قيد التنفيذ الآن.';
+  if (selectionRequired && !selectionReady) return `حدد ${Math.max(1, Number(minSelection || 1))} سجل على الأقل لتنفيذ الإجراء.`;
+  if (selectionRequired && !selectionActionAllowed) return 'هذا الإجراء غير مسموح على مجموعة السجلات المحددة.';
+  if (disabled) return 'الإجراء غير متاح حاليًا.';
+  return '';
+}
+
+function destructiveConfirmation(spec) {
+  if (spec.confirmation === false) return null;
+  if (typeof spec.confirmation === 'string' && spec.confirmation.trim()) return spec.confirmation.trim();
+  return `هل تريد تنفيذ «${spec.label}»؟ هذا الإجراء قد يغيّر أو يحذف بيانات ولا يمكن التراجع عنه تلقائيًا.`;
 }
 
 export default function ProgramAction({
@@ -44,18 +60,39 @@ export default function ProgramAction({
   if (!allowed && spec.hiddenWhenUnauthorized !== false) return null;
 
   const consequential = spec.consequence === WORK_ACTION_CONSEQUENCE.CONSEQUENTIAL || spec.consequence === WORK_ACTION_CONSEQUENCE.DESTRUCTIVE;
+  const destructive = spec.consequence === WORK_ACTION_CONSEQUENCE.DESTRUCTIVE;
   const selectionRequired = spec.actionScope === WORK_ACTION_SCOPE.SELECTION;
   const selectionReady = !selectionRequired || Number(selectionCount || 0) >= spec.minSelection;
   const selectionActionAllowed = !selectionRequired || spec.selectionActionAllowed !== false;
   const acting = nervousSystem.isActing(spec.key);
   const actionEnabled = allowed && !disabled && !acting && selectionReady && selectionActionAllowed;
+  const whyDisabled = disabledReason({
+    allowed,
+    disabled,
+    acting,
+    selectionRequired,
+    selectionReady,
+    selectionActionAllowed,
+    minSelection:spec.minSelection,
+  });
   const label = children || spec.label;
   const subject = spec.subject || spec.innervationSubject || null;
+  const saveShortcut = spec.kind === WORK_ACTION_KIND.SAVE ? 'Control+S Meta+S' : undefined;
 
   async function handleClick(event) {
     if (!actionEnabled) {
       event.preventDefault();
       return;
+    }
+
+    // الإجراءات المتصلة بالعصب المركزي والمعلنة كحذف/تدمير تحصل على آخر حاجز
+    // موحّد. يمكن للإجراء الذي يملك تأكيدًا محكومًا خاصًا أن يعلن confirmation:false.
+    if (typeof execute === 'function' && destructive) {
+      const message = destructiveConfirmation(spec);
+      if (message && !window.confirm(message)) {
+        event.preventDefault();
+        return;
+      }
     }
 
     // الوضع القديم يبقى كما هو تمامًا حتى يختار العضو الاتصال بالعصب المركزي.
@@ -78,9 +115,11 @@ export default function ProgramAction({
       type={type}
       className={cx(className)}
       disabled={!actionEnabled}
+      aria-disabled={!actionEnabled ? 'true' : undefined}
       aria-busy={acting ? 'true' : undefined}
+      aria-keyshortcuts={saveShortcut}
       onClick={handleClick}
-      title={title || spec.label}
+      title={title || whyDisabled || spec.label}
       data-program-action="true"
       data-action-key={spec.key}
       data-action-kind={spec.kind}
@@ -89,6 +128,7 @@ export default function ProgramAction({
       data-action-placement={spec.placement || WORK_ACTION_PLACEMENT.ORIGIN}
       data-action-capability={spec.capability || undefined}
       data-action-consequential={consequential ? 'true' : 'false'}
+      data-action-destructive={destructive ? 'true' : 'false'}
       data-action-nervous-system={typeof execute === 'function' ? 'connected' : 'legacy-pass-through'}
       data-action-signal={acting ? 'acting' : 'ready'}
       data-action-entity-type={subject?.entityType || subject?.type || undefined}
@@ -99,6 +139,7 @@ export default function ProgramAction({
       data-selection-profile={selectionRequired ? spec.selectionProfile : undefined}
       data-selection-kind-allowed={selectionRequired ? String(spec.selectionKindAllowed !== false) : undefined}
       data-bulk-decision-allowed={selectionRequired ? String(spec.bulkDecisionAllowed !== false) : undefined}
+      data-disabled-reason={!actionEnabled && whyDisabled ? whyDisabled : undefined}
       data-page-command-trigger={spec.commandTrigger ? 'true' : undefined}
     >
       {label}
