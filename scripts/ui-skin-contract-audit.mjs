@@ -20,6 +20,12 @@ function requireText(file, needles) {
 requireText('lib/ui-skin-contract.js', [
   "id:'arkan-semantic-skin-v1'",
   "principle:'business-and-interaction-contracts-stay-stable-while-skin-is-replaceable'",
+  "navigation:'navigation'",
+  "navigationRow:'navigation-row'",
+  "form:'form'",
+  "field:'field'",
+  "action:'action'",
+  "dialog:'dialog'",
   "'--ui-canvas'",
   "'--ui-accent'",
   'uiSkinDataAttributes',
@@ -54,6 +60,42 @@ requireText('components/ui/ConstitutionUI.js', [
   "data-ui-slot={uiSlot('empty')}",
 ]);
 
+requireText('components/ui/ProgramAction.js', [
+  "data-ui-slot={uiSlot('action')}",
+  'data-ui-control="action"',
+  'data-ui-state=',
+]);
+
+requireText('components/ui/ConstitutionDialog.js', [
+  "data-ui-slot={uiSlot('dialog')}",
+  'data-ui-part="dialog-header"',
+  'data-ui-part="dialog-body"',
+]);
+
+requireText('components/ui/ConfirmDialog.js', [
+  'data-ui-part="dialog-actions"',
+  'data-ui-control="confirm"',
+  'data-ui-control="cancel"',
+]);
+
+requireText('components/ui/UISkinBridgeRuntime.js', [
+  "uiSlot('navigation')",
+  "uiSlot('navigationHeader')",
+  "uiSlot('navigationRow')",
+  "uiSlot('navigationFooter')",
+  "uiSlot('navigationTrigger')",
+  "data-ui-role':'application-content'",
+  "data-ui-role':'route-mount'",
+]);
+
+requireText('components/ui/PortalExperienceRuntime.js', [
+  "field.setAttribute('data-ui-slot', 'field')",
+  "form.setAttribute('data-ui-slot', 'form')",
+  "button.setAttribute('data-ui-control', 'button')",
+  "link.setAttribute('data-ui-control', 'link')",
+  "table.setAttribute('data-ui-role', 'table')",
+]);
+
 requireText('app/dashboard/raw-tokens.css', [
   '--ui-canvas:',
   '--ui-surface:',
@@ -67,13 +109,16 @@ requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-skin-contract='arkan-semantic-skin-v1']",
   "[data-ui-slot='selection-dock']",
   "[data-ui-control='clear-selection']",
+  "[data-ui-slot='action']",
 ]);
 
 requireText('app/dashboard/layout.js', [
   "import { uiSkinDataAttributes } from '@/lib/ui-skin-contract'",
+  "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
   "import './ui-skin-contract.css'",
   'const skinAttrs = uiSkinDataAttributes()',
   '{...skinAttrs}',
+  '<UISkinBridgeRuntime>',
 ]);
 
 if (failures.length) {
@@ -82,4 +127,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: structure, behavior and business semantics are skin-independent and the native skin is an adapter, not architecture.');
+console.log('UI skin contract audit passed: shell, navigation, structure, forms, fields, actions and dialogs expose stable semantics while the native skin remains a replaceable adapter.');
