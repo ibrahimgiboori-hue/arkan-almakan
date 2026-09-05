@@ -114,6 +114,18 @@ for(const forbidden of ['MIGRATING','LEGACY','recruitment_offer_public','recruit
   if(governance.includes(forbidden))violations.push(`lib/print-governance.js: سجل الهجرة لم يُغلق (${forbidden})`);
 }
 
+const reportPreparation=requireTokens('lib/report-preparation.js',[
+  'filter-sort-group-before-print-v1',
+  "owner:'report-definition'",
+  "sourceMutation:'forbidden'",
+  "grouping:'semantic-sections-not-physical-pages'",
+  "captainRole:'pagination-only'",
+  'reportCreatesTruth:false',
+  'prepareReportRows',
+  'groupPreparedReportRows',
+]);
+if(/force-page|page-break|@page/i.test(reportPreparation))violations.push('report-preparation: إعداد التقرير لا يجوز أن يملك هندسة صفحات أو فرض كسر صفحة.');
+
 const layout=requireTokens('app/print/layout.js',[
   "import './print-constitution.css'",
   "import './print-office-model.css'",
@@ -126,6 +138,9 @@ const constitution=requireTokens('app/print/print-constitution.css',[
   'ARKAN PRINT CONSTITUTION v3.2',
   '.print-route-root',
   '.print-constitution table',
+  '--arkan-print-table-head-text:#111',
+  '.print-constitution thead th',
+  '-webkit-text-fill-color:var(--arkan-print-table-head-text)!important',
   '.print-signoff-block',
   '.procedure-stage-grid',
 ]);
@@ -188,6 +203,18 @@ const governedRoutes={
 };
 for(const [relative,tokens] of Object.entries(governedRoutes))requireTokens(relative,tokens);
 
+const budgetPrint=requireTokens('app/print/operating-budget/page.js',[
+  "from '@/lib/report-preparation'",
+  'prepareReportRows',
+  'groupPreparedReportRows',
+  'data-report-preparation="filter-sort-group-before-print-v1"',
+  'تقسيم التقرير',
+  'أجزاء حسب التصنيف',
+  'أجزاء حسب حالة السداد',
+  'data-report-section',
+]);
+if(/data-print-boundary-before|PRINT_FLOW_BOUNDARY|force-page/i.test(budgetPrint))violations.push('operating-budget print: تقسيم التقرير يجب أن يبقى دلاليًا؛ القبطان وحده يملك حدود الصفحات.');
+
 const generic=forbidTokens('app/print/[id]/page.js',[
   'margin_top_mm','margin_bottom_mm','margin_side_mm','contentTopMm','contentBottomMm','contentSideMm','stamp_image_path','signature_image_path',
 ]);
@@ -220,9 +247,9 @@ requireTokens('components/print/PrintGovernanceBoundary.js',['resolvePrintDocume
 
 if(violations.length){
   console.error('\nPRINT CONSTITUTION AUDIT FAILED');
-  console.error('القانون: قبطان واحد يملك الورقة والهندسة والليترهيد والتقسيم؛ صفحات /print تملك المحتوى فقط. لا حالات هجرة، لا محركات صفوف ثابتة، لا CSS صفحة موازٍ، ولا إعدادات هندسة تاريخية تتحكم في الإخراج.\n');
+  console.error('القانون: قبطان واحد يملك الورقة والهندسة والليترهيد والتقسيم؛ إعداد التقرير يفلتر ويرتب ويقسم دلاليًا فقط، ورؤوس الجداول يجب أن تبقى عالية التباين في كل المطبوعات المحكومة.\n');
   for(const item of violations)console.error(`- ${item}`);
   process.exit(1);
 }
 
-console.log(`Print constitution audit passed (${printFiles.length} print source files checked; all registered /print routes are governed by one captain with zero known parallel page engines).`);
+console.log(`Print constitution audit passed (${printFiles.length} print source files checked; all registered /print routes are governed by one captain, report preparation remains read-only and semantic, and table headers are protected by the shared readability law).`);
