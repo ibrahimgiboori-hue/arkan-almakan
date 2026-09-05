@@ -46,6 +46,8 @@ export default function ConstitutionPrintFrame({
   signatureSizeMm,
   stampStyle,
   signatureStyle,
+  stampProps,
+  signatureProps,
   ...rest
 }) {
   const childArray = Children.toArray(children);
@@ -66,6 +68,8 @@ export default function ConstitutionPrintFrame({
       signatureSizeMm={signatureSizeMm}
       stampStyle={stampStyle}
       signatureStyle={signatureStyle}
+      stampProps={stampProps}
+      signatureProps={signatureProps}
       showPageNumbers={false}
       pageClassName="print-page"
       contentClassName="print-content"
