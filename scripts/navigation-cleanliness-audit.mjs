@@ -46,7 +46,7 @@ if (!areasMatch) {
   }
 }
 
-// 3) المشروع مكان له «موقف» مباشر، ثم أربعة عوالم مجمعة لا تتنافس كقائمة مسطحة.
+// 3) داخل المشروع تظهر العوالم كلها في قائمة واحدة مسطحة وواضحة، بلا قوائم متداخلة أو Accordion إجباري.
 const projectNavMatch = constitution.match(/export const PROJECT_NAV_GROUPS = Object\.freeze\(\[([\s\S]*?)\n\]\);/);
 const projectNavText = projectNavMatch?.[1] || '';
 if (!projectNavText) failures.push('PROJECT_NAV_GROUPS: تعذر قراءة دستور ملاحة المشروع.');
@@ -63,19 +63,21 @@ if (projectNavText.includes("key: 'quote-register'")) {
 }
 const contextualNav = read('components/ui/ContextualDashboardNavigation.js');
 for (const required of [
-  'data-project-navigation="single-open-accordion"',
-  'expandedProjectGroupKey',
-  'toggleProjectGroup',
-  'projectStatusTool',
-  'projectAccordionGroups',
+  'data-project-navigation="all-groups-visible"',
+  'projectGroups',
+  'activeProjectKey',
+  'appNavRail',
+  'appContextNav',
+  'appNavMobileTrigger',
+  'CONTEXT_COLLAPSED_STORAGE_KEY',
   'خارج المشروع',
   'كل المشاريع',
-  'بوابات العمل',
+  'كل البوابات',
 ]) {
-  if (!contextualNav.includes(required)) failures.push(`ملاحة المشروع: مفقود ${required}`);
+  if (!contextualNav.includes(required)) failures.push(`الملاحة الموحدة: مفقود ${required}`);
 }
-if (contextualNav.includes("type:'projectGroup'")) {
-  failures.push('ملاحة المشروع: عادت لتفتح عالم المشروع كشاشة ملاحة منفصلة بدل Accordion يبقي بقية العناوين أمام المستخدم.');
+for (const forbidden of ['single-open-accordion','expandedProjectGroupKey','toggleProjectGroup','appNavHotZone','onPointerEnter={openFromIntent}']) {
+  if (contextualNav.includes(forbidden)) failures.push(`الملاحة الموحدة: عاد السلوك القديم ${forbidden}.`);
 }
 
 // 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد: المشروع + المقاول + تاريخ الإسناد سياق واحد.
@@ -97,46 +99,50 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
   failures.push('عمالة المقاول: عاد منطق إنشاء عمالة خارج شاشة المشروع.');
 }
 
-// 5) الجسد الجديد هو القشرة الوحيدة للتنقل. التنقل ملك الـShell الجديدة لا كتالوجات الواجهة القديمة.
+// 5) الملاحة الأساسية ظاهرة على الكمبيوتر: شريط بوابات ثابت + لوحة سياق واحدة، وعلى الهاتف Drawer من نفس المصدر.
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
 const contextualShellCss = 'app/dashboard/ui-shell-skin.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
-  failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
-}
-if (!dashboardLayout.includes("data-navigation-shell=\"contextual-slide-v2\"")) {
-  failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
+  failures.push('app/dashboard/layout.js: الملاحة الموحدة غير مركبة.');
 }
 if (!dashboardLayout.includes("'./ui-shell-skin.css'")) {
   failures.push('app/dashboard/layout.js: جلد الغلاف القابل للاستبدال ui-shell-skin.css غير مربوط.');
 }
 if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(shellConstitution)) {
-  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور تجميعاتها أو جلد الغلاف غير موجودة.');
+  failures.push('الملاحة: ملفات الملاحة أو دستور تجميعاتها أو جلد الغلاف غير موجودة.');
 }
 if (exists('app/dashboard/app-shell-v2.css')) {
-  failures.push('الجسد الجديد: app-shell-v2.css عاد بعد ترقيته إلى ui-shell-skin.css.');
+  failures.push('الملاحة: app-shell-v2.css عاد بعد ترقيته إلى ui-shell-skin.css.');
 }
 if (dashboardLayout.includes('RawDashboardNavigation')) {
-  failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
+  failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم.');
 }
 if (/WorkPlatformPage|portalSwitcher|PORTAL_COPY|allowedPortals/.test(dashboardHome)) {
-  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك قشرة التنقل الموحدة فقط.');
+  failures.push('app/dashboard/page.js: الرئيسية تعيد إنشاء منصة موازية؛ البوابات ملك الملاحة الموحدة فقط.');
 }
 if (exists(contextualNavigation)) {
   const nav = read(contextualNavigation);
-  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'SHELL_PORTAL_GROUPS', 'onClick={openNavigation}']) {
-    if (!nav.includes(required)) failures.push(`الجسد الجديد: ${required} يجب أن يبقى جزءًا من الملاحة الموحدة.`);
+  for (const required of ['filterAreasForAccess', 'projectNavRequirement', 'SHELL_PORTAL_GROUPS', 'choosePortal', 'appNavRail', 'appContextNav']) {
+    if (!nav.includes(required)) failures.push(`الملاحة: ${required} يجب أن يبقى جزءًا من القبطان الموحد.`);
   }
-  if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الجسد الجديد: عاد لاستخدام تجميعات كتالوج البوابات القديم.');
-  if (nav.includes('GlobalSearch')) failures.push('الجسد الجديد: البحث العام عاد إلى داخل قائمة التنقل.');
-  if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter={openFromIntent}')) {
-    failures.push('الجسد الجديد: القائمة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
+  if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة: عاد لاستخدام تجميعات كتالوج البوابات القديم مباشرة.');
+  if (nav.includes('GlobalSearch')) failures.push('الملاحة: البحث العام عاد إلى داخل القائمة بدل بقائه مسارًا سريعًا مستقلًا.');
+  if (nav.includes('OPEN_INTENT_MS') || nav.includes('openFromIntent') || nav.includes('onPointerEnter')) {
+    failures.push('الملاحة: عادت للفتح التلقائي بالمرور؛ الفتح يجب أن يكون مقصودًا بالنقر فقط.');
   }
 }
+if (exists(contextualShellCss)) {
+  const shell = read(contextualShellCss);
+  for (const required of ['.appNavRail', '.appContextNav', '.appNavMobileTrigger', "[data-mobile-open='true']"]) {
+    if (!shell.includes(required)) failures.push(`جلد الملاحة: مفقود ${required}`);
+  }
+  if (shell.includes('.appNavHotZone')) failures.push('جلد الملاحة: عاد Hot Zone المخفي بعد اعتماد الشريط المرئي الثابت.');
+}
 if (exists(shellConstitution) && !read(shellConstitution).includes('SHELL_PORTAL_GROUPS')) {
-  failures.push('الجسد الجديد: دستور تجميعات الملاحة المستقل غير مكتمل.');
+  failures.push('الملاحة: دستور تجميعات الملاحة المستقل غير مكتمل.');
 }
 
 // 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
@@ -208,4 +214,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Navigation cleanliness audit passed.');
+console.log('Navigation cleanliness audit passed: desktop uses a visible portal rail plus one flat context panel; mobile uses the same map in a right drawer; no hover-open or hidden edge menu remains.');
