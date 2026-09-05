@@ -8,7 +8,8 @@ function source(path) {
 
 test('stamp and signature assets have one shared renderer', () => {
   const marks = source('components/print/PrintMarks.js');
-  const frame = source('components/print/PrintFrame.js');
+  const pagedFrame = source('components/print/ConstitutionPagedFrame.js');
+  const frame = source('components/print/ConstitutionPrintFrame.js');
   const quote = source('app/print/quote/[id]/page.js');
 
   assert.match(marks, /stamp_image_path/);
@@ -16,10 +17,15 @@ test('stamp and signature assets have one shared renderer', () => {
   assert.match(marks, /print-master-stamp/);
   assert.match(marks, /print-master-signature/);
 
-  assert.match(frame, /import PrintMarks/);
-  assert.match(frame, /<PrintMarks/);
-  assert.doesNotMatch(frame, /cfg\?\.stamp_image_path/);
-  assert.doesNotMatch(frame, /cfg\?\.signature_image_path/);
+  assert.match(pagedFrame, /import PrintMarks/);
+  assert.match(pagedFrame, /<PrintMarks/);
+  assert.match(pagedFrame, /pageIndex === pageCount - 1/);
+  assert.doesNotMatch(pagedFrame, /cfg\?\.stamp_image_path/);
+  assert.doesNotMatch(pagedFrame, /cfg\?\.signature_image_path/);
+
+  assert.match(frame, /import ConstitutionPagedFrame/);
+  assert.match(frame, /showStamp=\{showStamp\}/);
+  assert.match(frame, /showSignature=\{showSignature\}/);
 
   assert.match(quote, /import PrintMarks/);
   assert.match(quote, /renderOverlay=/);
@@ -40,4 +46,5 @@ test('quotation keeps shared mark dragging and persistence wired', () => {
   assert.match(quote, /signatureProps=\{\{onPointerDown:startDrag\('sign'\)\}\}/);
   assert.match(quote, /onPointerMove=\{onMove\}/);
   assert.match(quote, /onPointerUp=\{endDrag\}/);
+  assert.match(quote, /supabase\.from\('quotations'\)\.update\(fields\)/);
 });
