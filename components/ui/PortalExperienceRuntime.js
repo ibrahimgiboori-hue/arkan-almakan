@@ -34,6 +34,28 @@ function normalizeLocalizedNumberText(value) {
     .replace(/٬/g, '');
 }
 
+function semanticNodes(root, selector) {
+  const nodes = [];
+  if (root instanceof Element && root.matches(selector)) nodes.push(root);
+  root.querySelectorAll?.(selector).forEach((node) => nodes.push(node));
+  return nodes;
+}
+
+function fieldKind(field) {
+  if (field instanceof HTMLSelectElement) return 'select';
+  if (field instanceof HTMLTextAreaElement) return 'textarea';
+  if (field instanceof HTMLInputElement) return String(field.type || 'text').toLowerCase();
+  return 'field';
+}
+
+function syncControlState(node) {
+  if (!(node instanceof HTMLElement)) return;
+  const disabled = 'disabled' in node && Boolean(node.disabled);
+  const readOnly = 'readOnly' in node && Boolean(node.readOnly);
+  const invalid = node.getAttribute('aria-invalid') === 'true';
+  node.setAttribute('data-ui-state', disabled ? 'disabled' : readOnly ? 'readonly' : invalid ? 'invalid' : 'ready');
+}
+
 function navFocusable(nav) {
   return Array.from(nav.querySelectorAll(
     '.appNavBack, .appNavRow, .appNavTopLine button:not([disabled]), .appNavBottomActions button:not([disabled])'
@@ -91,13 +113,56 @@ function syncLedgerOverflow(node) {
 }
 
 function applySemanticBehavior(root = document) {
-  root.querySelectorAll?.('[data-inline-feedback="true"], [data-work-inline-status="true"]').forEach((node) => {
+  semanticNodes(root, 'form').forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.hasAttribute('data-ui-slot')) form.setAttribute('data-ui-slot', 'form');
+    form.setAttribute('data-ui-role', 'form');
+    syncControlState(form);
+  });
+
+  semanticNodes(root, 'input, select, textarea').forEach((field) => {
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
+    if (!field.hasAttribute('data-ui-slot')) field.setAttribute('data-ui-slot', 'field');
+    if (!field.hasAttribute('data-ui-control')) field.setAttribute('data-ui-control', 'field');
+    field.setAttribute('data-ui-field-kind', fieldKind(field));
+    syncControlState(field);
+  });
+
+  semanticNodes(root, 'button').forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (!button.hasAttribute('data-ui-control')) button.setAttribute('data-ui-control', 'button');
+    if (!button.hasAttribute('data-ui-action-role')) button.setAttribute('data-ui-action-role', button.type === 'submit' ? 'submit' : 'command');
+    syncControlState(button);
+  });
+
+  semanticNodes(root, 'a[href]').forEach((link) => {
+    if (!(link instanceof HTMLAnchorElement)) return;
+    if (!link.hasAttribute('data-ui-control')) link.setAttribute('data-ui-control', 'link');
+    syncControlState(link);
+  });
+
+  semanticNodes(root, 'details > summary').forEach((summary) => {
+    if (!(summary instanceof HTMLElement)) return;
+    if (!summary.hasAttribute('data-ui-control')) summary.setAttribute('data-ui-control', 'disclosure');
+  });
+
+  semanticNodes(root, 'table').forEach((table) => {
+    if (!(table instanceof HTMLTableElement)) return;
+    table.setAttribute('data-ui-role', 'table');
+  });
+
+  semanticNodes(root, '[role="dialog"]').forEach((dialog) => {
+    if (!(dialog instanceof HTMLElement)) return;
+    if (!dialog.hasAttribute('data-ui-slot')) dialog.setAttribute('data-ui-slot', 'dialog');
+  });
+
+  semanticNodes(root, '[data-inline-feedback="true"], [data-work-inline-status="true"]').forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
     if (!node.hasAttribute('aria-live')) node.setAttribute('aria-live', node.getAttribute('role') === 'alert' ? 'assertive' : 'polite');
     if (!node.hasAttribute('role')) node.setAttribute('role', 'status');
   });
 
-  root.querySelectorAll?.('[data-table-surface="true"]').forEach((node) => {
+  semanticNodes(root, '[data-table-surface="true"]').forEach((node) => {
     if (!(node instanceof HTMLElement)) return;
     if (!node.hasAttribute('tabindex')) node.tabIndex = 0;
     if (!node.hasAttribute('aria-label')) node.setAttribute('aria-label', 'جدول بيانات');
@@ -105,7 +170,7 @@ function applySemanticBehavior(root = document) {
     syncLedgerOverflow(node);
   });
 
-  root.querySelectorAll?.('[data-record-row="true"]').forEach((row) => {
+  semanticNodes(root, '[data-record-row="true"]').forEach((row) => {
     if (!(row instanceof HTMLElement)) return;
     const checkbox = row.querySelector('input[type="checkbox"]');
     if (checkbox instanceof HTMLInputElement) {
@@ -113,7 +178,7 @@ function applySemanticBehavior(root = document) {
     }
   });
 
-  root.querySelectorAll?.('input[type="email"], input[type="tel"], input[type="url"], input[type="number"], input[inputmode="numeric"], input[inputmode="decimal"]').forEach((field) => {
+  semanticNodes(root, 'input[type="email"], input[type="tel"], input[type="url"], input[type="number"], input[inputmode="numeric"], input[inputmode="decimal"]').forEach((field) => {
     if (!(field instanceof HTMLInputElement) || field.dataset.preserveDirection === 'true') return;
     if (!field.hasAttribute('dir')) field.setAttribute('dir', 'ltr');
     field.setAttribute('data-technical-field', 'true');
@@ -171,12 +236,20 @@ export default function PortalExperienceRuntime({ children }) {
     const host = document.querySelector('.workSheetMount') || document.body;
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.target instanceof HTMLElement) {
+          applySemanticBehavior(mutation.target);
+        }
         mutation.addedNodes.forEach((node) => {
           if (node instanceof HTMLElement) applySemanticBehavior(node);
         });
       }
     });
-    observer.observe(host, { childList:true, subtree:true });
+    observer.observe(host, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['disabled', 'readonly', 'aria-invalid', 'type', 'inputmode'],
+    });
 
     function syncAllLedgers() {
       document.querySelectorAll('[data-table-surface="true"]').forEach(syncLedgerOverflow);
@@ -349,6 +422,7 @@ export default function PortalExperienceRuntime({ children }) {
       const field = event.target;
       if (!(field instanceof HTMLElement)) return;
       field.setAttribute('aria-invalid', 'true');
+      syncControlState(field);
       const form = field.closest('form');
       requestAnimationFrame(() => {
         const first = form?.querySelector(':invalid');
@@ -363,6 +437,7 @@ export default function PortalExperienceRuntime({ children }) {
       const field = event.target;
       if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) return;
       if (field.validity?.valid) field.removeAttribute('aria-invalid');
+      syncControlState(field);
     }
 
     function onPaste(event) {
@@ -421,8 +496,12 @@ export default function PortalExperienceRuntime({ children }) {
       }
       submitTimesRef.current.set(form, now);
       form.setAttribute('data-submit-guard', 'armed');
+      form.setAttribute('data-ui-state', 'submitting');
       window.setTimeout(() => {
-        if (form.isConnected) form.removeAttribute('data-submit-guard');
+        if (form.isConnected) {
+          form.removeAttribute('data-submit-guard');
+          syncControlState(form);
+        }
       }, PORTAL_EXPERIENCE_POLICY.forms.duplicateSubmitGuardMs);
     }
 
@@ -446,7 +525,7 @@ export default function PortalExperienceRuntime({ children }) {
 
   return <>
     {!online ? (
-      <div className="appOfflineNotice" role="status" aria-live="polite" data-network-notice="offline">
+      <div className="appOfflineNotice" role="status" aria-live="polite" data-network-notice="offline" data-ui-role="network-notice" data-ui-tone="warning">
         لا يوجد اتصال بالإنترنت. يمكنك مراجعة البيانات الظاهرة، لكن أي حفظ أو إرسال قد لا يكتمل حتى يعود الاتصال.
       </div>
     ) : null}
