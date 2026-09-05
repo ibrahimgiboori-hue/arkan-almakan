@@ -21,7 +21,8 @@ requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
   "import './legacy-ui-compat.css'",
   "import './ui-skin-foundation.css'",
-  "import './app-shell-v2.css'",
+  "import './ui-component-skin.css'",
+  "import './ui-shell-skin.css'",
   'data-work-kernel="operational-notebook-v1"',
   'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
@@ -30,21 +31,18 @@ requireText('app/dashboard/layout.js', [
 ]);
 
 const layout = read('app/dashboard/layout.js');
-if (layout.includes('work-sheet-kernel.css')) {
-  failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
-}
-if (layout.includes('raw-phase.css')) {
-  failures.push('app/dashboard/layout.js: أعاد raw-phase بعد فصل الجلد الدلالي عن حجر التوافق القديم.');
+for (const retired of ['work-sheet-kernel.css','raw-phase.css','app-shell-v2.css']) {
+  if (layout.includes(retired)) failures.push(`app/dashboard/layout.js: أعاد طبقة متقاعدة ${retired}.`);
 }
 
-if (exists('app/dashboard/work-sheet-kernel.css')) {
-  failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
-}
-if (exists('app/dashboard/raw-phase.css')) {
-  failures.push('app/dashboard/raw-phase.css: الدور القديم انتهى؛ لا يجوز إعادة إنشاء المرحلة الخام.');
-}
-if (exists('components/ui/RawDashboardNavigation.module.css')) {
-  failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
+for (const retiredFile of [
+  'app/dashboard/work-sheet-kernel.css',
+  'app/dashboard/raw-phase.css',
+  'app/dashboard/app-shell-v2.css',
+  'components/ui/constitution-ui.module.css',
+  'components/ui/RawDashboardNavigation.module.css',
+]) {
+  if (exists(retiredFile)) failures.push(`${retiredFile}: طبقة مرئية قديمة يجب ألا تعود.`);
 }
 
 requireText('app/dashboard/ui-skin-foundation.css', [
@@ -63,19 +61,22 @@ if (/\.page-head|\.section:not\(|\.btn:not\(|\.shell\s*>\s*\.side/.test(semantic
   failures.push('ui-skin-foundation.css: القبطان الدلالي عاد لامتلاك مفردات CSS القديمة.');
 }
 
+requireText('app/dashboard/ui-component-skin.css', [
+  'NATIVE COMPONENT SKIN',
+  "[data-ui-slot='record-summary']",
+  "[data-ui-part='secondary-trigger']",
+]);
+
 requireText('app/dashboard/legacy-ui-compat.css', [
   'LEGACY UI COMPATIBILITY — quarantine only',
-  '.shell > .side',
-  '.page:not([data-ui-slot])',
-  '.section:not([data-ui-slot])',
-  "table:not([data-ui-role='table'])",
 ]);
 const legacy = read('app/dashboard/legacy-ui-compat.css');
 if (/\[data-work-(?:header|section|ledger|dock)=['"]true['"]\]/.test(legacy)) {
   failures.push('legacy-ui-compat.css: حجر التوافق عاد لامتلاك عظام WorkSheet الدلالية.');
 }
 
-requireText('app/dashboard/app-shell-v2.css', [
+requireText('app/dashboard/ui-shell-skin.css', [
+  'NATIVE SHELL SKIN',
   '.appNavHotZone',
   '.appContextNav',
   ".appContextNav[data-open='true']",
@@ -124,7 +125,12 @@ requireText('components/ui/ConstitutionUI.js', [
   '<WorkSection',
   '<WorkLedger',
   '<WorkDock',
+  '<progress max="100" value={safeProgress}',
 ]);
+const constitutionUi = read('components/ui/ConstitutionUI.js');
+if (constitutionUi.includes('module.css') || /styles\./.test(constitutionUi) || /style=\{\{/.test(constitutionUi)) {
+  failures.push('ConstitutionUI: القبطان البنيوي ما زال يحمل جلدًا محليًا بدل الجلد المركزي.');
+}
 
 requireText('components/ui/RawGrid.js', [
   'data-work-ledger="true"',
@@ -145,4 +151,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: WorkSheet geometry is semantic, legacy CSS is quarantined, and navigation remains a separate governed shell.');
+console.log('Single visual captain audit passed: WorkSheet structure, component skin and shell skin are separated; retired local visual layers cannot return.');
