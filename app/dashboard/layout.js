@@ -17,7 +17,6 @@ import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRunti
 import './raw-tokens.css';
 import './raw-phase.css';
 import './app-shell-v2.css';
-import './app-body-v3.css';
 import './portal-experience.css';
 import './ui-skin-contract.css';
 
