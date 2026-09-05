@@ -40,6 +40,24 @@ requireText('components/ui/PortalExperienceRuntime.js', [
   'rtlBackKey',
   'pageJumpRows',
   "new CustomEvent('arkan:save-requested'",
+  "data-network-status",
+  "data-network-notice=\"offline\"",
+  "data-technical-field",
+]);
+
+requireText('components/ui/ProgramAction.js', [
+  'destructiveConfirmation',
+  "data-action-destructive",
+  "data-disabled-reason",
+  "aria-keyshortcuts={saveShortcut}",
+  "confirmation:false",
+]);
+
+requireText('components/ui/ActionNervousSystemRuntime.js', [
+  'className="appActionFailure"',
+  'data-action-failure="true"',
+  'aria-live="assertive"',
+  'clearError',
 ]);
 
 requireText('app/dashboard/portal-experience.css', [
@@ -48,6 +66,9 @@ requireText('app/dashboard/portal-experience.css', [
   "[data-ledger-scroll-position='middle']",
   "[data-ledger-scroll-position='end']",
   "[data-program-action='true']:focus-visible",
+  "[data-technical-field='true']",
+  '.appActionFailure',
+  '.appOfflineNotice',
   '@media (prefers-reduced-motion: reduce)',
 ]);
 
@@ -63,4 +84,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Portal experience audit passed: navigation, keyboard save, numeric input safety, ledger awareness, and focus behavior are centrally governed.');
+console.log('Portal experience audit passed: navigation, keyboard save, numeric input safety, ledger awareness, action failure visibility, destructive safeguards, technical direction, and network awareness are centrally governed.');
