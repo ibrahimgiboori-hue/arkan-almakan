@@ -10,6 +10,7 @@ import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime';
+import LegacySemanticBridgeRuntime from '@/components/ui/LegacySemanticBridgeRuntime';
 import PortalExperienceRuntime from '@/components/ui/PortalExperienceRuntime';
 import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime';
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
@@ -209,50 +210,52 @@ export default function DashboardLayout({ children }) {
       >
         <WorkSurfaceRuntime>
           <UISkinBridgeRuntime>
-            <PortalExperienceRuntime>
-              <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
-              <WorkThresholdRuntime>
-                <div
-                  className="appBodyStage"
-                  data-application-body="work-first-v3"
-                  data-ui-slot={uiSlot('applicationStage')}
-                >
-                  <WorkSessionRuntime>
-                    <ActionNervousSystemRuntime>
-                      {showExceptionalIdentity ? (
-                        <div
-                          role="status"
-                          aria-live="polite"
-                          data-action-context-banner="true"
-                          data-action-context-active="true"
-                          data-ui-slot={uiSlot('actionContextBanner')}
-                          className="appActionContextAlert"
+            <LegacySemanticBridgeRuntime>
+              <PortalExperienceRuntime>
+                <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
+                <WorkThresholdRuntime>
+                  <div
+                    className="appBodyStage"
+                    data-application-body="work-first-v3"
+                    data-ui-slot={uiSlot('applicationStage')}
+                  >
+                    <WorkSessionRuntime>
+                      <ActionNervousSystemRuntime>
+                        {showExceptionalIdentity ? (
+                          <div
+                            role="status"
+                            aria-live="polite"
+                            data-action-context-banner="true"
+                            data-action-context-active="true"
+                            data-ui-slot={uiSlot('actionContextBanner')}
+                            className="appActionContextAlert"
+                          >
+                            <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+                            <a href="/dashboard/settings#primary-action-mode">تغيير</a>
+                          </div>
+                        ) : null}
+                        <main
+                          className="rawDashboardContent"
+                          data-work-book="true"
+                          data-ui-slot={uiSlot('applicationContent')}
                         >
-                          <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
-                          <a href="/dashboard/settings#primary-action-mode">تغيير</a>
-                        </div>
-                      ) : null}
-                      <main
-                        className="rawDashboardContent"
-                        data-work-book="true"
-                        data-ui-slot={uiSlot('applicationContent')}
-                      >
-                        <WorkThresholdMarker />
-                        <div
-                          className="workSheetMount"
-                          data-work-sheet-mount="true"
-                          data-organ-host="route-content"
-                          data-organ-preservation="in-place"
-                          data-ui-slot={uiSlot('routeMount')}
-                        >
-                          {children}
-                        </div>
-                      </main>
-                    </ActionNervousSystemRuntime>
-                  </WorkSessionRuntime>
-                </div>
-              </WorkThresholdRuntime>
-            </PortalExperienceRuntime>
+                          <WorkThresholdMarker />
+                          <div
+                            className="workSheetMount"
+                            data-work-sheet-mount="true"
+                            data-organ-host="route-content"
+                            data-organ-preservation="in-place"
+                            data-ui-slot={uiSlot('routeMount')}
+                          >
+                            {children}
+                          </div>
+                        </main>
+                      </ActionNervousSystemRuntime>
+                    </WorkSessionRuntime>
+                  </div>
+                </WorkThresholdRuntime>
+              </PortalExperienceRuntime>
+            </LegacySemanticBridgeRuntime>
           </UISkinBridgeRuntime>
         </WorkSurfaceRuntime>
       </div>
