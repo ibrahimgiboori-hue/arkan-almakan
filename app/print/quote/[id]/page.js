@@ -10,12 +10,15 @@ import { buildQuotationApprovalParties } from '@/lib/approval-governance';
 import Riyal from '@/components/Riyal';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import PrintApprovalBlock from '@/components/print/PrintApprovalBlock';
+import PrintMarks from '@/components/print/PrintMarks';
 import './quote-print.css';
 import './quote-flow.css';
 
+const MM = 96 / 25.4;
 const EN_UNIT = {'م2':'m²','م²':'m²','م3':'m³','م³':'m³','م':'m','م طولي':'LM','م.ط':'LM','عدد':'No.','قطعة':'No.','يوم':'Day','ساعة':'Hr','طن':'Ton','كجم':'kg','لتر':'L','مقطوعية':'Lump Sum'};
 function dateEn(value){if(!value)return'—';const d=value instanceof Date?value:new Date(value);if(Number.isNaN(d.getTime()))return String(value);return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d)}
 function splitTerm(raw,index){const text=String(raw||'').trim();const parts=text.split(/\s+[—–-]\s+/,2);if(parts.length===2)return{id:`legacy-term-${index}`,title:parts[0].trim(),body:parts[1].trim(),number_override:null};return{id:`legacy-term-${index}`,title:'',body:text,number_override:null}}
+function markPositionStyle(x,y){const style={};if(x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)))style.right=`${Number(x)}mm`;if(y!==null&&y!==undefined&&y!==''&&Number.isFinite(Number(y))){style.top=`${Number(y)}mm`;style.bottom='auto'}return style}
 
 export default function QuotePrint(){
   const {id}=useParams();
@@ -25,6 +28,8 @@ export default function QuotePrint(){
   const [cfg,setCfg]=useState(null);
   const [saved,setSaved]=useState('');
   const [err,setErr]=useState('');
+  const [drag,setDrag]=useState(null);
+  const [pos,setPos]=useState({ stamp_x_mm:null,stamp_y_mm:null,sign_x_mm:null,sign_y_mm:null });
 
   const loadQuote=useCallback(async()=>{
     const[a,b,c,d]=await Promise.all([
@@ -35,6 +40,12 @@ export default function QuotePrint(){
     ]);
     if(!a.data){setErr('لم يُعثر على هذا العرض.');return false}
     setErr('');setQ(a.data);setLines(b.data||[]);setPays(c.data||[]);setCfg(d.data);
+    setPos({
+      stamp_x_mm:a.data.stamp_x_mm,
+      stamp_y_mm:a.data.stamp_y_mm,
+      sign_x_mm:a.data.sign_x_mm,
+      sign_y_mm:a.data.sign_y_mm,
+    });
     return true;
   },[id]);
 
@@ -70,6 +81,9 @@ export default function QuotePrint(){
   if(q.show_quote_info!==false)metaCells.push(<div className="mcell" key="quote"><span className="mk">{tr('الرقم المرجعي','Quotation No.')}</span><span className="mv mono">{q.quote_no}</span><span className="ms mono">{tr('التاريخ','Date')}: {formatDate(q.quote_date)}</span></div>);
   if(q.show_validity)metaCells.push(<div className="mcell" key="valid"><span className="mk">{tr('صلاحية العرض','Quotation Validity')}</span><span className="mv">{q.valid_days} {tr('يوماً','Days')}</span>{validUntil&&<span className="ms mono">{tr('حتى','Valid Until')}: {formatDate(validUntil)}</span>}</div>);
 
+  function startDrag(kind){return event=>{event.preventDefault();event.stopPropagation();const page=event.currentTarget.closest('.constitution-paged-sheet');if(!page)return;setDrag({kind,rect:page.getBoundingClientRect()})}}
+  function onMove(event){if(!drag)return;const x=Math.max(0,Math.round((drag.rect.right-event.clientX)/MM));const y=Math.max(0,Math.round((event.clientY-drag.rect.top)/MM));setPos(previous=>drag.kind==='stamp'?{...previous,stamp_x_mm:x,stamp_y_mm:y}:{...previous,sign_x_mm:x,sign_y_mm:y})}
+  async function endDrag(){if(!drag)return;const kind=drag.kind;setDrag(null);const fields=kind==='stamp'?{stamp_x_mm:pos.stamp_x_mm,stamp_y_mm:pos.stamp_y_mm}:{sign_x_mm:pos.sign_x_mm,sign_y_mm:pos.sign_y_mm};const{error}=await supabase.from('quotations').update(fields).eq('id',id);if(error)setErr(error.message);else{setSaved(tr('حُفظ موضع الختم والتوقيع','Stamp / signature position saved'));setTimeout(()=>setSaved(''),1400)}}
   async function printFresh(){setSaved(tr('جارٍ تحديث المعاينة…','Refreshing preview…'));const ok=await loadQuote();if(!ok)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));setSaved('');window.print()}
 
   const TableCols=()=> <colgroup><col className="c-no"/><col/>{q.show_unit&&<col className="c-unit"/>}{q.show_qty&&<col className="c-qty"/>}{q.show_unit_price&&<col className="c-price"/>}{showTotalCol&&<col className="c-total"/>}</colgroup>;
@@ -90,8 +104,24 @@ export default function QuotePrint(){
       documentKey="quotation"
       cfg={cfg}
       direction={dir}
-      showStamp={Boolean(q.show_stamp)}
-      showSignature={Boolean(q.show_signature)}
+      showStamp={false}
+      showSignature={false}
+      onPointerMove={onMove}
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+      renderOverlay={({pageIndex,pageCount})=>pageIndex===pageCount-1?(
+        <PrintMarks
+          cfg={cfg}
+          showStamp={Boolean(q.show_stamp)}
+          showSignature={Boolean(q.show_signature)}
+          stampSizeMm={Number(q.stamp_size_mm??cfg.stamp_size_mm??30)}
+          signatureSizeMm={Number(q.sign_size_mm??cfg.signature_size_mm??21)}
+          stampStyle={markPositionStyle(pos.stamp_x_mm,pos.stamp_y_mm)}
+          signatureStyle={markPositionStyle(pos.sign_x_mm,pos.sign_y_mm)}
+          stampProps={{onPointerDown:startDrag('stamp')}}
+          signatureProps={{onPointerDown:startDrag('sign')}}
+        />
+      ):null}
     >
       <div className="quote-document-flow" dir={dir}>
         <div className="q-title" data-print-keep-with-next="true"><h1>{title}</h1><span className="rule"/></div>
