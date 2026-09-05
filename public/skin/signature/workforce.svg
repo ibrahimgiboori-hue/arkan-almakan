@@ -1,26 +1,56 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240" fill="none">
   <defs>
-    <linearGradient id="g" x1="24" y1="28" x2="610" y2="220" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#B58A45" stop-opacity=".78"/>
-      <stop offset="1" stop-color="#6B1F2B" stop-opacity=".24"/>
+    <linearGradient id="bg" x1="28" y1="18" x2="610" y2="226" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4E9DE"/>
+      <stop offset=".56" stop-color="#D4C2B6"/>
+      <stop offset="1" stop-color="#5D2630"/>
     </linearGradient>
+    <linearGradient id="vest" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#B58A45"/>
+      <stop offset="1" stop-color="#7A4D24"/>
+    </linearGradient>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#6B1F2B"/>
+      <stop offset="1" stop-color="#351017"/>
+    </linearGradient>
+    <linearGradient id="helmet" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFDFC"/>
+      <stop offset=".68" stop-color="#E6DDD5"/>
+      <stop offset="1" stop-color="#B7A69A"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="170%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#351017" flood-opacity=".24"/>
+    </filter>
+    <filter id="blur"><feGaussianBlur stdDeviation="7"/></filter>
   </defs>
-  <g stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M102 112c0-34 27-62 61-62s61 28 61 62"/>
-    <path d="M88 112h150"/>
-    <path d="M126 112c4 25 18 40 37 40s33-15 37-40" opacity=".72"/>
-    <path d="M82 216c8-45 36-68 81-68s73 23 81 68"/>
-    <path d="M132 162 163 216l31-54"/>
-    <path d="M331 118c0-30 24-54 54-54s54 24 54 54M318 118h134"/>
-    <path d="M348 118c4 22 17 35 37 35s33-13 37-35" opacity=".72"/>
-    <path d="M307 216c7-40 34-61 78-61s71 21 78 61"/>
-    <path d="M355 166 385 216l30-50"/>
-    <path d="M486 130c0-25 20-45 45-45s45 20 45 45M475 130h112"/>
-    <path d="M500 130c3 18 14 29 31 29s28-11 31-29" opacity=".72"/>
-    <path d="M463 216c6-35 29-53 68-53s62 18 68 53"/>
-    <path d="M504 174 531 216l27-42"/>
+  <rect width="640" height="240" rx="24" fill="url(#bg)"/>
+  <g opacity=".26" filter="url(#blur)" fill="#3B0F16">
+    <circle cx="78" cy="82" r="28"/>
+    <path d="M28 216C31 146 54 117 84 117C117 117 142 146 145 216H28Z"/>
+    <circle cx="190" cy="75" r="24"/>
+    <path d="M150 215C154 151 170 121 196 121C223 121 242 151 246 215H150Z"/>
   </g>
-  <g fill="#B58A45" opacity=".12">
-    <path d="M88 112c8-40 36-62 75-62s67 22 75 62H88ZM318 118c7-35 31-54 67-54s60 19 67 54H318ZM475 130c6-29 26-45 56-45s50 16 56 45H475Z"/>
+  <g transform="translate(238 28)" filter="url(#shadow)">
+    <path d="M40 82C40 39 75 4 118 4C161 4 196 39 196 82H40Z" fill="url(#helmet)"/>
+    <path d="M28 82H208C207 95 198 104 184 104H52C38 104 29 95 28 82Z" fill="#CFC4BB"/>
+    <path d="M61 80C66 49 88 28 118 28C149 28 171 49 176 80" stroke="#A9988D" stroke-width="5" stroke-linecap="round"/>
+    <path d="M118 27V82" stroke="#C0B4AA" stroke-width="4"/>
+    <circle cx="118" cy="124" r="30" fill="#A57B66"/>
+    <path d="M92 143C99 162 107 172 118 172C129 172 137 162 144 143" fill="#8A6252"/>
+    <path d="M44 220C51 173 77 151 118 151C160 151 185 173 192 220H44Z" fill="url(#shirt)"/>
+    <path d="M74 156L118 220L162 156L178 220H58L74 156Z" fill="url(#vest)"/>
+    <path d="M86 164L118 209L150 164" stroke="#F7E8C8" stroke-opacity=".82" stroke-width="6"/>
+    <path d="M66 194H170" stroke="#F7E8C8" stroke-opacity=".65" stroke-width="7"/>
+    <path d="M102 96H134" stroke="#6B1F2B" stroke-opacity=".72" stroke-width="3" stroke-linecap="round"/>
   </g>
+  <g transform="translate(456 60) scale(.72)" opacity=".78" filter="url(#shadow)">
+    <path d="M40 82C40 39 75 4 118 4C161 4 196 39 196 82H40Z" fill="url(#helmet)"/>
+    <path d="M28 82H208C207 95 198 104 184 104H52C38 104 29 95 28 82Z" fill="#CFC4BB"/>
+    <circle cx="118" cy="124" r="30" fill="#A57B66"/>
+    <path d="M44 220C51 173 77 151 118 151C160 151 185 173 192 220H44Z" fill="#5A202A"/>
+    <path d="M72 157L118 220L164 157L180 220H56L72 157Z" fill="url(#vest)"/>
+  </g>
+  <path d="M28 218H614" stroke="#B58A45" stroke-opacity=".34"/>
+  <path d="M34 24H205" stroke="#FFFDFC" stroke-opacity=".18" stroke-width="10" stroke-linecap="round"/>
+  <rect width="640" height="240" rx="24" fill="#FFFDFC" fill-opacity=".035"/>
 </svg>
