@@ -1,5 +1,5 @@
 /* SEMANTIC SKIN TOKENS
-   الصفحات ومنطق الأعمال لا يعرفان لوحة الألوان. الجلد يملأ --ui-* فقط،
+   الصفحات ومنطق الأعمال لا يعرفان لوحة الألوان أو هندسة الغلاف. الجلد يملأ --ui-* فقط،
    بينما --raw-* تبقى جسور توافق مؤقتة للمكونات القديمة حتى اكتمال هجرتها. */
 :root,
 html[data-app-theme='sand'] {
@@ -25,6 +25,7 @@ html[data-app-theme='sand'] {
   --ui-row-height: 46px;
   --ui-gap: 10px;
   --ui-page-pad: 26px;
+  --ui-shell-nav-width: 196px;
 }
 
 html[data-app-theme='stone'] {
