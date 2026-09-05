@@ -114,6 +114,14 @@ requireText('app/dashboard/raw-tokens.css', [
   '--raw-wine: var(--ui-accent)',
 ]);
 
+requireText('app/dashboard/ui-skin-foundation.css', [
+  'UI SKIN FOUNDATION',
+  'It owns no business logic',
+  "[data-work-header='true']",
+  "[data-work-ledger='true']",
+  "[data-work-dock='true']",
+]);
+
 requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-skin-contract='arkan-semantic-skin-v1']",
   "[data-ui-slot='system-state']",
@@ -133,6 +141,7 @@ requireText('app/dashboard/ui-skin-contract.css', [
 requireText('app/dashboard/layout.js', [
   "import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract'",
   "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
+  "import './ui-skin-foundation.css'",
   "import './ui-skin-contract.css'",
   'const skinAttrs = uiSkinDataAttributes()',
   '{...skinAttrs}',
@@ -148,8 +157,10 @@ const layout = read('app/dashboard/layout.js');
 if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
 if (layout.includes('body-resuscitation.css')) failures.push('DashboardLayout: عاد لاستيراد رقعة إنعاش الجسم القديمة بعد امتصاصها في العقد الدلالي.');
 if (layout.includes('app-body-v3.css')) failures.push('DashboardLayout: عاد لاستيراد طبقة جسم مستقلة بعد امتصاص هندستها في الجلد الدلالي.');
+if (layout.includes('raw-phase.css')) failures.push('DashboardLayout: عاد لاستيراد raw-phase بعد إعادة تأهيل البقايا الصالحة إلى أساس الجلد.');
 if (exists('app/dashboard/body-resuscitation.css')) failures.push('body-resuscitation.css: الرقعة الطارئة تم امتصاصها في الجسم المركزي ويجب ألا تعود كملف مستقل.');
 if (exists('app/dashboard/app-body-v3.css')) failures.push('app-body-v3.css: طبقة الجسم تم امتصاصها في الجلد المركزي ويجب ألا تعود كملف مستقل.');
+if (exists('app/dashboard/raw-phase.css')) failures.push('raw-phase.css: الاسم/الدور القديم انتهى؛ البقايا الصالحة أصبحت ui-skin-foundation.css.');
 
 const shellCss = read('app/dashboard/app-shell-v2.css');
 if (shellCss.includes('.appActionContextAlert')) failures.push('app-shell-v2.css: شريط سياق الإجراء عاد إلى ملف الغلاف بدل الجلد الدلالي.');
@@ -161,4 +172,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: shell survival, application body geometry, system states, navigation, structure, forms, fields, actions and dialogs are semantic; absorbed compatibility layers cannot return.');
+console.log('UI skin contract audit passed: shell survival, application body geometry, system states, navigation, structure, forms, fields, actions and dialogs are semantic; raw-phase and absorbed compatibility layers cannot return.');
