@@ -16,17 +16,13 @@ import {
 } from '@/lib/portal-section-constitution';
 import { SHELL_PORTAL_GROUPS } from '@/lib/navigation-shell-constitution';
 import {
-  USER_PERSPECTIVE,
   anatomyAreaLabel,
   anatomyGroupLabel,
   anatomyToolLabel,
-  isMeaningfulBranch,
-  perspectiveQuickLinks,
 } from '@/lib/anatomical-navigation';
 import { requestWorkNavigation } from './WorkSessionRuntime';
 
-const PIN_STORAGE_KEY = 'arkan-context-nav-pinned';
-const NAV_WIDTH = '196px';
+const CONTEXT_COLLAPSED_STORAGE_KEY = 'arkan-navigation-context-collapsed';
 
 function uniqueByHref(items = []) {
   const seen = new Set();
@@ -45,22 +41,44 @@ function isRedundantPortalTool(areaKey, item) {
   return areaKey === 'workforce' && item?.sectionKey === 'planning';
 }
 
-function panelId(panel) {
-  return [panel.type, panel.areaKey, panel.groupKey].filter(Boolean).join(':');
+function PortalGlyph({ kind }) {
+  const common = { width:20, height:20, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:'1.8', strokeLinecap:'round', strokeLinejoin:'round', 'aria-hidden':'true' };
+  if (kind === 'home') return <svg {...common}><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-5h5v5"/></svg>;
+  if (kind === 'projects') return <svg {...common}><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 5V3h8v2M8 10h8M8 14h5"/></svg>;
+  if (kind === 'workforce') return <svg {...common}><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3.5 20c.4-4 2.2-6 5.5-6s5.1 2 5.5 6M14.5 15.5c2.7-.5 4.8.8 5.5 4.5"/></svg>;
+  if (kind === 'finance') return <svg {...common}><path d="M4 7h16M5 7l7-4 7 4M6 10v7M10 10v7M14 10v7M18 10v7M4 20h16"/></svg>;
+  if (kind === 'documents') return <svg {...common}><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 12h5M10 16h5"/></svg>;
+  if (kind === 'admin') return <svg {...common}><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.4 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.4 3h5l.4-3a7 7 0 0 0 1.7-1l2.4 1 2-3.4L19 13a7 7 0 0 0 0-1Z"/></svg>;
+  if (kind === 'my-work') return <svg {...common}><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="m8 5 1.5-2h5L16 5"/></svg>;
+  if (kind === 'approvals') return <svg {...common}><path d="M5 12.5 10 17l9-10"/><path d="M5 4h11"/></svg>;
+  return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
+}
+
+function RailButton({ label, kind, active = false, onClick, badge = null }) {
+  return (
+    <button
+      type="button"
+      className="appRailItem"
+      data-active={active ? 'true' : 'false'}
+      aria-current={active ? 'page' : undefined}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
+      <span className="appRailIcon"><PortalGlyph kind={kind} /></span>
+      <span className="appRailLabel">{label}</span>
+      {badge ? <span className="appRailBadge" aria-label={`${badge} عناصر`}>{badge}</span> : null}
+    </button>
+  );
 }
 
 export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const lastPathRef = useRef(null);
-  const navRef = useRef(null);
-  const edgeRef = useRef(null);
-  const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [pinReady, setPinReady] = useState(false);
-  const [panel, setPanel] = useState({ type:'root' });
-  const [motionDirection, setMotionDirection] = useState('forward');
-  const [expandedProjectGroupKey, setExpandedProjectGroupKey] = useState(null);
+  const asideRef = useRef(null);
+  const [desktopExpanded, setDesktopExpanded] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [preferenceReady, setPreferenceReady] = useState(false);
 
   const accessibleAreas = useMemo(
     () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
@@ -124,12 +142,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       .sort((a, b) => b.href.length - a.href.length)[0] || null;
   }, [currentAreaKey, pathname, toolsByArea]);
 
-  const currentAreaGroup = useMemo(() => {
-    if (!currentAreaKey || !currentGlobalTool) return null;
-    return (groupsByArea[currentAreaKey] || []).find((group) =>
-      group.items.some((item) => item.href === currentGlobalTool.href)
-    ) || null;
-  }, [currentAreaKey, currentGlobalTool, groupsByArea]);
+  const currentArea = accessibleAreas.find((area) => area.key === currentAreaKey) || null;
+  const currentAreaGroups = currentArea ? groupsByArea[currentArea.key] || [] : [];
 
   const projectTools = useMemo(() => {
     if (!projectId) return [];
@@ -163,304 +177,209 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
     ? activeProjectNavigationKey({ projectId, pathname, view:searchParams.get('view') })
     : null;
   const currentProjectTool = projectTools.find((item) => item.key === activeProjectKey) || null;
-  const currentProjectGroup = currentProjectTool
-    ? projectGroups.find((group) => group.key === currentProjectTool.groupKey) || null
-    : null;
-  const projectStatusTool = projectTools.find((item) => item.key === 'overview') || null;
-  const projectAccordionGroups = projectGroups.filter((group) => group.key !== 'status');
 
-  const currentAreaIsAccessible = Boolean(
-    currentAreaKey && accessibleAreas.some((area) => area.key === currentAreaKey)
-  );
-
-  const contextPanel = useMemo(() => {
-    if (projectId && projectTools.length > 0) return { type:'project' };
-    if (currentAreaIsAccessible) {
-      if (currentAreaGroup && isMeaningfulBranch(currentAreaGroup)) {
-        return { type:'areaGroup', areaKey:currentAreaKey, groupKey:currentAreaGroup.key };
-      }
-      return { type:'area', areaKey:currentAreaKey };
-    }
-    return { type:'root' };
-  }, [currentAreaGroup, currentAreaIsAccessible, currentAreaKey, projectId, projectTools.length]);
+  const contextTitle = projectId
+    ? 'المشروع الحالي'
+    : currentArea
+      ? anatomyAreaLabel(currentArea)
+      : 'التنقل';
+  const contextSubtitle = projectId
+    ? (currentProjectTool?.label || 'موقف المشروع')
+    : (currentGlobalTool?.label || 'اختر ما تريد العمل عليه');
 
   useEffect(() => {
-    const shell = document.querySelector('.rawDashboardShell');
-    if (!shell) return undefined;
-    shell.style.setProperty('--app-body-nav-width', NAV_WIDTH);
-    return () => shell.style.removeProperty('--app-body-nav-width');
-  }, [pathname]);
-
-  useEffect(() => {
-    let saved = false;
-    try { saved = window.localStorage.getItem(PIN_STORAGE_KEY) === 'true'; } catch (_) {}
-    setPinned(saved);
-    setOpen(saved);
-    if (saved) setPanel(contextPanel);
-    lastPathRef.current = pathname;
-    setPinReady(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    let collapsed = false;
+    try { collapsed = window.localStorage.getItem(CONTEXT_COLLAPSED_STORAGE_KEY) === 'true'; } catch (_) {}
+    setDesktopExpanded(!collapsed);
+    setPreferenceReady(true);
   }, []);
 
   useEffect(() => {
-    if (!pinReady) return undefined;
-    try { window.localStorage.setItem(PIN_STORAGE_KEY, String(pinned)); } catch (_) {}
-    return undefined;
-  }, [pinReady, pinned]);
+    if (!preferenceReady) return;
+    try { window.localStorage.setItem(CONTEXT_COLLAPSED_STORAGE_KEY, String(!desktopExpanded)); } catch (_) {}
+  }, [desktopExpanded, preferenceReady]);
 
   useEffect(() => {
-    if (!projectId) {
-      setExpandedProjectGroupKey(null);
-      return;
-    }
-    if (currentProjectGroup?.key && currentProjectGroup.key !== 'status') {
-      setExpandedProjectGroupKey(currentProjectGroup.key);
-    } else {
-      setExpandedProjectGroupKey(null);
-    }
-  }, [currentProjectGroup?.key, projectId]);
-
-  useEffect(() => {
-    if (!pinReady) return;
-    const routeChanged = Boolean(lastPathRef.current && lastPathRef.current !== pathname);
-    if (pinned) {
-      setOpen(true);
-      setPanel(contextPanel);
-      setMotionDirection('forward');
-    } else if (routeChanged) {
-      setOpen(false);
-    }
-    lastPathRef.current = pathname;
-  }, [contextPanel, pathname, pinReady, pinned]);
-
-  const activeArea = panel.areaKey
-    ? accessibleAreas.find((area) => area.key === panel.areaKey) || null
-    : null;
-  const activeAreaGroups = activeArea ? groupsByArea[activeArea.key] || [] : [];
-  const activeAreaGroup = panel.type === 'areaGroup'
-    ? activeAreaGroups.find((group) => group.key === panel.groupKey) || null
-    : null;
-
-  const panelValid = panel.type === 'root'
-    || (panel.type === 'area' && Boolean(activeArea))
-    || (panel.type === 'areaGroup' && Boolean(activeArea && activeAreaGroup && isMeaningfulBranch(activeAreaGroup)))
-    || (panel.type === 'project' && Boolean(projectId && projectGroups.length));
-
-  useEffect(() => {
-    if (!open || panelValid) return;
-    setMotionDirection('back');
-    setPanel({ type:'root' });
-  }, [open, panelValid]);
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     function keydown(event) {
-      if (event.key !== 'Escape' || !open) return;
-      setOpen(false);
-      if (pinned) setPinned(false);
-    }
-    function outsidePointer(event) {
-      if (!open || pinned) return;
-      if (navRef.current?.contains(event.target) || edgeRef.current?.contains(event.target)) return;
-      setOpen(false);
+      if (event.altKey && String(event.key || '').toLowerCase() === 'm') {
+        event.preventDefault();
+        const compact = window.matchMedia('(max-width: 900px), (hover: none), (pointer: coarse)').matches;
+        if (compact) setMobileOpen((value) => !value);
+        else setDesktopExpanded((value) => !value);
+        return;
+      }
+      if (event.key === 'Escape' && mobileOpen) setMobileOpen(false);
     }
     window.addEventListener('keydown', keydown);
-    document.addEventListener('pointerdown', outsidePointer);
-    return () => {
-      window.removeEventListener('keydown', keydown);
-      document.removeEventListener('pointerdown', outsidePointer);
-    };
-  }, [open, pinned]);
-
-  function openNavigation() {
-    setPanel(contextPanel);
-    if (projectId && currentProjectGroup?.key && currentProjectGroup.key !== 'status') {
-      setExpandedProjectGroupKey(currentProjectGroup.key);
-    }
-    setMotionDirection('forward');
-    setPinned(true);
-    setOpen(true);
-  }
-
-  function dive(nextPanel) {
-    setMotionDirection('forward');
-    setPanel(nextPanel);
-  }
-
-  function back(nextPanel) {
-    setMotionDirection('back');
-    setPanel(nextPanel);
-  }
+    return () => window.removeEventListener('keydown', keydown);
+  }, [mobileOpen]);
 
   function go(href) {
-    if (!href || href === pathname) return;
+    if (!href) return;
+    setMobileOpen(false);
+    if (href === pathname && !searchParams.toString()) return;
     requestWorkNavigation(href);
   }
 
-  function toggleProjectGroup(groupKey) {
-    setExpandedProjectGroupKey((current) => current === groupKey ? null : groupKey);
+  function choosePortal(area) {
+    if (!area) return;
+    if (area.key === currentAreaKey) {
+      setDesktopExpanded(true);
+      setMobileOpen(false);
+      return;
+    }
+    setDesktopExpanded(true);
+    go(area.href);
   }
 
-  function closeNavigation() {
-    setOpen(false);
-    setPinned(false);
-  }
-
-  const quickLinks = perspectiveQuickLinks({ approvals:me?.access?.approvals === true });
-
-  // في صالة البوابات المكان نفسه هو الملاحة؛ لا نكرر البوابات في قائمة جانبية.
-  if (pathname === '/dashboard') return null;
+  const approvalsBadge = null;
 
   return <>
-    <button
-      ref={edgeRef}
-      type="button"
-      className="appNavHotZone"
-      aria-label="فتح قائمة البرنامج"
-      aria-expanded={open}
-      aria-controls="arkan-context-navigation"
-      onClick={openNavigation}
-    ><span aria-hidden="true" /></button>
+    <nav className="appNavRail" aria-label="بوابات البرنامج" data-navigation-layer="primary-rail">
+      <div className="appRailTop">
+        <RailButton label="الرئيسية" kind="home" active={pathname === '/dashboard'} onClick={() => go('/dashboard')} />
+        {accessibleAreas.map((area) => (
+          <RailButton
+            key={area.key}
+            label={anatomyAreaLabel(area)}
+            kind={area.key}
+            active={currentAreaKey === area.key}
+            onClick={() => choosePortal(area)}
+          />
+        ))}
+      </div>
+
+      <div className="appRailBottom">
+        <RailButton label="أعمالي" kind="my-work" active={pathname === '/dashboard/my-work'} onClick={() => go('/dashboard/my-work')} />
+        {me?.access?.approvals ? (
+          <RailButton label="اعتماداتي" kind="approvals" badge={approvalsBadge} active={pathname.startsWith('/dashboard/approvals') || pathname.startsWith('/dashboard/my-work/approvals')} onClick={() => go('/dashboard/approvals')} />
+        ) : null}
+        <button
+          type="button"
+          className="appRailCollapse"
+          aria-label={desktopExpanded ? 'طي القائمة الجانبية' : 'فتح القائمة الجانبية'}
+          title={desktopExpanded ? 'طي القائمة الجانبية' : 'فتح القائمة الجانبية'}
+          onClick={() => setDesktopExpanded((value) => !value)}
+        >
+          <span aria-hidden="true">{desktopExpanded ? '›' : '‹'}</span>
+        </button>
+      </div>
+    </nav>
 
     <button
       type="button"
-      className="appNavTouchTrigger"
-      aria-expanded={open}
+      className="appNavMobileTrigger"
+      aria-expanded={mobileOpen}
       aria-controls="arkan-context-navigation"
-      onClick={openNavigation}
-    >القائمة</button>
+      aria-label="فتح القائمة"
+      onClick={() => setMobileOpen(true)}
+    >
+      <span aria-hidden="true">☰</span>
+      <span>القائمة</span>
+    </button>
+
+    {mobileOpen ? <button type="button" className="appNavMobileScrim" aria-label="إغلاق القائمة" onClick={() => setMobileOpen(false)} /> : null}
 
     <aside
-      ref={navRef}
+      ref={asideRef}
       id="arkan-context-navigation"
       className="appContextNav"
-      data-open={open ? 'true' : 'false'}
-      data-pinned={pinned ? 'true' : 'false'}
-      data-panel-valid={panelValid ? 'true' : 'false'}
-      data-navigation-consciousness="implicit"
-      aria-label="التنقل في مساحة العمل"
-      aria-hidden={!open}
-      style={{ width:`min(${NAV_WIDTH}, 82vw)` }}
+      data-open={desktopExpanded ? 'true' : 'false'}
+      data-mobile-open={mobileOpen ? 'true' : 'false'}
+      data-context-kind={projectId ? 'project' : currentArea ? 'portal' : 'root'}
+      aria-label="قائمة المكان الحالي"
     >
-      {open ? <>
-        <div className="appNavTopLine" data-consciousness-visibility="implicit">
-          <button type="button" onClick={closeNavigation}>إغلاق</button>
+      <header className="appNavContextHeader">
+        <div className="appNavContextTitle">
+          <strong>{contextTitle}</strong>
+          <small>{contextSubtitle}</small>
         </div>
+        <div className="appNavContextHeaderActions">
+          <button type="button" className="appNavDesktopCollapse" onClick={() => setDesktopExpanded(false)}>طي</button>
+          <button type="button" className="appNavMobileClose" onClick={() => setMobileOpen(false)} aria-label="إغلاق">×</button>
+        </div>
+      </header>
 
-        <div key={panelId(panel)} className="appNavPanel" data-motion={motionDirection}>
-          {panel.type === 'root' && <>
-            <div className="appNavList appNavQuickList" data-anatomy-level="perspective">
-              {quickLinks.map((item) => (
-                <button key={item.href} type="button" className="appNavRow" data-active={pathname === item.href ? 'true' : 'false'} onClick={() => go(item.href)}>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="appNavList appNavPortalList" data-anatomy-level="system">
-              {accessibleAreas.map((area) => (
-                <button key={area.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaKey === area.key ? 'true' : 'false'} onClick={() => dive({ type:'area', areaKey:area.key })}>
-                  <span>{anatomyAreaLabel(area)}</span>
-                  <small>{(groupsByArea[area.key] || []).length}</small>
-                </button>
-              ))}
-            </div>
-          </>}
+      <div className="appMobilePortalStrip" aria-label="تغيير البوابة">
+        <button type="button" data-active={pathname === '/dashboard' ? 'true' : 'false'} onClick={() => go('/dashboard')}>الرئيسية</button>
+        {accessibleAreas.map((area) => (
+          <button key={area.key} type="button" data-active={currentAreaKey === area.key ? 'true' : 'false'} onClick={() => choosePortal(area)}>{anatomyAreaLabel(area)}</button>
+        ))}
+      </div>
 
-          {panel.type === 'area' && activeArea && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'root' })}>{USER_PERSPECTIVE.label}</button>
-            <div className="appNavPanelHead"><strong>{anatomyAreaLabel(activeArea)}</strong></div>
-            <div className="appNavList" data-anatomy-level="region">
-              {activeAreaGroups.map((group) => {
-                const directItem = !isMeaningfulBranch(group) ? group.items[0] : null;
-                if (directItem) {
-                  return (
-                    <button key={group.key} type="button" className="appNavRow" data-active={currentGlobalTool?.href === directItem.href ? 'true' : 'false'} onClick={() => go(directItem.href)}>
-                      <span>{directItem.label}</span>
-                    </button>
-                  );
-                }
-                return (
-                  <button key={group.key} type="button" className="appNavRow appNavRowParent" data-active={currentAreaGroup?.key === group.key ? 'true' : 'false'} onClick={() => dive({ type:'areaGroup', areaKey:activeArea.key, groupKey:group.key })}>
-                    <span>{group.label}</span>
-                    <small>{group.items.length}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </>}
-
-          {panel.type === 'areaGroup' && activeArea && activeAreaGroup && <>
-            <button type="button" className="appNavBack" onClick={() => back({ type:'area', areaKey:activeArea.key })}>{anatomyAreaLabel(activeArea)}</button>
-            <div className="appNavPanelHead"><strong>{activeAreaGroup.label}</strong></div>
-            <div className="appNavList" data-anatomy-level="function">
-              {activeAreaGroup.items.map((item) => (
-                <button key={item.href} type="button" className="appNavRow" data-active={currentGlobalTool?.href === item.href ? 'true' : 'false'} onClick={() => go(item.href)}>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </>}
-
-          {panel.type === 'project' && projectId && <>
-            <div className="appNavPanelHead appNavProjectHead"><strong>داخل المشروع</strong></div>
-            <div className="appNavList" data-anatomy-level="region" data-project-navigation="single-open-accordion">
-              {projectStatusTool ? (
-                <button
-                  type="button"
-                  className="appNavRow appNavProjectStatus"
-                  data-active={currentProjectTool?.key === 'overview' ? 'true' : 'false'}
-                  onClick={() => go(projectStatusTool.href)}
-                >
-                  <span>موقف المشروع</span>
-                </button>
-              ) : null}
-
-              {projectAccordionGroups.map((group) => {
-                const expanded = expandedProjectGroupKey === group.key;
-                const active = currentProjectGroup?.key === group.key;
-                return (
-                  <div key={group.key} className="appNavProjectGroup" data-expanded={expanded ? 'true' : 'false'}>
+      <div className="appNavContextBody">
+        {projectId ? (
+          <div className="appNavContextSections" data-project-navigation="all-groups-visible">
+            {projectGroups.map((group) => (
+              <section key={group.key} className="appNavContextSection" data-active={group.items.some((item) => item.key === activeProjectKey) ? 'true' : 'false'}>
+                <h2>{group.label}</h2>
+                <div className="appNavContextItems">
+                  {group.items.map((item) => (
                     <button
+                      key={item.key}
                       type="button"
-                      className="appNavRow appNavRowParent appNavProjectGroupTitle"
-                      data-active={active ? 'true' : 'false'}
-                      aria-expanded={expanded}
-                      onClick={() => toggleProjectGroup(group.key)}
+                      className="appNavContextItem"
+                      data-active={item.key === activeProjectKey ? 'true' : 'false'}
+                      aria-current={item.key === activeProjectKey ? 'page' : undefined}
+                      onClick={() => go(item.href)}
                     >
-                      <span>{group.label}</span>
-                      <small aria-hidden="true">{expanded ? '−' : '+'}</small>
+                      <span>{item.label}</span>
                     </button>
-                    {expanded ? (
-                      <div className="appNavList appNavProjectTools" data-anatomy-level="function">
-                        {group.items.map((item) => (
-                          <button
-                            key={item.key}
-                            type="button"
-                            className="appNavRow appNavProjectTool"
-                            data-active={currentProjectTool?.key === item.key ? 'true' : 'false'}
-                            onClick={() => go(item.href)}
-                          >
-                            <span>{item.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="appNavProjectExit" data-navigation-boundary="outside-project">
-              <span>خارج المشروع</span>
-              <button type="button" className="appNavRow" onClick={() => go('/dashboard/projects')}><span>كل المشاريع</span></button>
-              <button type="button" className="appNavRow" onClick={() => go('/dashboard')}><span>بوابات العمل</span></button>
-            </div>
-          </>}
-
-          <div className="appNavBottomActions">
-            <button type="button" onClick={onSignOut}>خروج</button>
+                  ))}
+                </div>
+              </section>
+            ))}
+            <section className="appNavContextSection appNavContextExit">
+              <h2>خارج المشروع</h2>
+              <div className="appNavContextItems">
+                <button type="button" className="appNavContextItem" onClick={() => go('/dashboard/projects')}><span>كل المشاريع</span></button>
+                <button type="button" className="appNavContextItem" onClick={() => go('/dashboard')}><span>كل البوابات</span></button>
+              </div>
+            </section>
           </div>
-        </div>
-      </> : null}
+        ) : currentArea ? (
+          <div className="appNavContextSections">
+            {currentAreaGroups.map((group) => (
+              <section key={group.key} className="appNavContextSection" data-active={group.items.some((item) => item.href === currentGlobalTool?.href) ? 'true' : 'false'}>
+                <h2>{group.label}</h2>
+                <div className="appNavContextItems">
+                  {group.items.map((item) => {
+                    const active = currentGlobalTool?.href === item.href;
+                    return (
+                      <button
+                        key={item.href}
+                        type="button"
+                        className="appNavContextItem"
+                        data-active={active ? 'true' : 'false'}
+                        aria-current={active ? 'page' : undefined}
+                        onClick={() => go(item.href)}
+                      >
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="appNavContextEmpty">
+            <strong>اختر بوابة</strong>
+            <span>كل شيء يبدأ من الشريط الرئيسي.</span>
+          </div>
+        )}
+      </div>
+
+      <footer className="appNavContextFooter">
+        <button type="button" onClick={() => go('/dashboard/my-work')}>أعمالي</button>
+        {me?.access?.approvals ? <button type="button" onClick={() => go('/dashboard/approvals')}>اعتماداتي</button> : null}
+        <span className="appNavFooterSpacer" />
+        <button type="button" onClick={onSignOut}>خروج</button>
+      </footer>
     </aside>
   </>;
 }
