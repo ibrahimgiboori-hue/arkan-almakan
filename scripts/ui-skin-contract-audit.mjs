@@ -46,7 +46,6 @@ requireText('components/ui/WorkSheetKernel.js', [
   "data-ui-slot={uiSlot('selectionDock')}",
   'data-ui-control="clear-selection"',
 ]);
-
 const kernel = read('components/ui/WorkSheetKernel.js');
 if (/style=\{\{/.test(kernel)) failures.push('WorkSheetKernel: لا يجوز أن يحمل هندسة مرئية inline؛ الجلد هو المسؤول عنها.');
 if (/className=["']btn\s/.test(kernel)) failures.push('WorkSheetKernel: عاد لاستخدام فئات أزرار مرئية قديمة بدل العقد الدلالي.');
@@ -70,18 +69,28 @@ if (constitutionUi.includes('constitution-ui.module.css')) failures.push('Consti
 if (/styles\./.test(constitutionUi)) failures.push('ConstitutionUI: بقي اعتماد على CSS module مرئي بعد فصل الجلد.');
 if (/style=\{\{/.test(constitutionUi)) failures.push('ConstitutionUI: بقي تنسيق مرئي inline؛ يجب أن يمر عبر الجلد الدلالي.');
 
+requireText('components/ui/LegacySemanticBridgeRuntime.js', [
+  'LegacySemanticBridgeRuntime',
+  "data-ui-legacy-adapted",
+  "uiSlot('page')",
+  "uiSlot('pageHeader')",
+  "uiSlot('section')",
+  "uiSlot('action')",
+  "'data-ui-role':'legacy-shell'",
+]);
+const legacyBridge = read('components/ui/LegacySemanticBridgeRuntime.js');
+if (/style=\{\{/.test(legacyBridge)) failures.push('LegacySemanticBridgeRuntime: الجسر الدلالي لا يجوز أن يرسم الواجهة.');
+
 requireText('components/ui/ProgramAction.js', [
   "data-ui-slot={uiSlot('action')}",
   'data-ui-control="action"',
   'data-ui-state=',
 ]);
-
 requireText('components/ui/ConstitutionDialog.js', [
   "data-ui-slot={uiSlot('dialog')}",
   'data-ui-part="dialog-header"',
   'data-ui-part="dialog-body"',
 ]);
-
 requireText('components/ui/ConfirmDialog.js', [
   'data-ui-part="dialog-actions"',
   'data-ui-control="confirm"',
@@ -131,7 +140,6 @@ requireText('app/dashboard/ui-skin-foundation.css', [
   "[data-ui-slot='dock']",
   "[data-ui-slot='record-list']",
 ]);
-
 const foundation = read('app/dashboard/ui-skin-foundation.css');
 for (const forbidden of ['.page-head', '.section:not(', '.card:not(', '.btn:not(', '.tabs:not(', '.shell > .side', '.topbar']) {
   if (foundation.includes(forbidden)) failures.push(`ui-skin-foundation.css: عاد المحدد القديم ${forbidden} إلى الجلد الدلالي.`);
@@ -150,6 +158,29 @@ if (/\.pageHeader|\.sectionHeader|\.recordRow|\.recordSummary|\.actionMenu|\.vie
   failures.push('ui-component-skin.css: عاد ليتعلق بأسماء CSS module المحلية بدل data-ui-* الدلالي.');
 }
 
+requireText('app/dashboard/ui-semantic-adapter-skin.css', [
+  'SEMANTIC ADAPTER SKIN',
+  "[data-ui-role='legacy-card']",
+  "[data-ui-role='tabs']",
+  "[data-ui-role='legacy-action']",
+  "[data-ui-role='legacy-shell']",
+]);
+const adapterSkin = read('app/dashboard/ui-semantic-adapter-skin.css');
+if (/\.page-head|\.section:not\(|\.card:not\(|\.btn:not\(|\.shell\s*>\s*\.side/.test(adapterSkin)) {
+  failures.push('ui-semantic-adapter-skin.css: الجسر الدلالي عاد لاستهداف مفردات CSS القديمة مباشرة.');
+}
+
+requireText('app/dashboard/prehydration-legacy-containment.css', [
+  'PRE-HYDRATION LEGACY CONTAINMENT',
+  'Structural safety only',
+  '.shell > .side',
+  '.topbar',
+]);
+const containment = read('app/dashboard/prehydration-legacy-containment.css');
+if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:/.test(containment)) {
+  failures.push('prehydration-legacy-containment.css: ملف الاحتواء البنيوي تسرب إليه جلد مرئي.');
+}
+
 requireText('app/dashboard/ui-shell-skin.css', [
   'NATIVE SHELL SKIN',
   '.appNavHotZone',
@@ -162,21 +193,6 @@ requireText('app/dashboard/ui-shell-skin.css', [
 const shellSkin = read('app/dashboard/ui-shell-skin.css');
 if (shellSkin.includes('.appActionContextAlert')) failures.push('ui-shell-skin.css: شريط سياق الإجراء دخل جلد الملاحة بدل جلد الجسم الدلالي.');
 if (shellSkin.includes('.rawDashboardContent > .workSheetMount')) failures.push('ui-shell-skin.css: جلد الغلاف امتلك جسم الصفحة بدل عقد الجلد.');
-
-requireText('app/dashboard/legacy-ui-compat.css', [
-  'LEGACY UI COMPATIBILITY — quarantine only',
-  'Every selector here is removable residue',
-]);
-const legacy = read('app/dashboard/legacy-ui-compat.css');
-if (/\[data-ui-slot=['"][^'"]+['"]\]\s*\{/.test(legacy)) {
-  failures.push('legacy-ui-compat.css: ملف الحجر لا يجوز أن يملك تنسيقًا مباشرًا لفتحات data-ui-slot الدلالية.');
-}
-if (/\[data-ui-role=['"]table['"]\]\s*\{/.test(legacy)) {
-  failures.push('legacy-ui-compat.css: الجدول الدلالي عاد إلى ملف التوافق القديم.');
-}
-if (/\[data-work-(?:header|section|ledger|dock)=['"]true['"]\]/.test(legacy)) {
-  failures.push('legacy-ui-compat.css: بنية WorkSheet الدلالية لا يجوز أن تعود إلى حجر التوافق القديم.');
-}
 
 requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-skin-contract='arkan-semantic-skin-v1']",
@@ -197,11 +213,14 @@ requireText('app/dashboard/ui-skin-contract.css', [
 requireText('app/dashboard/layout.js', [
   "import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract'",
   "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
-  "import './legacy-ui-compat.css'",
+  "import LegacySemanticBridgeRuntime from '@/components/ui/LegacySemanticBridgeRuntime'",
+  "import './prehydration-legacy-containment.css'",
   "import './ui-skin-foundation.css'",
   "import './ui-component-skin.css'",
+  "import './ui-semantic-adapter-skin.css'",
   "import './ui-shell-skin.css'",
   "import './ui-skin-contract.css'",
+  '<LegacySemanticBridgeRuntime>',
   'const skinAttrs = uiSkinDataAttributes()',
   '{...skinAttrs}',
   "data-ui-slot={uiSlot('systemState')}",
@@ -214,7 +233,7 @@ requireText('app/dashboard/layout.js', [
 
 const layout = read('app/dashboard/layout.js');
 if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
-for (const retired of ['body-resuscitation.css','app-body-v3.css','raw-phase.css','app-shell-v2.css']) {
+for (const retired of ['body-resuscitation.css','app-body-v3.css','raw-phase.css','app-shell-v2.css','legacy-ui-compat.css']) {
   if (layout.includes(retired)) failures.push(`DashboardLayout: عاد لاستيراد ${retired} بعد امتصاصه/استبداله.`);
 }
 for (const retiredFile of [
@@ -222,6 +241,7 @@ for (const retiredFile of [
   'app/dashboard/app-body-v3.css',
   'app/dashboard/raw-phase.css',
   'app/dashboard/app-shell-v2.css',
+  'app/dashboard/legacy-ui-compat.css',
   'components/ui/constitution-ui.module.css',
 ]) {
   if (exists(retiredFile)) failures.push(`${retiredFile}: الملف المرئي المتقاعد لا يجوز أن يعود.`);
@@ -233,4 +253,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: native skin is split into semantic foundation, components, shell and body; component-local and retired visual layers cannot regrow.');
+console.log('UI skin contract audit passed: no legacy visual layer remains; native foundation, components, semantic adapter, shell and body are replaceable skin layers, with only non-visual pre-hydration containment outside them.');
