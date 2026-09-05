@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/lib/action-context';
 import { applyUiTheme, DEFAULT_UI_THEME, UI_THEME_EVENT } from '@/lib/ui-theme';
+import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import PortalExperienceRuntime from '@/components/ui/PortalExperienceRuntime';
@@ -18,6 +19,7 @@ import './app-shell-v2.css';
 import './app-body-v3.css';
 import './body-resuscitation.css';
 import './portal-experience.css';
+import './ui-skin-contract.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -181,10 +183,12 @@ export default function DashboardLayout({ children }) {
 
   const actingOnBehalf = isOnBehalfMode(state.me?.actionContext);
   const showExceptionalIdentity = actingOnBehalf && state.me?.actionContext?.isPrimaryUser === true;
+  const skinAttrs = uiSkinDataAttributes();
 
   return (
     <DashboardSessionProvider value={state.me}>
       <div
+        {...skinAttrs}
         className="rawDashboardShell"
         data-work-kernel="operational-notebook-v1"
         data-viewport-policy="fluid-full-width"
