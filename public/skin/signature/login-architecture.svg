@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="900" viewBox="0 0 960 900" fill="none">
+  <defs>
+    <linearGradient id="g" x1="80" y1="90" x2="830" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8D7B8" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#B58A45" stop-opacity=".24"/>
+    </linearGradient>
+  </defs>
+  <g stroke="url(#g)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 820H930" opacity=".32"/>
+    <path d="M110 820V500h120v320M140 548h60M140 606h60M140 664h60M140 722h60"/>
+    <path d="M270 820V380h150v440M305 445h80M305 520h80M305 595h80M305 670h80M305 745h80"/>
+    <path d="M455 820V245h175v575M495 325h95M495 415h95M495 505h95M495 595h95M495 685h95"/>
+    <path d="M668 820V430h105v390M693 490h55M693 555h55M693 620h55M693 685h55"/>
+    <path d="M804 820V560h82v260M824 610h42M824 666h42M824 722h42"/>
+    <path d="M54 454h328M120 454V350M120 350h510M630 350v52M120 350l-70 104M515 350l48 104" opacity=".7"/>
+    <path d="M620 220 720 120l102 100M720 120v300" opacity=".35"/>
+  </g>
+  <g fill="#E8D7B8" opacity=".055">
+    <path d="M110 500h120v320H110zM270 380h150v440H270zM455 245h175v575H455zM668 430h105v390H668zM804 560h82v260H804z"/>
+  </g>
+</svg>
