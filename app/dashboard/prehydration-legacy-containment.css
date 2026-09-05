@@ -1,0 +1,14 @@
+/*
+  PRE-HYDRATION LEGACY CONTAINMENT
+  --------------------------------
+  Structural safety only, before LegacySemanticBridgeRuntime can annotate old
+  shell markup. No colors, typography, component visuals or business behavior.
+*/
+@media screen {
+  .shell { display: block !important; min-height: 0 !important; }
+  .shell > .side,
+  .side { display: none !important; }
+  .shell > .main,
+  .main { width: 100% !important; min-width: 0 !important; display: block !important; }
+  .topbar { display: none !important; }
+}
