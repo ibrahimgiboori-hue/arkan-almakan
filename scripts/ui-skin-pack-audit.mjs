@@ -18,7 +18,7 @@ function requireText(file, values) {
   return text;
 }
 
-const manifest = requireText('lib/ui-skin-manifest.js', [
+requireText('lib/ui-skin-manifest.js', [
   "id:'arkan-native-v1'",
   "contract:'arkan-semantic-skin-v1'",
   "coverage:'inside-and-outside-complete-outfit'",
@@ -81,16 +81,22 @@ if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:|marg
   failures.push('prehydration-legacy-containment.css: الحارس البنيوي يحمل هوية مرئية ويجب إعادتها لطقم الجلد.');
 }
 
-const tokens = requireText('app/dashboard/raw-tokens.css', [
+requireText('app/dashboard/raw-tokens.css', [
   '--ui-canvas:',
   '--ui-accent:',
+  '--ui-shell-rail-width:',
   '--ui-shell-nav-width:',
 ]);
 const shell = requireText('app/dashboard/ui-shell-skin.css', [
-  'var(--ui-shell-nav-width, 196px)',
-  '--app-body-nav-width:',
+  'var(--ui-shell-rail-width, 76px)',
+  'var(--ui-shell-nav-width, 220px)',
+  '--app-shell-rail-width:',
+  '--app-shell-context-width:',
+  '.appNavRail',
+  '.appContextNav',
 ]);
 if (!shell.includes('!important')) failures.push('ui-shell-skin.css: يجب أن يظل الجلد صاحب الكلمة النهائية أمام هندسة inline قديمة حتى تزول بالكامل.');
+if (shell.includes('.appNavHotZone')) failures.push('ui-shell-skin.css: عاد عنصر ملاحة مخفي خارج طقم الهوية الجديد.');
 
 const constitutionUi = requireText('components/ui/ConstitutionUI.js', [
   "data-ui-slot={uiSlot('page')}",
@@ -101,8 +107,11 @@ if (/module\.css|style=\{\{|styles\./.test(constitutionUi)) {
   failures.push('ConstitutionUI: يوجد جلد محلي خارج طقم الهوية.');
 }
 
-const contract = requireText('lib/ui-skin-contract.js', [
+requireText('lib/ui-skin-contract.js', [
+  "'--ui-shell-rail-width'",
   "'--ui-shell-nav-width'",
+  "navigationRail:'navigation-rail'",
+  "navigationPanel:'navigation-panel'",
   "principle:'business-and-interaction-contracts-stay-stable-while-skin-is-replaceable'",
 ]);
 
@@ -112,4 +121,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin pack audit passed: the current identity is a complete replaceable inside/outside outfit; no retired visual layer sits outside the pack, and print remains constitutionally separate.');
+console.log('UI skin pack audit passed: the current identity is a complete replaceable inside/outside outfit, including persistent desktop rail, context panel and mobile drawer; print remains constitutionally separate.');
