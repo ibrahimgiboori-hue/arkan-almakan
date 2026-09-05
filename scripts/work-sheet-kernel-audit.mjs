@@ -19,6 +19,7 @@ function requireText(file, needles) {
 
 requireText('app/dashboard/layout.js', [
   "import './raw-tokens.css'",
+  "import './legacy-ui-compat.css'",
   "import './ui-skin-foundation.css'",
   "import './app-shell-v2.css'",
   'data-work-kernel="operational-notebook-v1"',
@@ -28,31 +29,51 @@ requireText('app/dashboard/layout.js', [
   'ContextualDashboardNavigation',
 ]);
 
-if (read('app/dashboard/layout.js').includes("work-sheet-kernel.css")) {
+const layout = read('app/dashboard/layout.js');
+if (layout.includes('work-sheet-kernel.css')) {
   failures.push('app/dashboard/layout.js: أعاد ملف هندسة منافسًا إلى الغلاف العام.');
 }
-if (read('app/dashboard/layout.js').includes("raw-phase.css")) {
-  failures.push('app/dashboard/layout.js: أعاد raw-phase بعد إعادة تأهيل قواعده الصالحة داخل أساس الجلد.');
+if (layout.includes('raw-phase.css')) {
+  failures.push('app/dashboard/layout.js: أعاد raw-phase بعد فصل الجلد الدلالي عن حجر التوافق القديم.');
 }
 
 if (exists('app/dashboard/work-sheet-kernel.css')) {
   failures.push('app/dashboard/work-sheet-kernel.css: ملف هندسة قديم يجب ألا يعود بعد توحيد القبطان.');
 }
 if (exists('app/dashboard/raw-phase.css')) {
-  failures.push('app/dashboard/raw-phase.css: الدور القديم انتهى؛ القواعد الصالحة تعيش في ui-skin-foundation.css.');
+  failures.push('app/dashboard/raw-phase.css: الدور القديم انتهى؛ لا يجوز إعادة إنشاء المرحلة الخام.');
 }
-
 if (exists('components/ui/RawDashboardNavigation.module.css')) {
   failures.push('RawDashboardNavigation.module.css: هندسة الملاحة القديمة يجب ألا تعود.');
 }
 
 requireText('app/dashboard/ui-skin-foundation.css', [
-  '.rawDashboardContent > .workSheetMount',
-  "[data-work-header='true']",
-  "[data-work-ledger='true']",
-  "[data-work-dock='true']",
+  'UI SKIN FOUNDATION — semantic native structure',
+  "[data-ui-slot='sheet']",
+  "[data-ui-slot='page-header']",
+  "[data-ui-slot='section']",
+  "[data-ui-slot='ledger']",
+  "[data-ui-slot='dock']",
+  "[data-ui-role='table']",
   'scrollbar-gutter: stable both-edges',
 ]);
+
+const semanticFoundation = read('app/dashboard/ui-skin-foundation.css');
+if (/\.page-head|\.section:not\(|\.btn:not\(|\.shell\s*>\s*\.side/.test(semanticFoundation)) {
+  failures.push('ui-skin-foundation.css: القبطان الدلالي عاد لامتلاك مفردات CSS القديمة.');
+}
+
+requireText('app/dashboard/legacy-ui-compat.css', [
+  'LEGACY UI COMPATIBILITY — quarantine only',
+  '.shell > .side',
+  '.page:not([data-ui-slot])',
+  '.section:not([data-ui-slot])',
+  "table:not([data-ui-role='table'])",
+]);
+const legacy = read('app/dashboard/legacy-ui-compat.css');
+if (/\[data-work-(?:header|section|ledger|dock)=['"]true['"]\]/.test(legacy)) {
+  failures.push('legacy-ui-compat.css: حجر التوافق عاد لامتلاك عظام WorkSheet الدلالية.');
+}
 
 requireText('app/dashboard/app-shell-v2.css', [
   '.appNavHotZone',
@@ -124,4 +145,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed.');
+console.log('Single visual captain audit passed: WorkSheet geometry is semantic, legacy CSS is quarantined, and navigation remains a separate governed shell.');
