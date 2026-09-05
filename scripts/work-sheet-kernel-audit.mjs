@@ -25,7 +25,6 @@ requireText('app/dashboard/layout.js', [
   "import './ui-semantic-adapter-skin.css'",
   "import './ui-shell-skin.css'",
   'data-work-kernel="operational-notebook-v1"',
-  'data-navigation-shell="contextual-slide-v2"',
   'data-work-sheet-mount="true"',
   'className="workSheetMount"',
   'ContextualDashboardNavigation',
@@ -86,13 +85,18 @@ if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:/.tes
 
 requireText('app/dashboard/ui-shell-skin.css', [
   'NATIVE SHELL SKIN',
-  '.appNavHotZone',
+  '.appNavRail',
+  '.appRailItem',
   '.appContextNav',
-  ".appContextNav[data-open='true']",
-  '.appNavTopLine',
-  '.appNavBottomActions',
+  ".appContextNav[data-open='false']",
+  '.appNavContextHeader',
+  '.appNavContextItem',
+  '.appNavMobileTrigger',
+  ".appContextNav[data-mobile-open='true']",
   "@media (prefers-reduced-motion: reduce)",
 ]);
+const shellSkin = read('app/dashboard/ui-shell-skin.css');
+if (shellSkin.includes('.appNavHotZone')) failures.push('ui-shell-skin.css: عاد Hot Zone المخفي بدل شريط البوابات المرئي.');
 
 requireText('components/ui/LegacySemanticBridgeRuntime.js', [
   "uiSlot('page')",
@@ -102,9 +106,6 @@ requireText('components/ui/LegacySemanticBridgeRuntime.js', [
   'MutationObserver',
 ]);
 
-// القبطان المرئي واحد، وكتالوج مجموعات البوابات واحد كذلك. المشاريع تحتفظ
-// بتجميعها المتخصص، أما البوابات العامة فتُشتق من PORTAL_MANAGEMENT_SECTIONS
-// بدل نسخ نفس القوائم يدويًا في دستور الملاحة.
 requireText('lib/navigation-shell-constitution.js', [
   'SHELL_PORTAL_GROUPS',
   'PORTAL_MANAGEMENT_SECTIONS',
@@ -120,20 +121,23 @@ requireText('components/ui/ContextualDashboardNavigation.js', [
   'filterAreasForAccess',
   'projectNavRequirement',
   'SHELL_PORTAL_GROUPS',
-  'onClick={openNavigation}',
+  'CONTEXT_COLLAPSED_STORAGE_KEY',
+  'choosePortal',
+  'className="appNavRail"',
   'className="appContextNav"',
+  'className="appNavMobileTrigger"',
 ]);
 
 if (exists('components/ui/RawDashboardNavigation.js')) {
-  failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى contextual-slide-v2.');
+  failures.push('RawDashboardNavigation.js: مكوّن الملاحة القديم يجب حذفه بعد انتقال الجسد إلى الملاحة الموحدة.');
 }
 
 const nav = read('components/ui/ContextualDashboardNavigation.js');
-if (nav.includes('router.back(')) failures.push('الملاحة السياقية تستخدم تاريخ المتصفح بدل الرجوع الهرمي المحدد.');
-if (!nav.includes('PIN_STORAGE_KEY')) failures.push('الملاحة السياقية فقدت خيار إبقاء القائمة مفتوحة.');
+if (nav.includes('router.back(')) failures.push('الملاحة تستخدم تاريخ المتصفح بدل خريطة النظام.');
+if (!nav.includes('CONTEXT_COLLAPSED_STORAGE_KEY')) failures.push('الملاحة فقدت تذكر اختيار المستخدم لطي لوحة السياق.');
 if (nav.includes('PORTAL_MANAGEMENT_SECTIONS')) failures.push('الملاحة التنفيذية لا تقرأ كتالوج الإدارة مباشرة؛ يجب أن تمر عبر دستور SHELL_PORTAL_GROUPS.');
 if (nav.includes('GlobalSearch')) failures.push('البحث العام عاد داخل قائمة التنقل رغم فصله عنها.');
-if (nav.includes('onPointerEnter={openFromIntent}')) failures.push('الملاحة عادت للفتح التلقائي بالمرور بدل الاستدعاء المقصود بالنقر.');
+if (/onPointerEnter|openFromIntent|appNavHotZone|single-open-accordion/.test(nav)) failures.push('الملاحة أعادت سلوكًا مخفيًا أو متداخلًا بدل الشريط الثابت واللوحة الواحدة.');
 
 requireText('components/ui/ConstitutionUI.js', [
   "from './WorkSheetKernel'",
@@ -168,4 +172,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: there is no legacy visual captain; old markup is semantically adapted, the native component/shell skins are replaceable, and only non-visual pre-hydration containment remains.');
+console.log('Single visual captain audit passed: one semantic body and one navigation captain remain; desktop has a persistent portal rail plus one context panel, mobile uses the same map as a drawer, and retired visual captains cannot return.');
