@@ -22,21 +22,64 @@ requireText('lib/ui-skin-manifest.js', [
   "id:'arkan-native-v1'",
   "contract:'arkan-semantic-skin-v1'",
   "coverage:'inside-and-outside-complete-outfit'",
-  "tokens:'app/dashboard/raw-tokens.css'",
-  "foundation:'app/dashboard/ui-skin-foundation.css'",
-  "components:'app/dashboard/ui-component-skin.css'",
-  "semanticAdapter:'app/dashboard/ui-semantic-adapter-skin.css'",
-  "shell:'app/dashboard/ui-shell-skin.css'",
-  "experience:'app/dashboard/ui-experience-skin.css'",
-  "body:'app/dashboard/ui-skin-contract.css'",
+  "switch:'lib/ui-active-skin.js'",
+  "tokens:'app/ui-skin-tokens.css'",
+  "external:'app/ui-external-skin.css'",
+  "dashboardCompatibility:'app/dashboard/raw-tokens.css'",
   "visualLegacyLayer:false",
   "containmentPolicy:'structure-only-no-identity'",
+  "stressSkin:'stress-test'",
   "policy:'separate-print-constitution-shared-brand-identity'",
   "replacementRule:'replace-visual-layers-and-tokens-without-changing-routes-data-permissions-or-business-logic'",
 ]);
 
+requireText('lib/ui-active-skin.js', [
+  "ACTIVE_UI_SKIN_KEY = 'native'",
+  "UI_SKIN_STRESS_TEST_KEY = 'stress-test'",
+]);
+
+const rootTokens = requireText('app/ui-skin-tokens.css', [
+  'ROOT UI SKIN TOKENS',
+  '--ui-canvas:',
+  '--ui-surface:',
+  '--ui-text:',
+  '--ui-accent:',
+  '--ui-shell-rail-width:',
+  '--ui-shell-nav-width:',
+  "html[data-ui-skin='stress-test']",
+]);
+if (!rootTokens.includes('--ui-radius: 0px;')) failures.push('ui-skin-tokens.css: جلد الاختبار الجذري لا يثبت القدرة على تغيير الهندسة المرئية.');
+
+requireText('app/ui-external-skin.css', [
+  "[data-ui-surface='auth']",
+  "[data-ui-role='auth-card']",
+  "[data-ui-control='field']",
+  "[data-ui-control='action']",
+]);
+
+const rootLayout = requireText('app/layout.js', [
+  "import './globals.css'",
+  "import './ui-skin-tokens.css'",
+  "import './ui-external-skin.css'",
+  "import { ACTIVE_UI_SKIN_KEY } from '@/lib/ui-active-skin'",
+  'uiSkinDataAttributes(ACTIVE_UI_SKIN_KEY)',
+  '{...skinAttrs}',
+]);
+if (rootLayout.indexOf("import './ui-skin-tokens.css'") < rootLayout.indexOf("import './globals.css'")) {
+  failures.push('RootLayout: يجب تحميل الجلد الدلالي بعد globals.css ليملك الكلمة المرئية النهائية.');
+}
+
+const login = requireText('app/login/page.js', [
+  'data-ui-surface="auth"',
+  'data-ui-role="auth-card"',
+  'data-ui-control="field"',
+  'data-ui-control="action"',
+]);
+if (/className=|style=\{\{/.test(login)) failures.push('Login: عاد لاعتماد جلد محلي/قديم بدل عقد الجلد الخارجي.');
+
 const visualLayers = [
-  'app/dashboard/raw-tokens.css',
+  'app/ui-skin-tokens.css',
+  'app/ui-external-skin.css',
   'app/dashboard/ui-skin-foundation.css',
   'app/dashboard/ui-component-skin.css',
   'app/dashboard/ui-semantic-adapter-skin.css',
@@ -81,12 +124,16 @@ if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:|marg
   failures.push('prehydration-legacy-containment.css: الحارس البنيوي يحمل هوية مرئية ويجب إعادتها لطقم الجلد.');
 }
 
-requireText('app/dashboard/raw-tokens.css', [
-  '--ui-canvas:',
-  '--ui-accent:',
-  '--ui-shell-rail-width:',
-  '--ui-shell-nav-width:',
+const bridge = requireText('app/dashboard/raw-tokens.css', [
+  'DASHBOARD TOKEN COMPATIBILITY BRIDGE',
+  '--raw-bg: var(--ui-canvas)',
+  '--raw-wine: var(--ui-accent)',
+  '--sidebar-w: var(--ui-shell-nav-width)',
 ]);
+if (/--ui-(?:canvas|surface|text|accent|radius|shell-[\w-]+)\s*:\s*(?:#|rgb|hsl)/i.test(bridge)) {
+  failures.push('raw-tokens.css: عاد لتعريف هوية مستقلة بدل أن يكون جسر توافق فقط.');
+}
+
 const shell = requireText('app/dashboard/ui-shell-skin.css', [
   'var(--ui-shell-rail-width, 76px)',
   'var(--ui-shell-nav-width, 220px)',
@@ -107,6 +154,24 @@ if (/module\.css|style=\{\{|styles\./.test(constitutionUi)) {
   failures.push('ConstitutionUI: يوجد جلد محلي خارج طقم الهوية.');
 }
 
+const islandFiles = [
+  'components/ui/FocusValve.module.css',
+  'components/ui/RawGrid.module.css',
+  'components/ui/WorkSessionRuntime.module.css',
+  'components/ui/constitution-dialog.module.css',
+  'components/ui/portal-hall-interior.module.css',
+  'app/dashboard/portal-hall.module.css',
+];
+for (const file of islandFiles) {
+  const text = requireText(file, ['--ui-']);
+  if (/--raw-|var\(--maroon|var\(--paper|var\(--ink|var\(--hair/.test(text)) {
+    failures.push(`${file}: ما زال يحمل أسماء جلد قديم بدل العقد --ui-*.`);
+  }
+  if (/(?:#[0-9a-f]{3,8}\b|rgba?\(|hsla?\()/i.test(text)) {
+    failures.push(`${file}: يحتوي لونًا محليًا صريحًا خارج طقم الهوية.`);
+  }
+}
+
 requireText('lib/ui-skin-contract.js', [
   "'--ui-shell-rail-width'",
   "'--ui-shell-nav-width'",
@@ -121,4 +186,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin pack audit passed: the current identity is a complete replaceable inside/outside outfit, including persistent desktop rail, context panel and mobile drawer; print remains constitutionally separate.');
+console.log('UI skin pack audit passed: one root switch controls internal and external screen identity; legacy dashboard names are aliases only and isolated components consume semantic tokens.');
