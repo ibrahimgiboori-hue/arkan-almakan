@@ -18,14 +18,7 @@ for (const required of [
   'place-first-navigation-v2',
   'implicit-consciousness-not-navigation-root',
   'real-portal-hall-not-menu-root',
-  'move-between-places-siblings-or-deeper-context',
   'return-to-portal-hall-when-leaving-current-place',
-  'anatomical-zoom-out-not-browser-history',
-  'show-real-parent-label-never-generic-back-or-all',
-  'child-must-add-meaning-and-must-not-repeat-parent-label',
-  'do-not-invent-a-navigation-level-for-a-single-child',
-  "label:'بوابات العمل'",
-  "visibility:'body-place'",
   'portalHallMustBeBodySurface',
   'portalHallMustNotRequireNavigationMenu',
   'interior-portal-hall-v1',
@@ -35,28 +28,26 @@ for (const required of [
   "toolsOwner:'contextual-navigation-not-body-duplicate'",
   'reusableAcrossPortals:true',
   "pilotPortal:'projects'",
-  "label:'البوابات'",
   "'/dashboard/projects': 'سجل المشاريع'",
   "'/dashboard/employees': 'سجل الموظفين'",
-  'isMeaningfulBranch',
-  'perspectiveQuickLinks',
+  'anatomyAreaLabel',
+  'anatomyToolLabel',
+  'anatomyGroupLabel',
 ]) {
   if (!anatomy.includes(required)) failures.push(`التشريح: مفقود ${required}`);
-}
-
-if (!/export\s+function\s+perspectiveQuickLinks\([^)]*\)\s*\{\s*return\s*\[\]\s*;?\s*\}/s.test(anatomy)) {
-  failures.push('العدسات الشخصية لا يجوز أن تعود كروابط متكررة داخل القائمة المساعدة.');
 }
 
 const nav = requireFile('components/ui/ContextualDashboardNavigation.js');
 for (const required of [
   "from '@/lib/anatomical-navigation'",
-  'data-navigation-consciousness="implicit"',
-  'USER_PERSPECTIVE.label',
   'anatomyAreaLabel',
   'anatomyToolLabel',
-  'isMeaningfulBranch',
-  'perspectiveQuickLinks',
+  'anatomyGroupLabel',
+  'appNavRail',
+  'appContextNav',
+  'data-navigation-layer="primary-rail"',
+  'data-project-navigation="all-groups-visible"',
+  'كل البوابات',
 ]) {
   if (!nav.includes(required)) failures.push(`الملاحة التشريحية: مفقود ${required}`);
 }
@@ -64,14 +55,14 @@ for (const required of [
 if (/>\s*أركان المكان\s*</.test(nav)) {
   failures.push('الوعي المستتر: اسم أركان المكان عاد كعنصر مرئي داخل الملاحة اليومية.');
 }
-if (/>\s*الكل\s*</.test(nav)) {
-  failures.push('الرجوع التشريحي: عاد لفظ «الكل» بدل اسم الأب أو منظور المستخدم.');
-}
-if (!nav.includes('const directItem = !isMeaningfulBranch(group) ? group.items[0] : null')) {
-  failures.push('التشريح: المجموعة ذات الابن الواحد يجب أن تُسطّح بدل اختراع مستوى ملاحة وهمي.');
-}
 if (nav.includes('router.back(')) {
   failures.push('الرجوع التشريحي: لا يجوز استخدام تاريخ المتصفح كأب تشريحي.');
+}
+if (/single-open-accordion|type:'areaGroup'|type:'projectGroup'|expandedProjectGroupKey/.test(nav)) {
+  failures.push('التشريح: عادت مستويات تفاعلية زائدة؛ القائمة الجديدة يجب أن تعرض سياق المكان مباشرة بلا حفر في قوائم داخل قوائم.');
+}
+if (/onPointerEnter|openFromIntent|appNavHotZone/.test(nav)) {
+  failures.push('التشريح: عادت ملاحة مخفية أو تعمل بالمرور؛ الملاحة الأساسية يجب أن تكون ظاهرة ومقصودة.');
 }
 
 const hall = requireFile('app/dashboard/page.js');
@@ -127,4 +118,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Anatomical navigation audit passed: the top level is a real portal hall, interior portals are work-first with a quiet registry layer, projects pilot the shared pattern, navigation remains secondary and anatomical, and single-child pseudo-levels stay flattened.');
+console.log('Anatomical navigation audit passed: portal hall remains the real top place, desktop navigation is a visible portal rail plus one contextual list, mobile reuses the same map in a drawer, and no nested navigation maze or browser-history back logic is allowed.');
