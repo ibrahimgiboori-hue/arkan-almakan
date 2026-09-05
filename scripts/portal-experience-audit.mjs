@@ -70,23 +70,37 @@ requireText('components/ui/ActionNervousSystemRuntime.js', [
   'clearError',
 ]);
 
-requireText('app/dashboard/portal-experience.css', [
-  "[data-portal-experience^='unified-portal-experience-']",
+requireText('components/ui/UISkinBridgeRuntime.js', [
+  "'data-ui-role':'action-failure'",
+  "'data-ui-role':'network-notice'",
+]);
+
+requireText('app/dashboard/ui-experience-skin.css', [
+  'NATIVE EXPERIENCE SKIN',
   "[data-ledger-scroll-position='start']",
   "[data-ledger-scroll-position='middle']",
   "[data-ledger-scroll-position='end']",
   "[data-program-action='true']:focus-visible",
   "[data-technical-field='true']",
-  '.appActionFailure',
-  '.appOfflineNotice',
+  "[data-ui-role='action-failure']",
+  "[data-ui-role='network-notice']",
   '@media (prefers-reduced-motion: reduce)',
 ]);
+const experienceSkin = read('app/dashboard/ui-experience-skin.css');
+if (/\.appActionFailure|\.appOfflineNotice/.test(experienceSkin)) {
+  failures.push('ui-experience-skin.css: عاد لاستهداف أسماء تنفيذية بدل الأدوار الدلالية.');
+}
+if (exists('app/dashboard/portal-experience.css')) {
+  failures.push('portal-experience.css: الطبقة المرئية القديمة يجب ألا تعود بعد فصل السلوك عن الجلد.');
+}
 
 requireText('app/dashboard/layout.js', [
   "import PortalExperienceRuntime from '@/components/ui/PortalExperienceRuntime'",
-  "import './portal-experience.css'",
+  "import './ui-experience-skin.css'",
   '<PortalExperienceRuntime>',
 ]);
+const layout = read('app/dashboard/layout.js');
+if (layout.includes("'./portal-experience.css'")) failures.push('DashboardLayout: عاد لاستيراد الجلد القديم لتجربة البوابة.');
 
 if (failures.length) {
   console.error('\nPortal experience audit failed:\n');
@@ -94,4 +108,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Portal experience audit passed: navigation, keyboard save, numeric input safety, ledger awareness, semantic legacy control annotation, action failure visibility, destructive safeguards, technical direction, and network awareness are centrally governed.');
+console.log('Portal experience audit passed: behavior remains centralized in runtime/constitution while focus, ledger cues, failures and network feedback live in the replaceable experience skin.');
