@@ -24,6 +24,58 @@
   }
 
   /* =========================================================
+     EMPTY STATE — VISIBLE BEFORE HYDRATION TOO
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell .empty {
+    position: relative;
+    isolation: isolate;
+    width: min(860px, 100%);
+    min-height: 178px;
+    box-sizing: border-box;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 7px;
+    margin: 18px auto;
+    padding: 34px 26px;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 16px;
+    background:
+      linear-gradient(110deg,
+        color-mix(in srgb, var(--ui-signature-paper) 97%, transparent),
+        color-mix(in srgb, var(--signature-context-wash) 48%, var(--ui-signature-paper))),
+      var(--signature-context-art) left bottom / 230px auto no-repeat,
+      var(--ui-signature-paper);
+    color: var(--ui-signature-deep);
+    box-shadow: 0 5px 18px color-mix(in srgb, var(--ui-signature-deep) 4%, transparent);
+    text-align: center;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell .empty::before {
+    content: '';
+    width: 34px;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--ui-signature-gold), var(--ui-signature-burgundy));
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell .empty h3 {
+    margin: 2px 0 0;
+    color: var(--ui-signature-deep);
+    font-size: 16px;
+    font-weight: 820;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell .empty p {
+    max-width: 58ch;
+    margin: 0;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  /* =========================================================
      INTENTIONAL LOADING STATE
      ========================================================= */
   html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='empty'][data-ui-state='loading'] {
@@ -74,6 +126,65 @@
 
   @keyframes signatureLoadingSpin {
     to { transform: rotate(360deg); }
+  }
+
+  /* =========================================================
+     DOCUMENT CATALOG — READING HIERARCHY, NOT A TILE WALL
+     ========================================================= */
+  html[data-ui-skin='signature'] .rawDashboardShell .section div:has(> a[href^='/dashboard/documents/new/']),
+  html[data-ui-skin='signature'] .rawDashboardShell .section div:has(> a[href='/print/timesheet/blank']) {
+    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)) !important;
+    gap: 12px !important;
+    padding: 14px !important;
+    background: transparent !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/'],
+  html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank'] {
+    min-height: 168px !important;
+    box-sizing: border-box;
+    padding: 17px 18px !important;
+    border: 1px solid var(--ui-border) !important;
+    border-radius: 15px !important;
+    background:
+      radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--ui-signature-gold) 6%, transparent), transparent 34%),
+      var(--ui-signature-paper) !important;
+    box-shadow: 0 5px 17px color-mix(in srgb, var(--ui-signature-deep) 4%, transparent) !important;
+    color: var(--ui-signature-charcoal) !important;
+    text-decoration: none !important;
+    transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/']:hover,
+  html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/']:focus-visible,
+  html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank']:hover,
+  html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank']:focus-visible {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--ui-signature-burgundy) 30%, var(--ui-border)) !important;
+    box-shadow: 0 9px 24px color-mix(in srgb, var(--ui-signature-deep) 8%, transparent) !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/'] > div:first-child > div:first-child,
+  html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank'] > div:first-child > div:first-child {
+    color: var(--ui-signature-deep) !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    line-height: 1.55 !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/'] > div:nth-child(2),
+  html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank'] > div:nth-child(2) {
+    color: var(--ui-text-muted) !important;
+    font-size: 12.3px !important;
+    line-height: 1.75 !important;
+    margin-top: 7px !important;
+  }
+
+  html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/'] .pill,
+  html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank'] .pill {
+    border-color: var(--ui-border) !important;
+    background: color-mix(in srgb, var(--ui-signature-ivory) 70%, var(--ui-signature-paper)) !important;
+    color: color-mix(in srgb, var(--ui-signature-deep) 78%, var(--ui-text-muted)) !important;
   }
 
   /* =========================================================
@@ -321,12 +432,23 @@
     html[data-ui-skin='signature'] .rawDashboardShell [data-ui-role='signature-skin-meta'] {
       justify-items: start;
     }
+
+    html[data-ui-skin='signature'] .rawDashboardShell .section div:has(> a[href^='/dashboard/documents/new/']),
+    html[data-ui-skin='signature'] .rawDashboardShell .section div:has(> a[href='/print/timesheet/blank']) {
+      grid-template-columns: 1fr !important;
+      padding: 10px !important;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     html[data-ui-skin='signature'] .rawDashboardShell [data-ui-slot='empty'][data-ui-state='loading']::before {
       animation: none;
       border-top-color: var(--ui-signature-gold);
+    }
+
+    html[data-ui-skin='signature'] .rawDashboardShell a[href^='/dashboard/documents/new/'],
+    html[data-ui-skin='signature'] .rawDashboardShell a[href='/print/timesheet/blank'] {
+      transition: none !important;
     }
   }
 }
