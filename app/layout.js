@@ -1,7 +1,11 @@
 import './globals.css';
+import './ui-skin-tokens.css';
+import './ui-external-skin.css';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
+import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
+import { ACTIVE_UI_SKIN_KEY } from '@/lib/ui-active-skin';
 
 const plex = IBM_Plex_Sans_Arabic({
   subsets: ['arabic', 'latin'],
@@ -15,8 +19,11 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const skinAttrs = uiSkinDataAttributes(ACTIVE_UI_SKIN_KEY);
+
   return (
     <html
+      {...skinAttrs}
       lang="ar"
       dir="rtl"
       data-system-constitution="v2"
