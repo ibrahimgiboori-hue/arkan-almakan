@@ -124,6 +124,10 @@ requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-slot='selection-dock']",
   "[data-ui-control='clear-selection']",
   "[data-ui-slot='action']",
+  '--app-body-nav-width:',
+  'appWorkThresholdArrive',
+  '.appCompletedSurface',
+  "[data-work-threshold-entry='true']",
 ]);
 
 requireText('app/dashboard/layout.js', [
@@ -143,7 +147,9 @@ requireText('app/dashboard/layout.js', [
 const layout = read('app/dashboard/layout.js');
 if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
 if (layout.includes('body-resuscitation.css')) failures.push('DashboardLayout: عاد لاستيراد رقعة إنعاش الجسم القديمة بعد امتصاصها في العقد الدلالي.');
+if (layout.includes('app-body-v3.css')) failures.push('DashboardLayout: عاد لاستيراد طبقة جسم مستقلة بعد امتصاص هندستها في الجلد الدلالي.');
 if (exists('app/dashboard/body-resuscitation.css')) failures.push('body-resuscitation.css: الرقعة الطارئة تم امتصاصها في الجسم المركزي ويجب ألا تعود كملف مستقل.');
+if (exists('app/dashboard/app-body-v3.css')) failures.push('app-body-v3.css: طبقة الجسم تم امتصاصها في الجلد المركزي ويجب ألا تعود كملف مستقل.');
 
 const shellCss = read('app/dashboard/app-shell-v2.css');
 if (shellCss.includes('.appActionContextAlert')) failures.push('app-shell-v2.css: شريط سياق الإجراء عاد إلى ملف الغلاف بدل الجلد الدلالي.');
@@ -155,4 +161,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: shell survival, system states, navigation, structure, forms, fields, actions and dialogs are semantic; absorbed emergency patches cannot return.');
+console.log('UI skin contract audit passed: shell survival, application body geometry, system states, navigation, structure, forms, fields, actions and dialogs are semantic; absorbed compatibility layers cannot return.');
