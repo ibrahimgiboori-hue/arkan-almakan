@@ -2,6 +2,7 @@
 
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { canUseCapability } from '@/lib/access-ui';
+import { uiSlot } from '@/lib/ui-skin-contract';
 import {
   WORK_ACTION_KIND,
   WORK_ACTION_PLACEMENT,
@@ -85,8 +86,6 @@ export default function ProgramAction({
       return;
     }
 
-    // الإجراءات المتصلة بالعصب المركزي والمعلنة كحذف/تدمير تحصل على آخر حاجز
-    // موحّد. يمكن للإجراء الذي يملك تأكيدًا محكومًا خاصًا أن يعلن confirmation:false.
     if (typeof execute === 'function' && destructive) {
       const message = destructiveConfirmation(spec);
       if (message && !window.confirm(message)) {
@@ -95,7 +94,6 @@ export default function ProgramAction({
       }
     }
 
-    // الوضع القديم يبقى كما هو تمامًا حتى يختار العضو الاتصال بالعصب المركزي.
     if (typeof execute !== 'function') {
       onClick?.(event, spec);
       return;
@@ -120,6 +118,9 @@ export default function ProgramAction({
       aria-keyshortcuts={saveShortcut}
       onClick={handleClick}
       title={title || whyDisabled || spec.label}
+      data-ui-slot={uiSlot('action')}
+      data-ui-control="action"
+      data-ui-state={acting ? 'acting' : actionEnabled ? 'ready' : 'disabled'}
       data-program-action="true"
       data-action-key={spec.key}
       data-action-kind={spec.kind}
