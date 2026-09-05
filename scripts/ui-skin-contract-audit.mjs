@@ -115,12 +115,43 @@ requireText('app/dashboard/raw-tokens.css', [
 ]);
 
 requireText('app/dashboard/ui-skin-foundation.css', [
-  'UI SKIN FOUNDATION',
-  'It owns no business logic',
-  "[data-work-header='true']",
-  "[data-work-ledger='true']",
-  "[data-work-dock='true']",
+  'UI SKIN FOUNDATION — semantic native structure',
+  "[data-ui-slot='sheet']",
+  "[data-ui-slot='page-header']",
+  "[data-ui-slot='section']",
+  "[data-ui-slot='section-header']",
+  "[data-ui-slot='ledger']",
+  "[data-ui-role='table']",
+  "[data-ui-slot='field']",
+  "[data-ui-slot='dock']",
+  "[data-ui-slot='record-list']",
 ]);
+
+const foundation = read('app/dashboard/ui-skin-foundation.css');
+for (const forbidden of ['.page-head', '.section:not(', '.card:not(', '.btn:not(', '.tabs:not(', '.shell > .side', '.topbar']) {
+  if (foundation.includes(forbidden)) failures.push(`ui-skin-foundation.css: عاد المحدد القديم ${forbidden} إلى الجلد الدلالي.`);
+}
+
+requireText('app/dashboard/legacy-ui-compat.css', [
+  'LEGACY UI COMPATIBILITY — quarantine only',
+  'Every selector here is removable residue',
+  '.page:not([data-ui-slot])',
+  '.section:not([data-ui-slot])',
+  "table:not([data-ui-role='table'])",
+  'input:not([data-ui-slot])',
+  ".btn:not([data-ui-slot='action'])",
+]);
+
+const legacy = read('app/dashboard/legacy-ui-compat.css');
+if (/\[data-ui-slot=['"][^'"]+['"]\]\s*\{/.test(legacy)) {
+  failures.push('legacy-ui-compat.css: ملف الحجر لا يجوز أن يملك تنسيقًا مباشرًا لفتحات data-ui-slot الدلالية.');
+}
+if (/\[data-ui-role=['"]table['"]\]\s*\{/.test(legacy)) {
+  failures.push('legacy-ui-compat.css: الجدول الدلالي عاد إلى ملف التوافق القديم.');
+}
+if (/\[data-work-(?:header|section|ledger|dock)=['"]true['"]\]/.test(legacy)) {
+  failures.push('legacy-ui-compat.css: بنية WorkSheet الدلالية لا يجوز أن تعود إلى حجر التوافق القديم.');
+}
 
 requireText('app/dashboard/ui-skin-contract.css', [
   "[data-ui-skin-contract='arkan-semantic-skin-v1']",
@@ -141,6 +172,7 @@ requireText('app/dashboard/ui-skin-contract.css', [
 requireText('app/dashboard/layout.js', [
   "import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract'",
   "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
+  "import './legacy-ui-compat.css'",
   "import './ui-skin-foundation.css'",
   "import './ui-skin-contract.css'",
   'const skinAttrs = uiSkinDataAttributes()',
@@ -157,10 +189,10 @@ const layout = read('app/dashboard/layout.js');
 if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
 if (layout.includes('body-resuscitation.css')) failures.push('DashboardLayout: عاد لاستيراد رقعة إنعاش الجسم القديمة بعد امتصاصها في العقد الدلالي.');
 if (layout.includes('app-body-v3.css')) failures.push('DashboardLayout: عاد لاستيراد طبقة جسم مستقلة بعد امتصاص هندستها في الجلد الدلالي.');
-if (layout.includes('raw-phase.css')) failures.push('DashboardLayout: عاد لاستيراد raw-phase بعد إعادة تأهيل البقايا الصالحة إلى أساس الجلد.');
+if (layout.includes('raw-phase.css')) failures.push('DashboardLayout: عاد لاستيراد raw-phase بعد إعادة تأهيل البقايا الصالحة إلى الجلد الدلالي وحجر التوافق.');
 if (exists('app/dashboard/body-resuscitation.css')) failures.push('body-resuscitation.css: الرقعة الطارئة تم امتصاصها في الجسم المركزي ويجب ألا تعود كملف مستقل.');
 if (exists('app/dashboard/app-body-v3.css')) failures.push('app-body-v3.css: طبقة الجسم تم امتصاصها في الجلد المركزي ويجب ألا تعود كملف مستقل.');
-if (exists('app/dashboard/raw-phase.css')) failures.push('raw-phase.css: الاسم/الدور القديم انتهى؛ البقايا الصالحة أصبحت ui-skin-foundation.css.');
+if (exists('app/dashboard/raw-phase.css')) failures.push('raw-phase.css: الاسم/الدور القديم انتهى؛ الدلالي في ui-skin-foundation والقديم فقط في legacy-ui-compat.');
 
 const shellCss = read('app/dashboard/app-shell-v2.css');
 if (shellCss.includes('.appActionContextAlert')) failures.push('app-shell-v2.css: شريط سياق الإجراء عاد إلى ملف الغلاف بدل الجلد الدلالي.');
@@ -172,4 +204,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: shell survival, application body geometry, system states, navigation, structure, forms, fields, actions and dialogs are semantic; raw-phase and absorbed compatibility layers cannot return.');
+console.log('UI skin contract audit passed: semantic structure lives in the replaceable skin, old class vocabulary is quarantined, and retired body/phase patches cannot regrow.');
