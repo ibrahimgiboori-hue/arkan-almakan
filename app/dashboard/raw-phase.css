@@ -1,10 +1,13 @@
 /*
-  RAW DASHBOARD CONSTITUTION — the single visual captain.
-  -------------------------------------------------------
-  raw-tokens.css only supplies values. Components supply data and semantics.
-  This file alone owns screen geometry: navigation rails, sheet rails, headers,
-  sections, ledgers, forms and action docks. Printable documents keep their own
-  print constitution and are intentionally outside this screen-only layer.
+  RAW DASHBOARD TRANSITIONAL CONSTITUTION
+  --------------------------------------
+  raw-tokens.css supplies values. The semantic skin owns the application body,
+  route mount and current contextual navigation. This file temporarily keeps
+  shared legacy page, section, ledger, form and action styling while those
+  surfaces are moved into the replaceable skin contract.
+
+  Printable documents keep their own print constitution and remain outside this
+  screen-only layer.
 */
 @media screen {
   html {
@@ -21,10 +24,6 @@
   }
 
   .rawDashboardShell {
-    --raw-nav-primary-height: 42px;
-    --raw-nav-context-height: 40px;
-    --raw-nav-gap: 6px;
-    --raw-nav-pad-block: 7px;
     --work-sheet-inline: 16px;
     --work-sheet-top: 12px;
     --work-sheet-bottom: 58px;
@@ -38,183 +37,6 @@
     width: 100%;
     min-width: 0;
     background: var(--raw-bg);
-  }
-
-  /* =========================================================
-     FIXED NOTEBOOK SPINE — exactly two rails on every route.
-     Portal / tool / project changes never alter navigation height.
-     ========================================================= */
-  .rawNav {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
-    display: grid;
-    grid-template-rows: var(--raw-nav-primary-height) var(--raw-nav-context-height);
-    gap: var(--raw-nav-gap);
-    padding: var(--raw-nav-pad-block) 14px;
-    border-bottom: 1px solid var(--raw-border);
-    background: var(--raw-paper);
-    color: var(--raw-ink);
-    direction: rtl;
-  }
-
-  .rawNavPrimary,
-  .rawNavContext {
-    box-sizing: border-box;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow: hidden;
-  }
-
-  .rawNavPrimary { height: var(--raw-nav-primary-height); }
-  .rawNavContext {
-    height: var(--raw-nav-context-height);
-    min-height: var(--raw-nav-context-height);
-    border-top: 1px solid var(--raw-border-soft);
-    padding-top: 4px;
-  }
-
-  .rawNavActions {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .rawNavRailLabel {
-    flex: 0 0 54px;
-    width: 54px;
-    color: var(--raw-muted);
-    font-size: var(--raw-font-size-sm);
-    font-weight: 800;
-    white-space: nowrap;
-    text-align: right;
-  }
-
-  .rawNavScroller {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: thin;
-    scrollbar-gutter: stable;
-  }
-
-  .rawNavPortalScroller,
-  .rawNavContextScroller { flex: 1 1 auto; }
-
-  .rawNavAction,
-  .rawNavSignOut,
-  .rawNavTab {
-    flex: 0 0 auto;
-    box-sizing: border-box;
-    min-height: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 0 10px;
-    border: 1px solid var(--raw-border);
-    border-radius: var(--raw-radius-sm);
-    background: var(--raw-paper);
-    color: var(--raw-ink);
-    font-family: inherit;
-    font-size: var(--raw-font-size-sm);
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: none;
-  }
-
-  .rawNavAction:hover,
-  .rawNavSignOut:hover,
-  .rawNavTab:hover { border-color: var(--raw-ink); }
-
-  .rawNavSignOut { margin-inline-start: auto; }
-
-  .rawNavTabOn {
-    background: var(--raw-wine);
-    border-color: var(--raw-wine);
-    color: var(--raw-on-accent);
-  }
-
-  .rawNavTabOnTool {
-    background: var(--raw-ink);
-    border-color: var(--raw-ink);
-    color: var(--raw-paper);
-  }
-
-  .rawNavToolGroup {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding-inline-start: 10px;
-    margin-inline-start: 3px;
-    border-inline-start: 1px solid var(--raw-border);
-  }
-
-  .rawNavToolGroup:first-child {
-    padding-inline-start: 0;
-    margin-inline-start: 0;
-    border-inline-start: 0;
-  }
-
-  .rawNavGroupMark {
-    flex: 0 0 auto;
-    color: var(--raw-muted);
-    font-size: 11px;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .rawNavEmptyRail {
-    visibility: hidden;
-    width: 1px;
-  }
-
-  /* =========================================================
-     ONE SHEET — dashboard layout owns page rails for every route.
-     ========================================================= */
-  .rawDashboardContent {
-    width: 100%;
-    min-width: 0;
-    min-height: calc(100dvh - var(--raw-nav-primary-height) - var(--raw-nav-context-height));
-    overflow-x: clip;
-    box-sizing: border-box;
-    background: var(--raw-bg);
-  }
-
-  .rawDashboardContent > .workSheetMount {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: none;
-    min-width: 0;
-    min-height: calc(100dvh - var(--raw-nav-primary-height) - var(--raw-nav-context-height));
-    margin: 0;
-    padding: var(--work-sheet-top) var(--work-sheet-inline) var(--work-sheet-bottom);
-    position: relative;
-  }
-
-  /* A route without an explicit header still reserves the same notebook header
-     rail, so switching screen type does not pull its first content block upward. */
-  .rawDashboardContent > .workSheetMount:not(:has(.page-head, [data-work-header='true'], [data-page-header='true'], [data-work-context-bar='true']))::before {
-    content: '';
-    display: block;
-    box-sizing: border-box;
-    min-height: var(--work-header-min-height);
-    margin: 0 0 10px;
-    border-bottom: 1px solid var(--work-rule);
   }
 
   /* Legacy application shells are semantic only; they cannot create geometry. */
@@ -555,10 +377,7 @@
     background: transparent !important;
   }
 
-  /* No geometry animation. Changing route changes content, not the notebook frame. */
-  .rawNav,
-  .rawNavPrimary,
-  .rawNavContext,
+  /* Route changes replace content, not the stable work frame. */
   .rawDashboardContent,
   .rawDashboardContent > .workSheetMount,
   .rawDashboardContent [data-work-sheet='true'],
@@ -574,12 +393,6 @@
       --work-sheet-bottom: 54px;
       --work-header-min-height: 70px;
     }
-
-    .rawNav { padding-inline: 10px; }
-    .rawNavRailLabel { flex-basis: 44px; width: 44px; font-size: 11px; }
-    .rawNavAction span:last-child { display: none; }
-    .rawNavAction { width: 32px; padding: 0; }
-    .rawNavSignOut { padding-inline: 8px; }
 
     .rawDashboardContent [data-work-header='true'],
     .rawDashboardContent [data-page-header='true'],
@@ -598,10 +411,6 @@
   }
 
   @media (max-width: 520px) {
-    .rawNavRailLabel { display: none; }
-    .rawNavPrimary,
-    .rawNavContext { gap: 5px; }
-    .rawNavSignOut { min-width: 48px; }
     .grid.k4,
     .grid.k2,
     .form-grid { grid-template-columns: 1fr !important; }
