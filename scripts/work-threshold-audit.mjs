@@ -70,13 +70,16 @@ if (layout.indexOf('<WorkThresholdRuntime>') > layout.indexOf('<WorkSessionRunti
   failures.push('dashboard layout: عتبة العمل يجب أن تحيط بجلسة العمل حتى تبقى المنطقة بعد تحرير الجلسة.');
 }
 
-const body = requireText('app/dashboard/app-body-v3.css', [
-  ".rawDashboardShell[data-work-posture='work-zone']",
+const skin = requireText('app/dashboard/ui-skin-contract.css', [
+  "[data-work-posture='work-zone']",
   '.appWorkThresholdLine',
   '@keyframes appWorkThresholdArrive',
   "[data-work-session-state='working']",
+  "[data-ui-slot='application-stage']",
+  "[data-ui-slot='route-mount']",
 ]);
-if (/animation[^;]*[5-9]\d\dms|animation[^;]*\d+s/.test(body)) failures.push('app-body-v3.css: حركة عتبة العمل يجب أن تبقى قصيرة وهادئة.');
+if (/animation[^;]*[5-9]\d\dms|animation[^;]*\d+s/.test(skin)) failures.push('ui-skin-contract.css: حركة عتبة العمل يجب أن تبقى قصيرة وهادئة.');
+if (fs.existsSync(path.join(root, 'app/dashboard/app-body-v3.css'))) failures.push('app-body-v3.css: عادت طبقة جسم مستقلة بعد امتصاص عتبة العمل في الجلد الدلالي.');
 
 if (failures.length) {
   console.error('\nWork threshold audit failed:\n');
@@ -84,4 +87,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Work threshold audit passed: entering a place does not start a transaction, live work cannot be abandoned silently, drafts remain non-consequential, and released work keeps its zone context.');
+console.log('Work threshold audit passed: entering a place does not start a transaction, live work cannot be abandoned silently, drafts remain non-consequential, and released work keeps its zone context inside the semantic skin.');
