@@ -13,14 +13,19 @@ const PROJECT_ID = 'P1';
 const items = PROJECT_NAV_GROUPS.flatMap((group) => group.items);
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('project navigation separates daily work, setup-entry, and follow-up without duplicating functions', () => {
-  assert.deepEqual(PROJECT_NAV_GROUPS.map((group) => group.key), ['daily', 'entry', 'read']);
-  assert.deepEqual(PROJECT_NAV_GROUPS[0].items.map((item) => item.key), [
-    'attendance', 'expenses', 'daily-output',
+test('project navigation is grouped by the current real work worlds without duplicating functions', () => {
+  assert.deepEqual(PROJECT_NAV_GROUPS.map((group) => group.key), [
+    'status', 'operations', 'contract', 'finance', 'documents',
   ]);
-  assert.equal(PROJECT_NAV_GROUPS[1].items[0].key, 'labor');
-  assert.equal(PROJECT_NAV_GROUPS[2].items.some((item) => item.key === 'timesheet-reports'), true);
-  assert.equal(PROJECT_NAV_GROUPS[2].items.some((item) => item.key === 'movements'), true);
+  assert.deepEqual(PROJECT_NAV_GROUPS.map((group) => group.label), [
+    'موقف المشروع', 'التشغيل', 'العقد والنطاق', 'المال والمستخلصات', 'المستندات والمتابعة',
+  ]);
+  assert.equal(PROJECT_NAV_GROUPS[0].items[0].key, 'overview');
+  assert.equal(PROJECT_NAV_GROUPS[1].items.some((item) => item.key === 'attendance'), true);
+  assert.equal(PROJECT_NAV_GROUPS[1].items.some((item) => item.key === 'timesheet-reports'), true);
+  assert.equal(PROJECT_NAV_GROUPS[2].items.some((item) => item.key === 'scope'), true);
+  assert.equal(PROJECT_NAV_GROUPS[3].items.some((item) => item.key === 'claims'), true);
+  assert.equal(PROJECT_NAV_GROUPS[4].items.some((item) => item.key === 'docs'), true);
 });
 
 test('project navigation has one canonical entry per visible function', () => {
