@@ -25,7 +25,8 @@ html[data-app-theme='sand'] {
   --ui-row-height: 46px;
   --ui-gap: 10px;
   --ui-page-pad: 26px;
-  --ui-shell-nav-width: 196px;
+  --ui-shell-rail-width: 76px;
+  --ui-shell-nav-width: 220px;
 }
 
 html[data-app-theme='stone'] {
