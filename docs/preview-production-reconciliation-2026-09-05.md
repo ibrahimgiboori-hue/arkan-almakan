@@ -104,3 +104,10 @@ For each group before production:
 - Keep the preview finance engine (`235e483` lineage); reject the older main-only equal-month migration as superseded.
 - Carry the explanatory report improvements from `190e970` into the preview report while preserving the preview's newer report-preparation and print-governance features.
 - Do not touch production during reconciliation until the reconciled branch passes the gates above.
+
+## Final promotion record
+
+- The reconciliation was merged into `refactor/program-zero-residue-v1` as `1a35a22f248311ec4515150333f755b75b4b680e` and its Vercel preview build completed successfully.
+- The validated preview tree became the canonical production tree through merge commit `1d085c64929be1d9bcebfada45282b359f18cbe1`, preserving both production and preview histories while resolving the content in favor of the newer validated preview architecture.
+- The superseded equal-month reserve migration remains reachable in Git history but is intentionally absent from the canonical tree because the daily-proration engine supersedes it and the duplicate migration version would be unsafe to reintroduce.
+- After the production deployment of this record is confirmed READY, `refactor/program-zero-residue-v1` is to be fast-forwarded to the same production commit so production and preview are byte-for-byte identical at the branch tip.
