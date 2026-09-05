@@ -101,7 +101,7 @@ if (/\.insert\s*\(|fn_quick_add_workers|buildLaborerSavePayload/.test(contractor
 const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
-const contextualShellCss = 'app/dashboard/app-shell-v2.css';
+const contextualShellCss = 'app/dashboard/ui-shell-skin.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: الجسد الجديد غير مركب في ContextualDashboardNavigation.');
@@ -109,11 +109,14 @@ if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
 if (!dashboardLayout.includes("data-navigation-shell=\"contextual-slide-v2\"")) {
   failures.push('app/dashboard/layout.js: وسم الجسد الجديد contextual-slide-v2 مفقود.');
 }
-if (!dashboardLayout.includes("'./app-shell-v2.css'")) {
-  failures.push('app/dashboard/layout.js: أنماط الجسد الجديد app-shell-v2.css غير مربوطة.');
+if (!dashboardLayout.includes("'./ui-shell-skin.css'")) {
+  failures.push('app/dashboard/layout.js: جلد الغلاف القابل للاستبدال ui-shell-skin.css غير مربوط.');
 }
 if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(shellConstitution)) {
-  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور تجميعاتها أو أنماطها غير موجودة.');
+  failures.push('الجسد الجديد: ملفات الملاحة السياقية أو دستور تجميعاتها أو جلد الغلاف غير موجودة.');
+}
+if (exists('app/dashboard/app-shell-v2.css')) {
+  failures.push('الجسد الجديد: app-shell-v2.css عاد بعد ترقيته إلى ui-shell-skin.css.');
 }
 if (dashboardLayout.includes('RawDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: عاد شريط RawDashboardNavigation القديم إلى الجسد الجديد.');
