@@ -1,61 +1,61 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PRINT_DOCUMENTS, paginateRows } from '../lib/print-governance.js';
+import {
+  ARKAN_LETTERHEAD_PROFILE,
+  PRINT_DOCUMENTS,
+  PRINT_GOVERNANCE_VERSION,
+  PRINT_LINE_FLOW_POLICY,
+  PRINT_STATUS,
+  PRINT_WORD_STANDARD,
+  getPrintLayoutPolicy,
+} from '../lib/print-governance.js';
 
-test('uniform governed row pagination uses the declared regular cap', () => {
-  const items = Array.from({ length:20 }, (_, i) => i);
-  assert.deepEqual(paginateRows(items, { regular:7 }).map((page) => page.length), [7,7,6]);
+test('all registered print routes are governed by the current captain version', () => {
+  const entries = Object.entries(PRINT_DOCUMENTS);
+  assert.ok(entries.length > 0);
+  for (const [key, definition] of entries) {
+    assert.equal(definition.status, PRINT_STATUS.GOVERNED, key);
+    assert.equal(definition.governedVersion, PRINT_GOVERNANCE_VERSION, key);
+    assert.ok(Array.isArray(definition.routes) && definition.routes.length > 0, key);
+  }
 });
 
-test('first-only cap reserves room for a full identity header', () => {
-  const items = Array.from({ length:20 }, (_, i) => i);
-  const pages = paginateRows(items, { first:13, regular:16 });
-  assert.deepEqual(pages.map((page) => page.length), [13,7]);
-  assert.deepEqual(pages.flat(), items);
-  assert.deepEqual(paginateRows(items.slice(0,10), { first:13, regular:16 }).map((page) => page.length), [10]);
-  const bigItems = Array.from({ length:45 }, (_, i) => i);
-  assert.deepEqual(paginateRows(bigItems, { first:13, regular:16 }).map((page) => page.length), [13,16,16]);
+test('captain geometry is anchored to the Word A4 physical standard', () => {
+  assert.deepEqual(PRINT_WORD_STANDARD, {
+    id:'word-standard-a4-v1',
+    portraitWidthMm:210,
+    portraitHeightMm:297,
+    landscapeWidthMm:297,
+    landscapeHeightMm:210,
+    bodyMarginMm:25.4,
+    headerFromEdgeMm:12.7,
+    footerFromEdgeMm:12.7,
+  });
+  assert.equal(ARKAN_LETTERHEAD_PROFILE.watermarkBlocksContent, false);
+  assert.ok(ARKAN_LETTERHEAD_PROFILE.portraitTopArtworkMm > 0);
+  assert.ok(ARKAN_LETTERHEAD_PROFILE.portraitBottomArtworkMm > 0);
 });
 
-test('final-only cap reserves room for trailing totals and legends', () => {
-  const items = Array.from({ length:20 }, (_, i) => i);
-  const pages = paginateRows(items, { regular:22, final:13 });
-  assert.deepEqual(pages.map((page) => page.length), [7,13]);
-  assert.deepEqual(pages.flat(), items);
-  const bigItems = Array.from({ length:50 }, (_, i) => i);
-  assert.deepEqual(paginateRows(bigItems, { regular:22, final:13 }).map((page) => page.length), [22,15,13]);
+test('row pagination no longer uses fixed row capacities', () => {
+  assert.equal('pagination' in (PRINT_DOCUMENTS.timesheet_report.layout || {}), false);
+  assert.equal('pagination' in (PRINT_DOCUMENTS.expense_report.layout || {}), false);
+  assert.equal(typeof PRINT_DOCUMENTS.timesheet_report.layout?.pagination, 'undefined');
+  assert.equal(typeof PRINT_DOCUMENTS.expense_report.layout?.pagination, 'undefined');
 });
 
-test('first and final caps both apply, including the one-page edge case', () => {
-  const items = Array.from({ length:35 }, (_, i) => i);
-  assert.deepEqual(paginateRows(items, { first:13, regular:16, final:13 }).map((page) => page.length), [13,9,13]);
-
-  // If one physical page would violate the tighter final reserve, the engine must split it.
-  const tight = Array.from({ length:10 }, (_, i) => i);
-  assert.deepEqual(paginateRows(tight, { first:13, regular:16, final:8 }).map((page) => page.length), [9,1]);
-  assert.deepEqual(paginateRows(tight.slice(0,8), { first:13, regular:16, final:8 }).map((page) => page.length), [8]);
+test('visual line seams are owned by the one paged captain', () => {
+  assert.equal(PRINT_LINE_FLOW_POLICY.owner, 'ConstitutionPagedFrame');
+  assert.equal(PRINT_LINE_FLOW_POLICY.measurementUnit, 'visual-line-box');
+  assert.equal(PRINT_LINE_FLOW_POLICY.geometryUnit, 'mm');
+  assert.equal(PRINT_LINE_FLOW_POLICY.splitOnlyAfterCompletedLine, true);
+  assert.equal(PRINT_LINE_FLOW_POLICY.avoidSingleLineWidowWhenPossible, true);
 });
 
-test('empty input remains a printable empty page', () => {
-  assert.deepEqual(paginateRows([], { first:13, regular:16, final:13 }), [[]]);
-});
-
-test('invalid pagination policy fails loudly instead of silently inventing a row cap', () => {
-  assert.throws(() => paginateRows([1], {}), /pagination\.regular/);
-  assert.throws(() => paginateRows([1], { regular:0 }), /pagination\.regular/);
-  assert.throws(() => paginateRows([1,2], { regular:10, first:'bad' }), /pagination\.first/);
-});
-
-test('timesheet and expense reports declare row capacities once in print governance', () => {
-  const timesheet = PRINT_DOCUMENTS.timesheet_report.layout.pagination;
-  const expense = PRINT_DOCUMENTS.expense_report.layout.pagination;
-
-  assert.deepEqual(timesheet.matrix, { first:13, regular:16 });
-  assert.deepEqual(timesheet.detail, { regular:22 });
-  assert.deepEqual(timesheet.paper, { regular:18 });
-  assert.deepEqual(timesheet.summary, { regular:22, final:13 });
-  assert.deepEqual(expense, { first:13, regular:18 });
-
-  const rows = Array.from({ length:45 }, (_, i) => i);
-  assert.deepEqual(paginateRows(rows, expense).map((page) => page.length), [13,18,14]);
+test('document layout is derived from family policy plus document overrides', () => {
+  const payroll = getPrintLayoutPolicy('payroll_run');
+  const expense = getPrintLayoutPolicy('expense_report');
+  assert.equal(payroll.orientation, 'landscape');
+  assert.equal(expense.orientation, 'portrait');
+  assert.equal(payroll.paper.bodyMarginMm, 25.4);
+  assert.equal(expense.lineFlow.owner, 'ConstitutionPagedFrame');
 });
