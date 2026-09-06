@@ -78,7 +78,7 @@ export default function QuoteTextEditor() {
       terms_start: String(nextStart || '1').trim() || '1',
       show_terms: true,
     }).eq('id', id));
-    if (error) setErr(error.message); else flash('حُفظت الشروط');
+    if (error) setErr(error.message); else flash('حُفظت الشروط العامة');
   }
 
   async function openPrintPreview() {
@@ -126,8 +126,8 @@ export default function QuoteTextEditor() {
   return <>
     <div className="page-head">
       <div>
-        <h1>محرر النصوص <span className="mono" style={{fontSize:15,color:'var(--ink-soft)'}}>{q.quote_no}</span></h1>
-        <p>النص الافتتاحي + شروط منظمة + النص الختامي</p>
+        <h1>نصوص وشروط العرض <span className="mono" style={{fontSize:15,color:'var(--ink-soft)'}}>{q.quote_no}</span></h1>
+        <p>النص الافتتاحي + شروط خاصة بعرض السعر + الشروط والأحكام العامة + النص الختامي</p>
       </div>
       <div className="rowsplit">
         <button className="btn" type="button" onClick={openPrintPreview}>معاينة وطباعة</button>
@@ -148,7 +148,21 @@ export default function QuoteTextEditor() {
     </div>
 
     <div className="section" style={{padding:18,marginTop:0,marginBottom:16}}>
-      <header style={{padding:0,marginBottom:14}}><h2 style={{margin:0}}>الشروط والأحكام</h2></header>
+      <div className="field" style={{margin:0}}>
+        <label>شروط عرض السعر — تظهر بعد جدول الأسعار دون عنوان</label>
+        <textarea rows="6" value={q.terms_text || ''}
+          placeholder={'مثال:\nالأسعار فئات للوحدات الموضحة وتتم الفوترة حسب الكميات الفعلية المعتمدة.\nالأسعار لا تشمل ضريبة القيمة المضافة وتضاف عند إصدار الفاتورة.'}
+          onChange={(e)=>setQ({...q,terms_text:e.target.value})}
+          onBlur={(e)=>patchQuote({terms_text:e.target.value})} />
+        <span className="hint">كل شرط في سطر مستقل. هذه النصوص تخص العرض نفسه، ولا يضيف البرنامج وصفًا تلقائيًا مثل «بالساعة».</span>
+      </div>
+    </div>
+
+    <div className="section" style={{padding:18,marginTop:0,marginBottom:16}}>
+      <header style={{padding:0,marginBottom:14}}>
+        <h2 style={{margin:0}}>الشروط والأحكام العامة</h2>
+        <p className="hint" style={{margin:'6px 0 0'}}>الشروط التعاقدية العامة تظهر لاحقًا في المطبوعة كقسم مستقل ومنظم.</p>
+      </header>
       <div className="rowsplit" style={{alignItems:'end',marginBottom:15}}>
         <div className="field" style={{maxWidth:180,margin:0}}>
           <label>بداية الترقيم</label>
@@ -173,13 +187,13 @@ export default function QuoteTextEditor() {
             </div>
             <div className="field" style={{margin:0}}>
               <label>عنوان الشرط</label>
-              <input value={item.title || ''} placeholder="مثال: Advance Payment"
+              <input value={item.title || ''} placeholder="مثال: الدفعات والتأخير"
                 onChange={e=>patchItem(index,{title:e.target.value})}
                 onBlur={()=>saveTerms()} />
             </div>
             <div className="field" style={{margin:0}}>
               <label>نص الشرط</label>
-              <textarea rows="3" value={item.body || ''} placeholder="اكتب نص الشرط هنا..."
+              <textarea rows="3" value={item.body || ''} placeholder="اكتب نص الشرط العام هنا..."
                 onChange={e=>patchItem(index,{body:e.target.value})}
                 onBlur={()=>saveTerms()} />
             </div>
@@ -193,13 +207,13 @@ export default function QuoteTextEditor() {
         </div>
       ))}
       <div style={{marginTop:12}}>
-        <button className="btn" onClick={()=>{const next=[...items,newTerm()];setItems(next);saveTerms(next)}}>+ إضافة شرط</button>
+        <button className="btn" onClick={()=>{const next=[...items,newTerm()];setItems(next);saveTerms(next)}}>+ إضافة شرط عام</button>
       </div>
     </div>
 
     <div className="section" style={{padding:18,marginTop:0}}>
       <div className="field" style={{margin:0}}>
-        <label>النص الختامي (بعد الجدول)</label>
+        <label>النص الختامي (بعد الشروط)</label>
         <textarea rows="3" value={q.closing_text || ''}
           onChange={(e)=>setQ({...q,closing_text:e.target.value})}
           onBlur={(e)=>patchQuote({closing_text:e.target.value})} />
