@@ -1,0 +1,136 @@
+/*
+  ARKAN SIGNATURE — PROJECT OPERATION SCENES
+  -------------------------------------------
+  Real photographic backgrounds for the plain/empty working surfaces inside
+  Project Portal. The foreground controls remain readable and operational.
+  Screen only: never applied to print.
+
+  Photos are loaded from Unsplash's public image CDN. They are intentionally
+  contextual to the operation: workers for attendance/labor, field inspection
+  for daily output/progress, plans for planning/scope, money/accounting for
+  project finance, and technical desk imagery for reports/documents.
+*/
+
+@media screen {
+  html[data-ui-skin='signature'] {
+    --signature-project-photo-overview: url('https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-attendance: url('https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-labor: url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-daily-output: url('https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-progress: url('https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-movements: url('https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-reports: url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-planning: url('https://images.unsplash.com/photo-1531834685032-c34bf0d84c77?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-scope: url('https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-quotes: url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-changes: url('https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-settings: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-expenses: url('https://images.unsplash.com/photo-1554224154-26032fced8bd?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-custody: url('https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-payments: url('https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-claims: url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-guarantees: url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-cost-control: url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-documents: url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-correspondence: url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=2200&q=82');
+    --signature-project-photo-materials: url('https://images.unsplash.com/photo-1531834685032-c34bf0d84c77?auto=format&fit=crop&w=2200&q=82');
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] {
+    --signature-project-scene-photo: var(--signature-project-photo-overview);
+    --signature-project-scene-position: center 48%;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene='overview'] { --signature-project-scene-photo: var(--signature-project-photo-overview); --signature-project-scene-position: center 52%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='attendance'] { --signature-project-scene-photo: var(--signature-project-photo-attendance); --signature-project-scene-position: center 46%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='labor'] { --signature-project-scene-photo: var(--signature-project-photo-labor); --signature-project-scene-position: center 44%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='daily-output'] { --signature-project-scene-photo: var(--signature-project-photo-daily-output); --signature-project-scene-position: center 48%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='progress'] { --signature-project-scene-photo: var(--signature-project-photo-progress); --signature-project-scene-position: center 48%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='movements'] { --signature-project-scene-photo: var(--signature-project-photo-movements); --signature-project-scene-position: center 54%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='timesheet-reports'] { --signature-project-scene-photo: var(--signature-project-photo-reports); --signature-project-scene-position: center 48%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='planning'] { --signature-project-scene-photo: var(--signature-project-photo-planning); --signature-project-scene-position: center 46%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='scope'] { --signature-project-scene-photo: var(--signature-project-photo-scope); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='quotes'] { --signature-project-scene-photo: var(--signature-project-photo-quotes); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='changes'] { --signature-project-scene-photo: var(--signature-project-photo-changes); --signature-project-scene-position: center 46%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='settings'] { --signature-project-scene-photo: var(--signature-project-photo-settings); --signature-project-scene-position: center 45%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='expenses'] { --signature-project-scene-photo: var(--signature-project-photo-expenses); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='custody'] { --signature-project-scene-photo: var(--signature-project-photo-custody); --signature-project-scene-position: center 48%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='payments'] { --signature-project-scene-photo: var(--signature-project-photo-payments); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='claims'] { --signature-project-scene-photo: var(--signature-project-photo-claims); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='guarantees'] { --signature-project-scene-photo: var(--signature-project-photo-guarantees); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='cost-control'] { --signature-project-scene-photo: var(--signature-project-photo-cost-control); --signature-project-scene-position: center 50%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='documents'] { --signature-project-scene-photo: var(--signature-project-photo-documents); --signature-project-scene-position: center 48%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='correspondence'] { --signature-project-scene-photo: var(--signature-project-photo-correspondence); --signature-project-scene-position: center 48%; }
+  html[data-ui-skin='signature'][data-signature-project-scene='materials'] { --signature-project-scene-photo: var(--signature-project-photo-materials); --signature-project-scene-position: center 48%; }
+
+  /* The previously plain ivory canvas becomes the photographic scene for the exact operation. */
+  html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .appBodyStage {
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--ui-signature-ivory) 73%, transparent) 0%,
+        color-mix(in srgb, var(--ui-signature-ivory) 80%, transparent) 42%,
+        color-mix(in srgb, var(--ui-signature-paper) 88%, transparent) 76%,
+        color-mix(in srgb, var(--ui-signature-paper) 93%, transparent) 100%),
+      var(--signature-project-scene-photo) var(--signature-project-scene-position) / cover fixed no-repeat !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .rawDashboardContent,
+  html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .workSheetMount {
+    background: transparent !important;
+  }
+
+  /* Keep working surfaces readable while allowing the scene to remain visible around and through them. */
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(
+    [data-ui-slot='page-header'],
+    [data-ui-role='table'],
+    [data-table-surface='true'],
+    [data-record-list='true'],
+    form
+  ) {
+    backdrop-filter: blur(10px) saturate(106%);
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount [data-ui-slot='page-header'] {
+    background:
+      linear-gradient(90deg,
+        color-mix(in srgb, var(--ui-signature-paper) 62%, transparent),
+        color-mix(in srgb, var(--ui-signature-paper) 90%, transparent)),
+      var(--signature-project-scene-photo) var(--signature-project-scene-position) / cover no-repeat !important;
+  }
+
+  /* A soft photo wash survives in the large blank zones without competing with controls. */
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount {
+    position: relative;
+    isolation: isolate;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--ui-signature-ivory) 58%, transparent),
+        color-mix(in srgb, var(--ui-signature-ivory) 74%, transparent)),
+      var(--signature-project-scene-photo) var(--signature-project-scene-position) / cover fixed no-repeat;
+    opacity: .42;
+  }
+
+  @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .appBodyStage,
+    html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount::before {
+      background-attachment: scroll !important;
+      background-position: center top !important;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .appBodyStage {
+      background:
+        linear-gradient(var(--ui-signature-ivory), var(--ui-signature-ivory)),
+        var(--signature-project-scene-photo) center / cover no-repeat !important;
+    }
+  }
+}
