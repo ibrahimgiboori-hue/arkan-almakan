@@ -15,7 +15,6 @@ import './quote-flow.css';
 
 const EN_UNIT = {'م2':'m²','م²':'m²','م3':'m³','م³':'m³','م':'m','م طولي':'LM','م.ط':'LM','عدد':'No.','قطعة':'No.','يوم':'Day','ساعة':'Hr','طن':'Ton','كجم':'kg','لتر':'L','مقطوعية':'Lump Sum'};
 function dateEn(value){if(!value)return'—';const d=value instanceof Date?value:new Date(value);if(Number.isNaN(d.getTime()))return String(value);return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d)}
-function splitTerm(raw,index){const text=String(raw||'').trim();const parts=text.split(/\s+[—–-]\s+/,2);if(parts.length===2)return{id:`legacy-term-${index}`,title:parts[0].trim(),body:parts[1].trim(),number_override:null};return{id:`legacy-term-${index}`,title:'',body:text,number_override:null}}
 
 export default function QuotePrint(){
   const {id}=useParams();
@@ -49,8 +48,8 @@ export default function QuotePrint(){
   const rateOnly=!q.show_qty;
   const showTotalCol=q.show_line_total&&!rateOnly;
   const t=totals(q,lines);
-  const legacyTerms=(q.terms_text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(splitTerm);
-  const sourceTerms=Array.isArray(q.terms_structured)&&q.terms_structured.length?q.terms_structured:legacyTerms;
+  const quoteSpecificTerms=(q.terms_text||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const sourceTerms=Array.isArray(q.terms_structured)?q.terms_structured:[];
   const termItems=resolveTermNumbers(sourceTerms,q.terms_start||'3').map((term,index)=>({...term,id:term.id||`term-${index}`}));
   const paperApproval=q.paper_approval_enabled!==false;
   const isEn=q.language==='en';
@@ -104,11 +103,18 @@ export default function QuotePrint(){
           <tbody>{numbered.map(line=><Row l={line} key={line.id}/>)}</tbody>
         </table>
 
-        {rateOnly?<div className="q-sum rate-only"><div className="srow"><span>{q.supply_scope==='labor_only'?tr('الأسعار المذكورة أعلاه بالساعة، وتتم الفوترة حسب ساعات العمل الفعلية المعتمدة.','The above rates are hourly rates. Invoicing will be based on actual approved working hours.'):tr('الأسعار المذكورة أعلاه فئات للوحدة، وتتم الفوترة حسب الكميات الفعلية المعتمدة.','The above rates are unit rates. Invoicing will be based on actual approved quantities.')}</span></div>{q.vat_mode!=='none'&&<div className="srow"><span>{isEn?`The above rates exclude VAT at ${(Number(q.vat_rate)*100).toFixed(0)}%, which will be added as applicable.`:`الفئات لا تشمل ضريبة القيمة المضافة ${(Number(q.vat_rate)*100).toFixed(0)}٪ — تُضاف عند إصدار الفاتورة`}</span></div>}</div>:<div className="q-sum"><div className="srow grand"><span>{tr('المجموع','Total')}</span><span className="mono">{money(t.grand)} <Riyal/></span></div></div>}
+        {!rateOnly?<div className="q-sum"><div className="srow grand"><span>{tr('المجموع','Total')}</span><span className="mono">{money(t.grand)} <Riyal/></span></div></div>:null}
+
+        {quoteSpecificTerms.length?<div className="q-sum rate-only" aria-label={tr('شروط عرض السعر','Quotation conditions')}>
+          {quoteSpecificTerms.map((term,index)=><div className="srow" key={`quote-term-${index}`}><span>{term}</span></div>)}
+        </div>:null}
 
         {q.show_payments&&pays.length?<div className="q-block pay"><div className="qb-head">{tr('2. شروط الدفع','2. Payment Terms')}</div><table className="q-pay"><thead><tr><th style={{width:'9mm'}}>{tr('م','No.')}</th><th>{tr('الدفعة','Payment')}</th><th style={{width:'16mm'}} className="num">{tr('النسبة','%')}</th><th>{tr('الاستحقاق','Due / Milestone')}</th></tr></thead><tbody>{pays.map((payment,index)=><tr key={payment.id}><td>{index+1}</td><td>{isEn&&payment.label==='دفعة'?'Payment':payment.label}</td><td className="num">{Number(payment.percent||0)}%</td><td className="payment-note">{payment.trigger_note||'—'}</td></tr>)}</tbody></table></div>:null}
 
-        {q.show_terms?termItems.map(term=><section className="q-term-flow" key={term.id}><h3><span className="term-no">{term.number}.</span>{term.title}</h3>{term.body&&<p>{term.body}</p>}</section>):null}
+        {q.show_terms&&termItems.length?<>
+          <div className="q-block" data-print-keep-with-next="true"><div className="qb-head">{tr('الشروط والأحكام العامة','General Terms & Conditions')}</div></div>
+          {termItems.map(term=><section className="q-term-flow" key={term.id}><h3><span className="term-no">{term.number}.</span>{term.title}</h3>{term.body&&<p>{term.body}</p>}</section>)}
+        </>:null}
         {q.show_closing&&q.closing_text?<p className="q-closing">{q.closing_text}</p>:null}
         {paperApproval?<PrintApprovalBlock declaration={tr('بالتوقيع أدناه، يؤكد العميل قبوله لهذا العرض وشروطه التجارية.','By signing below, the Client confirms acceptance of this quotation and its commercial terms.')} parties={approvalParties}/>:null}
         <div className="q-foot">{q.show_bank&&(cfg.bank_name_full||cfg.bank_account_no||cfg.bank_iban)&&<div className="q-bank" dir={dir}><div className="qb-t">{tr('تفاصيل الحساب البنكي','Bank Details')}</div><div className="bank-line">{bankName}</div>{cfg.bank_account_no&&<div className="bank-line"><span className="bank-label">{tr('رقم الحساب','Account No.')}:</span> <span className="mono acct">{cfg.bank_account_no}</span></div>}{cfg.bank_iban&&<div className="bank-line"><span className="bank-label">IBAN:</span> <span className="mono acct">{cfg.bank_iban}</span></div>}</div>}</div>
