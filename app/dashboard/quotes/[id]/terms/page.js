@@ -30,6 +30,10 @@ function newTerm() {
   return { id: crypto.randomUUID(), title: '', body: '', number_override: null };
 }
 
+function hasTermContent(item) {
+  return Boolean(String(item?.title || '').trim() || String(item?.body || '').trim());
+}
+
 export default function QuoteTextEditor() {
   const { id } = useParams();
   const [q, setQ] = useState(null);
@@ -73,12 +77,13 @@ export default function QuoteTextEditor() {
   }
 
   async function saveTerms(nextItems = items, nextStart = start) {
+    const persistedItems = nextItems.filter(hasTermContent);
     const { error } = await trackWrite(supabase.from('quotations').update({
-      terms_structured: nextItems,
+      terms_structured: persistedItems,
       terms_start: String(nextStart || '1').trim() || '1',
-      show_terms: true,
+      show_terms: persistedItems.length > 0,
     }).eq('id', id));
-    if (error) setErr(error.message); else flash('حُفظت الشروط العامة');
+    if (error) setErr(error.message); else flash(persistedItems.length ? 'حُفظت الشروط العامة' : 'لا توجد شروط عامة للطباعة');
   }
 
   async function openPrintPreview() {
@@ -108,8 +113,9 @@ export default function QuoteTextEditor() {
 
   function remove(index) {
     const next = items.filter((_, i) => i !== index);
-    setItems(next.length ? next : [newTerm()]);
-    saveTerms(next.length ? next : [newTerm()]);
+    const visible = next.length ? next : [newTerm()];
+    setItems(visible);
+    saveTerms(next);
   }
 
   function move(index, direction) {
@@ -161,29 +167,30 @@ export default function QuoteTextEditor() {
     <div className="section" style={{padding:18,marginTop:0,marginBottom:16}}>
       <header style={{padding:0,marginBottom:14}}>
         <h2 style={{margin:0}}>الشروط والأحكام العامة</h2>
-        <p className="hint" style={{margin:'6px 0 0'}}>الشروط التعاقدية العامة تظهر لاحقًا في المطبوعة كقسم مستقل ومنظم.</p>
+        <p className="hint" style={{margin:'6px 0 0'}}>الشروط التعاقدية العامة تظهر لاحقًا في المطبوعة كقسم مستقل ومنظم. السطر الفارغ هنا مجرد مساحة للكتابة ولا يُطبع.</p>
       </header>
-      <div className="rowsplit" style={{alignItems:'end',marginBottom:15}}>
-        <div className="field" style={{maxWidth:180,margin:0}}>
+
+      <div style={{display:'grid',gridTemplateColumns:'minmax(160px,220px) minmax(0,1fr)',gap:18,alignItems:'start',marginBottom:15}}>
+        <div className="field" style={{margin:0}}>
           <label>بداية الترقيم</label>
-          <input dir="ltr" value={start} placeholder="مثال: 2 أو 2-1"
+          <input dir="ltr" value={start} placeholder="مثال: 1 أو 2-1"
             onChange={e=>setStart(e.target.value)}
             onBlur={e=>saveTerms(items,e.target.value)} />
+          <span className="hint">يبدأ أول شرط بهذا الرقم، ثم يكمل النظام تلقائيًا.</span>
         </div>
-        <div className="hint" style={{maxWidth:720,lineHeight:1.7}}>
-          اكتب البداية فقط، ثم يكمّل النظام النمط تلقائياً. ويمكنك تعديل رقم أي بند يدوياً؛ مثال: 2 ثم 2-1 فيصبح التالي 2-2، وإذا كتبت 3 يصبح التالي 4.
+        <div className="hint" style={{lineHeight:1.8,paddingTop:24}}>
+          يمكنك ترك أرقام البنود على الوضع التلقائي، أو كتابة رقم يدوي لبند محدد عند الحاجة. الشرط لا يدخل المطبوعة إلا بعد كتابة عنوانه أو نصه.
         </div>
       </div>
 
       {numbered.map((item, index) => (
         <div key={item.id || index} style={{borderTop:index ? '1px solid var(--hair)' : 'none',padding:'13px 0'}}>
-          <div style={{display:'grid',gridTemplateColumns:'90px minmax(190px,.75fr) minmax(330px,1.9fr) 145px',gap:10,alignItems:'start'}}>
+          <div style={{display:'grid',gridTemplateColumns:'minmax(82px,100px) minmax(210px,.8fr) minmax(340px,1.8fr) minmax(132px,150px)',gap:10,alignItems:'start'}}>
             <div className="field" style={{margin:0}}>
               <label>الرقم</label>
-              <input dir="ltr" value={item.number_override ?? ''} placeholder={item.resolved_number}
+              <input dir="ltr" value={item.number_override ?? ''} placeholder={`تلقائي: ${item.resolved_number}`}
                 onChange={e=>patchItem(index,{number_override:e.target.value || null})}
                 onBlur={()=>saveTerms()} />
-              <span className="hint">{item.resolved_number}</span>
             </div>
             <div className="field" style={{margin:0}}>
               <label>عنوان الشرط</label>
