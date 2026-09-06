@@ -15,6 +15,7 @@ import './quote-flow.css';
 
 const EN_UNIT = {'م2':'m²','م²':'m²','م3':'m³','م³':'m³','م':'m','م طولي':'LM','م.ط':'LM','عدد':'No.','قطعة':'No.','يوم':'Day','ساعة':'Hr','طن':'Ton','كجم':'kg','لتر':'L','مقطوعية':'Lump Sum'};
 function dateEn(value){if(!value)return'—';const d=value instanceof Date?value:new Date(value);if(Number.isNaN(d.getTime()))return String(value);return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d)}
+function hasTermContent(term){return Boolean(String(term?.title||'').trim()||String(term?.body||'').trim())}
 
 export default function QuotePrint(){
   const {id}=useParams();
@@ -49,7 +50,7 @@ export default function QuotePrint(){
   const showTotalCol=q.show_line_total&&!rateOnly;
   const t=totals(q,lines);
   const quoteSpecificTerms=(q.terms_text||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  const sourceTerms=Array.isArray(q.terms_structured)?q.terms_structured:[];
+  const sourceTerms=(Array.isArray(q.terms_structured)?q.terms_structured:[]).filter(hasTermContent);
   const termItems=resolveTermNumbers(sourceTerms,q.terms_start||'3').map((term,index)=>({...term,id:term.id||`term-${index}`}));
   const paperApproval=q.paper_approval_enabled!==false;
   const isEn=q.language==='en';
@@ -113,7 +114,10 @@ export default function QuotePrint(){
 
         {q.show_terms&&termItems.length?<>
           <div className="q-block" data-print-keep-with-next="true"><div className="qb-head">{tr('الشروط والأحكام العامة','General Terms & Conditions')}</div></div>
-          {termItems.map(term=><section className="q-term-flow" key={term.id}><h3><span className="term-no">{term.number}.</span>{term.title}</h3>{term.body&&<p>{term.body}</p>}</section>)}
+          {termItems.map(term=><section className="q-term-flow" key={term.id}>
+            {String(term.title||'').trim()?<h3><span className="term-no">{term.number}.</span>{term.title}</h3>:null}
+            {String(term.body||'').trim()?<p>{!String(term.title||'').trim()?<><span className="term-no">{term.number}.</span>{' '}</>:null}{term.body}</p>:null}
+          </section>)}
         </>:null}
         {q.show_closing&&q.closing_text?<p className="q-closing">{q.closing_text}</p>:null}
         {paperApproval?<PrintApprovalBlock declaration={tr('بالتوقيع أدناه، يؤكد العميل قبوله لهذا العرض وشروطه التجارية.','By signing below, the Client confirms acceptance of this quotation and its commercial terms.')} parties={approvalParties}/>:null}
