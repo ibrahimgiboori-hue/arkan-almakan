@@ -1,0 +1,149 @@
+/* ARKAN SIGNATURE — WHOLE APP CONTEXTUAL PHOTO CANVAS */
+@media screen {
+  html[data-ui-skin='signature'] {
+    --sig-app-home:url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-work:url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-approvals:url('https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-projects:url('https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-contractors:url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-clients:url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-quotes:url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-employees:url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-attendance:url('https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-recruitment:url('https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-contracts:url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-onboarding:url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-leaves:url('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-finance:url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-budget:url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-expenses:url('https://images.unsplash.com/photo-1554224154-26032fced8bd?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-advances:url('https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-docs:url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-archive:url('https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-register:url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-builder:url('https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-board:url('https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-company:url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-access:url('https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-structure:url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=2200&q=82');
+    --sig-app-backup:url('https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=2200&q=82');
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] {
+    --sig-scene:var(--sig-app-home);
+    --sig-fallback:var(--signature-photo-home);
+    --sig-pos:center 48%;
+    --sig-surface:color-mix(in srgb,var(--ui-signature-paper) 91%,transparent);
+    --sig-surface-strong:color-mix(in srgb,var(--ui-signature-paper) 97%,transparent);
+    --sig-cell:color-mix(in srgb,var(--ui-signature-paper) 85%,transparent);
+    --sig-border:color-mix(in srgb,var(--ui-signature-burgundy) 17%,var(--ui-border));
+    --sig-shadow:0 14px 36px color-mix(in srgb,var(--ui-signature-deep) 10%,transparent);
+  }
+
+  html[data-signature-app-scene='home']{--sig-scene:var(--sig-app-home)}
+  html[data-signature-app-scene='work-my-work']{--sig-scene:var(--sig-app-work)}
+  html[data-signature-app-scene='work-approvals']{--sig-scene:var(--sig-app-approvals)}
+  html[data-signature-app-scene='projects-portfolio']{--sig-scene:var(--sig-app-projects);--sig-fallback:var(--signature-photo-projects)}
+  html[data-signature-app-scene='projects-contractors']{--sig-scene:var(--sig-app-contractors);--sig-fallback:var(--signature-photo-projects)}
+  html[data-signature-app-scene='projects-clients']{--sig-scene:var(--sig-app-clients);--sig-fallback:var(--signature-photo-projects)}
+  html[data-signature-app-scene='projects-quotes']{--sig-scene:var(--sig-app-quotes);--sig-fallback:var(--signature-photo-projects)}
+  html[data-signature-app-scene='workforce-employees']{--sig-scene:var(--sig-app-employees);--sig-fallback:var(--signature-photo-workforce);--sig-pos:center 42%}
+  html[data-signature-app-scene='workforce-attendance']{--sig-scene:var(--sig-app-attendance);--sig-fallback:var(--signature-photo-workforce)}
+  html[data-signature-app-scene='workforce-recruitment'],html[data-signature-app-scene='workforce-offers']{--sig-scene:var(--sig-app-recruitment);--sig-fallback:var(--signature-photo-workforce)}
+  html[data-signature-app-scene='workforce-contracts']{--sig-scene:var(--sig-app-contracts);--sig-fallback:var(--signature-photo-workforce)}
+  html[data-signature-app-scene='workforce-onboarding']{--sig-scene:var(--sig-app-onboarding);--sig-fallback:var(--signature-photo-workforce)}
+  html[data-signature-app-scene='workforce-leaves'],html[data-signature-app-scene='workforce-leave-history']{--sig-scene:var(--sig-app-leaves);--sig-fallback:var(--signature-photo-workforce)}
+  html[data-signature-app-scene='finance-advances']{--sig-scene:var(--sig-app-advances);--sig-fallback:var(--signature-photo-finance)}
+  html[data-signature-app-scene='finance-budget']{--sig-scene:var(--sig-app-budget);--sig-fallback:var(--signature-photo-finance)}
+  html[data-signature-app-scene='finance-expenses']{--sig-scene:var(--sig-app-expenses);--sig-fallback:var(--signature-photo-finance)}
+  html[data-signature-app-scene='documents-library']{--sig-scene:var(--sig-app-docs);--sig-fallback:var(--signature-photo-documents)}
+  html[data-signature-app-scene='documents-archive']{--sig-scene:var(--sig-app-archive);--sig-fallback:var(--signature-photo-documents)}
+  html[data-signature-app-scene='documents-register']{--sig-scene:var(--sig-app-register);--sig-fallback:var(--signature-photo-documents)}
+  html[data-signature-app-scene='documents-builder']{--sig-scene:var(--sig-app-builder);--sig-fallback:var(--signature-photo-documents)}
+  html[data-signature-app-scene='admin-board']{--sig-scene:var(--sig-app-board);--sig-fallback:var(--signature-photo-admin)}
+  html[data-signature-app-scene='admin-company']{--sig-scene:var(--sig-app-company);--sig-fallback:var(--signature-photo-admin)}
+  html[data-signature-app-scene='admin-access']{--sig-scene:var(--sig-app-access);--sig-fallback:var(--signature-photo-admin)}
+  html[data-signature-app-scene='admin-structure']{--sig-scene:var(--sig-app-structure);--sig-fallback:var(--signature-photo-admin)}
+  html[data-signature-app-scene='admin-backup']{--sig-scene:var(--sig-app-backup);--sig-fallback:var(--signature-photo-admin)}
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell{
+    --signature-context-photo:var(--sig-scene);
+    --signature-context-photo-position:var(--sig-pos);
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .appBodyStage,
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .workSheetMount{
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb,var(--ui-signature-ivory) 30%,transparent) 0%,
+        color-mix(in srgb,var(--ui-signature-ivory) 43%,transparent) 45%,
+        color-mix(in srgb,var(--ui-signature-paper) 58%,transparent) 100%),
+      var(--sig-scene) var(--sig-pos)/cover fixed no-repeat,
+      var(--sig-fallback) center/cover fixed no-repeat !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .workSheetMount{
+    min-height:calc(100dvh - 20px);position:relative;isolation:isolate;
+  }
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .rawDashboardContent{background:transparent!important}
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(
+    [data-work-ledger='true'],[data-ui-role='table'],[data-table-surface='true'],
+    [data-record-list='true'],[data-selection-surface='true'],[data-ui-role='card'],
+    [data-ui-slot='card'],[data-ui-slot='form'],form,[role='dialog']){
+    border-color:var(--sig-border)!important;background:var(--sig-surface)!important;
+    box-shadow:var(--sig-shadow);backdrop-filter:blur(18px) saturate(112%);
+    -webkit-backdrop-filter:blur(18px) saturate(112%);
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount [data-work-ledger='true']{overflow:hidden auto;border-radius:16px!important}
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is([data-work-ledger='true'] table,[data-ui-role='table']){background:transparent!important}
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount table thead th{
+    background:var(--sig-surface-strong)!important;color:var(--ui-signature-charcoal)!important;border-color:var(--sig-border)!important
+  }
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount table tbody td{
+    background:var(--sig-cell)!important;color:var(--ui-signature-charcoal)!important;
+    border-color:color-mix(in srgb,var(--ui-signature-burgundy) 11%,var(--ui-border-soft))!important
+  }
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount table tbody tr:hover td{
+    background:color-mix(in srgb,var(--ui-signature-paper) 94%,var(--ui-signature-gold-soft))!important
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(input,select,textarea){
+    background:color-mix(in srgb,var(--ui-signature-paper) 98%,transparent)!important;
+    color:var(--ui-signature-charcoal)!important;
+    border-color:color-mix(in srgb,var(--ui-signature-burgundy) 22%,var(--ui-border))!important;
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,white 28%,transparent),0 3px 10px color-mix(in srgb,var(--ui-signature-deep) 5%,transparent)
+  }
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(input,select,textarea)::placeholder{
+    color:color-mix(in srgb,var(--ui-signature-charcoal) 60%,var(--ui-text-muted))!important;opacity:1
+  }
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(input,select,textarea):focus{
+    border-color:var(--ui-signature-burgundy)!important;
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-signature-burgundy) 15%,transparent)!important
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(
+    [class*='panelTitle'],[class*='summaryStrip'],[class*='summaryCard'],[class*='metricCard'],
+    [class*='statCard'],[class*='controlBar'],[class*='toolbar'],[class*='Toolbar'],
+    [class*='filterBar'],[class*='FilterBar'],[class*='historyHead'],[class*='footerActions']){
+    border:1px solid var(--sig-border);border-radius:14px;
+    background:color-mix(in srgb,var(--ui-signature-paper) 88%,transparent)!important;
+    box-shadow:0 10px 28px color-mix(in srgb,var(--ui-signature-deep) 7%,transparent);
+    backdrop-filter:blur(16px) saturate(110%);-webkit-backdrop-filter:blur(16px) saturate(110%)
+  }
+
+  @media (max-width:900px),(hover:none),(pointer:coarse){
+    html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .appBodyStage,
+    html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .workSheetMount{
+      background-attachment:scroll,scroll,scroll!important;background-position:center top,center top,center top!important
+    }
+  }
+  @media (prefers-reduced-transparency:reduce){
+    html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(
+      [data-work-ledger='true'],[data-ui-role='table'],[data-table-surface='true'],[data-record-list='true'],
+      [data-selection-surface='true'],[data-ui-role='card'],[data-ui-slot='card'],[data-ui-slot='form'],form,[role='dialog']){
+      background:var(--ui-signature-paper)!important;backdrop-filter:none!important
+    }
+  }
+}
