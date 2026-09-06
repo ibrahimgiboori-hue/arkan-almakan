@@ -4,11 +4,13 @@ import './ui-external-skin.css';
 import './ui-signature-skin.css';
 import './ui-signature-tailoring.css';
 import './ui-signature-photo-skin.css';
+import './ui-signature-app-scenes.css';
 import './ui-signature-project-scenes.css';
 import './ui-signature-project-surface-contrast.css';
 import { Suspense } from 'react';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
+import SignatureAppSceneRuntime from '@/components/ui/SignatureAppSceneRuntime';
 import SignatureProjectSceneRuntime from '@/components/ui/SignatureProjectSceneRuntime';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
 import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
@@ -44,6 +46,7 @@ export default function RootLayout({ children }) {
       <body>
         <QuoteTerminologyFix />
         <Suspense fallback={null}>
+          <SignatureAppSceneRuntime />
           <SignatureProjectSceneRuntime />
         </Suspense>
         {children}
