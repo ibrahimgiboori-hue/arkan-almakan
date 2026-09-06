@@ -5,6 +5,7 @@ import './ui-signature-skin.css';
 import './ui-signature-tailoring.css';
 import './ui-signature-photo-skin.css';
 import './ui-signature-project-scenes.css';
+import './ui-signature-project-surface-contrast.css';
 import { Suspense } from 'react';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
