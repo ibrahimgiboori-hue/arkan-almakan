@@ -1,0 +1,170 @@
+/*
+  ARKAN SIGNATURE — PROJECT FOREGROUND CONTRACT
+  ------------------------------------------------
+  Screen-only contrast policy for Project Portal photographic scenes.
+  The photograph owns the empty canvas; operational controls own opaque,
+  readable foreground surfaces. This file is intentionally loaded after the
+  project scene layer so no legacy ivory canvas can hide the active scene.
+*/
+
+@media screen {
+  html[data-ui-skin='signature'][data-signature-project-scene] {
+    --signature-scene-surface: color-mix(in srgb, var(--ui-signature-paper) 91%, transparent);
+    --signature-scene-surface-strong: color-mix(in srgb, var(--ui-signature-paper) 97%, transparent);
+    --signature-scene-cell: color-mix(in srgb, var(--ui-signature-paper) 84%, transparent);
+    --signature-scene-border: color-mix(in srgb, var(--ui-signature-burgundy) 17%, var(--ui-border));
+    --signature-scene-shadow: 0 14px 36px color-mix(in srgb, var(--ui-signature-deep) 10%, transparent);
+    --signature-project-scene-fallback: var(--signature-photo-projects);
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene='expenses'] {
+    --signature-project-scene-fallback: var(--signature-photo-finance);
+  }
+
+  /*
+    The work canvas itself carries the scene. This is deliberately stronger
+    than the previous pseudo-element wash so large empty zones can never fall
+    back to a flat ivory page.
+  */
+  html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .workSheetMount {
+    position: relative;
+    isolation: isolate;
+    min-height: calc(100dvh - 20px);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--ui-signature-ivory) 34%, transparent) 0%,
+        color-mix(in srgb, var(--ui-signature-ivory) 48%, transparent) 45%,
+        color-mix(in srgb, var(--ui-signature-paper) 62%, transparent) 100%),
+      var(--signature-project-scene-photo) var(--signature-project-scene-position) / cover fixed no-repeat,
+      var(--signature-project-scene-fallback) center / cover fixed no-repeat !important;
+  }
+
+  /* Expenses gets a finance-first fallback and a clearer exposed lower canvas. */
+  html[data-ui-skin='signature'][data-signature-project-scene='expenses'] .rawDashboardShell .workSheetMount {
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--ui-signature-ivory) 28%, transparent) 0%,
+        color-mix(in srgb, var(--ui-signature-ivory) 42%, transparent) 46%,
+        color-mix(in srgb, var(--ui-signature-paper) 55%, transparent) 100%),
+      var(--signature-project-scene-photo) center 48% / cover fixed no-repeat,
+      var(--signature-photo-finance) center 46% / cover fixed no-repeat !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount::before {
+    display: none !important;
+  }
+
+  /*
+    Hard foreground rule: tables, ledgers, forms and record surfaces become
+    high-contrast glass/paper objects. The photograph stays outside them.
+  */
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(
+    [data-work-ledger='true'],
+    [data-ui-role='table'],
+    [data-table-surface='true'],
+    [data-record-list='true'],
+    [data-selection-surface='true'],
+    [data-ui-slot='form'],
+    form,
+    [role='dialog']
+  ) {
+    border-color: var(--signature-scene-border) !important;
+    background: var(--signature-scene-surface) !important;
+    box-shadow: var(--signature-scene-shadow);
+    backdrop-filter: blur(18px) saturate(112%);
+    -webkit-backdrop-filter: blur(18px) saturate(112%);
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount [data-work-ledger='true'] {
+    overflow: hidden auto;
+    border-radius: 16px !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount [data-work-ledger='true'] table,
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount [data-ui-role='table'] {
+    background: transparent !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount table thead th {
+    background: var(--signature-scene-surface-strong) !important;
+    color: var(--ui-signature-charcoal) !important;
+    border-color: var(--signature-scene-border) !important;
+    backdrop-filter: blur(16px) saturate(108%);
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount table tbody td {
+    background: var(--signature-scene-cell) !important;
+    color: var(--ui-signature-charcoal) !important;
+    border-color: color-mix(in srgb, var(--ui-signature-burgundy) 11%, var(--ui-border-soft)) !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount table tbody tr:hover td {
+    background: color-mix(in srgb, var(--ui-signature-paper) 94%, var(--ui-signature-gold-soft)) !important;
+  }
+
+  /* Fields must remain unequivocally readable regardless of the underlying photo. */
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(input, select, textarea) {
+    background: color-mix(in srgb, var(--ui-signature-paper) 98%, transparent) !important;
+    color: var(--ui-signature-charcoal) !important;
+    border-color: color-mix(in srgb, var(--ui-signature-burgundy) 22%, var(--ui-border)) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, white 28%, transparent), 0 3px 10px color-mix(in srgb, var(--ui-signature-deep) 5%, transparent);
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(input, select, textarea)::placeholder {
+    color: color-mix(in srgb, var(--ui-signature-charcoal) 58%, var(--ui-text-muted)) !important;
+    opacity: 1;
+  }
+
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(input, select, textarea):focus {
+    border-color: var(--ui-signature-burgundy) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-signature-burgundy) 15%, transparent) !important;
+  }
+
+  /* Existing CSS-module operational headers/summaries are promoted to surfaces too. */
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(
+    [class*='panelTitle'],
+    [class*='summaryStrip'],
+    [class*='movementSummary'],
+    [class*='controlBar'],
+    [class*='contractorBar'],
+    [class*='historyHead'],
+    [class*='footer']
+  ) {
+    border: 1px solid var(--signature-scene-border);
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--ui-signature-paper) 86%, transparent) !important;
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--ui-signature-deep) 7%, transparent);
+    backdrop-filter: blur(16px) saturate(110%);
+    -webkit-backdrop-filter: blur(16px) saturate(110%);
+  }
+
+  /* Preserve semantic accent buttons; only neutral buttons receive a paper surface. */
+  html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount button:not([data-ui-variant='primary']):not([data-tone='danger']):not([data-tone='success']) {
+    border-color: color-mix(in srgb, var(--ui-signature-burgundy) 18%, var(--ui-border));
+  }
+
+  @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    html[data-ui-skin='signature'][data-signature-project-scene] .rawDashboardShell .workSheetMount,
+    html[data-ui-skin='signature'][data-signature-project-scene='expenses'] .rawDashboardShell .workSheetMount {
+      background-attachment: scroll, scroll, scroll !important;
+      background-position: center top, center top, center top !important;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    html[data-ui-skin='signature'][data-signature-project-scene] .workSheetMount :is(
+      [data-work-ledger='true'],
+      [data-ui-role='table'],
+      [data-table-surface='true'],
+      [data-record-list='true'],
+      [data-selection-surface='true'],
+      [data-ui-slot='form'],
+      form,
+      [role='dialog']
+    ) {
+      background: var(--ui-signature-paper) !important;
+      backdrop-filter: none !important;
+    }
+  }
+}
