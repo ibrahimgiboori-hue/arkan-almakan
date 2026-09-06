@@ -1,0 +1,220 @@
+/*
+  ARKAN SIGNATURE — WHOLE APP CONTEXTUAL SCENES
+  ------------------------------------------------
+  Extends the approved Project Portal rule to every non-project dashboard screen:
+  the empty work canvas carries real contextual photography, while operational
+  tables, forms and cards remain strong readable foreground surfaces.
+  Screen only. Never owns print, data, permissions, Supabase or business logic.
+*/
+
+@media screen {
+  html[data-ui-skin='signature'] {
+    --signature-app-photo-home: url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-work: url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-approvals: url('https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=2200&q=82');
+
+    --signature-app-photo-projects: url('https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-contractors: url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-clients: url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-quotes: url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=2200&q=82');
+
+    --signature-app-photo-employees: url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-attendance: url('https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-recruitment: url('https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-contracts: url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-onboarding: url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-leaves: url('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=2200&q=82');
+
+    --signature-app-photo-finance: url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-budget: url('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-expenses: url('https://images.unsplash.com/photo-1554224154-26032fced8bd?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-advances: url('https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=2200&q=82');
+
+    --signature-app-photo-documents: url('https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-archive: url('https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-register: url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-builder: url('https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=2200&q=82');
+
+    --signature-app-photo-board: url('https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-company: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-access: url('https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-structure: url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=2200&q=82');
+    --signature-app-photo-backup: url('https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=2200&q=82');
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] {
+    --signature-app-scene-photo: var(--signature-app-photo-home);
+    --signature-app-scene-fallback: var(--signature-photo-home);
+    --signature-app-scene-position: center 48%;
+    --signature-app-surface: color-mix(in srgb, var(--ui-signature-paper) 91%, transparent);
+    --signature-app-surface-strong: color-mix(in srgb, var(--ui-signature-paper) 97%, transparent);
+    --signature-app-cell: color-mix(in srgb, var(--ui-signature-paper) 85%, transparent);
+    --signature-app-border: color-mix(in srgb, var(--ui-signature-burgundy) 17%, var(--ui-border));
+    --signature-app-shadow: 0 14px 36px color-mix(in srgb, var(--ui-signature-deep) 10%, transparent);
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene='home'] { --signature-app-scene-photo: var(--signature-app-photo-home); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='work-my-work'] { --signature-app-scene-photo: var(--signature-app-photo-work); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='work-approvals'] { --signature-app-scene-photo: var(--signature-app-photo-approvals); --signature-app-scene-position:center 46%; }
+
+  html[data-ui-skin='signature'][data-signature-app-scene='projects-portfolio'] { --signature-app-scene-photo: var(--signature-app-photo-projects); --signature-app-scene-fallback:var(--signature-photo-projects); --signature-app-scene-position:center 50%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='projects-contractors'] { --signature-app-scene-photo: var(--signature-app-photo-contractors); --signature-app-scene-fallback:var(--signature-photo-projects); --signature-app-scene-position:center 46%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='projects-clients'] { --signature-app-scene-photo: var(--signature-app-photo-clients); --signature-app-scene-fallback:var(--signature-photo-projects); --signature-app-scene-position:center 47%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='projects-quotes'] { --signature-app-scene-photo: var(--signature-app-photo-quotes); --signature-app-scene-fallback:var(--signature-photo-projects); --signature-app-scene-position:center 50%; }
+
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-employees'] { --signature-app-scene-photo: var(--signature-app-photo-employees); --signature-app-scene-fallback:var(--signature-photo-workforce); --signature-app-scene-position:center 42%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-attendance'] { --signature-app-scene-photo: var(--signature-app-photo-attendance); --signature-app-scene-fallback:var(--signature-photo-workforce); --signature-app-scene-position:center 46%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-recruitment'],
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-offers'] { --signature-app-scene-photo: var(--signature-app-photo-recruitment); --signature-app-scene-fallback:var(--signature-photo-workforce); --signature-app-scene-position:center 44%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-contracts'] { --signature-app-scene-photo: var(--signature-app-photo-contracts); --signature-app-scene-fallback:var(--signature-photo-workforce); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-onboarding'] { --signature-app-scene-photo: var(--signature-app-photo-onboarding); --signature-app-scene-fallback:var(--signature-photo-workforce); --signature-app-scene-position:center 43%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-leaves'],
+  html[data-ui-skin='signature'][data-signature-app-scene='workforce-leave-history'] { --signature-app-scene-photo: var(--signature-app-photo-leaves); --signature-app-scene-fallback:var(--signature-photo-workforce); --signature-app-scene-position:center 46%; }
+
+  html[data-ui-skin='signature'][data-signature-app-scene='finance-advances'] { --signature-app-scene-photo: var(--signature-app-photo-advances); --signature-app-scene-fallback:var(--signature-photo-finance); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='finance-budget'] { --signature-app-scene-photo: var(--signature-app-photo-budget); --signature-app-scene-fallback:var(--signature-photo-finance); --signature-app-scene-position:center 47%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='finance-expenses'] { --signature-app-scene-photo: var(--signature-app-photo-expenses); --signature-app-scene-fallback:var(--signature-photo-finance); --signature-app-scene-position:center 48%; }
+
+  html[data-ui-skin='signature'][data-signature-app-scene='documents-library'] { --signature-app-scene-photo: var(--signature-app-photo-documents); --signature-app-scene-fallback:var(--signature-photo-documents); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='documents-archive'] { --signature-app-scene-photo: var(--signature-app-photo-archive); --signature-app-scene-fallback:var(--signature-photo-documents); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='documents-register'] { --signature-app-scene-photo: var(--signature-app-photo-register); --signature-app-scene-fallback:var(--signature-photo-documents); --signature-app-scene-position:center 46%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='documents-builder'] { --signature-app-scene-photo: var(--signature-app-photo-builder); --signature-app-scene-fallback:var(--signature-photo-documents); --signature-app-scene-position:center 48%; }
+
+  html[data-ui-skin='signature'][data-signature-app-scene='admin-board'] { --signature-app-scene-photo: var(--signature-app-photo-board); --signature-app-scene-fallback:var(--signature-photo-admin); --signature-app-scene-position:center 47%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='admin-company'] { --signature-app-scene-photo: var(--signature-app-photo-company); --signature-app-scene-fallback:var(--signature-photo-admin); --signature-app-scene-position:center 45%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='admin-access'] { --signature-app-scene-photo: var(--signature-app-photo-access); --signature-app-scene-fallback:var(--signature-photo-admin); --signature-app-scene-position:center 48%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='admin-structure'] { --signature-app-scene-photo: var(--signature-app-photo-structure); --signature-app-scene-fallback:var(--signature-photo-admin); --signature-app-scene-position:center 45%; }
+  html[data-ui-skin='signature'][data-signature-app-scene='admin-backup'] { --signature-app-scene-photo: var(--signature-app-photo-backup); --signature-app-scene-fallback:var(--signature-photo-admin); --signature-app-scene-position:center 48%; }
+
+  /* Make the generic header/context system inherit the exact operation scene. */
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell {
+    --signature-context-photo: var(--signature-app-scene-photo);
+    --signature-context-photo-position: var(--signature-app-scene-position);
+  }
+
+  /* The empty canvas is now photography, never a flat ivory dead zone. */
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .appBodyStage,
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .workSheetMount {
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--ui-signature-ivory) 31%, transparent) 0%,
+        color-mix(in srgb, var(--ui-signature-ivory) 45%, transparent) 44%,
+        color-mix(in srgb, var(--ui-signature-paper) 59%, transparent) 100%),
+      var(--signature-app-scene-photo) var(--signature-app-scene-position) / cover fixed no-repeat,
+      var(--signature-app-scene-fallback) center / cover fixed no-repeat !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .workSheetMount {
+    min-height: calc(100dvh - 20px);
+    position: relative;
+    isolation: isolate;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .rawDashboardContent {
+    background: transparent !important;
+  }
+
+  /* Strict foreground contract: work objects are paper/glass above the image. */
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(
+    [data-work-ledger='true'],
+    [data-ui-role='table'],
+    [data-table-surface='true'],
+    [data-record-list='true'],
+    [data-selection-surface='true'],
+    [data-ui-role='card'],
+    [data-ui-slot='card'],
+    [data-ui-slot='form'],
+    form,
+    [role='dialog']
+  ) {
+    border-color: var(--signature-app-border) !important;
+    background: var(--signature-app-surface) !important;
+    box-shadow: var(--signature-app-shadow);
+    backdrop-filter: blur(18px) saturate(112%);
+    -webkit-backdrop-filter: blur(18px) saturate(112%);
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount [data-work-ledger='true'] {
+    overflow: hidden auto;
+    border-radius: 16px !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is([data-work-ledger='true'] table, [data-ui-role='table']) {
+    background: transparent !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount table thead th {
+    background: var(--signature-app-surface-strong) !important;
+    color: var(--ui-signature-charcoal) !important;
+    border-color: var(--signature-app-border) !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount table tbody td {
+    background: var(--signature-app-cell) !important;
+    color: var(--ui-signature-charcoal) !important;
+    border-color: color-mix(in srgb, var(--ui-signature-burgundy) 11%, var(--ui-border-soft)) !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount table tbody tr:hover td {
+    background: color-mix(in srgb, var(--ui-signature-paper) 94%, var(--ui-signature-gold-soft)) !important;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(input, select, textarea) {
+    background: color-mix(in srgb, var(--ui-signature-paper) 98%, transparent) !important;
+    color: var(--ui-signature-charcoal) !important;
+    border-color: color-mix(in srgb, var(--ui-signature-burgundy) 22%, var(--ui-border)) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, white 28%, transparent), 0 3px 10px color-mix(in srgb, var(--ui-signature-deep) 5%, transparent);
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(input, select, textarea)::placeholder {
+    color: color-mix(in srgb, var(--ui-signature-charcoal) 60%, var(--ui-text-muted)) !important;
+    opacity: 1;
+  }
+
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(input, select, textarea):focus {
+    border-color: var(--ui-signature-burgundy) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-signature-burgundy) 15%, transparent) !important;
+  }
+
+  /* Common legacy/module surfaces also receive an explicit readable foreground. */
+  html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(
+    [class*='panelTitle'],
+    [class*='summaryStrip'],
+    [class*='summaryCard'],
+    [class*='metricCard'],
+    [class*='statCard'],
+    [class*='controlBar'],
+    [class*='toolbar'],
+    [class*='Toolbar'],
+    [class*='filterBar'],
+    [class*='FilterBar'],
+    [class*='historyHead'],
+    [class*='footerActions']
+  ) {
+    border: 1px solid var(--signature-app-border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--ui-signature-paper) 88%, transparent) !important;
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--ui-signature-deep) 7%, transparent);
+    backdrop-filter: blur(16px) saturate(110%);
+    -webkit-backdrop-filter: blur(16px) saturate(110%);
+  }
+
+  @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .appBodyStage,
+    html[data-ui-skin='signature'][data-signature-app-scene] .rawDashboardShell .workSheetMount {
+      background-attachment: scroll, scroll, scroll !important;
+      background-position: center top, center top, center top !important;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    html[data-ui-skin='signature'][data-signature-app-scene] .workSheetMount :is(
+      [data-work-ledger='true'], [data-ui-role='table'], [data-table-surface='true'],
+      [data-record-list='true'], [data-selection-surface='true'], [data-ui-role='card'],
+      [data-ui-slot='card'], [data-ui-slot='form'], form, [role='dialog']
+    ) {
+      background: var(--ui-signature-paper) !important;
+      backdrop-filter: none !important;
+    }
+  }
+}
