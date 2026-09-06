@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Notice } from '@/components/ui/ConstitutionUI';
 import QuoteEditorAssistant from '@/components/quotes/QuoteEditorAssistant';
@@ -61,6 +62,7 @@ export default function QuoteApprovalLayout({ children }) {
     <QuoteEditorAssistant quoteId={id} />
     <div style={{marginBottom:16}} data-transaction-context="source">
       <Notice actions={<div className="rowsplit">
+        <Link className="btn ghost" href={`/dashboard/quotes/${id}/terms`}>نصوص وشروط العرض</Link>
         {canSubmit ? <button className="btn" disabled={busy} onClick={submit}>إرسال للمراجعة المالية</button> : null}
         {canMarkSent ? <button className="btn" disabled={busy} onClick={markSent}>تسجيل الإرسال للعميل</button> : null}
       </div>}>
