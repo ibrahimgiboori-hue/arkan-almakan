@@ -6,13 +6,14 @@ import { supabase } from '@/lib/supabase';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import styles from './timesheet-print.module.css';
 
-const WEEKDAY = ['أحد','اثن','ثلا','أرب','خمي','جمع','سبت'];
+const WEEKDAY_FULL = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const STATUS_AR = { draft:'مسودة', reviewed:'مراجع', approved:'معتمد', closed:'مغلق' };
 const n = (value) => Number(value || 0);
 const money = (value) => Number(value || 0).toLocaleString('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function daysInMonth(year, month) { return new Date(Number(year),Number(month),0).getDate(); }
 function mark(value) { const number=n(value); return number===1?'✓':number===0.5?'½':''; }
+function dayNo(day) { return String(day).padStart(2,'0'); }
 
 export default function ExternalContractorTimesheetPrint() {
   const { id } = useParams();
@@ -81,8 +82,21 @@ export default function ExternalContractorTimesheetPrint() {
 
         {doc==='timesheet'?<>
           <table className={styles.table} data-print-flow="repeatable-table">
-            <colgroup><col style={{width:'5mm'}}/><col style={{width:'31mm'}}/><col style={{width:'24mm'}}/>{days.map((day)=><col key={day} style={{width:'5.3mm'}}/>)}<col style={{width:'10mm'}}/></colgroup>
-            <thead><tr><th>م</th><th>اسم العامل</th><th>رقم الإقامة</th>{days.map((day)=>{const date=new Date(sheet.period_year,sheet.period_month-1,day);const friday=date.getDay()===5;return <th key={day} className={friday?styles.friday:''}><div className={styles.dayHead}><b>{day}</b><small>{WEEKDAY[date.getDay()]}</small></div></th>;})}<th>الإجمالي</th></tr></thead>
+            <colgroup>
+              <col className={styles.indexCol}/><col className={styles.nameCol}/><col className={styles.iqamaCol}/>
+              {days.map((day)=><col key={day} className={styles.dayCol}/>)}
+              <col className={styles.totalCol}/>
+            </colgroup>
+            <thead>
+              <tr className={styles.weekdayRow}>
+                <th rowSpan={2}>م</th><th rowSpan={2}>اسم العامل</th><th rowSpan={2}>رقم الإقامة</th>
+                {days.map((day)=>{const date=new Date(sheet.period_year,sheet.period_month-1,day);const friday=date.getDay()===5;return <th key={day} className={friday?styles.friday:''}><div className={styles.weekdayCell}><span>{WEEKDAY_FULL[date.getDay()]}</span></div></th>;})}
+                <th rowSpan={2}>الإجمالي</th>
+              </tr>
+              <tr className={styles.dateRow}>
+                {days.map((day)=>{const date=new Date(sheet.period_year,sheet.period_month-1,day);return <th key={day} className={date.getDay()===5?styles.friday:''}><span className={styles.dateNo}>{dayNo(day)}</span></th>;})}
+              </tr>
+            </thead>
             <tbody>{state.workers.map((row,index)=><tr key={row.id||index}><td>{index+1}</td><td className={styles.name}>{row.worker_name}</td><td className={styles.iqama}>{row.iqama_no||'—'}</td>{days.map((day)=>{const value=n(row.attendance?.[String(day)]);const date=new Date(sheet.period_year,sheet.period_month-1,day);return <td key={day} className={date.getDay()===5?styles.friday:''}><span className={value===0.5?styles.half:styles.mark}>{mark(value)}</span></td>;})}<td className={styles.total}>{n(row.reported_days)}</td></tr>)}</tbody>
             <tfoot><tr className={styles.grand}><td colSpan={3+dayCount}>إجمالي أيام العمل لجميع العمال</td><td>{totalDays}</td></tr></tfoot>
           </table>
