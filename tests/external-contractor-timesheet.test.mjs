@@ -28,10 +28,23 @@ test('shared monthly print uses full vertical weekday names over zero-padded dat
   assert.match(shared,/dateRow/);
 });
 
-test('all monthly day columns share one physical width', () => {
+test('all monthly day columns consume the remaining width equally', () => {
+  assert.match(shared,/--timesheet-day-count/);
   assert.match(shared,/className=\{styles\.dayCol\}/);
-  assert.match(css,/\.dayCol\{width:5\.15mm\}/);
+  assert.match(css,/--timesheet-fixed-columns:72mm/);
+  assert.match(css,/\.dayCol\{width:calc\(\(100% - var\(--timesheet-fixed-columns\)\)\/var\(--timesheet-day-count\)\)\}/);
   assert.match(css,/\.weekdayCell span\{[^}]*rotate\(-90deg\)/s);
+});
+
+test('monthly attendance cells use the agreed visual hierarchy without inventing missing external days', () => {
+  assert.match(shared,/statusFull/);
+  assert.match(shared,/statusHalf/);
+  assert.match(shared,/statusAbsent/);
+  assert.match(shared,/if \(!hasAttendance\) return \{ className:'', text:'', label:'' \}/);
+  assert.match(css,/\.statusFull\{background:#e7f4e9!important/);
+  assert.match(css,/\.statusHalf\{background:#fff0b3!important/);
+  assert.match(css,/\.statusAbsent\{background:#c92a2a!important/);
+  assert.match(css,/print-color-adjust:exact/);
 });
 
 test('internal and external official timesheets are both landscape', () => {

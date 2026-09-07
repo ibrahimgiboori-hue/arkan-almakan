@@ -25,6 +25,19 @@ function dayNo(day) {
   return String(day).padStart(2, '0');
 }
 
+function attendanceVisual(displayMark, value, hasAttendance) {
+  const token = displayMark == null ? '' : String(displayMark).trim();
+  if (token === '✓') return { className:styles.statusFull, text:'✓', label:'حضور كامل' };
+  if (token === '½') return { className:styles.statusHalf, text:'½', label:'نصف يوم' };
+  if (token === 'غ') return { className:styles.statusAbsent, text:'', label:'غياب' };
+  if (token) return { className:'', text:token, label:token };
+  if (!hasAttendance) return { className:'', text:'', label:'' };
+  if (n(value) === 1) return { className:styles.statusFull, text:'✓', label:'حضور كامل' };
+  if (n(value) === 0.5) return { className:styles.statusHalf, text:'½', label:'نصف يوم' };
+  if (n(value) === 0) return { className:styles.statusAbsent, text:'', label:'غياب' };
+  return { className:'', text:mark(value), label:'' };
+}
+
 export default function MonthlyTimesheetSheet({
   title = 'كشف حضور شهري',
   subtitle = 'MONTHLY TIMESHEET',
@@ -52,7 +65,7 @@ export default function MonthlyTimesheetSheet({
       {meta.map((item, index) => <div key={`${item.label}-${index}`}><span>{item.label}</span><strong>{item.value || '—'}</strong></div>)}
     </div> : null}
 
-    <table className={styles.table} data-print-flow="repeatable-table">
+    <table className={styles.table} style={{'--timesheet-day-count':dayCount}} data-print-flow="repeatable-table">
       <colgroup>
         <col className={styles.indexCol}/>
         <col className={styles.nameCol}/>
@@ -88,12 +101,18 @@ export default function MonthlyTimesheetSheet({
           <td className={styles.name}>{row.name || '—'}</td>
           <td className={styles.identity}>{row.identity || '—'}</td>
           {days.map((day) => {
-            const value = n(row.attendance?.[String(day)] ?? row.attendance?.[day]);
-            const explicit = row.marks?.[String(day)] ?? row.marks?.[day];
+            const key = String(day);
+            const source = row.attendance || {};
+            const hasAttendance = Object.prototype.hasOwnProperty.call(source,key);
+            const value = n(source[key]);
+            const explicit = row.marks?.[key];
             const displayMark = explicit === undefined || explicit === null ? mark(value) : String(explicit);
+            const visual = attendanceVisual(displayMark,value,hasAttendance || explicit !== undefined);
             const date = new Date(Number(year), Number(month) - 1, day);
-            return <td key={day} className={date.getDay() === 5 ? styles.friday : ''}>
-              <span className={displayMark === '½' ? styles.half : styles.mark}>{displayMark}</span>
+            const cellClass = [date.getDay() === 5 ? styles.friday : '',visual.className].filter(Boolean).join(' ');
+            return <td key={day} className={cellClass} aria-label={visual.label || undefined} title={visual.label || undefined}>
+              {visual.text ? <span className={visual.text === '½' ? styles.half : styles.mark}>{visual.text}</span> : null}
+              {visual.label === 'غياب' ? <span className={styles.srOnly}>غياب</span> : null}
             </td>;
           })}
           <td className={styles.total}>{n(row.totalDays)}</td>
