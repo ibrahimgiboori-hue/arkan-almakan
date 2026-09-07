@@ -5,8 +5,30 @@ import styles from './monthly-timesheet-sheet.module.css';
 const WEEKDAY_FULL = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const n = (value) => Number(value || 0);
 
+// The whole table is 100%. These four non-day columns keep one stable share,
+// and the remainder is divided mathematically by the actual number of days.
+const FIXED_COLUMN_PERCENT = Object.freeze({
+  index:2.1,
+  name:14.6,
+  identity:8.3,
+  total:4.2,
+});
+
 export function daysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
+}
+
+export function monthlyTimesheetColumnPlan(dayCount) {
+  const count = Math.max(1,Math.trunc(Number(dayCount) || 31));
+  const fixed = Object.values(FIXED_COLUMN_PERCENT).reduce((sum,value)=>sum+value,0);
+  const dayArea = 100 - fixed;
+  return Object.freeze({
+    ...FIXED_COLUMN_PERCENT,
+    fixed,
+    dayArea,
+    day:dayArea / count,
+    dayCount:count,
+  });
 }
 
 export function monthlyTimesheetMonthLabel(year, month) {
@@ -54,6 +76,8 @@ export default function MonthlyTimesheetSheet({
   const dayCount = daysInMonth(year, month);
   const days = Array.from({ length:dayCount }, (_, index) => index + 1);
   const totalDays = rows.reduce((sum, row) => sum + n(row.totalDays), 0);
+  const columns = monthlyTimesheetColumnPlan(dayCount);
+  const pct = (value) => `${value}%`;
 
   return <div className={`${styles.document} ${className}`.trim()}>
     <div className={styles.head} data-print-keep-with-next="true">
@@ -65,13 +89,17 @@ export default function MonthlyTimesheetSheet({
       {meta.map((item, index) => <div key={`${item.label}-${index}`}><span>{item.label}</span><strong>{item.value || '—'}</strong></div>)}
     </div> : null}
 
-    <table className={styles.table} style={{'--timesheet-day-count':dayCount}} data-print-flow="repeatable-table">
+    <table
+      className={styles.table}
+      style={{'--timesheet-day-count':dayCount,'--timesheet-day-width':pct(columns.day)}}
+      data-print-flow="repeatable-table"
+    >
       <colgroup>
-        <col className={styles.indexCol}/>
-        <col className={styles.nameCol}/>
-        <col className={styles.identityCol}/>
-        {days.map((day) => <col key={day} className={styles.dayCol}/>)}
-        <col className={styles.totalCol}/>
+        <col className={styles.indexCol} style={{width:pct(columns.index)}}/>
+        <col className={styles.nameCol} style={{width:pct(columns.name)}}/>
+        <col className={styles.identityCol} style={{width:pct(columns.identity)}}/>
+        {days.map((day) => <col key={day} className={styles.dayCol} style={{width:pct(columns.day)}}/>)}
+        <col className={styles.totalCol} style={{width:pct(columns.total)}}/>
       </colgroup>
       <thead>
         <tr className={styles.weekdayRow}>
