@@ -89,9 +89,11 @@ export default function MonthlyTimesheetSheet({
           <td className={styles.identity}>{row.identity || '—'}</td>
           {days.map((day) => {
             const value = n(row.attendance?.[String(day)] ?? row.attendance?.[day]);
+            const explicit = row.marks?.[String(day)] ?? row.marks?.[day];
+            const displayMark = explicit === undefined || explicit === null ? mark(value) : String(explicit);
             const date = new Date(Number(year), Number(month) - 1, day);
             return <td key={day} className={date.getDay() === 5 ? styles.friday : ''}>
-              <span className={value === 0.5 ? styles.half : styles.mark}>{mark(value)}</span>
+              <span className={displayMark === '½' ? styles.half : styles.mark}>{displayMark}</span>
             </td>;
           })}
           <td className={styles.total}>{n(row.totalDays)}</td>
