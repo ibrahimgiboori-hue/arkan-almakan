@@ -9,7 +9,9 @@ import styles from '../timesheet.module.css';
 
 const STATUS_AR = { draft:'مسودة', reviewed:'مراجع', approved:'معتمد', closed:'مغلق' };
 const WEEKDAY = ['أحد','اثن','ثلا','أرب','خمي','جمع','سبت'];
+const DEFAULT_VAT_RATE = 0.15;
 const n = (value) => Number(value || 0);
+const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
 function daysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
@@ -81,6 +83,9 @@ export default function ExternalTimesheetEditor() {
     const rate = row.daily_rate == null || row.daily_rate === '' ? state.sheet?.default_daily_rate : row.daily_rate;
     return sum + n(row.reported_days) * n(rate);
   }, 0), [state.workers, state.sheet?.default_daily_rate]);
+  const vatRate = state.sheet?.vat_rate == null || state.sheet?.vat_rate === '' ? DEFAULT_VAT_RATE : n(state.sheet.vat_rate);
+  const claimVat = useMemo(() => round2(claimTotal * vatRate), [claimTotal, vatRate]);
+  const claimTotalWithVat = useMemo(() => round2(claimTotal + claimVat), [claimTotal, claimVat]);
 
   function patchSheet(patch) {
     setState((current) => ({ ...current, sheet:{...current.sheet,...patch}, message:'' }));
@@ -148,6 +153,7 @@ export default function ExternalTimesheetEditor() {
       external_project_name:String(state.sheet.external_project_name || '').trim(),
       site_location:String(state.sheet.site_location || '').trim() || null,
       default_daily_rate:state.sheet.default_daily_rate === '' || state.sheet.default_daily_rate == null ? null : n(state.sheet.default_daily_rate),
+      vat_rate:state.sheet.vat_rate === '' || state.sheet.vat_rate == null ? DEFAULT_VAT_RATE : n(state.sheet.vat_rate),
       status:state.sheet.status,
       notes:String(state.sheet.notes || '').trim() || null,
       updated_at:new Date().toISOString(),
@@ -235,6 +241,7 @@ export default function ExternalTimesheetEditor() {
           <div className="field"><label>الموقع</label><input value={sheet.site_location || ''} onChange={(e)=>patchSheet({site_location:e.target.value})}/></div>
           <div className="field"><label>الحالة</label><select value={sheet.status || 'draft'} onChange={(e)=>patchSheet({status:e.target.value})}>{Object.entries(STATUS_AR).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
           <div className="field"><label>اليومية الافتراضية</label><input type="number" min="0" step="0.01" dir="ltr" value={sheet.default_daily_rate ?? ''} onChange={(e)=>patchSheet({default_daily_rate:e.target.value})} placeholder="يمكن إضافتها لاحقًا"/></div>
+          <div className="field"><label>ضريبة القيمة المضافة</label><select value={String(sheet.vat_rate ?? DEFAULT_VAT_RATE)} onChange={(e)=>patchSheet({vat_rate:e.target.value})}><option value="0.15">15% — خاضع للضريبة</option><option value="0">0% — بدون ضريبة</option></select></div>
           <div className="field span2"><label>ملاحظات داخلية</label><input value={sheet.notes || ''} onChange={(e)=>patchSheet({notes:e.target.value})}/></div>
         </div>
       </Section>
@@ -267,12 +274,14 @@ export default function ExternalTimesheetEditor() {
         {!state.workers.length ? <EmptyState title="أضف العمال أولًا" /> : null}
       </Section>
 
-      <Section title="ملخص المطالبة المبدئية" description="التسعير لا يؤثر على التايم شيت نفسه ويمكن إضافته في أي وقت.">
+      <Section title="ملخص المطالبة المبدئية" description="التسعير والضريبة لا يؤثران على التايم شيت نفسه ويمكن تعديلهما قبل إصدار المطالبة.">
         <div className={styles.summary} style={{padding:'0 0 12px'}}>
           <div className={styles.summaryCard}><span>عدد العمال</span><strong>{state.workers.length}</strong></div>
           <div className={styles.summaryCard}><span>إجمالي أيام العمل</span><strong>{totalDays.toLocaleString('ar-SA')}</strong></div>
           <div className={styles.summaryCard}><span>اليومية الافتراضية</span><strong>{sheet.default_daily_rate == null || sheet.default_daily_rate === '' ? 'غير محددة' : `${money(sheet.default_daily_rate)} ر.س`}</strong></div>
-          <div className={styles.summaryCard}><span>قيمة المطالبة الحالية</span><strong>{claimTotal ? `${money(claimTotal)} ر.س` : '—'}</strong></div>
+          <div className={styles.summaryCard}><span>قبل الضريبة</span><strong>{claimTotal ? `${money(claimTotal)} ر.س` : '—'}</strong></div>
+          <div className={styles.summaryCard}><span>ضريبة القيمة المضافة {(vatRate*100).toFixed(0)}%</span><strong>{claimTotal ? `${money(claimVat)} ر.س` : '—'}</strong></div>
+          <div className={styles.summaryCard}><span>شامل الضريبة</span><strong>{claimTotal ? `${money(claimTotalWithVat)} ر.س` : '—'}</strong></div>
         </div>
         <table className={styles.claimTable}><thead><tr><th>العامل</th><th className={styles.num}>الأيام</th><th className={styles.num}>اليومية</th><th className={styles.num}>الإجمالي</th></tr></thead><tbody>{state.workers.map((row,index)=>{const rate=row.daily_rate==null||row.daily_rate===''?sheet.default_daily_rate:row.daily_rate;return <tr key={`claim-${workerKey(row,index)}`}><td>{row.worker_name||'—'}</td><td className={styles.num}>{n(row.reported_days)}</td><td className={styles.num}>{rate==null||rate===''?'—':money(rate)}</td><td className={styles.num}>{rate==null||rate===''?'—':money(n(row.reported_days)*n(rate))}</td></tr>;})}</tbody></table>
       </Section>
