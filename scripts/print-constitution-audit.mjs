@@ -44,20 +44,8 @@ for(const retired of [
 }
 
 const retiredRuntimeTokens=[
-  'paginateRows',
-  'positiveRowCap',
-  'autoPaginate',
-  'showLetterhead',
-  'margin_top_mm',
-  'margin_bottom_mm',
-  'margin_side_mm',
-  'stamp_x_mm',
-  'stamp_y_mm',
-  'sign_x_mm',
-  'sign_y_mm',
-  'letterhead_top_mm',
-  'letterhead_bottom_mm',
-  'safeBottomMm',
+  'paginateRows','positiveRowCap','autoPaginate','showLetterhead','margin_top_mm','margin_bottom_mm','margin_side_mm',
+  'stamp_x_mm','stamp_y_mm','sign_x_mm','sign_y_mm','letterhead_top_mm','letterhead_bottom_mm','safeBottomMm',
 ];
 for(const file of [...printFiles,...printComponentFiles]){
   const relative=rel(file);
@@ -85,106 +73,41 @@ for(const file of printFiles.filter((file)=>/\.(?:js|jsx|ts|tsx)$/.test(file))){
 }
 
 const governance=requireTokens('lib/print-governance.js',[
-  "PRINT_GOVERNANCE_VERSION = '3.2'",
-  "GOVERNED: 'governed'",
-  'PRINT_WORD_STANDARD',
-  'bodyMarginMm:25.4',
-  'headerFromEdgeMm:12.7',
-  'footerFromEdgeMm:12.7',
-  'ARKAN_LETTERHEAD_PROFILE',
-  'portraitTopArtworkMm:34.23',
-  'portraitBottomArtworkMm:19.13',
-  'PRINT_LINE_FLOW_POLICY',
-  "owner:'ConstitutionPagedFrame'",
-  "measurementUnit:'visual-line-box'",
-  'PRINT_LETTERHEAD_SOURCE',
-  'PRINT_PAPER_ROTATION',
-  'PRINT_FLOW_BOUNDARY',
-  'PRINT_FLOW_KIND',
-  "REPEATABLE_TABLE: 'repeatable-table'",
-  'claim_documents',
-  'quotation',
-  'employee_report',
-  'timesheet_report',
-  'expense_report',
-  'board_report',
-  'generic_document',
+  "PRINT_GOVERNANCE_VERSION = '3.2'","GOVERNED: 'governed'",'PRINT_WORD_STANDARD','bodyMarginMm:25.4','headerFromEdgeMm:12.7','footerFromEdgeMm:12.7',
+  'ARKAN_LETTERHEAD_PROFILE','portraitTopArtworkMm:34.23','portraitBottomArtworkMm:19.13','PRINT_LINE_FLOW_POLICY',"owner:'ConstitutionPagedFrame'", "measurementUnit:'visual-line-box'",
+  'PRINT_LETTERHEAD_SOURCE','PRINT_PAPER_ROTATION','PRINT_FLOW_BOUNDARY','PRINT_FLOW_KIND',"REPEATABLE_TABLE: 'repeatable-table'",'claim_documents','quotation','employee_report','timesheet_report','expense_report','board_report','generic_document',
 ]);
 for(const forbidden of ['MIGRATING','LEGACY','recruitment_offer_public','recruitment_contract_public','pagination:Object.freeze','paginateRows','positiveRowCap']){
   if(governance.includes(forbidden))violations.push(`lib/print-governance.js: سجل الهجرة لم يُغلق (${forbidden})`);
 }
 
 const reportPreparation=requireTokens('lib/report-preparation.js',[
-  'filter-sort-group-before-print-v1',
-  "owner:'report-definition'",
-  "sourceMutation:'forbidden'",
-  "grouping:'semantic-sections-not-physical-pages'",
-  "captainRole:'pagination-only'",
-  'reportCreatesTruth:false',
-  'prepareReportRows',
-  'groupPreparedReportRows',
+  'filter-sort-group-before-print-v1',"owner:'report-definition'", "sourceMutation:'forbidden'", "grouping:'semantic-sections-not-physical-pages'", "captainRole:'pagination-only'",'reportCreatesTruth:false','prepareReportRows','groupPreparedReportRows',
 ]);
 if(/force-page|page-break|@page/i.test(reportPreparation))violations.push('report-preparation: إعداد التقرير لا يجوز أن يملك هندسة صفحات أو فرض كسر صفحة.');
 
-const layout=requireTokens('app/print/layout.js',[
-  "import './print-constitution.css'",
-  "import './print-office-model.css'",
-  'print-route-root',
-  'PrintGovernanceBoundary',
-]);
+const layout=requireTokens('app/print/layout.js',["import './print-constitution.css'","import './print-office-model.css'",'print-route-root','PrintGovernanceBoundary']);
 if(layout.includes('print-system.css'))violations.push('app/print/layout.js: استيراد print-system.css المتقاعد');
 
 const constitution=requireTokens('app/print/print-constitution.css',[
-  'ARKAN PRINT CONSTITUTION v3.2',
-  '.print-route-root',
-  '.print-constitution table',
-  '--arkan-print-table-head-text:#111',
-  '.print-constitution thead th',
-  '-webkit-text-fill-color:var(--arkan-print-table-head-text)!important',
-  '.print-signoff-block',
-  '.procedure-stage-grid',
+  'ARKAN PRINT CONSTITUTION v3.2','.print-route-root','.print-constitution table','--arkan-print-table-head-text:#111','.print-constitution thead th','-webkit-text-fill-color:var(--arkan-print-table-head-text)!important','.print-signoff-block','.procedure-stage-grid',
 ]);
 for(const forbidden of ["@import './print-system.css'",'--arkan-print-page-width','--arkan-print-page-height','--arkan-print-side-margin','@page arkan-portrait','@page arkan-landscape','html,body']){
   if(constitution.includes(forbidden))violations.push(`print-constitution.css: هندسة/نطاق عالمي قديم بقي (${forbidden})`);
 }
 
 const office=requireTokens('app/print/print-office-model.css',[
-  'ARKAN PRINT OFFICE MODEL v2',
-  '--office-prose-leading',
-  '--office-table-leading',
-  '.print-constitution .xlsx-grid',
-  '.print-family-projects-finance .project-finance-document',
-  '.print-constitution .governed-document-sheet',
-  '[data-print-type="money"]',
+  'ARKAN PRINT OFFICE MODEL v2','--office-prose-leading','--office-table-leading','.print-constitution .xlsx-grid','.print-family-projects-finance .project-finance-document','.print-constitution .governed-document-sheet','[data-print-type="money"]',
 ]);
 if(/(^|\n)\.sheet\b/.test(office))violations.push('print-office-model.css: selector .sheet غير المحكوم عاد');
 
-const wrapper=requireTokens('components/print/ConstitutionPrintFrame.js',[
-  'ConstitutionPagedFrame',
-  'expandCaptainFlowBlocks',
-  'showPageNumbers={false}',
-]);
+const wrapper=requireTokens('components/print/ConstitutionPrintFrame.js',['ConstitutionPagedFrame','expandCaptainFlowBlocks','showPageNumbers={false}']);
 for(const forbidden of ['contentTopMm','contentBottomMm','contentSideMm','contentLeftMm','contentRightMm','getPrintLayoutPolicy']){
   if(wrapper.includes(forbidden))violations.push(`ConstitutionPrintFrame.js: wrapper ما زال يملك/يمرر هندسة (${forbidden})`);
 }
 
 const paged=requireTokens('components/print/ConstitutionPagedFrame.js',[
-  'CAPTAIN_GEOMETRY_SCHEMA = 6',
-  'PRINT_LETTERHEAD_SOURCE',
-  'PRINT_PAPER_ROTATION',
-  'data-print-letterhead-source',
-  'data-print-paper-rotation',
-  'data-print-geometry-schema',
-  'data-print-line-seams="visual-line-box"',
-  'measuredLineBands(',
-  'visualLineSeams(',
-  'chooseVisualLineBreak(',
-  'measuredRowSlice(',
-  'letterheadTop + headerClearanceMm',
-  'letterheadBottom + footerClearanceMm',
-  'sideReservedLetterhead',
-  'rotatedDigitalMaster',
-  "@page{size:A4 ${orientation};margin:0}",
+  'CAPTAIN_GEOMETRY_SCHEMA = 6','PRINT_LETTERHEAD_SOURCE','PRINT_PAPER_ROTATION','data-print-letterhead-source','data-print-paper-rotation','data-print-geometry-schema','data-print-line-seams="visual-line-box"','measuredLineBands(','visualLineSeams(','chooseVisualLineBreak(','measuredRowSlice(','letterheadTop + headerClearanceMm','letterheadBottom + footerClearanceMm','sideReservedLetterhead','rotatedDigitalMaster',"@page{size:A4 ${orientation};margin:0}",
 ]);
 for(const forbidden of ['cfg?.letterhead_top_mm','cfg?.letterhead_bottom_mm','safeBottomMm','NORMAL_TOP_MM','NORMAL_BOTTOM_MM','setFlowPagination','samePagination']){
   if(paged.includes(forbidden))violations.push(`ConstitutionPagedFrame.js: بقايا محرك/هندسة قديمة (${forbidden})`);
@@ -204,24 +127,19 @@ const governedRoutes={
 for(const [relative,tokens] of Object.entries(governedRoutes))requireTokens(relative,tokens);
 
 const budgetPrint=requireTokens('app/print/operating-budget/page.js',[
-  "from '@/lib/report-preparation'",
-  'prepareReportRows',
-  'groupPreparedReportRows',
-  'data-report-preparation="filter-sort-group-before-print-v1"',
-  'تقسيم التقرير',
-  'أجزاء حسب التصنيف',
-  'أجزاء حسب حالة السداد',
-  'data-report-section',
+  "from '@/lib/report-preparation'",'prepareReportRows','groupPreparedReportRows','data-report-preparation="filter-sort-group-before-print-v1"','تقسيم التقرير','أجزاء حسب التصنيف','أجزاء حسب حالة السداد','data-report-section',
 ]);
 if(/data-print-boundary-before|PRINT_FLOW_BOUNDARY|force-page/i.test(budgetPrint))violations.push('operating-budget print: تقسيم التقرير يجب أن يبقى دلاليًا؛ القبطان وحده يملك حدود الصفحات.');
 
-const generic=forbidTokens('app/print/[id]/page.js',[
-  'margin_top_mm','margin_bottom_mm','margin_side_mm','contentTopMm','contentBottomMm','contentSideMm','stamp_image_path','signature_image_path',
-]);
+const generic=forbidTokens('app/print/[id]/page.js',['margin_top_mm','margin_bottom_mm','margin_side_mm','contentTopMm','contentBottomMm','contentSideMm','stamp_image_path','signature_image_path']);
 if(!generic.includes('className="governed-document-sheet"'))violations.push('app/print/[id]/page.js: المستند العام ليس داخل سطح المحتوى المحكوم');
 
-const timesheet=forbidTokens('app/print/timesheet/page.js',['paginateRows','getPrintLayoutPolicy','REPORT_LAYOUT.pagination','pageModels']);
-if(!timesheet.includes('chunk(dates,7)'))violations.push('timesheet: تجميع الأيام الأفقي المبرر اختفى');
+const timesheet=forbidTokens('app/print/timesheet/page.js',['paginateRows','getPrintLayoutPolicy','REPORT_LAYOUT.pagination','pageModels','chunk(dates,7)','weekTableHead','matrixDateGroups']);
+if(!timesheet.includes('MonthlyTimesheetSheet'))violations.push('timesheet: المحرك الشهري الموحد غير مستخدم في مطبوعة المشروع');
+const monthlyTimesheet=requireTokens('components/timesheet/MonthlyTimesheetSheet.js',[
+  'daysInMonth','WEEKDAY_FULL','padStart(2, \'0\')','data-print-flow="repeatable-table"','className={styles.dayCol}','rowSpan={2}',
+]);
+if(/@page\b|page-break/i.test(monthlyTimesheet))violations.push('MonthlyTimesheetSheet: المكوّن الشهري لا يجوز أن يملك هندسة الصفحة؛ القبطان وحده يقسم رأسيًا.');
 
 const quoteCss=forbidTokens('app/print/quote/[id]/quote-print.css',['210×297','210mm','297mm','.measure{','.pages{','.sheet{','.content{','@media print']);
 if(!quoteCss.includes('Quotation content profile'))violations.push('quote-print.css: الملف لم يتحول إلى content profile');
@@ -233,14 +151,7 @@ if(!claims.includes('ConstitutionPrintFrame'))violations.push('claims: المس�
 if(!claims.includes('PRINT_FLOW_KIND.REPEATABLE_TABLE'))violations.push('claims: جدول المستخلص ليس repeatable flow');
 
 requireTokens('components/print/PrintPresentationContext.js',['PrintPresentationProvider','PrintColumnLabel','labels']);
-requireTokens('components/print/PagedTableGridEditor.js',[
-  'logicalColumnCount',
-  'addTableOuterBoundary',
-  'paged-grid-boundary',
-  'paged-table-row-boundary',
-  '.constitution-flow-measure table',
-  'BoundaryBoxEditor',
-]);
+requireTokens('components/print/PagedTableGridEditor.js',['logicalColumnCount','addTableOuterBoundary','paged-grid-boundary','paged-table-row-boundary','.constitution-flow-measure table','BoundaryBoxEditor']);
 requireTokens('components/print/PrintMarks.js',['PrintMark','print-master-stamp','print-master-signature']);
 requireTokens('components/print/PrintTextAlignmentEditor.js',['PRINT_TEXT_ALIGNMENT_OPTIONS','data-print-text-align']);
 requireTokens('components/print/PrintGovernanceBoundary.js',['resolvePrintDocument','PrintTextAlignmentEditor','print-unregistered']);
