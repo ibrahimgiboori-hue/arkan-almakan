@@ -32,8 +32,9 @@ test('internal project claims keep VAT and explicitly show gross including VAT',
   assert.match(internalPrint,/values\.gross/);
 });
 
-test('migration only backfills missing internal claim tax values', () => {
+test('migration only backfills editable missing internal tax fields', () => {
   assert.match(migration,/pc\.vat_rate is null/);
   assert.match(migration,/pc\.taxable_base is null/);
-  assert.match(migration,/pc\.net_payable is null/);
+  assert.doesNotMatch(migration,/set[\s\S]*net_payable\s*=/i);
+  assert.match(migration,/صافي المستحق عمود مولّد/);
 });
