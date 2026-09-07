@@ -1,0 +1,15 @@
+.document{direction:rtl;color:#222;font-size:6.45pt;line-height:1.24}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;margin-bottom:2.4mm;padding-bottom:1.7mm;border-bottom:.35mm solid #8b3332}
+.head h1{font-size:12.4pt;line-height:1.1;margin:0;color:#7c2b28}.head p{margin:.8mm 0 0;color:#555;font-size:6.8pt}.reference{font-weight:700;font-size:7.7pt;white-space:nowrap}
+.meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border-top:.2mm solid #999;border-right:.2mm solid #999;margin-bottom:2.6mm}
+.meta>div{min-height:9mm;padding:1.15mm 1.5mm;border-left:.2mm solid #999;border-bottom:.2mm solid #999}.meta span{display:block;color:#666;font-size:5.9pt;margin-bottom:.5mm}.meta strong{font-size:7.25pt}
+.table{width:100%;border-collapse:collapse;table-layout:fixed;direction:rtl;font-size:5.95pt;line-height:1.06}
+.indexCol{width:5mm}.nameCol{width:34mm}.identityCol{width:21.5mm}.dayCol{width:5.15mm}.totalCol{width:11.5mm}
+.table th,.table td{border:.18mm solid #858585;text-align:center;vertical-align:middle;padding:.45mm .18mm;overflow:hidden}
+.table thead th{font-weight:700;background:#f0eeee;color:#111}
+.weekdayRow th{height:15.5mm;padding:0;vertical-align:middle}.weekdayCell{position:relative;height:15.3mm;display:flex;align-items:center;justify-content:center;overflow:visible}.weekdayCell span{display:inline-block;white-space:nowrap;font-size:5.2pt;font-weight:700;line-height:1;transform:rotate(-90deg);transform-origin:center center}
+.dateRow th{height:5.8mm;padding:.25mm 0}.dateNo{display:inline-block;font-size:6.1pt;font-weight:800;direction:ltr;font-variant-numeric:tabular-nums;letter-spacing:0}
+.table tbody tr{height:10mm}.table tbody td{font-size:6pt}.table tfoot tr{height:7.5mm}
+.name{text-align:right!important;padding-right:1.15mm!important;font-size:6.5pt!important;font-weight:650;white-space:nowrap;text-overflow:ellipsis}.identity{font-size:5.8pt!important}.friday{background:#f4eeee!important}.mark{font-size:7.7pt;font-weight:800}.half{font-size:7.05pt;font-weight:800}.total{font-weight:800;font-size:6.55pt!important}.grand{font-weight:800;background:#eee5e5}
+.signoff{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:4.2mm;break-inside:avoid}.signoff>div{border-top:.25mm solid #777;padding-top:1.2mm;min-height:15mm}.signoff strong{display:block;color:#7c2b28;margin-bottom:2.6mm;font-size:6.5pt}.line{display:block;border-bottom:.18mm solid #777;height:4.6mm}
+@media print{.document{break-inside:avoid-page}}
