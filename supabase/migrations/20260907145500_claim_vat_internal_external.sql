@@ -15,30 +15,22 @@ update public.contractor_external_timesheets
 set vat_rate = 0.15
 where vat_rate is null;
 
--- حماية المطالبات الداخلية القديمة: أكمل القيم الضريبية فقط إن كانت ناقصة،
--- مع احترام معدل الضريبة المخزن على المطالبة أو المشروع.
+-- حماية المطالبات الداخلية القديمة: أكمل البيانات الضريبية القابلة للتحديث فقط
+-- عند نقصها، مع احترام معدل المشروع. صافي المستحق عمود مولّد ولا يُحدّث يدويًا.
 update public.progress_claims pc
 set
   vat_rate = coalesce(pc.vat_rate, p.vat_rate, 0.15),
   taxable_base = coalesce(pc.taxable_base, round(greatest(coalesce(pc.gross_amount,0),0),2)),
-  vat_amount = coalesce(pc.vat_amount, round(greatest(coalesce(pc.gross_amount,0),0) * coalesce(pc.vat_rate,p.vat_rate,0.15),2)),
-  net_payable = coalesce(
-    pc.net_payable,
-    round(
-      greatest(coalesce(pc.gross_amount,0),0)
-      + coalesce(pc.vat_amount, round(greatest(coalesce(pc.gross_amount,0),0) * coalesce(pc.vat_rate,p.vat_rate,0.15),2))
-      - coalesce(pc.retention_amount,0)
-      - coalesce(pc.advance_recovery,0)
-      - coalesce(pc.other_deductions,0)
-    ,2)
-  )
+  vat_amount = case
+    when pc.vat_rate is null or pc.taxable_base is null
+      then round(greatest(coalesce(pc.gross_amount,0),0) * coalesce(pc.vat_rate,p.vat_rate,0.15),2)
+    else pc.vat_amount
+  end
 from public.projects p
 where p.id = pc.project_id
   and (
     pc.vat_rate is null
     or pc.taxable_base is null
-    or pc.vat_amount is null
-    or pc.net_payable is null
   );
 
 comment on column public.contractor_external_timesheets.vat_rate is
