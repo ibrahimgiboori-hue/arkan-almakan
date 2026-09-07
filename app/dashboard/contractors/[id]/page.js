@@ -35,7 +35,7 @@ export default function ContractorDetail(){
   const balance=state.account.reduce((sum,row)=>sum+Number(row.balance_before_works||0),0);
 
   return <ConstitutionPage>
-    <PageHeader eyebrow="CONTRACTOR" title={c.name_ar} description={`${c.contractor_no||'—'} · ${KIND_AR[c.kind]||c.kind||'مقاول'}`} actions={<Toolbar><Link className="btn ghost" href="/dashboard/contractors">سجل المقاولين</Link><Link className="btn" href={`/dashboard/labor?contractor=${c.id}`}>العمالة</Link></Toolbar>}/>
+    <PageHeader eyebrow="CONTRACTOR" title={c.name_ar} description={`${c.contractor_no||'—'} · ${KIND_AR[c.kind]||c.kind||'مقاول'}`} actions={<Toolbar><Link className="btn ghost" href="/dashboard/contractors">سجل المقاولين</Link><Link className="btn ghost" href="/dashboard/contractors/timesheets">تايم شيت خارجي</Link><Link className="btn" href={`/dashboard/labor?contractor=${c.id}`}>العمالة</Link></Toolbar>}/>
     {state.error&&<Notice tone="warning">تعذر تحميل جزء من البيانات المرتبطة: {state.error}</Notice>}
     <Section title="ملخص المقاول">
       <SummaryStrip items={[
