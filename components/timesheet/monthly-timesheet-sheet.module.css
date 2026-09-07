@@ -12,4 +12,3 @@
 .table tbody tr{height:10mm}.table tbody td{font-size:6pt}.table tfoot tr{height:7.5mm}
 .name{text-align:right!important;padding-right:1.15mm!important;font-size:6.5pt!important;font-weight:650;white-space:nowrap;text-overflow:ellipsis}.identity{font-size:5.8pt!important}.friday{background:#f4eeee!important}.mark{font-size:7.7pt;font-weight:800}.half{font-size:7.05pt;font-weight:800}.total{font-weight:800;font-size:6.55pt!important}.grand{font-weight:800;background:#eee5e5}
 .signoff{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:4.2mm;break-inside:avoid}.signoff>div{border-top:.25mm solid #777;padding-top:1.2mm;min-height:15mm}.signoff strong{display:block;color:#7c2b28;margin-bottom:2.6mm;font-size:6.5pt}.line{display:block;border-bottom:.18mm solid #777;height:4.6mm}
-@media print{.document{break-inside:avoid-page}}
