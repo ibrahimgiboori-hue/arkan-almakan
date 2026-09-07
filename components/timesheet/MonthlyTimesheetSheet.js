@@ -1,34 +1,13 @@
 'use client';
 
+import { monthlyTimesheetColumnPlan } from '@/lib/monthly-timesheet-layout.mjs';
 import styles from './monthly-timesheet-sheet.module.css';
 
 const WEEKDAY_FULL = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const n = (value) => Number(value || 0);
 
-// The whole table is 100%. These four non-day columns keep one stable share,
-// and the remainder is divided mathematically by the actual number of days.
-const FIXED_COLUMN_PERCENT = Object.freeze({
-  index:2.1,
-  name:14.6,
-  identity:8.3,
-  total:4.2,
-});
-
 export function daysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
-}
-
-export function monthlyTimesheetColumnPlan(dayCount) {
-  const count = Math.max(1,Math.trunc(Number(dayCount) || 31));
-  const fixed = Object.values(FIXED_COLUMN_PERCENT).reduce((sum,value)=>sum+value,0);
-  const dayArea = 100 - fixed;
-  return Object.freeze({
-    ...FIXED_COLUMN_PERCENT,
-    fixed,
-    dayArea,
-    day:dayArea / count,
-    dayCount:count,
-  });
 }
 
 export function monthlyTimesheetMonthLabel(year, month) {
