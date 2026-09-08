@@ -6,10 +6,13 @@ const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), '
 
 test('ARKAN SIGNATURE tailoring remains part of the single root-controlled skin pack', () => {
   const layout = read('app/layout.js');
+  const skinEntry = read('app/ui-active-skin.css');
   const manifest = read('lib/ui-skin-manifest.js');
-  const baseAt = layout.indexOf("import './ui-signature-skin.css'");
-  const tailoringAt = layout.indexOf("import './ui-signature-tailoring.css'");
+  const baseAt = skinEntry.indexOf("@import './ui-signature-skin.css'");
+  const tailoringAt = skinEntry.indexOf("@import './ui-signature-tailoring.css'");
 
+  assert.match(layout, /import '\.\/ui-active-skin\.css'/, 'root layout must load the single active skin entrypoint');
+  assert.doesNotMatch(layout, /ui-signature-(?:skin|tailoring)\.css/, 'root layout must not know Signature internals');
   assert.ok(baseAt >= 0, 'base Signature skin must stay loaded');
   assert.ok(tailoringAt > baseAt, 'system tailoring must load after the base Signature skin');
   assert.match(manifest, /signatureTailoring:'app\/ui-signature-tailoring\.css'/);
