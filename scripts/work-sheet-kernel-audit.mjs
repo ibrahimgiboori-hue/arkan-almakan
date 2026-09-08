@@ -18,22 +18,37 @@ function requireText(file, needles) {
 }
 
 requireText('app/dashboard/layout.js', [
-  "import './raw-tokens.css'",
-  "import './prehydration-legacy-containment.css'",
-  "import './ui-skin-foundation.css'",
-  "import './ui-component-skin.css'",
-  "import './ui-semantic-adapter-skin.css'",
-  "import './ui-shell-skin.css'",
+  "import './ui-active-dashboard-skin.css'",
+  "import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRuntime'",
   'data-work-kernel="operational-notebook-v1"',
   'data-work-sheet-mount="true"',
   'className="workSheetMount"',
   'ContextualDashboardNavigation',
-  'LegacySemanticBridgeRuntime',
+  '<ActiveDashboardSkinRuntime>',
+]);
+
+requireText('app/dashboard/ui-active-dashboard-skin.css', [
+  "@import './raw-tokens.css'",
+  "@import './prehydration-legacy-containment.css'",
+  "@import './ui-skin-foundation.css'",
+  "@import './ui-component-skin.css'",
+  "@import './ui-semantic-adapter-skin.css'",
+  "@import './ui-shell-skin.css'",
+  "@import './ui-experience-skin.css'",
+  "@import './ui-skin-contract.css'",
+]);
+requireText('components/ui/ActiveDashboardSkinRuntime.js', [
+  '<UISkinBridgeRuntime>',
+  '<LegacySemanticBridgeRuntime>',
+  '<PortalExperienceRuntime>',
 ]);
 
 const layout = read('app/dashboard/layout.js');
 for (const retired of ['work-sheet-kernel.css','raw-phase.css','app-shell-v2.css','legacy-ui-compat.css']) {
   if (layout.includes(retired)) failures.push(`app/dashboard/layout.js: أعاد طبقة متقاعدة ${retired}.`);
+}
+for (const leaked of ['LegacySemanticBridgeRuntime','UISkinBridgeRuntime','PortalExperienceRuntime','ui-shell-skin.css','ui-skin-foundation.css']) {
+  if (layout.includes(leaked)) failures.push(`app/dashboard/layout.js: تسرب تفصيل جلد داخلي إلى القبطان البنيوي: ${leaked}.`);
 }
 
 for (const retiredFile of [
@@ -172,4 +187,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Single visual captain audit passed: one semantic body and one navigation captain remain; desktop has a persistent portal rail plus one context panel, mobile uses the same map as a drawer, and retired visual captains cannot return.');
+console.log('Single visual captain audit passed: one semantic body and one navigation captain remain behind the replaceable dashboard tuxedo boundary; retired visual captains cannot return.');
