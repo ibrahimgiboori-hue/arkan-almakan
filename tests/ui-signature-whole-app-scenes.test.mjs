@@ -6,6 +6,8 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 const runtime = read('components/ui/SignatureAppSceneRuntime.js');
 const skin = read('app/ui-signature-app-scenes.css');
 const layout = read('app/layout.js');
+const rootSkinEntry = read('app/ui-active-skin.css');
+const activeSkinRuntime = read('components/ui/ActiveUISkinRuntime.js');
 
 const routes = [
   '/dashboard','/dashboard/my-work','/dashboard/approvals',
@@ -40,10 +42,12 @@ test('whole-app scene layer is screen-only with strict readable foreground surfa
 });
 
 test('whole-app scene skin loads before project-specific overrides', () => {
-  const appIndex = layout.indexOf("./ui-signature-app-scenes.css");
-  const projectIndex = layout.indexOf("./ui-signature-project-scenes.css");
-  const contrastIndex = layout.indexOf("./ui-signature-project-surface-contrast.css");
+  const appIndex = rootSkinEntry.indexOf("./ui-signature-app-scenes.css");
+  const projectIndex = rootSkinEntry.indexOf("./ui-signature-project-scenes.css");
+  const contrastIndex = rootSkinEntry.indexOf("./ui-signature-project-surface-contrast.css");
   assert.ok(appIndex >= 0 && projectIndex > appIndex && contrastIndex > projectIndex);
-  assert.match(layout, /SignatureAppSceneRuntime/);
-  assert.match(layout, /SignatureProjectSceneRuntime/);
+  assert.match(layout, /import '\.\/ui-active-skin\.css'/);
+  assert.doesNotMatch(layout, /ui-signature-(?:app-scenes|project-scenes|project-surface-contrast)\.css/);
+  assert.match(activeSkinRuntime, /SignatureAppSceneRuntime/);
+  assert.match(activeSkinRuntime, /SignatureProjectSceneRuntime/);
 });
