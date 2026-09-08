@@ -13,7 +13,8 @@ import {
   loadDashboardBootstrapSnapshot,
   signOutDashboardSession,
 } from '@/lib/adapters/dashboard-bootstrap-supabase';
-import { composeDashboardSession, dashboardDeniedMessage } from '@/lib/core/dashboard-session';
+import { composeDashboardSession } from '@/lib/core/dashboard-session';
+import { dashboardDeniedMessage } from '@/lib/presentation/dashboard-messages';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRuntime';
