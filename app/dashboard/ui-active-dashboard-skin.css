@@ -1,0 +1,13 @@
+/*
+ * ACTIVE DASHBOARD SKIN ENTRYPOINT
+ * نقطة واحدة لطبقات بدلة لوحة التحكم. ترتيب الاستيراد مطابق للحالة الحالية.
+ * DashboardLayout لا يجب أن يعرف أسماء طبقات الجلد الداخلية بعد الآن.
+ */
+@import './raw-tokens.css';
+@import './prehydration-legacy-containment.css';
+@import './ui-skin-foundation.css';
+@import './ui-component-skin.css';
+@import './ui-semantic-adapter-skin.css';
+@import './ui-shell-skin.css';
+@import './ui-experience-skin.css';
+@import './ui-skin-contract.css';
