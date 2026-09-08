@@ -7,6 +7,8 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 const runtime = read('components/ui/SignatureProjectSceneRuntime.js');
 const skin = read('app/ui-signature-project-scenes.css');
 const rootLayout = read('app/layout.js');
+const rootSkinEntry = read('app/ui-active-skin.css');
+const activeSkinRuntime = read('components/ui/ActiveUISkinRuntime.js');
 
 const projectScenes = [
   'overview',
@@ -40,10 +42,12 @@ test('every project work surface has an explicit Signature photo scene', () => {
 });
 
 test('project operation scene layer is loaded after the generic Signature photo layer', () => {
-  const genericIndex = rootLayout.indexOf("./ui-signature-photo-skin.css");
-  const projectIndex = rootLayout.indexOf("./ui-signature-project-scenes.css");
+  const genericIndex = rootSkinEntry.indexOf("./ui-signature-photo-skin.css");
+  const projectIndex = rootSkinEntry.indexOf("./ui-signature-project-scenes.css");
   assert.ok(genericIndex >= 0 && projectIndex > genericIndex);
-  assert.match(rootLayout, /SignatureProjectSceneRuntime/);
+  assert.match(rootLayout, /import '\.\/ui-active-skin\.css'/);
+  assert.doesNotMatch(rootLayout, /ui-signature-project-scenes\.css/);
+  assert.match(activeSkinRuntime, /SignatureProjectSceneRuntime/);
 });
 
 test('project scenes remain screen-only and keep the operational foreground readable', () => {
