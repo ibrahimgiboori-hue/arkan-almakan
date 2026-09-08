@@ -15,14 +15,7 @@ import PortalExperienceRuntime from '@/components/ui/PortalExperienceRuntime';
 import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime';
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
-import './raw-tokens.css';
-import './prehydration-legacy-containment.css';
-import './ui-skin-foundation.css';
-import './ui-component-skin.css';
-import './ui-semantic-adapter-skin.css';
-import './ui-shell-skin.css';
-import './ui-experience-skin.css';
-import './ui-skin-contract.css';
+import './ui-active-dashboard-skin.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
