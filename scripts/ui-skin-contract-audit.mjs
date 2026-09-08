@@ -9,12 +9,13 @@ const exists = (relative) => fs.existsSync(path.join(root, relative));
 function requireText(file, needles) {
   if (!exists(file)) {
     failures.push(`${file}: الملف المطلوب غير موجود.`);
-    return;
+    return '';
   }
   const text = read(file);
   for (const needle of needles) {
     if (!text.includes(needle)) failures.push(`${file}: مفقود الثابت ${needle}`);
   }
+  return text;
 }
 
 requireText('lib/ui-skin-contract.js', [
@@ -78,7 +79,7 @@ if (/style=\{\{/.test(constitutionUi)) failures.push('ConstitutionUI: بقي ت�
 
 requireText('components/ui/LegacySemanticBridgeRuntime.js', [
   'LegacySemanticBridgeRuntime',
-  "data-ui-legacy-adapted",
+  'data-ui-legacy-adapted',
   "uiSlot('page')",
   "uiSlot('pageHeader')",
   "uiSlot('section')",
@@ -121,7 +122,6 @@ requireText('components/ui/UISkinBridgeRuntime.js', [
   "data-ui-role':'application-content'",
   "data-ui-role':'route-mount'",
 ]);
-
 requireText('components/ui/PortalExperienceRuntime.js', [
   "field.setAttribute('data-ui-slot', 'field')",
   "form.setAttribute('data-ui-slot', 'form')",
@@ -129,29 +129,23 @@ requireText('components/ui/PortalExperienceRuntime.js', [
   "link.setAttribute('data-ui-control', 'link')",
   "table.setAttribute('data-ui-role', 'table')",
 ]);
+requireText('components/ui/ActiveDashboardSkinRuntime.js', [
+  '<UISkinBridgeRuntime>',
+  '<LegacySemanticBridgeRuntime>',
+  '<PortalExperienceRuntime>',
+]);
 
 requireText('app/dashboard/raw-tokens.css', [
-  '--ui-canvas:',
-  '--ui-surface:',
-  '--ui-text:',
-  '--ui-accent:',
-  '--ui-shell-rail-width:',
-  '--ui-shell-nav-width:',
-  '--raw-bg: var(--ui-canvas)',
-  '--raw-wine: var(--ui-accent)',
+  '--ui-canvas:', '--ui-surface:', '--ui-text:', '--ui-accent:',
+  '--ui-shell-rail-width:', '--ui-shell-nav-width:',
+  '--raw-bg: var(--ui-canvas)', '--raw-wine: var(--ui-accent)',
 ]);
 
 requireText('app/dashboard/ui-skin-foundation.css', [
   'UI SKIN FOUNDATION — semantic native structure',
-  "[data-ui-slot='sheet']",
-  "[data-ui-slot='page-header']",
-  "[data-ui-slot='section']",
-  "[data-ui-slot='section-header']",
-  "[data-ui-slot='ledger']",
-  "[data-ui-role='table']",
-  "[data-ui-slot='field']",
-  "[data-ui-slot='dock']",
-  "[data-ui-slot='record-list']",
+  "[data-ui-slot='sheet']", "[data-ui-slot='page-header']", "[data-ui-slot='section']",
+  "[data-ui-slot='section-header']", "[data-ui-slot='ledger']", "[data-ui-role='table']",
+  "[data-ui-slot='field']", "[data-ui-slot='dock']", "[data-ui-slot='record-list']",
 ]);
 const foundation = read('app/dashboard/ui-skin-foundation.css');
 for (const forbidden of ['.page-head', '.section:not(', '.card:not(', '.btn:not(', '.tabs:not(', '.shell > .side', '.topbar']) {
@@ -159,11 +153,8 @@ for (const forbidden of ['.page-head', '.section:not(', '.card:not(', '.btn:not(
 }
 
 requireText('app/dashboard/ui-component-skin.css', [
-  'NATIVE COMPONENT SKIN',
-  "[data-ui-slot='entry']",
-  "[data-ui-role='status']",
-  "[data-ui-slot='record-row'] [data-ui-part='record-primary']",
-  "[data-ui-slot='record-summary']",
+  'NATIVE COMPONENT SKIN', "[data-ui-slot='entry']", "[data-ui-role='status']",
+  "[data-ui-slot='record-row'] [data-ui-part='record-primary']", "[data-ui-slot='record-summary']",
   'progress::-webkit-progress-value',
 ]);
 const componentSkin = read('app/dashboard/ui-component-skin.css');
@@ -172,11 +163,8 @@ if (/\.pageHeader|\.sectionHeader|\.recordRow|\.recordSummary|\.actionMenu|\.vie
 }
 
 requireText('app/dashboard/ui-semantic-adapter-skin.css', [
-  'SEMANTIC ADAPTER SKIN',
-  "[data-ui-role='legacy-card']",
-  "[data-ui-role='tabs']",
-  "[data-ui-role='legacy-action']",
-  "[data-ui-role='legacy-shell']",
+  'SEMANTIC ADAPTER SKIN', "[data-ui-role='legacy-card']", "[data-ui-role='tabs']",
+  "[data-ui-role='legacy-action']", "[data-ui-role='legacy-shell']",
 ]);
 const adapterSkin = read('app/dashboard/ui-semantic-adapter-skin.css');
 if (/\.page-head|\.section:not\(|\.card:not\(|\.btn:not\(|\.shell\s*>\s*\.side/.test(adapterSkin)) {
@@ -184,10 +172,7 @@ if (/\.page-head|\.section:not\(|\.card:not\(|\.btn:not\(|\.shell\s*>\s*\.side/.
 }
 
 requireText('app/dashboard/prehydration-legacy-containment.css', [
-  'PRE-HYDRATION LEGACY CONTAINMENT',
-  'Structural safety only',
-  '.shell > .side',
-  '.topbar',
+  'PRE-HYDRATION LEGACY CONTAINMENT', 'Structural safety only', '.shell > .side', '.topbar',
 ]);
 const containment = read('app/dashboard/prehydration-legacy-containment.css');
 if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:/.test(containment)) {
@@ -195,17 +180,10 @@ if (/color\s*:|background\s*:|font-|border(?:-|\s*:)|box-shadow|padding\s*:/.tes
 }
 
 requireText('app/dashboard/ui-shell-skin.css', [
-  'NATIVE SHELL SKIN',
-  '.appNavRail',
-  '.appRailItem',
-  '.appContextNav',
-  ".appContextNav[data-open='false']",
-  '.appNavContextHeader',
-  '.appNavContextSection',
-  '.appNavContextItem',
-  '.appNavMobileTrigger',
-  ".appContextNav[data-mobile-open='true']",
-  "@media (prefers-reduced-motion: reduce)",
+  'NATIVE SHELL SKIN', '.appNavRail', '.appRailItem', '.appContextNav',
+  ".appContextNav[data-open='false']", '.appNavContextHeader', '.appNavContextSection',
+  '.appNavContextItem', '.appNavMobileTrigger', ".appContextNav[data-mobile-open='true']",
+  '@media (prefers-reduced-motion: reduce)',
 ]);
 const shellSkin = read('app/dashboard/ui-shell-skin.css');
 if (shellSkin.includes('.appActionContextAlert')) failures.push('ui-shell-skin.css: شريط سياق الإجراء دخل جلد الملاحة بدل جلد الجسم الدلالي.');
@@ -213,53 +191,38 @@ if (shellSkin.includes('.rawDashboardContent > .workSheetMount')) failures.push(
 if (shellSkin.includes('.appNavHotZone')) failures.push('ui-shell-skin.css: عاد مدخل ملاحة مخفي بدل الشريط الثابت المرئي.');
 
 requireText('app/dashboard/ui-skin-contract.css', [
-  "[data-ui-skin-contract='arkan-semantic-skin-v1']",
-  "[data-ui-slot='system-state']",
-  "[data-ui-slot='application-stage']",
-  "[data-ui-slot='application-content']",
-  "[data-ui-slot='route-mount']",
-  "[data-ui-slot='action-context-banner']",
-  "[data-ui-slot='selection-dock']",
-  "[data-ui-control='clear-selection']",
-  "[data-ui-slot='action']",
-  'appWorkThresholdArrive',
-  '.appCompletedSurface',
-  "[data-work-threshold-entry='true']",
+  "[data-ui-skin-contract='arkan-semantic-skin-v1']", "[data-ui-slot='system-state']",
+  "[data-ui-slot='application-stage']", "[data-ui-slot='application-content']", "[data-ui-slot='route-mount']",
+  "[data-ui-slot='action-context-banner']", "[data-ui-slot='selection-dock']", "[data-ui-control='clear-selection']",
+  "[data-ui-slot='action']", 'appWorkThresholdArrive', '.appCompletedSurface', "[data-work-threshold-entry='true']",
+]);
+
+requireText('app/dashboard/ui-active-dashboard-skin.css', [
+  "@import './raw-tokens.css'", "@import './prehydration-legacy-containment.css'",
+  "@import './ui-skin-foundation.css'", "@import './ui-component-skin.css'",
+  "@import './ui-semantic-adapter-skin.css'", "@import './ui-shell-skin.css'",
+  "@import './ui-experience-skin.css'", "@import './ui-skin-contract.css'",
 ]);
 
 requireText('app/dashboard/layout.js', [
   "import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract'",
-  "import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime'",
-  "import LegacySemanticBridgeRuntime from '@/components/ui/LegacySemanticBridgeRuntime'",
-  "import './prehydration-legacy-containment.css'",
-  "import './ui-skin-foundation.css'",
-  "import './ui-component-skin.css'",
-  "import './ui-semantic-adapter-skin.css'",
-  "import './ui-shell-skin.css'",
-  "import './ui-skin-contract.css'",
-  '<LegacySemanticBridgeRuntime>',
-  'const skinAttrs = uiSkinDataAttributes()',
-  '{...skinAttrs}',
-  "data-ui-slot={uiSlot('systemState')}",
-  "data-ui-slot={uiSlot('applicationStage')}",
-  "data-ui-slot={uiSlot('applicationContent')}",
-  "data-ui-slot={uiSlot('routeMount')}",
+  "import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRuntime'",
+  "import './ui-active-dashboard-skin.css'",
+  '<ActiveDashboardSkinRuntime>',
+  'const skinAttrs = uiSkinDataAttributes()', '{...skinAttrs}',
+  "data-ui-slot={uiSlot('systemState')}", "data-ui-slot={uiSlot('applicationStage')}",
+  "data-ui-slot={uiSlot('applicationContent')}", "data-ui-slot={uiSlot('routeMount')}",
   "data-ui-slot={uiSlot('actionContextBanner')}",
-  '<UISkinBridgeRuntime>',
 ]);
 
 const layout = read('app/dashboard/layout.js');
 if (/style=\{\{/.test(layout)) failures.push('DashboardLayout: لا يجوز أن يحمل تنسيقًا مرئيًا inline؛ حالات النظام والجسم تتبع عقد الجلد.');
-for (const retired of ['body-resuscitation.css','app-body-v3.css','raw-phase.css','app-shell-v2.css','legacy-ui-compat.css']) {
-  if (layout.includes(retired)) failures.push(`DashboardLayout: عاد لاستيراد ${retired} بعد امتصاصه/استبداله.`);
+for (const forbidden of ['UISkinBridgeRuntime','LegacySemanticBridgeRuntime','PortalExperienceRuntime','raw-tokens.css','ui-skin-foundation.css','ui-shell-skin.css']) {
+  if (layout.includes(forbidden)) failures.push(`DashboardLayout: تسرب تفصيل بدلة داخلي إلى الغلاف: ${forbidden}`);
 }
 for (const retiredFile of [
-  'app/dashboard/body-resuscitation.css',
-  'app/dashboard/app-body-v3.css',
-  'app/dashboard/raw-phase.css',
-  'app/dashboard/app-shell-v2.css',
-  'app/dashboard/legacy-ui-compat.css',
-  'components/ui/constitution-ui.module.css',
+  'app/dashboard/body-resuscitation.css', 'app/dashboard/app-body-v3.css', 'app/dashboard/raw-phase.css',
+  'app/dashboard/app-shell-v2.css', 'app/dashboard/legacy-ui-compat.css', 'components/ui/constitution-ui.module.css',
 ]) {
   if (exists(retiredFile)) failures.push(`${retiredFile}: الملف المرئي المتقاعد لا يجوز أن يعود.`);
 }
@@ -270,4 +233,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('UI skin contract audit passed: the replaceable identity owns a semantic persistent rail, one contextual panel and a mobile drawer without hidden edge navigation or legacy visual layers.');
+console.log('UI skin contract audit passed: semantic structure stays stable while dashboard visual bridges and layers sit behind one replaceable tuxedo boundary.');

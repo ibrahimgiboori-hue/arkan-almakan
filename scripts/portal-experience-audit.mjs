@@ -9,12 +9,13 @@ const exists = (relative) => fs.existsSync(path.join(root, relative));
 function requireText(file, needles) {
   if (!exists(file)) {
     failures.push(`${file}: الملف المطلوب غير موجود.`);
-    return;
+    return '';
   }
   const text = read(file);
   for (const needle of needles) {
     if (!text.includes(needle)) failures.push(`${file}: مفقود الثابت ${needle}`);
   }
+  return text;
 }
 
 requireText('lib/portal-experience-constitution.js', [
@@ -94,12 +95,21 @@ if (exists('app/dashboard/portal-experience.css')) {
   failures.push('portal-experience.css: الطبقة المرئية القديمة يجب ألا تعود بعد فصل السلوك عن الجلد.');
 }
 
-requireText('app/dashboard/layout.js', [
+const layout = requireText('app/dashboard/layout.js', [
+  "import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRuntime'",
+  "import './ui-active-dashboard-skin.css'",
+  '<ActiveDashboardSkinRuntime>',
+]);
+for (const leaked of ['PortalExperienceRuntime', 'ui-experience-skin.css']) {
+  if (layout.includes(leaked)) failures.push(`DashboardLayout: تسرب تفصيل تجربة مرئي داخلي إلى الغلاف: ${leaked}`);
+}
+requireText('components/ui/ActiveDashboardSkinRuntime.js', [
   "import PortalExperienceRuntime from '@/components/ui/PortalExperienceRuntime'",
-  "import './ui-experience-skin.css'",
   '<PortalExperienceRuntime>',
 ]);
-const layout = read('app/dashboard/layout.js');
+requireText('app/dashboard/ui-active-dashboard-skin.css', [
+  "@import './ui-experience-skin.css'",
+]);
 if (layout.includes("'./portal-experience.css'")) failures.push('DashboardLayout: عاد لاستيراد الجلد القديم لتجربة البوابة.');
 
 if (failures.length) {
@@ -108,4 +118,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Portal experience audit passed: behavior remains centralized in runtime/constitution while focus, ledger cues, failures and network feedback live in the replaceable experience skin.');
+console.log('Portal experience audit passed: behavior remains centralized while the layout sees only the active dashboard tuxedo boundary, and focus, ledger cues, failures and network feedback remain inside the replaceable experience skin.');

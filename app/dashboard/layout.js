@@ -7,22 +7,21 @@ import { DashboardSessionProvider } from '@/lib/dashboard-session-context';
 import { ACTION_CONTEXT_EVENT, isOnBehalfMode, normalizeActionContext } from '@/lib/action-context';
 import { applyUiTheme, DEFAULT_UI_THEME, UI_THEME_EVENT } from '@/lib/ui-theme';
 import { uiSkinDataAttributes, uiSlot } from '@/lib/ui-skin-contract';
+import {
+  loadCurrentActionContextSnapshot,
+  loadCurrentUiThemeSnapshot,
+  loadDashboardBootstrapSnapshot,
+  signOutDashboardSession,
+} from '@/lib/adapters/dashboard-bootstrap-supabase';
+import { composeDashboardSession } from '@/lib/core/dashboard-session';
+import { dashboardDeniedMessage } from '@/lib/presentation/dashboard-messages';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
-import UISkinBridgeRuntime from '@/components/ui/UISkinBridgeRuntime';
-import LegacySemanticBridgeRuntime from '@/components/ui/LegacySemanticBridgeRuntime';
-import PortalExperienceRuntime from '@/components/ui/PortalExperienceRuntime';
+import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRuntime';
 import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime';
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
-import './raw-tokens.css';
-import './prehydration-legacy-containment.css';
-import './ui-skin-foundation.css';
-import './ui-component-skin.css';
-import './ui-semantic-adapter-skin.css';
-import './ui-shell-skin.css';
-import './ui-experience-skin.css';
-import './ui-skin-contract.css';
+import './ui-active-dashboard-skin.css';
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -32,91 +31,42 @@ export default function DashboardLayout({ children }) {
     let alive = true;
 
     (async () => {
-      const { data:{ session } } = await supabase.auth.getSession();
+      const snapshot = await loadDashboardBootstrapSnapshot(supabase);
       if (!alive) return;
 
-      if (!session) {
+      const decision = composeDashboardSession(snapshot);
+      if (decision.kind === 'anonymous') {
         router.replace('/login');
         return;
       }
 
-      const [userQ, capsQ, primaryQ, actionQ, themeQ] = await Promise.all([
-        supabase
-          .from('app_users')
-          .select('employee_id,role,is_active,is_system_admin,must_change_password')
-          .eq('id', session.user.id)
-          .maybeSingle(),
-        supabase.from('v_my_capabilities').select('capability_key,module_key,scope_type,scope_key,source_key'),
-        supabase.rpc('fn_is_primary_user'),
-        supabase.rpc('fn_my_action_context'),
-        supabase.from('app_settings').select('ui_theme_preset').eq('id',1).maybeSingle(),
-      ]);
+      applyUiTheme(snapshot.themeQ?.error ? DEFAULT_UI_THEME : snapshot.themeQ?.data?.ui_theme_preset);
 
-      if (!alive) return;
-      applyUiTheme(themeQ.error ? DEFAULT_UI_THEME : themeQ.data?.ui_theme_preset);
-
-      if (userQ.error) {
-        setState({ ready:true, allowed:false, message:'تعذر التحقق من الحساب.', me:null });
-        return;
-      }
-
-      const userRow = userQ.data || null;
-      if (userRow?.must_change_password) {
+      if (decision.kind === 'password_change_required') {
         router.replace('/change-password');
         return;
       }
 
-      if (!userRow?.is_active || !userRow?.role) {
-        setState({ ready:true, allowed:false, message:'حسابك غير مهيأ لاستخدام النظام حاليًا.', me:null });
+      if (decision.kind === 'denied') {
+        setState({ ready:true, allowed:false, message:dashboardDeniedMessage(decision.reason), me:null });
         return;
       }
 
-      const capabilities = capsQ.error ? [] : (capsQ.data || []);
-      const capabilityKeys = new Set(capabilities.map((item) => item.capability_key));
-      const isPrimaryUser = primaryQ.data === true;
-      const fullAdmin = isPrimaryUser || Boolean(userRow.is_system_admin);
-      const projectCaps = capabilities.filter((item) => item.module_key === 'projects');
-      const projectsScreen = fullAdmin || projectCaps.some((item) => item.scope_type === 'all');
-      const projectScoped = fullAdmin || projectCaps.length > 0;
-      const manageAccess = fullAdmin || capabilityKeys.has('system.access.manage_access');
-      const access = {
-        fullAdmin,
-        projects: projectsScreen,
-        projectsScreen,
-        projectScoped,
-        hr: fullAdmin || capabilities.some((item) => item.module_key === 'hr'),
-        finance: fullAdmin || capabilities.some((item) => item.module_key === 'finance'),
-        documents: fullAdmin || capabilities.some((item) => item.module_key === 'documents'),
-        admin: fullAdmin || capabilities.some((item) => item.module_key === 'admin') || manageAccess,
-        manageAccess,
-        approvals: fullAdmin || capabilityKeys.has('system.approvals.view'),
-      };
-      const actionContext = normalizeActionContext(actionQ.error ? null : actionQ.data, {
-        systemActorUserId:session.user.id,
-        systemActorEmployeeId:userRow.employee_id,
-        isPrimaryUser,
-      });
-
-      setState({
-        ready:true,
-        allowed:true,
-        message:'',
-        me:{ ...userRow, email:session.user.email, userId:session.user.id, capabilities, capabilityKeys, access, actionContext },
-      });
+      setState({ ready:true, allowed:true, message:'', me:decision.me });
     })();
 
     return () => { alive = false; };
   }, [router]);
 
   useEffect(() => {
-    function refreshTheme(event) {
+    async function refreshTheme(event) {
       const supplied = event?.detail?.theme;
       if (supplied) {
         applyUiTheme(supplied);
         return;
       }
-      supabase.from('app_settings').select('ui_theme_preset').eq('id',1).maybeSingle()
-        .then(({ data }) => applyUiTheme(data?.ui_theme_preset || DEFAULT_UI_THEME));
+      const { data } = await loadCurrentUiThemeSnapshot(supabase);
+      applyUiTheme(data?.ui_theme_preset || DEFAULT_UI_THEME);
     }
     window.addEventListener(UI_THEME_EVENT, refreshTheme);
     return () => window.removeEventListener(UI_THEME_EVENT, refreshTheme);
@@ -127,7 +77,7 @@ export default function DashboardLayout({ children }) {
       const supplied = event?.detail && typeof event.detail === 'object' ? event.detail : null;
       let raw = supplied;
       if (!raw) {
-        const { data, error } = await supabase.rpc('fn_my_action_context');
+        const { data, error } = await loadCurrentActionContextSnapshot(supabase);
         if (error) return;
         raw = data;
       }
@@ -172,7 +122,7 @@ export default function DashboardLayout({ children }) {
   }, [state.me?.actionContext?.actingMode, state.me?.actionContext?.expiresAt]);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    await signOutDashboardSession(supabase);
     router.replace('/login');
   }
 
@@ -210,54 +160,50 @@ export default function DashboardLayout({ children }) {
         data-real-actor-employee-id={state.me?.actionContext?.realActorEmployeeId || undefined}
       >
         <WorkSurfaceRuntime>
-          <UISkinBridgeRuntime>
-            <LegacySemanticBridgeRuntime>
-              <PortalExperienceRuntime>
-                <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
-                <WorkThresholdRuntime>
-                  <div
-                    className="appBodyStage"
-                    data-application-body="work-first-v3"
-                    data-ui-slot={uiSlot('applicationStage')}
-                  >
-                    <WorkSessionRuntime>
-                      <ActionNervousSystemRuntime>
-                        {showExceptionalIdentity ? (
-                          <div
-                            role="status"
-                            aria-live="polite"
-                            data-action-context-banner="true"
-                            data-action-context-active="true"
-                            data-ui-slot={uiSlot('actionContextBanner')}
-                            className="appActionContextAlert"
-                          >
-                            <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
-                            <a href="/dashboard/settings#primary-action-mode">تغيير</a>
-                          </div>
-                        ) : null}
-                        <main
-                          className="rawDashboardContent"
-                          data-work-book="true"
-                          data-ui-slot={uiSlot('applicationContent')}
-                        >
-                          <WorkThresholdMarker />
-                          <div
-                            className="workSheetMount"
-                            data-work-sheet-mount="true"
-                            data-organ-host="route-content"
-                            data-organ-preservation="in-place"
-                            data-ui-slot={uiSlot('routeMount')}
-                          >
-                            {children}
-                          </div>
-                        </main>
-                      </ActionNervousSystemRuntime>
-                    </WorkSessionRuntime>
-                  </div>
-                </WorkThresholdRuntime>
-              </PortalExperienceRuntime>
-            </LegacySemanticBridgeRuntime>
-          </UISkinBridgeRuntime>
+          <ActiveDashboardSkinRuntime>
+            <ContextualDashboardNavigation me={state.me} onSignOut={signOut} />
+            <WorkThresholdRuntime>
+              <div
+                className="appBodyStage"
+                data-application-body="work-first-v3"
+                data-ui-slot={uiSlot('applicationStage')}
+              >
+                <WorkSessionRuntime>
+                  <ActionNervousSystemRuntime>
+                    {showExceptionalIdentity ? (
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        data-action-context-banner="true"
+                        data-action-context-active="true"
+                        data-ui-slot={uiSlot('actionContextBanner')}
+                        className="appActionContextAlert"
+                      >
+                        <span>تسجيل الإجراء باسم <strong>{state.me.actionContext.realActorName || 'الشخص المحدد'}</strong></span>
+                        <a href="/dashboard/settings#primary-action-mode">تغيير</a>
+                      </div>
+                    ) : null}
+                    <main
+                      className="rawDashboardContent"
+                      data-work-book="true"
+                      data-ui-slot={uiSlot('applicationContent')}
+                    >
+                      <WorkThresholdMarker />
+                      <div
+                        className="workSheetMount"
+                        data-work-sheet-mount="true"
+                        data-organ-host="route-content"
+                        data-organ-preservation="in-place"
+                        data-ui-slot={uiSlot('routeMount')}
+                      >
+                        {children}
+                      </div>
+                    </main>
+                  </ActionNervousSystemRuntime>
+                </WorkSessionRuntime>
+              </div>
+            </WorkThresholdRuntime>
+          </ActiveDashboardSkinRuntime>
         </WorkSurfaceRuntime>
       </div>
     </DashboardSessionProvider>

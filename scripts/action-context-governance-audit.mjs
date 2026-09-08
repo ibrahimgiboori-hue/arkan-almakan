@@ -16,6 +16,7 @@ const operationalPropagationMigration = 'supabase/migrations/20260829224000_prop
 const invariantMigration = 'supabase/migrations/20260829225000_normalize_primary_action_context_invariants.sql';
 const sessionScopedMigration = 'supabase/migrations/20260901225000_scope_primary_action_context_to_auth_session.sql';
 const layout = 'app/dashboard/layout.js';
+const dashboardAdapter = 'lib/adapters/dashboard-bootstrap-supabase.js';
 const settingsLayout = 'app/dashboard/settings/layout.js';
 const control = 'components/account/PrimaryActionModeSettings.js';
 const model = 'lib/action-context.js';
@@ -27,6 +28,7 @@ for (const file of [
   invariantMigration,
   sessionScopedMigration,
   layout,
+  dashboardAdapter,
   settingsLayout,
   control,
   model,
@@ -99,13 +101,19 @@ requireText(control, 'المُسجّل النظامي', 'UI must explain the sep
 
 requireText(settingsLayout, 'PrimaryActionModeSettings', 'primary action mode control must be mounted inside Settings');
 requireText(settingsLayout, 'primary-action-mode', 'the exceptional action-identity alert must be able to jump directly to its control');
-const layoutSource = requireText(layout, "supabase.rpc('fn_my_action_context'", 'dashboard shell must load the canonical action context');
+const adapterSource = requireText(dashboardAdapter, "client.rpc('fn_my_action_context')", 'dashboard infrastructure adapter must load the canonical action context');
+requireText(dashboardAdapter, 'loadCurrentActionContextSnapshot', 'dashboard adapter must expose one canonical refresh function for action context');
+const layoutSource = requireText(layout, 'loadDashboardBootstrapSnapshot', 'dashboard shell must bootstrap through the infrastructure adapter');
+requireText(layout, 'loadCurrentActionContextSnapshot', 'dashboard shell refresh must use the adapter instead of direct storage access');
 requireText(layout, 'data-action-context-banner', 'dashboard must visibly announce the real actor when on-behalf mode is active');
 requireText(layout, 'data-action-context-active="true"', 'the exceptional identity alert must explicitly identify its active state');
 requireText(layout, 'data-action-mode', 'dashboard root must expose the active execution mode to all portal surfaces');
 requireText(layout, 'actionContext?.expiresAt', 'dashboard must schedule synchronization against the server lease expiry');
 requireText(layout, 'window.dispatchEvent(new CustomEvent(ACTION_CONTEXT_EVENT))', 'lease expiry must force a fresh server action-context read');
 requireText(layout, 'showExceptionalIdentity = actingOnBehalf', 'persistent work-surface identity chrome must be reserved for the exceptional on-behalf state');
+if (layoutSource.includes("supabase.rpc('fn_my_action_context'") || adapterSource.includes('localStorage') || adapterSource.includes('sessionStorage')) {
+  fail('canonical action context must live behind the adapter and never as browser-only state');
+}
 if (layoutSource.includes('أنت — تنفيذ بصفتي') || layoutSource.includes('صاحب الإجراء:')) {
   fail('normal self mode must not consume permanent work-surface space with action-identity chrome');
 }
@@ -113,4 +121,4 @@ requireText(model, "ON_BEHALF_OF: 'on_behalf_of'", 'client code must share one a
 requireText(model, 'requestedRealActorEmployeeId !== systemActorEmployeeId', 'client model must normalize impossible self-delegation too');
 requireText(model, 'expiresAt:', 'client action-context model must retain the server lease expiry');
 
-console.log('Action context governance audit passed: authority and attribution stay canonical, normal self mode remains visually quiet, and exceptional on-behalf execution is visibly announced and lease-synchronized.');
+console.log('Action context governance audit passed: authority and attribution stay canonical behind the infrastructure adapter, normal self mode remains visually quiet, and exceptional on-behalf execution is visibly announced and lease-synchronized.');

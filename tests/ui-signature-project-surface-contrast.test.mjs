@@ -5,11 +5,14 @@ import fs from 'node:fs';
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const skin = read('app/ui-signature-project-surface-contrast.css');
 const rootLayout = read('app/layout.js');
+const rootSkinEntry = read('app/ui-active-skin.css');
 
 test('strict project foreground contract loads after operation scenes', () => {
-  const sceneIndex = rootLayout.indexOf("./ui-signature-project-scenes.css");
-  const contrastIndex = rootLayout.indexOf("./ui-signature-project-surface-contrast.css");
+  const sceneIndex = rootSkinEntry.indexOf("./ui-signature-project-scenes.css");
+  const contrastIndex = rootSkinEntry.indexOf("./ui-signature-project-surface-contrast.css");
   assert.ok(sceneIndex >= 0 && contrastIndex > sceneIndex);
+  assert.match(rootLayout, /import '\.\/ui-active-skin\.css'/);
+  assert.doesNotMatch(rootLayout, /ui-signature-project-(?:scenes|surface-contrast)\.css/);
 });
 
 test('expense canvas cannot collapse back to a flat ivory surface', () => {

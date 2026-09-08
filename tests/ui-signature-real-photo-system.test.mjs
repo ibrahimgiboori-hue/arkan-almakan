@@ -5,13 +5,16 @@ import fs from 'node:fs';
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const layout = read('app/layout.js');
+const rootSkinEntry = read('app/ui-active-skin.css');
 const photos = read('app/ui-signature-photo-skin.css');
 
 test('real-photo Signature layer loads after the approved tuxedo tailoring', () => {
-  const tailoring = layout.indexOf("import './ui-signature-tailoring.css';");
-  const photoLayer = layout.indexOf("import './ui-signature-photo-skin.css';");
+  const tailoring = rootSkinEntry.indexOf("@import './ui-signature-tailoring.css';");
+  const photoLayer = rootSkinEntry.indexOf("@import './ui-signature-photo-skin.css';");
   assert.ok(tailoring >= 0);
   assert.ok(photoLayer > tailoring);
+  assert.match(layout, /import '\.\/ui-active-skin\.css'/);
+  assert.doesNotMatch(layout, /ui-signature-(?:tailoring|photo-skin)\.css/);
 });
 
 test('all five work portals have real photographic context sources', () => {
