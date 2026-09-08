@@ -104,14 +104,18 @@ const dashboardLayout = read('app/dashboard/layout.js');
 const dashboardHome = read('app/dashboard/page.js');
 const contextualNavigation = 'components/ui/ContextualDashboardNavigation.js';
 const contextualShellCss = 'app/dashboard/ui-shell-skin.css';
+const activeDashboardSkin = 'app/dashboard/ui-active-dashboard-skin.css';
 const shellConstitution = 'lib/navigation-shell-constitution.js';
 if (!dashboardLayout.includes('ContextualDashboardNavigation')) {
   failures.push('app/dashboard/layout.js: الملاحة الموحدة غير مركبة.');
 }
-if (!dashboardLayout.includes("'./ui-shell-skin.css'")) {
-  failures.push('app/dashboard/layout.js: جلد الغلاف القابل للاستبدال ui-shell-skin.css غير مربوط.');
+if (!dashboardLayout.includes("'./ui-active-dashboard-skin.css'")) {
+  failures.push('app/dashboard/layout.js: نقطة جلد لوحة التحكم الموحدة غير مربوطة.');
 }
-if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(shellConstitution)) {
+if (!exists(activeDashboardSkin) || !read(activeDashboardSkin).includes("@import './ui-shell-skin.css'")) {
+  failures.push('جلد الملاحة: ui-shell-skin.css يجب أن يبقى داخل نقطة التوكسيدو الموحدة.');
+}
+if (!exists(contextualNavigation) || !exists(contextualShellCss) || !exists(activeDashboardSkin) || !exists(shellConstitution)) {
   failures.push('الملاحة: ملفات الملاحة أو دستور تجميعاتها أو جلد الغلاف غير موجودة.');
 }
 if (exists('app/dashboard/app-shell-v2.css')) {
@@ -146,14 +150,18 @@ if (exists(shellConstitution) && !read(shellConstitution).includes('SHELL_PORTAL
 }
 
 // 6) حدود البوابات مستقلة: صلاحية داخلية لا تفتح بوابة أخرى كاملة.
-if (/documents:\s*[^\n]*system\.approvals\.view/.test(dashboardLayout)) {
+const dashboardAccessPolicy = read('lib/core/dashboard-access.js');
+if (/documents:\s*[^\n]*system\.approvals\.view/.test(dashboardAccessPolicy)) {
   failures.push('صلاحيات البوابات: system.approvals.view لا يجوز أن تفتح بوابة المستندات.');
 }
-if (/admin:\s*[^\n]*module_key\s*===\s*['"]system['"]/.test(dashboardLayout)) {
+if (/admin:\s*[^\n]*module_key\s*===\s*['"]system['"]/.test(dashboardAccessPolicy)) {
   failures.push('صلاحيات البوابات: module system لا يجوز أن يفتح بوابة الإدارة كاملة.');
 }
-if (!/documents:\s*fullAdmin\s*\|\|\s*capabilities\.some\(\(item\)\s*=>\s*item\.module_key\s*===\s*['"]documents['"]\)/.test(dashboardLayout)) {
+if (!/documents:\s*fullAdmin\s*\|\|\s*hasModuleCapability\(capabilities,\s*['"]documents['"]\)/.test(dashboardAccessPolicy)) {
   failures.push('صلاحيات البوابات: بوابة المستندات يجب أن تعتمد على صلاحيات documents الأصلية فقط.');
+}
+if (/\.from\(['"]v_my_capabilities['"]\)|fn_is_primary_user/.test(dashboardLayout)) {
+  failures.push('صلاحيات البوابات: DashboardLayout لا يجوز أن يعيد بناء مصدر الصلاحيات بعد استخراج سياسة الوصول.');
 }
 
 const deadPlatformFiles = [
