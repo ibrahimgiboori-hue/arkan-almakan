@@ -128,7 +128,7 @@ if (!sessionRuntime.includes('pendingWork?.dirty')) failures.push('WorkSessionRu
 const layout = requireText('app/dashboard/layout.js', [
   "import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime'",
   "import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime'",
-  "'./ui-skin-contract.css'",
+  "import './ui-active-dashboard-skin.css'",
   '<WorkSurfaceRuntime>',
   '</WorkSurfaceRuntime>',
   '<WorkSessionRuntime>',
@@ -139,6 +139,13 @@ const layout = requireText('app/dashboard/layout.js', [
   'data-organ-host="route-content"',
   'data-organ-preservation="in-place"',
 ]);
+
+const dashboardSkinEntry = requireText('app/dashboard/ui-active-dashboard-skin.css', [
+  "@import './ui-skin-contract.css'",
+]);
+if (!dashboardSkinEntry.includes("@import './ui-skin-contract.css'")) {
+  failures.push('ui-active-dashboard-skin.css: عقد جسم العمل يجب أن يبقى داخل نقطة التوكسيدو الموحدة.');
+}
 
 if ((layout.match(/\{children\}/g) || []).length !== 1) {
   failures.push('app/dashboard/layout.js: محتوى المسار يجب أن يركب مرة واحدة فقط داخل الجسد الجديد؛ ممنوع نسخ العضو أو عرضه في سطح موازٍ.');
