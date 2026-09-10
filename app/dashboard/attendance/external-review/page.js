@@ -20,9 +20,27 @@ const TYPES = [
 
 const TYPE_LABEL = Object.fromEntries(TYPES);
 const STATUS_LABEL = {
-  complete:'مكتمل', missing_in:'بصمة دخول مفقودة', missing_out:'بصمة خروج مفقودة',
-  absent:'غياب', day_off:'إجازة', no_schedule:'ساعات الدوام غير محددة', needs_review:'يحتاج مراجعة',
+  complete:'مكتمل',
+  missing_in:'بصمة دخول مفقودة',
+  missing_out:'بصمة خروج مفقودة',
+  absent:'غياب',
+  day_off:'إجازة',
+  no_schedule:'ساعات الدوام غير محددة',
+  needs_review:'يحتاج مراجعة',
 };
+
+const ISSUE_GROUPS = [
+  {key:'absence',label:'الغياب',hint:'حالات الغياب فقط',statuses:['absent']},
+  {key:'missing_punch',label:'البصمات المفقودة / النسيان',hint:'دخول أو خروج مفقود فقط',statuses:['missing_in','missing_out']},
+  {key:'other_review',label:'حالات أخرى تحتاج مراجعة',hint:'حالات التحليل التي تحتاج مراجعة يدوية',statuses:['needs_review']},
+];
+
+const TYPE_ALLOWLIST = {
+  absence:['sick_leave','approved_leave','non_working_day','outside_work','approved_shift_change','training_meeting_assignment','other_site_branch','other'],
+  missing_punch:['biometric_device_issue','forgot_punch','outside_work','approved_late_early_permission','approved_shift_change','training_meeting_assignment','other_site_branch','other'],
+  other_review:TYPES.map(([value])=>value),
+};
+
 const REVIEW_STATUSES = ['analyzed','justifications','recalculated','ready_to_post'];
 
 function needsReview(day) {
@@ -35,6 +53,11 @@ function decision(day) {
 
 function subjectKey(day) {
   return day?.external_person_id || day?.employee_id || `${day?.subject_no || ''}|${day?.subject_name || ''}`;
+}
+
+function groupMatches(day, groupKey) {
+  const group = ISSUE_GROUPS.find((item)=>item.key===groupKey);
+  return !!group?.statuses.includes(day?.day_status);
 }
 
 function stateOf(day) {
@@ -89,17 +112,34 @@ function downloadBuffer(buffer, filename) {
   setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
 
+function makePersonList(sourceDays) {
+  const map=new Map();
+  sourceDays.forEach((day)=>{
+    const key=subjectKey(day);
+    const current=map.get(key);
+    if (!current) map.set(key,{key,no:day.subject_no||'',name:day.subject_name||'غير معروف',count:1});
+    else current.count += 1;
+  });
+  return [...map.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar',{sensitivity:'base',numeric:true}));
+}
+
 export default function ExternalAttendanceReviewPage() {
   const [imports,setImports] = useState([]);
   const [activeId,setActiveId] = useState('');
   const [days,setDays] = useState([]);
+  const [issueGroup,setIssueGroup] = useState('absence');
+  const [reviewView,setReviewView] = useState('unjustified');
   const [person,setPerson] = useState('');
-  const [showClosed,setShowClosed] = useState(false);
   const [selectedIds,setSelectedIds] = useState([]);
   const [type,setType] = useState('');
   const [details,setDetails] = useState('');
   const [reference,setReference] = useState('');
   const [approvedOn,setApprovedOn] = useState('');
+  const [editDay,setEditDay] = useState(null);
+  const [editType,setEditType] = useState('');
+  const [editDetails,setEditDetails] = useState('');
+  const [editReference,setEditReference] = useState('');
+  const [editApprovedOn,setEditApprovedOn] = useState('');
   const [busy,setBusy] = useState(false);
   const [msg,setMsg] = useState('');
   const [err,setErr] = useState('');
@@ -142,30 +182,50 @@ export default function ExternalAttendanceReviewPage() {
     setSelectedIds([]);
     setMsg('');
     setErr('');
+    setEditDay(null);
     loadDays(activeId);
   },[activeId]);
-
-  const people = useMemo(()=>{
-    const map=new Map();
-    days.forEach((day)=>{
-      const key=subjectKey(day);
-      if (!map.has(key)) map.set(key,{key,no:day.subject_no||'',name:day.subject_name||'غير معروف'});
-    });
-    return [...map.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar',{sensitivity:'base',numeric:true}));
-  },[days]);
 
   const needsJustification = useMemo(()=>days.filter((day)=>needsReview(day) && !day.justification_id),[days]);
   const clientPending = useMemo(()=>days.filter((day)=>day.justification_id && decision(day)==='pending'),[days]);
   const closed = useMemo(()=>days.filter((day)=>day.justification_id && ['accepted','rejected'].includes(decision(day))),[days]);
 
-  const groupCandidates = useMemo(()=>needsJustification.filter((day)=>!person || subjectKey(day)===person),[needsJustification,person]);
+  const unprocessedInGroup = useMemo(()=>needsJustification.filter((day)=>groupMatches(day,issueGroup)),[needsJustification,issueGroup]);
+  const pendingPeople = useMemo(()=>makePersonList(unprocessedInGroup),[unprocessedInGroup]);
+  const allowedTypes = useMemo(()=>TYPES.filter(([value])=>TYPE_ALLOWLIST[issueGroup]?.includes(value)),[issueGroup]);
+  const groupCandidates = useMemo(()=>unprocessedInGroup.filter((day)=>person && subjectKey(day)===person),[unprocessedInGroup,person]);
   const selectedDays = useMemo(()=>groupCandidates.filter((day)=>selectedIds.includes(day.id)),[groupCandidates,selectedIds]);
 
   const displayed = useMemo(()=>days.filter((day)=>{
-    if (!showClosed && ['closed_accepted','closed_rejected','clear'].includes(stateOf(day))) return false;
+    if (!groupMatches(day,issueGroup)) return false;
+    const state=stateOf(day);
+    if (reviewView==='unjustified' && state!=='needs_justification') return false;
+    if (reviewView==='client_pending' && state!=='client_pending') return false;
+    if (reviewView==='closed' && !['closed_accepted','closed_rejected'].includes(state)) return false;
     if (person && subjectKey(day)!==person) return false;
     return true;
-  }),[days,showClosed,person]);
+  }),[days,issueGroup,reviewView,person]);
+
+  const countsByGroup = useMemo(()=>Object.fromEntries(ISSUE_GROUPS.map((group)=>[
+    group.key,
+    needsJustification.filter((day)=>group.statuses.includes(day.day_status)).length,
+  ])),[needsJustification]);
+
+  function chooseIssueGroup(key) {
+    setIssueGroup(key);
+    setReviewView('unjustified');
+    setPerson('');
+    setSelectedIds([]);
+    setType('');
+    setErr('');
+  }
+
+  function chooseReviewView(value) {
+    setReviewView(value);
+    setPerson('');
+    setSelectedIds([]);
+    setErr('');
+  }
 
   function choosePerson(value) {
     setPerson(value);
@@ -177,16 +237,18 @@ export default function ExternalAttendanceReviewPage() {
   }
 
   function selectAllForPerson() {
-    if (!person) { setErr('اختر الموظف أولًا حتى لا تختلط حالات أكثر من شخص في التبرير الجماعي.'); return; }
+    if (!person) { setErr('اختر الموظف أولًا.'); return; }
     setErr('');
     setSelectedIds(groupCandidates.map((day)=>day.id));
   }
 
   async function applyGroupJustification() {
-    if (!person) { setErr('اختر الموظف أولًا.'); return; }
+    if (!person) { setErr('اختر موظفًا من قائمة الذين لم يتم تبرير حالاتهم بعد.'); return; }
     if (!selectedDays.length) { setErr('حدد حالة واحدة على الأقل لهذا الموظف.'); return; }
     if (!type) { setErr('اختر نوع التبرير.'); return; }
+    if (!TYPE_ALLOWLIST[issueGroup]?.includes(type)) { setErr('هذا التبرير غير متاح لنوع الحالة المحدد حتى لا يحدث خلط بين الغياب والبصمة المفقودة.'); return; }
     if (type==='other' && !details.trim()) { setErr('اكتب تفاصيل التبرير عند اختيار «أخرى».'); return; }
+
     setBusy(true); setErr(''); setMsg('');
     let applied=0;
     const failures=[];
@@ -201,15 +263,51 @@ export default function ExternalAttendanceReviewPage() {
       if (q.error) failures.push(`${day.work_date}: ${q.error.message}`);
       else applied+=1;
     }
+
+    const completedPerson = pendingPeople.find((item)=>item.key===person)?.name || 'الموظف';
+    setPerson('');
+    setSelectedIds([]);
+    setType('');
+    setDetails('');
+    setReference('');
+    setApprovedOn('');
     await loadDays();
     await loadImports(activeId);
-    setSelectedIds([]);
     setBusy(false);
-    if (failures.length) setErr(`تم تطبيق ${applied} حالة، وتعذر ${failures.length}: ${failures.slice(0,3).join(' | ')}`);
-    else {
-      setMsg(`تم تطبيق التبرير على ${applied} حالة للموظف نفسه. انتقلت الحالات إلى «بانتظار قرار العميل».`);
-      setType(''); setDetails(''); setReference(''); setApprovedOn('');
+
+    if (failures.length) {
+      setErr(`تم تطبيق ${applied} حالة، وتعذر ${failures.length}: ${failures.slice(0,3).join(' | ')}`);
+    } else {
+      setMsg(`تم تبرير ${applied} حالة لـ ${completedPerson}. اختفى من قائمة العمل الحالية إذا لم تبقَ له حالات غير مبررة من هذا النوع.`);
     }
+  }
+
+  function openEdit(day) {
+    setEditDay(day);
+    setEditType(day.justification_type || '');
+    setEditDetails(day.justification_text || '');
+    setEditReference(day.paper_reference || '');
+    setEditApprovedOn(dateOnly(day.paper_approved_on));
+    setErr('');
+  }
+
+  async function saveEdit() {
+    if (!editDay || !editType) { setErr('اختر نوع التبرير.'); return; }
+    if (editType==='other' && !editDetails.trim()) { setErr('اكتب تفاصيل التبرير عند اختيار «أخرى».'); return; }
+    setBusy(true); setErr(''); setMsg('');
+    const q=await supabase.rpc('hr_submit_attendance_justification_v2',{
+      p_attendance_day_id:editDay.id,
+      p_justification_type:editType,
+      p_justification_text:editDetails.trim() || null,
+      p_paper_reference:editReference.trim() || null,
+      p_paper_approved_on:editApprovedOn || null,
+    });
+    setBusy(false);
+    if (q.error) { setErr(q.error.message); return; }
+    setEditDay(null);
+    setMsg('تم تعديل التبرير وأُعيدت الحالة إلى انتظار المراجعة.');
+    await loadDays();
+    await loadImports(activeId);
   }
 
   async function exportClientReview() {
@@ -230,7 +328,7 @@ export default function ExternalAttendanceReviewPage() {
         {header:'رقم الموظف',key:'no',width:14},
         {header:'الموظف',key:'name',width:28},
         {header:'التاريخ',key:'date',width:14},
-        {header:'الحالة',key:'status',width:23},
+        {header:'الحالة الأصلية',key:'status',width:23},
         {header:'نوع التبرير',key:'type',width:30},
         {header:'تفاصيل التبرير',key:'details',width:38},
         {header:'المرجع / المستند',key:'reference',width:24},
@@ -285,8 +383,9 @@ export default function ExternalAttendanceReviewPage() {
       note.getCell('A1').value='ملف مراجعة العميل — الحالات المفتوحة فقط';
       note.getCell('A1').font={bold:true,size:16};
       note.getCell('A3').value='يظهر في هذا الملف فقط ما تم تبريره وما زال بانتظار قرار العميل. عدّل «قرار العميل» إلى مقبول أو مرفوض، ويمكن إضافة ملاحظة.';
-      note.getCell('A4').value='الحالات التي سبق قبولها أو رفضها لا تظهر هنا لأنها مغلقة. لا تعدّل الأعمدة التقنية المخفية.';
-      [3,4].forEach((r)=>{note.getCell(r,1).alignment={wrapText:true,horizontal:'right',vertical:'top'};note.getRow(r).height=45;});
+      note.getCell('A4').value='عمود «الحالة الأصلية» يوضح هل أصل الحالة غياب أم بصمة دخول/خروج مفقودة حتى لا يختلط سبب التبرير على المراجع.';
+      note.getCell('A5').value='الحالات التي سبق قبولها أو رفضها لا تظهر هنا لأنها مغلقة. لا تعدّل الأعمدة التقنية المخفية.';
+      [3,4,5].forEach((r)=>{note.getCell(r,1).alignment={wrapText:true,horizontal:'right',vertical:'top'};note.getRow(r).height=45;});
 
       const buffer=await workbook.xlsx.writeBuffer();
       downloadBuffer(buffer,`مراجعة_العميل_${safeName(activeImport.client_name_snapshot)}_${dateOnly(activeImport.period_from)}.xlsx`);
@@ -306,7 +405,7 @@ export default function ExternalAttendanceReviewPage() {
       await workbook.xlsx.load(await file.arrayBuffer());
       const ws=workbook.getWorksheet('مراجعة العميل');
       if (!ws) throw new Error('لم أجد ورقة «مراجعة العميل». استخدم الملف الذي تم تنزيله من هذه الشاشة.');
-      const headers=['رقم الموظف','الموظف','التاريخ','الحالة','نوع التبرير','تفاصيل التبرير','المرجع / المستند','قرار العميل','ملاحظة العميل'];
+      const headers=['رقم الموظف','الموظف','التاريخ','الحالة الأصلية','نوع التبرير','تفاصيل التبرير','المرجع / المستند','قرار العميل','ملاحظة العميل'];
       headers.forEach((label,index)=>{
         if (cellText(ws.getRow(1).getCell(index+1))!==label) throw new Error('تم تغيير بنية ملف المراجعة. نزّل نسخة جديدة ولا تغيّر ترتيب الأعمدة.');
       });
@@ -338,6 +437,8 @@ export default function ExternalAttendanceReviewPage() {
         if (q.error) { errors+=1; problems.push(`صف ${rowNo}: ${q.error.message}`); }
         else applied+=1;
       }
+      setPerson('');
+      setSelectedIds([]);
       await loadDays();
       await loadImports(activeImport.id);
       const summary=`تم تطبيق ${applied} قرار، دون تغيير ${unchanged}، تعارض ${conflicts}، أخطاء ${errors}.`;
@@ -356,16 +457,18 @@ export default function ExternalAttendanceReviewPage() {
     const q=await supabase.rpc('hr_recalculate_attendance_import',{p_import_id:activeImport.id});
     setBusy(false);
     if (q.error) { setErr(q.error.message); return; }
-    setMsg('تمت إعادة الاحتساب بعد قرارات المراجعة. لم يتم تغيير منطق المعايرة أو الاحتساب؛ تم فقط تشغيل الإجراء القائم على القرارات الجديدة.');
+    setMsg('تمت إعادة الاحتساب بعد قرارات المراجعة.');
     await loadImports(activeImport.id);
     await loadDays(activeImport.id);
   }
+
+  const groupTitle=ISSUE_GROUPS.find((item)=>item.key===issueGroup)?.label || '';
 
   return <div>
     <div className="page-head">
       <div>
         <h1>المراجعة الخارجية</h1>
-        <p>مرحلة مستقلة بعد التحليل: تجميع التبريرات للموظف، إرسال الحالات المفتوحة للعميل، ثم إغلاق ما تم حسمه.</p>
+        <p>كل نوع حالة في مسار مستقل حتى لا تختلط الغيابات بالبصمات المفقودة أثناء التبرير الجماعي.</p>
       </div>
       <Link className="btn ghost" href="/dashboard/attendance">الرجوع إلى معمل الحضور</Link>
     </div>
@@ -374,19 +477,17 @@ export default function ExternalAttendanceReviewPage() {
     {msg&&<div className="msg ok" style={{marginTop:14}}>{msg}</div>}
 
     <div className="section" style={{marginTop:16}}>
-      <header><h2>دفعة العميل</h2><span className="hint">تظهر هنا الدفعات الخارجية التي وصلت إلى التحليل أو المراجعة ولم تُغلق.</span></header>
+      <header><h2>دفعة العميل</h2><span className="hint">الدفعات القديمة المحذوفة لا تظهر هنا؛ اختر الدفعة الحالية فقط.</span></header>
       <div style={{padding:18}}>
-        <div className="form-grid">
-          <div className="field" style={{gridColumn:'1/-1'}}>
-            <label>اختر الدفعة</label>
-            <select value={activeId} onChange={(e)=>setActiveId(e.target.value)}>
-              {!imports.length&&<option value="">لا توجد دفعات خارجية جاهزة للمراجعة</option>}
-              {imports.map((item)=><option key={item.id} value={item.id}>{item.client_name_snapshot||'عميل خارجي'} — {item.period_from||''} إلى {item.period_to||''} — {item.status}</option>)}
-            </select>
-          </div>
+        <div className="field">
+          <label>اختر الدفعة</label>
+          <select value={activeId} onChange={(e)=>setActiveId(e.target.value)}>
+            {!imports.length&&<option value="">لا توجد دفعات خارجية جاهزة للمراجعة</option>}
+            {imports.map((item)=><option key={item.id} value={item.id}>{item.client_name_snapshot||'عميل خارجي'} — {item.period_from||''} إلى {item.period_to||''}</option>)}
+          </select>
         </div>
         {activeImport&&<div className="stat-grid" style={{marginTop:14}}>
-          <div className="stat"><span>يحتاج تبرير</span><strong>{needsJustification.length}</strong></div>
+          <div className="stat"><span>بدون تبرير</span><strong>{needsJustification.length}</strong></div>
           <div className="stat"><span>بانتظار قرار العميل</span><strong>{clientPending.length}</strong></div>
           <div className="stat"><span>مغلق بقرار</span><strong>{closed.length}</strong></div>
           <div className="stat"><span>إصدار المراجعة</span><strong>{activeImport.review_revision||0}</strong></div>
@@ -396,25 +497,40 @@ export default function ExternalAttendanceReviewPage() {
 
     {activeImport&&<>
       <div className="section">
-        <header><h2>التبرير الجماعي للموظف</h2><span className="hint">اختر موظفًا واحدًا ثم عدة تواريخ له، وسجّل نفس التبرير مرة واحدة.</span></header>
+        <header><h2>اختر أصل الحالة أولًا</h2><span className="hint">هذا الاختيار يقفل التبرير الجماعي على نوع واحد من العمليات.</span></header>
+        <div style={{padding:18,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
+          {ISSUE_GROUPS.map((group)=>{
+            const active=issueGroup===group.key;
+            return <button key={group.key} type="button" className={active?'btn':'btn ghost'} onClick={()=>chooseIssueGroup(group.key)} style={{minHeight:66,justifyContent:'space-between'}}>
+              <span><strong>{group.label}</strong><small style={{display:'block',marginTop:4,opacity:.8}}>{group.hint}</small></span>
+              <strong>{countsByGroup[group.key]||0}</strong>
+            </button>;
+          })}
+        </div>
+      </div>
+
+      <div className="section">
+        <header><h2>التبرير الجماعي — {groupTitle}</h2><span className="hint">قائمة الموظفين هنا تعرض فقط من بقيت له حالات غير مبررة من النوع المحدد.</span></header>
         <div style={{padding:18}}>
           <div className="form-grid">
-            <div className="field"><label>الموظف</label><select value={person} onChange={(e)=>choosePerson(e.target.value)}><option value="">اختر الموظف</option>{people.map((p)=><option key={p.key} value={p.key}>{p.no?`${p.no} - `:''}{p.name}</option>)}</select></div>
-            <div className="field"><label>نوع التبرير</label><select value={type} onChange={(e)=>setType(e.target.value)}><option value="">اختر</option>{TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="field"><label>الموظف غير المعالج</label><select value={person} onChange={(e)=>choosePerson(e.target.value)}><option value="">اختر الموظف</option>{pendingPeople.map((p)=><option key={p.key} value={p.key}>{p.no?`${p.no} - `:''}{p.name} — {p.count} حالة</option>)}</select></div>
+            <div className="field"><label>نوع التبرير المناسب لـ {groupTitle}</label><select value={type} onChange={(e)=>setType(e.target.value)}><option value="">اختر</option>{allowedTypes.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div>
             <div className="field" style={{gridColumn:'1/-1'}}><label>تفاصيل إضافية {type==='other'?'*':'(اختياري)'}</label><textarea rows={3} value={details} onChange={(e)=>setDetails(e.target.value)} /></div>
             <div className="field"><label>مرجع المستند / الاعتماد</label><input value={reference} onChange={(e)=>setReference(e.target.value)} /></div>
             <div className="field"><label>تاريخ الاعتماد</label><input type="date" value={approvedOn} onChange={(e)=>setApprovedOn(e.target.value)} /></div>
           </div>
           <div className="rowsplit" style={{marginTop:14,justifyContent:'flex-start',gap:10,flexWrap:'wrap'}}>
-            <button className="btn ghost" type="button" disabled={!person||!groupCandidates.length||busy} onClick={selectAllForPerson}>تحديد كل الحالات غير المبررة لهذا الموظف</button>
+            <button className="btn ghost" type="button" disabled={!person||!groupCandidates.length||busy} onClick={selectAllForPerson}>تحديد كل حالات الموظف من هذا النوع</button>
             <button className="btn ghost" type="button" disabled={!selectedIds.length||busy} onClick={()=>setSelectedIds([])}>إلغاء التحديد</button>
             <button className="btn" type="button" disabled={!selectedDays.length||busy} onClick={applyGroupJustification}>{busy?'جارٍ التطبيق…':`تطبيق التبرير على ${selectedDays.length || 0} حالة`}</button>
           </div>
+          {person&&<div style={{overflowX:'auto',marginTop:16}}><table><thead><tr><th style={{width:48}}>تحديد</th><th>التاريخ</th><th>أصل الحالة</th><th>الموظف</th></tr></thead><tbody>{groupCandidates.map((day)=><tr key={day.id}><td><input type="checkbox" checked={selectedIds.includes(day.id)} onChange={()=>toggleSelected(day.id)}/></td><td>{dateOnly(day.work_date)}</td><td><strong>{STATUS_LABEL[day.day_status]||day.day_status}</strong></td><td>{day.subject_name}</td></tr>)}</tbody></table></div>}
+          {!pendingPeople.length&&<div className="hint" style={{marginTop:14}}>لا يوجد موظفون متبقون بدون تبرير في فئة «{groupTitle}».</div>}
         </div>
       </div>
 
       <div className="section">
-        <header><h2>ملف مراجعة العميل</h2><span className="hint">الملف لا يحتوي إلا الحالات التي لها تبرير وما زالت تنتظر قبولًا أو رفضًا.</span></header>
+        <header><h2>ملف مراجعة العميل</h2><span className="hint">يحتوي فقط الحالات التي تم تبريرها وما زالت تنتظر قبولًا أو رفضًا.</span></header>
         <div style={{padding:18}}>
           <div className="rowsplit" style={{justifyContent:'flex-start',gap:10,flexWrap:'wrap'}}>
             <button className="btn ghost" type="button" disabled={!clientPending.length||busy} onClick={exportClientReview}>تنزيل الحالات المفتوحة للعميل Excel</button>
@@ -422,34 +538,46 @@ export default function ExternalAttendanceReviewPage() {
             <input ref={clientFileRef} type="file" accept=".xlsx" style={{display:'none'}} onChange={(e)=>importClientReview(e.target.files?.[0])}/>
             <button className="btn ghost" type="button" disabled={busy} onClick={recalculate}>إعادة الاحتساب بعد القرارات</button>
           </div>
-          <p className="hint" style={{marginTop:10}}>عند رفع قرار «مقبول» أو «مرفوض» تُغلق الحالة وتختفي من قائمة المفتوح تلقائيًا، مع بقائها محفوظة في السجل للمراجعة.</p>
         </div>
       </div>
 
       <div className="section">
-        <header><h2>حالات المراجعة</h2><span className="hint">المفتوح فقط ظاهر افتراضيًا؛ يمكنك إظهار الحالات المغلقة للمراجعة التاريخية.</span></header>
+        <header><h2>استعراض حالات {groupTitle}</h2><span className="hint">الافتراضي هو الحالات التي لم يتم تبريرها بعد.</span></header>
         <div style={{padding:18}}>
           <div className="rowsplit" style={{justifyContent:'flex-start',gap:12,alignItems:'end',flexWrap:'wrap'}}>
-            <div className="field" style={{minWidth:260}}><label>تصفية حسب الموظف</label><select value={person} onChange={(e)=>choosePerson(e.target.value)}><option value="">كل الموظفين</option>{people.map((p)=><option key={p.key} value={p.key}>{p.no?`${p.no} - `:''}{p.name}</option>)}</select></div>
-            <label style={{display:'flex',alignItems:'center',gap:8,paddingBottom:10}}><input type="checkbox" checked={showClosed} onChange={(e)=>setShowClosed(e.target.checked)}/> عرض المغلق والمكتمل</label>
+            <div className="field" style={{minWidth:250}}><label>مرحلة المعالجة</label><select value={reviewView} onChange={(e)=>chooseReviewView(e.target.value)}><option value="unjustified">لم يتم تبريرها بعد</option><option value="client_pending">تم تبريرها — بانتظار العميل</option><option value="closed">مقبولة / مرفوضة — مغلقة</option></select></div>
+            {reviewView!=='unjustified'&&<div className="field" style={{minWidth:270}}><label>الموظف</label><select value={person} onChange={(e)=>choosePerson(e.target.value)}><option value="">كل الموظفين</option>{makePersonList(days.filter((day)=>groupMatches(day,issueGroup))).map((p)=><option key={p.key} value={p.key}>{p.no?`${p.no} - `:''}{p.name}</option>)}</select></div>}
           </div>
         </div>
-        <div style={{overflowX:'auto'}}><table><thead><tr><th style={{width:48}}>تحديد</th><th>الموظف</th><th>التاريخ</th><th>الحالة</th><th>التبرير</th><th>حالة المراجعة</th></tr></thead><tbody>
-          {displayed.map((day)=>{
-            const selectable=person && subjectKey(day)===person && needsReview(day) && !day.justification_id;
-            const checked=selectedIds.includes(day.id);
-            return <tr key={day.id}>
-              <td>{selectable?<input type="checkbox" checked={checked} onChange={()=>toggleSelected(day.id)}/>:''}</td>
-              <td>{day.subject_no?`${day.subject_no} - `:''}{day.subject_name}</td>
-              <td>{dateOnly(day.work_date)}</td>
-              <td>{STATUS_LABEL[day.day_status]||day.day_status}</td>
-              <td>{day.justification_id?<><strong>{TYPE_LABEL[day.justification_type]||day.justification_type||'تبرير مسجل'}</strong>{day.justification_text&&<div className="hint" style={{marginTop:3}}>{day.justification_text}</div>}</>:'—'}</td>
-              <td><strong>{stateLabel(day)}</strong></td>
-            </tr>;
-          })}
-          {!displayed.length&&<tr><td colSpan={6}><div className="hint" style={{padding:18}}>لا توجد حالات مفتوحة ضمن الفلتر الحالي.</div></td></tr>}
+        <div style={{overflowX:'auto'}}><table><thead><tr><th>الموظف</th><th>التاريخ</th><th>أصل الحالة</th><th>التبرير</th><th>حالة المراجعة</th><th>إجراء</th></tr></thead><tbody>
+          {displayed.map((day)=><tr key={day.id}>
+            <td>{day.subject_no?`${day.subject_no} - `:''}{day.subject_name}</td>
+            <td>{dateOnly(day.work_date)}</td>
+            <td><strong>{STATUS_LABEL[day.day_status]||day.day_status}</strong></td>
+            <td>{day.justification_id?<><strong>{TYPE_LABEL[day.justification_type]||day.justification_type||'تبرير مسجل'}</strong>{day.justification_text&&<div className="hint" style={{marginTop:3}}>{day.justification_text}</div>}</>:'—'}</td>
+            <td><strong>{stateLabel(day)}</strong></td>
+            <td>{day.justification_id?<button type="button" className="btn ghost" onClick={()=>openEdit(day)}>تعديل التبرير</button>:'—'}</td>
+          </tr>)}
+          {!displayed.length&&<tr><td colSpan={6}><div className="hint" style={{padding:18}}>لا توجد حالات ضمن هذا الفلتر.</div></td></tr>}
         </tbody></table></div>
       </div>
     </>}
+
+    {editDay&&<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(15,23,42,.38)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}} onMouseDown={(e)=>{if(e.target===e.currentTarget&&!busy)setEditDay(null);}}>
+      <div className="section" style={{width:'min(720px,96vw)',maxHeight:'90vh',overflowY:'auto',background:'#fff',margin:0}}>
+        <header><div><h2>تعديل التبرير</h2><span className="hint">{editDay.subject_name} — {dateOnly(editDay.work_date)} — {STATUS_LABEL[editDay.day_status]||editDay.day_status}</span></div><button className="btn ghost" type="button" disabled={busy} onClick={()=>setEditDay(null)}>إغلاق</button></header>
+        <div style={{padding:18}}>
+          <div className="form-grid">
+            <div className="field"><label>نوع التبرير</label><select value={editType} onChange={(e)=>setEditType(e.target.value)}>{TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="field"><label>أصل الحالة</label><input disabled value={STATUS_LABEL[editDay.day_status]||editDay.day_status} /></div>
+            <div className="field" style={{gridColumn:'1/-1'}}><label>التفاصيل</label><textarea rows={3} value={editDetails} onChange={(e)=>setEditDetails(e.target.value)} /></div>
+            <div className="field"><label>المرجع / المستند</label><input value={editReference} onChange={(e)=>setEditReference(e.target.value)} /></div>
+            <div className="field"><label>تاريخ الاعتماد</label><input type="date" value={editApprovedOn} onChange={(e)=>setEditApprovedOn(e.target.value)} /></div>
+          </div>
+          <p className="hint" style={{marginTop:10}}>تعديل التبرير بعد قبوله أو رفضه يعيده إلى «بانتظار قرار العميل» لأن القرار السابق كان على نسخة مختلفة.</p>
+          <div style={{marginTop:14}}><button className="btn" type="button" disabled={busy} onClick={saveEdit}>{busy?'جارٍ الحفظ…':'حفظ وإغلاق'}</button></div>
+        </div>
+      </div>
+    </div>}
   </div>;
 }
