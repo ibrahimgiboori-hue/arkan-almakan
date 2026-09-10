@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const ITEMS = [
-  { href:'/dashboard/attendance', label:'معمل الحضور' },
-  { href:'/dashboard/attendance/external-review', label:'المراجعة الخارجية' },
+  { href:'/dashboard/attendance', label:'تحليل الحضور' },
+  { href:'/dashboard/attendance/external-review', label:'مراجعة التبريرات' },
+  { href:'/dashboard/attendance/payroll', label:'معالجة الرواتب' },
 ];
 
 export default function AttendanceLayout({ children }) {
