@@ -2,18 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import DeleteExternalAttendanceBatchButton from '@/components/attendance/DeleteExternalAttendanceBatchButton';
 
 const ITEMS = [
-  { href:'/dashboard/attendance', label:'1 الحضور' },
-  { href:'/dashboard/attendance/external-review', label:'2 المراجعة' },
-  { href:'/dashboard/attendance/payroll', label:'3 الرواتب' },
+  { href:'/dashboard/attendance', label:'الحضور' },
+  { href:'/dashboard/attendance/external-review', label:'المراجعة' },
+  { href:'/dashboard/attendance/payroll', label:'الرواتب' },
 ];
 
 export default function AttendanceLayout({ children }) {
   const pathname = usePathname();
 
   return <>
-    <div className="attendance-workflow-nav" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 16px',padding:'10px 12px',border:'1px solid rgba(148,163,184,.24)',borderRadius:14,background:'rgba(255,255,255,.72)'}}>
+    <div className="attendance-workflow-nav" style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',margin:'0 0 16px',padding:'10px 12px',border:'1px solid rgba(148,163,184,.24)',borderRadius:14,background:'rgba(255,255,255,.72)'}}>
       {ITEMS.map((item) => {
         const active = item.href === '/dashboard/attendance'
           ? pathname === item.href || pathname?.startsWith('/dashboard/attendance/manual-resolution')
@@ -26,6 +27,7 @@ export default function AttendanceLayout({ children }) {
           aria-current={active ? 'page' : undefined}
         >{item.label}</Link>;
       })}
+      <DeleteExternalAttendanceBatchButton/>
     </div>
     {children}
   </>;
