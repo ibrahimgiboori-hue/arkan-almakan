@@ -6,6 +6,7 @@ import { hasNonLatinNumerals, latinDigits } from '@/lib/latin-digits';
 const SKIP_TAGS = new Set(['SCRIPT','STYLE','CODE','PRE']);
 const SAFE_TEXT_ATTRIBUTES = ['title','aria-label','placeholder','value'];
 const SKIP_INPUT_TYPES = new Set(['password','file']);
+const LATIN_NATIVE_INPUT_TYPES = new Set(['number','date','time','datetime-local','month','week','tel']);
 
 function shouldSkip(node) {
   const element = node?.parentElement;
@@ -24,7 +25,14 @@ function normalizeTextNode(node) {
 
 function normalizeControlValue(element) {
   if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) return;
-  if (element instanceof HTMLInputElement && SKIP_INPUT_TYPES.has(String(element.type||'').toLowerCase())) return;
+  if (element instanceof HTMLInputElement) {
+    const type=String(element.type||'text').toLowerCase();
+    if (SKIP_INPUT_TYPES.has(type)) return;
+    if (LATIN_NATIVE_INPUT_TYPES.has(type)) {
+      element.lang='en-US';
+      element.style.fontVariantNumeric='lining-nums tabular-nums';
+    }
+  }
   const value = element.value || '';
   if (!hasNonLatinNumerals(value)) return;
   const next = latinDigits(value);
