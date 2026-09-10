@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import ActiveUISkinRuntime from '@/components/ui/ActiveUISkinRuntime';
+import LatinDigitsRuntime from '@/components/LatinDigitsRuntime';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
 import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
 import { ACTIVE_UI_SKIN_KEY } from '@/lib/ui-active-skin';
@@ -25,17 +26,19 @@ export default function RootLayout({ children }) {
   return (
     <html
       {...skinAttrs}
-      lang="ar"
+      lang="ar-SA-u-ca-gregory-nu-latn"
       dir="rtl"
       data-system-constitution="v2"
       data-system-version={SYSTEM_VERSION}
+      data-numeral-system="latn"
       className={plex.variable}
       style={{
         '--font-display': 'var(--font-plex)',
         '--font-body': 'var(--font-plex)',
       }}
     >
-      <body>
+      <body style={{fontVariantNumeric:'lining-nums tabular-nums'}}>
+        <LatinDigitsRuntime />
         <QuoteTerminologyFix />
         <Suspense fallback={null}>
           <ActiveUISkinRuntime />
