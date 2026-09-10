@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';
 
 const TYPES = [
   ['sick_leave','إجازة مرضية'],
@@ -369,7 +370,7 @@ export default function ExternalAttendanceReviewPage() {
         for(let col=1;col<=9;col+=1){
           const cell=row.getCell(col);
           cell.alignment={vertical:'middle',horizontal:[2,6,7,9].includes(col)?'right':'center',wrapText:true};
-          cell.border={top:{style:'hair',color:{argb:'FFD9E1E8'}},bottom:{style:'hair',color:{argb:'FFD9E1E8'}},left:{style:'hair',color:{argb:'FFD9E1E8'}},right:{style:'hair',color:{argb:'FFD9E1E8'}}};
+          cell.border={top:{style:'hair',color:{argb:'FFD9E1E8'}},bottom:{style:'hair',color:{argb:'FFD9E1E8'}},left:{style:'hair',color:{argb:'FFD9E1E8'}},right:{style:'hair',color:{argb:'FFD9E1E8'}};};
         }
         [8,9].forEach((col)=>{ row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7FB'}}; });
         row.getCell(8).dataValidation={type:'list',allowBlank:true,formulae:["'__lists'!$A$1:$A$2"]};
@@ -457,12 +458,13 @@ export default function ExternalAttendanceReviewPage() {
     const q=await supabase.rpc('hr_recalculate_attendance_import',{p_import_id:activeImport.id});
     setBusy(false);
     if (q.error) { setErr(q.error.message); return; }
-    setMsg('تمت إعادة الاحتساب بعد قرارات المراجعة.');
+    setMsg('تمت إعادة الاحتساب بعد قرارات المراجعة. أصبح تقرير العميل Excel هو الملف النهائي للتسليم.');
     await loadImports(activeImport.id);
     await loadDays(activeImport.id);
   }
 
   const groupTitle=ISSUE_GROUPS.find((item)=>item.key===issueGroup)?.label || '';
+  const finalReportReady = activeImport && needsJustification.length===0 && clientPending.length===0 && ['recalculated','ready_to_post'].includes(activeImport.status);
 
   return <div>
     <div className="page-head">
@@ -530,14 +532,17 @@ export default function ExternalAttendanceReviewPage() {
       </div>
 
       <div className="section">
-        <header><h2>ملف مراجعة العميل</h2><span className="hint">يحتوي فقط الحالات التي تم تبريرها وما زالت تنتظر قبولًا أو رفضًا.</span></header>
+        <header><h2>ملف مراجعة العميل والنتيجة النهائية</h2><span className="hint">أرسل الحالات المفتوحة للعميل، ارفع قراراته، ثم أعد الاحتساب وحمّل التقرير النهائي من نفس المكان.</span></header>
         <div style={{padding:18}}>
           <div className="rowsplit" style={{justifyContent:'flex-start',gap:10,flexWrap:'wrap'}}>
             <button className="btn ghost" type="button" disabled={!clientPending.length||busy} onClick={exportClientReview}>تنزيل الحالات المفتوحة للعميل Excel</button>
             <button className="btn" type="button" disabled={busy} onClick={()=>clientFileRef.current?.click()}>رفع قرارات العميل</button>
             <input ref={clientFileRef} type="file" accept=".xlsx" style={{display:'none'}} onChange={(e)=>importClientReview(e.target.files?.[0])}/>
-            <button className="btn ghost" type="button" disabled={busy} onClick={recalculate}>إعادة الاحتساب بعد القرارات</button>
+            <button className="btn ghost" type="button" disabled={busy || needsJustification.length>0 || clientPending.length>0} onClick={recalculate}>إعادة الاحتساب بعد القرارات</button>
+            <AttendanceClientExcelReport activeImport={activeImport} disabled={!finalReportReady || busy} />
           </div>
+          {needsJustification.length===0 && clientPending.length===0 && !finalReportReady&&<div className="hint" style={{marginTop:12}}>اكتملت التبريرات وقرارات العميل. اضغط «إعادة الاحتساب بعد القرارات» أولًا؛ بعدها يتفعّل «تقرير العميل Excel» وهو الملف النهائي.</div>}
+          {finalReportReady&&<div className="hint" style={{marginTop:12}}><strong>جاهز للتسليم:</strong> زر «تقرير العميل Excel» ينزّل الملف النهائي بعد تطبيق قرارات القبول والرفض.</div>}
         </div>
       </div>
 
