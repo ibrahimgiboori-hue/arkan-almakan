@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import AttendanceClientExcelReport from '@/components/attendance/AttendanceClientExcelReport';
 import { externalStageHref, getCurrentExternalImportId, setCurrentExternalImportId } from '@/lib/attendance/current-external-import';
@@ -37,10 +37,12 @@ function cellText(cell){
 }
 function safeName(value){return String(value||'العميل').replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').trim();}
 function downloadBuffer(buffer,filename){
-  const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
+  const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
 function peopleList(source=[]){
-  const map=new Map();source.forEach((day)=>{const key=subjectKey(day);const item=map.get(key);if(item)item.count+=1;else map.set(key,{key,no:day.subject_no||'',name:day.subject_name||'غير معروف',count:1});});
+  const map=new Map();
+  source.forEach((day)=>{const key=subjectKey(day);const item=map.get(key);if(item)item.count+=1;else map.set(key,{key,no:day.subject_no||'',name:day.subject_name||'غير معروف',count:1});});
   return [...map.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'ar',{numeric:true,sensitivity:'base'}));
 }
 function stateOf(day){
@@ -53,6 +55,7 @@ function stateLabel(day){const state=stateOf(day);if(state==='accepted')return '
 function batchLabel(item){return `${item.client_name_snapshot||'عميل خارجي'} — ${dateOnly(item.period_from)} إلى ${dateOnly(item.period_to)}`;}
 
 export default function ExternalAttendanceReviewPage(){
+  const router=useRouter();
   const searchParams=useSearchParams();
   const [imports,setImports]=useState([]);
   const [activeId,setActiveId]=useState('');
@@ -79,15 +82,14 @@ export default function ExternalAttendanceReviewPage(){
   const drafts=useMemo(()=>imports.filter((x)=>x.id!==activeId),[imports,activeId]);
 
   async function loadImports(preferred=''){
-    const q=await supabase.from('hr_attendance_imports').select('id,source_file_name,period_from,period_to,status,processing_scope,client_name_snapshot,client_reference,review_revision,uploaded_at')
+    const q=await supabase.from('hr_attendance_imports').select('id,source_file_name,period_from,period_to,status,processing_scope,client_name_snapshot,client_reference,review_revision,uploaded_at,recalculated_at')
       .eq('processing_scope','external').in('status',REVIEW_STATUSES).order('uploaded_at',{ascending:false}).limit(40);
     if(q.error){setErr(q.error.message);return;}
     const list=q.data||[];setImports(list);
     const urlId=searchParams.get('batch')||'';
     const remembered=getCurrentExternalImportId();
     setActiveId((current)=>{
-      const candidates=[preferred,urlId,current,remembered];
-      for(const id of candidates){if(id&&list.some((x)=>x.id===id))return id;}
+      for(const id of [preferred,urlId,current,remembered]){if(id&&list.some((x)=>x.id===id))return id;}
       return list[0]?.id||'';
     });
   }
@@ -117,6 +119,7 @@ export default function ExternalAttendanceReviewPage(){
   const allowedTypes=useMemo(()=>TYPES.filter(([key])=>TYPE_ALLOWLIST[group]?.includes(key)),[group]);
   const readyForFinal=technical.length===0&&needsJustification.length===0&&clientPending.length===0;
   const resultApproved=readyForFinal&&['recalculated','ready_to_post'].includes(activeImport?.status);
+  const activeName=activeImport?.client_name_snapshot||'الدفعة الحالية';
 
   const displayed=useMemo(()=>reviewable.filter((d)=>{
     if(!groupDef.statuses.includes(d.day_status))return false;
@@ -128,7 +131,11 @@ export default function ExternalAttendanceReviewPage(){
     return true;
   }),[reviewable,groupDef,view,person]);
 
-  function chooseBatch(id){setActiveId(id);setCurrentExternalImportId(id);}
+  function chooseBatch(id){
+    if(!id||id===activeId)return;
+    setCurrentExternalImportId(id);setActiveId(id);
+    router.replace(externalStageHref('/dashboard/attendance/external-review',id));
+  }
   function chooseGroup(key){setGroup(key);setView('unjustified');setPerson('');setSelectedIds([]);setType('');setErr('');}
   function chooseView(value){setView(value);setPerson('');setSelectedIds([]);setErr('');}
   function choosePerson(value){setPerson(value);setSelectedIds([]);}
@@ -186,18 +193,31 @@ export default function ExternalAttendanceReviewPage(){
     }catch(e){setErr('تعذر رفع الملف: '+(e.message||e));}setBusy(false);if(clientFileRef.current)clientFileRef.current.value='';
   }
   async function approveResult(){
-    if(!activeImport||!readyForFinal)return;setBusy(true);setErr('');setMsg('');const q=await supabase.rpc('hr_recalculate_attendance_import',{p_import_id:activeImport.id});setBusy(false);if(q.error){setErr(q.error.message);return;}setMsg('تم اعتماد النتيجة.');await refresh();
+    if(!activeImport||!readyForFinal)return;
+    const targetId=activeImport.id;const targetName=activeName;
+    setBusy(true);setErr('');setMsg('');
+    const q=await supabase.rpc('hr_recalculate_attendance_import',{p_import_id:targetId});
+    if(q.error){setBusy(false);setErr(`تعذر اعتماد «${targetName}»: ${q.error.message}`);return;}
+    const verify=await supabase.from('hr_attendance_imports').select('id,status,recalculated_at').eq('id',targetId).single();
+    if(verify.error||!['recalculated','ready_to_post'].includes(verify.data?.status)||!verify.data?.recalculated_at){
+      setBusy(false);setErr(`لم يكتمل اعتماد «${targetName}». بقيت الدفعة في مرحلة المراجعة ولم يتم الانتقال إلى الرواتب.`);await loadImports(targetId);return;
+    }
+    setCurrentExternalImportId(targetId);setBusy(false);
+    router.push(externalStageHref('/dashboard/attendance/payroll',targetId));
   }
 
   return <div>
     <div className="page-head"><div><h1>المراجعة</h1></div><Link className="btn ghost" href="/dashboard/attendance">الحضور</Link></div>
     {err&&<div className="msg err" style={{marginTop:12}}>{err}</div>}{msg&&<div className="msg ok" style={{marginTop:12}}>{msg}</div>}
 
-    <div className="section" style={{marginTop:16}}><header><h2>الحالي</h2></header><div style={{padding:18}}>
+    <div className="section" style={{marginTop:16}}><header><h2>الدفعة الحالية</h2></header><div style={{padding:18}}>
       {activeImport?<>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}><div><strong style={{fontSize:16}}>{activeImport.client_name_snapshot||'عميل خارجي'}</strong><div className="hint" style={{marginTop:4}}>{dateOnly(activeImport.period_from)} — {dateOnly(activeImport.period_to)}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span className="tag">غير مبرر {needsJustification.length}</span><span className="tag">بانتظار العميل {clientPending.length}</span><span className="tag">مراجع {closed.length}</span></div></div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+          <div><div className="tag" style={{display:'inline-flex',marginBottom:6}}>الحالي</div><strong style={{fontSize:18,display:'block'}}>{activeName}</strong><div className="hint" style={{marginTop:4}}>{dateOnly(activeImport.period_from)} — {dateOnly(activeImport.period_to)}</div></div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span className="tag">غير مبرر {needsJustification.length}</span><span className="tag">بانتظار العميل {clientPending.length}</span><span className="tag">مراجع {closed.length}</span></div>
+        </div>
       </>:<strong>لا توجد دفعة حالية.</strong>}
-      {drafts.length>0&&<details style={{marginTop:14}}><summary style={{cursor:'pointer',fontWeight:700}}>المسودات ({drafts.length})</summary><div style={{display:'grid',gap:8,marginTop:10}}>{drafts.map((item)=><button key={item.id} type="button" className="btn ghost" style={{justifyContent:'space-between',textAlign:'right'}} onClick={()=>chooseBatch(item.id)}><span>{batchLabel(item)}</span><span>فتح</span></button>)}</div></details>}
+      {drafts.length>0&&<details style={{marginTop:14}}><summary style={{cursor:'pointer',fontWeight:700}}>المسودات ({drafts.length})</summary><div style={{display:'grid',gap:8,marginTop:10}}>{drafts.map((item)=><button key={item.id} type="button" className="btn ghost" style={{justifyContent:'space-between',textAlign:'right'}} onClick={()=>chooseBatch(item.id)}><span>{batchLabel(item)}</span><span>جعلها الحالية</span></button>)}</div></details>}
     </div></div>
 
     {activeImport&&<>
@@ -215,8 +235,8 @@ export default function ExternalAttendanceReviewPage(){
         {clientPending.length>0&&<><button className="btn ghost" disabled={busy} onClick={exportClientReview}>تنزيل ملف العميل ({clientPending.length})</button><button className="btn" disabled={busy} onClick={()=>clientFileRef.current?.click()}>رفع قرارات العميل</button></>}
         <input ref={clientFileRef} type="file" accept=".xlsx" style={{display:'none'}} onChange={(e)=>importClientReview(e.target.files?.[0])}/>
         {!clientPending.length&&needsJustification.length>0&&<strong>أكمل التبريرات.</strong>}
-        {readyForFinal&&!resultApproved&&<button className="btn" disabled={busy} onClick={approveResult}>{busy?'جارٍ الاعتماد…':'اعتماد النتيجة'}</button>}
-        {resultApproved&&<><AttendanceClientExcelReport activeImport={activeImport} disabled={busy}/><Link className="btn" href={externalStageHref('/dashboard/attendance/payroll',activeId)}>الرواتب</Link></>}
+        {readyForFinal&&!resultApproved&&<button className="btn" disabled={busy} onClick={approveResult}>{busy?`جارٍ اعتماد ${activeName}…`:`اعتماد ${activeName} والانتقال للرواتب`}</button>}
+        {resultApproved&&<><AttendanceClientExcelReport activeImport={activeImport} disabled={busy}/><Link className="btn" href={externalStageHref('/dashboard/attendance/payroll',activeId)}>متابعة إلى الرواتب — {activeName}</Link></>}
       </div></div>
 
       <div className="section"><header><h2>الحالات</h2></header><div style={{padding:18}}><div className="rowsplit" style={{justifyContent:'flex-start',gap:10,alignItems:'end',flexWrap:'wrap'}}><div className="field"><label>الحالة</label><select value={view} onChange={(e)=>chooseView(e.target.value)}><option value="unjustified">غير مبررة</option><option value="pending">بانتظار العميل</option><option value="closed">مراجعة مكتملة</option></select></div>{view!=='unjustified'&&<div className="field"><label>الموظف</label><select value={person} onChange={(e)=>choosePerson(e.target.value)}><option value="">الكل</option>{peopleList(reviewable.filter((d)=>groupDef.statuses.includes(d.day_status))).map((p)=><option key={p.key} value={p.key}>{p.no?`${p.no} - `:''}{p.name}</option>)}</select></div>}</div></div>
