@@ -13,7 +13,7 @@ export default function AttendanceLayout({ children }) {
   const pathname = usePathname();
 
   return <>
-    <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 16px',padding:'10px 12px',border:'1px solid rgba(148,163,184,.24)',borderRadius:14,background:'rgba(255,255,255,.72)'}}>
+    <div className="attendance-workflow-nav" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 16px',padding:'10px 12px',border:'1px solid rgba(148,163,184,.24)',borderRadius:14,background:'rgba(255,255,255,.72)'}}>
       {ITEMS.map((item) => {
         const active = item.href === '/dashboard/attendance'
           ? pathname === item.href
