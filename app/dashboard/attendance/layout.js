@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const ITEMS = [
   { href:'/dashboard/attendance', label:'تحليل الحضور' },
   { href:'/dashboard/attendance/external-review', label:'مراجعة التبريرات' },
+  { href:'/dashboard/attendance/manual-resolution', label:'تصحيح الحالات' },
   { href:'/dashboard/attendance/payroll', label:'معالجة الرواتب' },
 ];
 
