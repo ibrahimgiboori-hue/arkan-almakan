@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { FOCUS_VALVE_STATE } from '@/lib/focus-valve-constitution';
@@ -28,27 +29,6 @@ const STAGE_AR = {
 
 const STAGE_ORDER = ['parsed','calibrated','analyzed','justifications','recalculated','ready_to_post','posted'];
 
-function fmtTime(value) {
-  if (!value) return '—';
-  const d = new Date(String(value).replace(' ','T'));
-  if (Number.isNaN(d.getTime())) return String(value).slice(11,16) || '—';
-  return new Intl.DateTimeFormat('ar-SA',{hour:'2-digit',minute:'2-digit',hour12:true}).format(d);
-}
-
-function fmtMinutes(value) {
-  const n = Number(value || 0);
-  if (!n) return '0د';
-  const h = Math.floor(Math.abs(n) / 60);
-  const m = Math.abs(n) % 60;
-  return h ? `${h}س ${m}د` : `${m}د`;
-}
-
-function deviationText(value, earlyWord, lateWord) {
-  const n = Number(value || 0);
-  if (!n) return 'في الموعد';
-  return n < 0 ? `${earlyWord} ${Math.abs(n)}د` : `${lateWord} ${n}د`;
-}
-
 function blankDays() {
   return WEEKDAYS.map((d) => ({...d,is_workday:d.weekday !== 5,start_time:'',end_time:'',notes:''}));
 }
@@ -61,7 +41,7 @@ function localTimestamp(date) {
 function normalizePunchTimestamp(value) {
   const s = String(value ?? '').trim();
   if (!s) return '';
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}T${String(m[4]).padStart(2,'0')}:${m[5]}:${m[6] || '00'}`;
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? '' : localTimestamp(d);
@@ -101,7 +81,6 @@ export default function EmployeeAttendancePage() {
   const [bulkEnd,setBulkEnd] = useState('');
 
   const [selectedDay,setSelectedDay] = useState(null);
-  const [justification,setJustification] = useState({id:null,text:'',paper_reference:'',paper_approved_on:'',decision:'pending',decision_note:''});
   const [busy,setBusy] = useState(false);
   const [err,setErr] = useState('');
   const [msg,setMsg] = useState('');
@@ -149,7 +128,12 @@ export default function EmployeeAttendancePage() {
     setDays(dQ.error ? [] : (dQ.data || []));
     setEvents(eQ.error ? [] : (eQ.data || []));
     setExternalPeople(pQ.error ? [] : (pQ.data || []));
-    setSubjectId(''); setScheduleId(null); setScheduleName('الدوام الأساسي'); setValidFrom(iQ.data?.period_from || ''); setValidTo(iQ.data?.period_to || ''); setScheduleDays(blankDays());
+    setSubjectId('');
+    setScheduleId(null);
+    setScheduleName('الدوام الأساسي');
+    setValidFrom(iQ.data?.period_from || '');
+    setValidTo(iQ.data?.period_to || '');
+    setScheduleDays(blankDays());
   }
 
   useEffect(() => { loadEmployees(); loadImports(); }, []);
@@ -219,13 +203,21 @@ export default function EmployeeAttendancePage() {
     if (sQ.error || !sQ.data) return;
     const dayTable = external ? 'hr_attendance_external_schedule_days' : 'hr_employee_work_schedule_days';
     const dQ = await supabase.from(dayTable).select('*').eq('schedule_id',sQ.data.id).order('weekday');
-    setScheduleId(sQ.data.id); setScheduleName(sQ.data.name || 'الدوام الأساسي'); setValidFrom(sQ.data.valid_from || activeImport.period_from || ''); setValidTo(sQ.data.valid_to || activeImport.period_to || '');
+    setScheduleId(sQ.data.id);
+    setScheduleName(sQ.data.name || 'الدوام الأساسي');
+    setValidFrom(sQ.data.valid_from || activeImport.period_from || '');
+    setValidTo(sQ.data.valid_to || activeImport.period_to || '');
     const byDay = new Map((dQ.data || []).map((r)=>[Number(r.weekday),r]));
     setScheduleDays(WEEKDAYS.map((d)=>{ const r=byDay.get(d.weekday); return {...d,is_workday:r?r.is_workday:d.weekday!==5,start_time:r?.start_time?.slice(0,5)||'',end_time:r?.end_time?.slice(0,5)||'',notes:r?.notes||''}; }));
   }
 
-  function updateScheduleDay(weekday,patch) { setScheduleDays((list)=>list.map((d)=>d.weekday===weekday?{...d,...patch}:d)); }
-  function applyBulkTime() { if (bulkStart && bulkEnd) setScheduleDays((list)=>list.map((d)=>d.is_workday?{...d,start_time:bulkStart,end_time:bulkEnd}:d)); }
+  function updateScheduleDay(weekday,patch) {
+    setScheduleDays((list)=>list.map((d)=>d.weekday===weekday?{...d,...patch}:d));
+  }
+
+  function applyBulkTime() {
+    if (bulkStart && bulkEnd) setScheduleDays((list)=>list.map((d)=>d.is_workday?{...d,start_time:bulkStart,end_time:bulkEnd}:d));
+  }
 
   async function saveSchedule() {
     if (!activeImport || !subjectId || !validFrom) { setErr('اختر الشخص وحدد بداية سريان ساعات الدوام.'); return; }
@@ -238,15 +230,12 @@ export default function EmployeeAttendancePage() {
       : await supabase.rpc('hr_save_employee_work_schedule',{p_schedule_id:scheduleId,p_employee_id:subjectId,p_name:scheduleName,p_valid_from:validFrom,p_valid_to:validTo||null,p_days:daysPayload,p_notes:null});
     setBusy(false);
     if (error) { setErr(error.message); return; }
-    setScheduleId(data); setMsg('تم حفظ ساعات الدوام. لا يوجد أثر رسمي قبل الترحيل.');
+    setScheduleId(data);
+    setMsg('تم حفظ ساعات الدوام داخل مرحلة التحليل.');
   }
 
   async function runStage(action) {
     if (!activeImport) return;
-    if (action === 'close') {
-      const confirmed = window.confirm('تأكد أولًا أنك نزّلت تقرير العميل Excel النهائي. بعد المتابعة ستُحذف هذه الدفعة الخارجية وكل بياناتها من قاعدة البيانات نهائيًا ولا يمكن استرجاعها.');
-      if (!confirmed) return;
-    }
     setBusy(true); setErr(''); setMsg('');
     let q;
     if (action === 'analyze') q = await supabase.rpc('hr_analyze_attendance_import',{p_import_id:activeImport.id});
@@ -254,45 +243,18 @@ export default function EmployeeAttendancePage() {
     if (action === 'recalculate') q = await supabase.rpc('hr_recalculate_attendance_import',{p_import_id:activeImport.id});
     if (action === 'ready') q = await supabase.rpc('hr_mark_attendance_ready',{p_import_id:activeImport.id});
     if (action === 'post') q = await supabase.rpc('hr_post_attendance_import',{p_import_id:activeImport.id});
-    if (action === 'close') q = await supabase.rpc('hr_close_external_attendance_import',{p_import_id:activeImport.id});
     setBusy(false);
     if (q?.error) { setErr(q.error.message); return; }
-    const labels = {analyze:'تم التحليل الفني.',review:'بدأت مرحلة معالجة التبريرات.',recalculate:'تمت إعادة الاحتساب بعد المعالجة.',ready:'النتيجة جاهزة للمراجعة النهائية.',post:'تم الترحيل إلى سجل HR الرسمي.',close:'تم التسليم وحذف بيانات الدفعة الخارجية من قاعدة البيانات.'};
+    const labels = {analyze:'تم التحليل الفني.',review:'بدأت مرحلة معالجة التبريرات.',recalculate:'تمت إعادة الاحتساب بعد المعالجة.',ready:'النتيجة جاهزة للمراجعة النهائية.',post:'تم الترحيل إلى سجل HR الرسمي.'};
     setMsg(labels[action] || 'تمت العملية.');
-    if (action === 'close') {
-      setSelectedDay(null);
-      setActiveId('');
-      setActiveImport(null);
-      setDays([]); setEvents([]); setExternalPeople([]);
-      await loadImports(null,true);
-      return;
-    }
-    await loadImports(activeImport.id); await loadActive(activeImport.id);
-  }
-
-  async function openJustification(day) {
-    setSelectedDay(day); setErr(''); setMsg('');
-    setJustification({id:day.justification_id||null,text:day.justification_text||'',paper_reference:day.paper_reference||'',paper_approved_on:day.paper_approved_on||'',decision:day.justification_decision||'pending',decision_note:day.decision_note||''});
-  }
-
-  async function saveJustification() {
-    if (!selectedDay || !justification.text.trim()) { setErr('اكتب التبرير أولًا.'); return; }
-    setBusy(true); setErr('');
-    const {data,error} = await supabase.rpc('hr_submit_attendance_justification',{p_attendance_day_id:selectedDay.id,p_justification_text:justification.text,p_paper_reference:justification.paper_reference||null,p_paper_approved_on:justification.paper_approved_on||null});
-    setBusy(false);
-    if (error) { setErr(error.message); return; }
-    setJustification((j)=>({...j,id:data,decision:'pending'})); setMsg('تم تسجيل التبرير. النتيجة الرسمية لم تتغير؛ يلزم القرار ثم إعادة الاحتساب.');
+    await loadImports(activeImport.id);
     await loadActive(activeImport.id);
   }
 
-  async function decide(decision) {
-    if (!justification.id || !isPrimary) return;
-    setBusy(true); setErr('');
-    const {error} = await supabase.rpc('hr_decide_attendance_justification',{p_justification_id:justification.id,p_decision:decision,p_decision_note:justification.decision_note||null,p_paper_reference:justification.paper_reference||null,p_paper_approved_on:justification.paper_approved_on||null});
-    setBusy(false);
-    if (error) { setErr(error.message); return; }
-    setJustification((j)=>({...j,decision})); setMsg('تم تسجيل القرار. أعد الاحتساب لإنتاج نتيجة المراجعة الجديدة.');
-    await loadActive(activeImport.id);
+  function openJustification(day) {
+    setSelectedDay(day);
+    setErr('');
+    setMsg('');
   }
 
   async function exportWorkbook() {
@@ -321,7 +283,7 @@ export default function EmployeeAttendancePage() {
       XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((eQ.data||events||[]).map((r)=>({'المرحلة':STAGE_AR[r.stage]||r.stage,'الإجراء':r.action_key,'التاريخ':r.created_at,'الملخص':JSON.stringify(r.summary||{})}))),'سجل المعالجة');
       const safe = String(activeImport.client_name_snapshot||'أركان المكان').replace(/[\\/:*?"<>|]/g,'-');
       XLSX.writeFile(wb,`حضور_${safe}_${activeImport.status}_${activeImport.period_from||''}.xlsx`);
-    } catch (e) { setErr('تعذر إنشاء ملف المراجعة: ' + (e.message||e)); }
+    } catch (e) { setErr('تعذر إنشاء ملف التحليل: ' + (e.message||e)); }
     setBusy(false);
   }
 
@@ -340,9 +302,12 @@ export default function EmployeeAttendancePage() {
     : employees.map((p)=>({id:p.id,no:p.employee_no,name:p.full_name_ar}));
 
   const stage = activeImport?.status;
+  const isExternal = activeImport?.processing_scope === 'external';
+  const externalAnalysisFinished = isExternal && stageIndex(stage) >= stageIndex('analyzed');
+  const showAnalyticalEditors = activeImport && !['posted','closed'].includes(stage) && (!isExternal || !externalAnalysisFinished);
   const focusState = activeImport ? FOCUS_VALVE_STATE.FOCUSED : FOCUS_VALVE_STATE.READY;
   const focusTitle = activeImport
-    ? (activeImport.processing_scope === 'external' ? (activeImport.client_name_snapshot || 'دفعة عميل خارجي') : 'دفعة حضور أركان المكان')
+    ? (isExternal ? (activeImport.client_name_snapshot || 'دفعة عميل خارجي') : 'دفعة حضور أركان المكان')
     : 'الحضور والانصراف';
   const focusMeta = activeImport ? [
     activeImport.period_from && activeImport.period_to ? `${activeImport.period_from} — ${activeImport.period_to}` : (activeImport.period_from || ''),
@@ -350,23 +315,19 @@ export default function EmployeeAttendancePage() {
     activeImport.client_reference || '',
   ].filter(Boolean) : [];
 
-  return <FocusValve
-    state={focusState}
-    entity={activeImport ? {type:'attendance-import',id:activeImport.id} : null}
-    stage={stage}
-  >
+  return <FocusValve state={focusState} entity={activeImport ? {type:'attendance-import',id:activeImport.id} : null} stage={stage}>
     <FocusReady>
-      <div className="page-head"><div><h1>معمل الحضور والانصراف</h1><p>معالجة ومراجعة ملفات البصمة أولًا، ثم الترحيل فقط عند اعتماد النتيجة النهائية.</p></div></div>
+      <div className="page-head"><div><h1>معمل الحضور والانصراف</h1><p>رفع واستخراج ومعايرة وتحليل ملفات البصمة. بعد اكتمال التحليل تنتقل المعالجة الخارجية إلى المراجعة ولا تُحرر من المعمل.</p></div></div>
 
       <div className="section" style={{marginTop:16}}>
-        <header><h2>دفعة معالجة جديدة</h2><span className="hint">الخدمة الخارجية مؤقتة: لا تنشئ موظفين، ولا تؤثر على أركان المكان، وتُحذف بياناتها من القاعدة بعد التسليم.</span></header>
+        <header><h2>دفعة معالجة جديدة</h2><span className="hint">الخدمة الخارجية مؤقتة: لا تنشئ موظفين، ولا تؤثر على أركان المكان.</span></header>
         <div style={{padding:18}}>
           <div className="form-grid">
             <div className="field"><label>نوع المعالجة</label><select value={newScope} onChange={(e)=>setNewScope(e.target.value)}><option value="internal">داخلي — أركان المكان</option><option value="external">خدمة لعميل خارجي</option></select></div>
             {newScope==='external' && <><div className="field"><label>اسم العميل</label><input value={clientName} onChange={(e)=>setClientName(e.target.value)} /></div><div className="field"><label>مرجع العميل / المهمة</label><input value={clientReference} onChange={(e)=>setClientReference(e.target.value)} /></div></>}
           </div>
           <div className="rowsplit" style={{marginTop:16}}><label className="btn ghost" style={{cursor:'pointer'}}>اختيار ملف Excel<input type="file" accept=".xlsx,.xls" style={{display:'none'}} onChange={(e)=>readAttendanceFile(e.target.files?.[0])} /></label>{file&&<span>{file.name}</span>}{punchCount>0&&<strong>{punchCount} حركة خام مقروءة</strong>}<button className="btn" disabled={busy||!punchCount} onClick={createBatch}>{busy?'جارٍ الاستخراج':'رفع واستخراج فقط'}</button></div>
-          <p className="hint" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج يعاير البرنامج ساعات الدوام من البصمات، ثم تراجع الاستثناءات وتبدأ التحليل.</p>
+          <p className="hint" style={{marginTop:10}}>الرفع لا يحسب خصمًا رسميًا ولا يرحّل شيئًا. بعد الاستخراج يعاير البرنامج ساعات الدوام، ثم تراجع الاستثناءات وتبدأ التحليل.</p>
         </div>
       </div>
     </FocusReady>
@@ -381,41 +342,41 @@ export default function EmployeeAttendancePage() {
 
     <FocusWork>
       {activeImport && <div data-attendance-focus="current-import">
-        <FocusContextLine
-          title={focusTitle}
-          meta={focusMeta}
-          actions={<button type="button" className="btn ghost" disabled={busy} onClick={leaveFocusedImport}>الدفعات</button>}
-        />
+        <FocusContextLine title={focusTitle} meta={focusMeta} actions={<button type="button" className="btn ghost" disabled={busy} onClick={leaveFocusedImport}>الدفعات</button>} />
 
         <div className="section">
           <div style={{padding:18}}>
             <div className="stat-grid">
-              <div className="stat"><span>النوع</span><strong>{activeImport.processing_scope==='external'?'خارجي':'داخلي'}</strong></div>
+              <div className="stat"><span>النوع</span><strong>{isExternal?'خارجي':'داخلي'}</strong></div>
               <div className="stat"><span>المرحلة</span><strong>{STAGE_AR[stage]||stage}</strong></div>
               <div className="stat"><span>الحركات</span><strong>{activeImport.rows_received||0}</strong></div>
               <div className="stat"><span>غير مطابق</span><strong>{activeImport.unmatched_punches||0}</strong></div>
               <div className="stat"><span>إصدار المراجعة</span><strong>{activeImport.review_revision||0}</strong></div>
             </div>
-            <div className="rowsplit" style={{marginTop:16}}>
-              <button className="btn ghost" disabled={busy} onClick={exportWorkbook}>ملف المراجعة Excel</button>
-              <AttendanceClientExcelReport activeImport={activeImport} disabled={busy || !['recalculated','ready_to_post','posted','closed'].includes(stage)} />
-              {stage==='analyzed'&&<button className="btn" disabled={busy} onClick={()=>runStage('review')}>بدء معالجة التبريرات</button>}
-              {['justifications','analyzed'].includes(stage)&&<button className="btn" disabled={busy} onClick={()=>runStage('recalculate')}>إعادة الاحتساب</button>}
-              {stage==='recalculated'&&<button className="btn" disabled={busy} onClick={()=>runStage('ready')}>اعتماد نتيجة المراجعة</button>}
-              {stage==='ready_to_post'&&activeImport.processing_scope==='internal'&&canPost&&<button className="btn" disabled={busy} onClick={()=>runStage('post')}>ترحيل إلى HR</button>}
-              {stage==='ready_to_post'&&activeImport.processing_scope==='external'&&<button className="btn" disabled={busy} onClick={()=>runStage('close')}>تسليم وحذف بيانات الدفعة</button>}
+
+            <div className="rowsplit" style={{marginTop:16,gap:10,flexWrap:'wrap'}}>
+              <button className="btn ghost" disabled={busy} onClick={exportWorkbook}>{isExternal?'ملف التحليل Excel':'ملف المراجعة Excel'}</button>
+
+              {!isExternal&&<AttendanceClientExcelReport activeImport={activeImport} disabled={busy || !['recalculated','ready_to_post','posted','closed'].includes(stage)} />}
+              {!isExternal&&stage==='analyzed'&&<button className="btn" disabled={busy} onClick={()=>runStage('review')}>بدء معالجة التبريرات</button>}
+              {!isExternal&&['justifications','analyzed'].includes(stage)&&<button className="btn" disabled={busy} onClick={()=>runStage('recalculate')}>إعادة الاحتساب</button>}
+              {!isExternal&&stage==='recalculated'&&<button className="btn" disabled={busy} onClick={()=>runStage('ready')}>اعتماد نتيجة المراجعة</button>}
+              {!isExternal&&stage==='ready_to_post'&&canPost&&<button className="btn" disabled={busy} onClick={()=>runStage('post')}>ترحيل إلى HR</button>}
+
+              {externalAnalysisFinished&&<Link className="btn" href="/dashboard/attendance/external-review">الانتقال إلى المراجعة الخارجية</Link>}
             </div>
-            {activeImport.processing_scope==='external'&&<p className="hint" style={{marginTop:10}}>نزّل تقرير العميل Excel النهائي قبل التسليم. عند الضغط على «تسليم وحذف بيانات الدفعة» تُحذف البصمات والأسماء والتحليل والتبريرات وكل بيانات هذه الدفعة الخارجية من قاعدة البيانات نهائيًا.</p>}
+
+            {externalAnalysisFinished&&<p className="hint" style={{marginTop:10}}>انتهى دور المعمل لهذه الدفعة. التبريرات، التبرير الجماعي، قرارات العميل، إعادة الاحتساب بعد القرارات والتسليم تتم من «المراجعة الخارجية» فقط.</p>}
           </div>
         </div>
 
-        <AttendanceCalibrationPanel activeImport={activeImport} employees={employees} externalPeople={externalPeople} onRefresh={async()=>{ if(activeImport?.id){ await loadImports(activeImport.id); await loadActive(activeImport.id); } }} />
+        {showAnalyticalEditors&&<AttendanceCalibrationPanel activeImport={activeImport} employees={employees} externalPeople={externalPeople} onRefresh={async()=>{ if(activeImport?.id){ await loadImports(activeImport.id); await loadActive(activeImport.id); } }} />}
 
-        {activeImport && !['posted','closed'].includes(stage) && <div className="section">
-          <header><h2>مراجعة / تعديل ساعات الدوام</h2><span className="hint">استخدم هذا القسم فقط لتعديل الحالات التي لم يستطع البرنامج معايرتها بثقة أو لتسجيل ساعات دوام معتمدة من العميل.</span></header>
+        {showAnalyticalEditors&&<div className="section">
+          <header><h2>مراجعة / تعديل ساعات الدوام</h2><span className="hint">هذه خطوة تحليلية. عدّل فقط الحالات التي لم يستطع البرنامج معايرتها بثقة أو سجّل ساعات الدوام المعتمدة قبل إنهاء التحليل.</span></header>
           <div style={{padding:18}}>
             <div className="form-grid">
-              <div className="field"><label>{activeImport.processing_scope==='external'?'شخص ملف العميل':'الموظف'}</label><select value={subjectId} onChange={(e)=>loadSchedule(e.target.value)}><option value="">اختر</option>{subjects.map((s)=><option key={s.id} value={s.id}>{s.no?`${s.no} - `:''}{s.name}</option>)}</select></div>
+              <div className="field"><label>{isExternal?'شخص ملف العميل':'الموظف'}</label><select value={subjectId} onChange={(e)=>loadSchedule(e.target.value)}><option value="">اختر</option>{subjects.map((s)=><option key={s.id} value={s.id}>{s.no?`${s.no} - `:''}{s.name}</option>)}</select></div>
               <div className="field"><label>وصف ساعات الدوام</label><input value={scheduleName} onChange={(e)=>setScheduleName(e.target.value)} /></div>
               <div className="field"><label>يسري من</label><input type="date" value={validFrom} onChange={(e)=>setValidFrom(e.target.value)} /></div>
               <div className="field"><label>يسري إلى</label><input type="date" value={validTo} onChange={(e)=>setValidTo(e.target.value)} /></div>
@@ -426,11 +387,11 @@ export default function EmployeeAttendancePage() {
           </div>
         </div>}
 
-        {activeImport && stageIndex(stage)>=stageIndex('analyzed') && <AttendanceProcessingTable days={days} stage={stage} onOpenJustification={openJustification} />}
+        {!isExternal && stageIndex(stage)>=stageIndex('analyzed') && <AttendanceProcessingTable days={days} stage={stage} onOpenJustification={openJustification} />}
 
-        {selectedDay && activeImport && !['posted','closed'].includes(stage) && <AttendanceJustificationDialog day={selectedDay} isPrimary={isPrimary} onClose={()=>setSelectedDay(null)} onRefresh={async()=>{ await loadActive(activeImport.id); await loadImports(activeImport.id); }} />}
+        {!isExternal && selectedDay && !['posted','closed'].includes(stage) && <AttendanceJustificationDialog day={selectedDay} isPrimary={isPrimary} onClose={()=>setSelectedDay(null)} onRefresh={async()=>{ await loadActive(activeImport.id); await loadImports(activeImport.id); }} />}
 
-        {activeImport && events.length>0 && <div className="section"><header><h2>سجل مراحل المعالجة</h2></header><div style={{overflowX:'auto'}}><table><thead><tr><th>الوقت</th><th>المرحلة</th><th>الإجراء</th></tr></thead><tbody>{events.map((e)=><tr key={e.id}><td>{new Date(e.created_at).toLocaleString('ar-SA')}</td><td>{STAGE_AR[e.stage]||e.stage}</td><td>{e.action_key}</td></tr>)}</tbody></table></div></div>}
+        {events.length>0 && <div className="section"><header><h2>سجل مراحل المعالجة</h2></header><div style={{overflowX:'auto'}}><table><thead><tr><th>الوقت</th><th>المرحلة</th><th>الإجراء</th></tr></thead><tbody>{events.map((e)=><tr key={e.id}><td>{new Date(e.created_at).toLocaleString('ar-SA')}</td><td>{STAGE_AR[e.stage]||e.stage}</td><td>{e.action_key}</td></tr>)}</tbody></table></div></div>}
       </div>}
     </FocusWork>
   </FocusValve>;
