@@ -7,6 +7,7 @@ import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import {
   PAYMENT_METHOD_LABEL,
+  NATIONALITY_CATEGORY_LABEL,
   SOCIAL_INSURANCE_SCHEME_LABEL,
   formatMoney,
   formatMinutesSigned,
@@ -45,12 +46,7 @@ export default function PayslipPage(){
         if(iq.error)throw iq.error;
         const pq=await supabase.from('hr_client_external_employee_profiles').select('*').eq('client_key',bq.data.client_key).eq('source_employee_key',lq.data.source_employee_key).maybeSingle();
         if(pq.error)throw pq.error;
-        if(alive){
-          setBatch(bq.data);
-          setLine(lq.data);
-          setAttendanceImport(iq.data);
-          setProfile(pq.data||null);
-        }
+        if(alive){setBatch(bq.data);setLine(lq.data);setAttendanceImport(iq.data);setProfile(pq.data||null);}
       }catch(e){if(alive)setErr(e.message||String(e));}
       if(alive)setLoading(false);
     }
@@ -76,6 +72,8 @@ export default function PayslipPage(){
   const showIdentity=Boolean(employee.show_identity??line.show_identity);
   const payrollMonth=snapshot.payroll_month||attendanceImport?.period_from||'';
   const paymentMethod=snapshot.payment_method||line?.payment_method||profile?.default_payment_method||batch?.default_payment_method||null;
+  const nationalityCategory=salary.nationality_category||employee.nationality_category||profile?.nationality_category||'';
+  const insuranceActive=Boolean(salary.social_insurance_active??employee.social_insurance_active??profile?.social_insurance_active);
 
   const basic=salary.basic_salary ?? line.basic_salary ?? 0;
   const housing=salary.housing_allowance ?? line.housing_allowance ?? 0;
@@ -87,6 +85,11 @@ export default function PayslipPage(){
   const gosiDeduction=salary.gosi_employee_deduction ?? line.calculated_gosi_employee_deduction ?? 0;
   const referenceNet=salary.reference_net_salary ?? line.reference_net_salary ?? (Number(gross)-Number(gosiDeduction));
   const insuranceScheme=salary.social_insurance_scheme||profile?.social_insurance_scheme||'';
+  const insuranceText=!insuranceActive
+    ? 'غير مسجل'
+    : nationalityCategory==='non_saudi'
+      ? 'مسجل · لا توجد حصة موظف'
+      : `مسجل${SOCIAL_INSURANCE_SCHEME_LABEL[insuranceScheme]?` · ${SOCIAL_INSURANCE_SCHEME_LABEL[insuranceScheme]}`:''}${present(gosiRate)?` · ${Number(gosiRate).toFixed(2)}%`:''}`;
 
   const absenceDays=Number(attendance.absence_days ?? line.calculated_absence_days ?? 0);
   const missingPunchDays=Number(attendance.missing_punch_days ?? line.calculated_missing_punch_days ?? 0);
@@ -107,9 +110,7 @@ export default function PayslipPage(){
   const hasOtherAdjustments=manualAdd>0||manualDeduct>0;
 
   const letterheadPath=String(batch?.client_letterhead_path||'').trim();
-  const captainCfg=letterheadPath && !/^https?:\/\//i.test(letterheadPath)
-    ? {letterhead_image_path:letterheadPath}
-    : null;
+  const captainCfg=letterheadPath && !/^https?:\/\//i.test(letterheadPath)?{letterhead_image_path:letterheadPath}:null;
 
   return <div className="external-payslip-print">
     <style jsx global>{`
@@ -142,9 +143,7 @@ export default function PayslipPage(){
       documentKey="external_payroll_payslip"
       cfg={captainCfg}
       direction="rtl"
-      renderOverlay={letterheadPath && /^https?:\/\//i.test(letterheadPath)
-        ? ()=> <img className="external-payslip-http-letterhead" src={letterheadPath} alt=""/>
-        : undefined}
+      renderOverlay={letterheadPath && /^https?:\/\//i.test(letterheadPath)?()=> <img className="external-payslip-http-letterhead" src={letterheadPath} alt=""/>:undefined}
     >
       <div className="print-document" dir="rtl">
         <table className="print-data-table external-payslip-table" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
@@ -164,6 +163,10 @@ export default function PayslipPage(){
               <td className="payslip-label">الهوية / الإقامة</td><td colSpan={2}>{showIdentity&&identityNo?identityNo:'—'}</td>
             </tr>}
             <tr data-print-row>
+              <td className="payslip-label">الجنسية</td><td colSpan={2}>{NATIONALITY_CATEGORY_LABEL[nationalityCategory]||'—'}</td>
+              <td className="payslip-label">التأمينات</td><td colSpan={2}>{insuranceText}</td>
+            </tr>
+            <tr data-print-row>
               <td className="payslip-label">شهر الرواتب</td><td colSpan={2}>{payrollMonth}</td>
               <td className="payslip-label">طريقة الدفع</td><td colSpan={2}>{PAYMENT_METHOD_LABEL[paymentMethod]||'غير محددة'}</td>
             </tr>
@@ -182,11 +185,11 @@ export default function PayslipPage(){
               <td className="payslip-label">صافي الراتب قبل أثر الحضور</td><td colSpan={2} className="payslip-money">{money(referenceNet)}</td>
             </tr>
             <tr data-print-row>
-              <td className="payslip-label">الأجر الخاضع للاشتراك</td><td colSpan={2} className="payslip-money">{present(contributory)?money(contributory):'—'}</td>
-              <td className="payslip-label">التأمينات الاجتماعية</td><td colSpan={2}>{SOCIAL_INSURANCE_SCHEME_LABEL[insuranceScheme]||'—'}{present(gosiRate)?` · ${Number(gosiRate).toFixed(2)}%`:''}</td>
+              <td className="payslip-label">الأجر الخاضع للاشتراك</td><td colSpan={2} className="payslip-money">{insuranceActive&&present(contributory)?money(contributory):'غير مطبق'}</td>
+              <td className="payslip-label">خصم التأمينات</td><td colSpan={2} className="payslip-money">{money(gosiDeduction)}</td>
             </tr>
             <tr data-print-row>
-              <td className="payslip-label">خصم التأمينات</td><td colSpan={2} className="payslip-money">{money(gosiDeduction)}</td>
+              <td className="payslip-label">نسبة الموظف</td><td colSpan={2}>{insuranceActive&&present(gosiRate)?`${Number(gosiRate).toFixed(2)}%`:'0.00%'}</td>
               <td className="payslip-label">ساعات اليوم</td><td colSpan={2}>{line.calculated_day_hours||calc.day_hours||'—'}</td>
             </tr>
 
