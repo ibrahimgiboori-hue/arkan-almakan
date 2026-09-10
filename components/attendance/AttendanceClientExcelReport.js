@@ -175,6 +175,14 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
       const punches = punchQ.data || [];
       if (!days.length) throw new Error('لا توجد نتائج تحليل يومية لهذه الدفعة بعد.');
 
+      if (activeImport.processing_scope === 'external') {
+        const unresolved = days.filter((d) => ['absent','missing_in','missing_out','needs_review'].includes(d.day_status) && !d.justification_id).length;
+        const pending = days.filter((d) => d.justification_id && String(d.justification_decision || 'pending') === 'pending').length;
+        if (unresolved || pending) {
+          throw new Error(`التقرير النهائي غير جاهز: ${unresolved} حالة دون تبرير و${pending} حالة بانتظار قرار العميل.`);
+        }
+      }
+
       const punchMap = new Map();
       for (const p of punches) {
         const key = `${punchKey(p)}|${p.punch_date}`;
@@ -193,7 +201,6 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
       const calibratedNote = 'عند عدم تزويدنا بساعات دوام معتمدة، تمت معايرة ساعات الدوام المستخدمة في التحليل استنادًا إلى النمط المتكرر لحركات البصمة. وتُستبدل بها ساعات الدوام المعتمدة من العميل متى تم تزويدنا بها.';
       const justificationNote = 'وجود تبرير أو مستند مقدم من الموظف لا يعني قبوله، ولا يتغير أثر المخالفة إلا بقرار صاحب العمل أو من يفوضه. وفي حال عدم تقديم تبرير تظل المخالفة وأثرها قائمين.';
 
-      // 1) Daily audit and analysis
       const daily = workbook.addWorksheet('1- الجرد والتحليل اليومي', { views: [{ rightToLeft: true }] });
       const dailyHeaders = ['رقم الموظف','الموظف','التاريخ','البصمات بعد إزالة التكرار','ساعات الدوام','الدخول المحتسب','الخروج المحتسب','ساعات العمل المحسوبة','ساعات العمل الافتراضية','التحليل الأولي','التأخير','الخروج المبكر','الوقت الزائد المرصود','الخصم الأولي','ملاحظة التحليل'];
       addTitle(daily, 'الجرد والتحليل اليومي', `${client} — الفترة ${period}. ${calibratedNote}`, dailyHeaders.length);
@@ -222,7 +229,6 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
       daily.columns = [12,24,13,34,18,14,14,18,18,22,12,14,18,12,42].map((width) => ({ width }));
       setupSheet(daily, dailyHeaderRow.number, dailyHeaders.length);
 
-      // 2) Justifications and decisions
       const processing = workbook.addWorksheet('2- التبريرات والمعالجات', { views: [{ rightToLeft: true }] });
       const processHeaders = ['رقم الموظف','الموظف','التاريخ','الحالة الأولية','نوع التبرير','تفاصيل التبرير','المرجع / المستند','قرار صاحب العمل','ملاحظة القرار','الخصم الأولي','الخصم بعد القرار','النتيجة'];
       addTitle(processing, 'التبريرات والمعالجات', `${client} — الفترة ${period}. ${justificationNote}`, processHeaders.length);
@@ -248,7 +254,6 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
       processing.columns = [12,24,13,22,38,24,22,34,12,14,42].map((width) => ({ width }));
       setupSheet(processing, processHeaderRow.number, processHeaders.length);
 
-      // 3) Final dashboard
       const final = workbook.addWorksheet('3- النتيجة النهائية', { views: [{ rightToLeft: true }] });
       const finalHeaders = ['رقم الموظف','الموظف','أيام الحضور الكامل','أيام الغياب المحتسبة','تفويت بصمة حضور','تفويت بصمة انصراف','ساعات العمل المحسوبة','ساعات العمل الافتراضية','إجمالي التأخير','إجمالي الخروج المبكر','الوقت الزائد المرصود','إجمالي الخصم النهائي'];
       addTitle(final, 'النتيجة النهائية', `${client} — الفترة ${period}. هذه الورقة هي خلاصة ما انتهت إليه المعالجة بعد تطبيق قرارات التبريرات المتاحة.`, finalHeaders.length);
@@ -300,8 +305,11 @@ export default function AttendanceClientExcelReport({ activeImport, disabled = f
     }
   }
 
+  const external = activeImport?.processing_scope === 'external';
+  const buttonDisabled = busy || !activeImport?.id || (!external && disabled);
+
   return <span style={{display:'inline-flex',flexDirection:'column',gap:6}}>
-    <button className="btn" type="button" disabled={disabled || busy || !activeImport?.id} onClick={exportReport}>{busy ? 'جارٍ إعداد تقرير العميل…' : 'تقرير العميل Excel'}</button>
+    <button className="btn" type="button" disabled={buttonDisabled} onClick={exportReport}>{busy ? 'جارٍ إعداد تقرير العميل…' : 'تقرير العميل Excel'}</button>
     {err && <span className="hint" style={{color:'#8B2E2E'}}>{err}</span>}
   </span>;
 }
