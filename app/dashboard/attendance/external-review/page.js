@@ -370,7 +370,7 @@ export default function ExternalAttendanceReviewPage() {
         for(let col=1;col<=9;col+=1){
           const cell=row.getCell(col);
           cell.alignment={vertical:'middle',horizontal:[2,6,7,9].includes(col)?'right':'center',wrapText:true};
-          cell.border={top:{style:'hair',color:{argb:'FFD9E1E8'}},bottom:{style:'hair',color:{argb:'FFD9E1E8'}},left:{style:'hair',color:{argb:'FFD9E1E8'}},right:{style:'hair',color:{argb:'FFD9E1E8'}};};
+          cell.border={top:{style:'hair',color:{argb:'FFD9E1E8'}},bottom:{style:'hair',color:{argb:'FFD9E1E8'}},left:{style:'hair',color:{argb:'FFD9E1E8'}},right:{style:'hair',color:{argb:'FFD9E1E8'}}};
         }
         [8,9].forEach((col)=>{ row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF3F7FB'}}; });
         row.getCell(8).dataValidation={type:'list',allowBlank:true,formulae:["'__lists'!$A$1:$A$2"]};
