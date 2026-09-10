@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
+import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import { PAYMENT_METHOD_LABEL, formatMoney, formatMinutesSigned } from '@/lib/attendance/external-payroll';
 
 function listDates(values=[]){
   if(!values?.length) return '—';
   return values.map((value)=>typeof value==='string'?value:value?.date).filter(Boolean).join('، ');
 }
+
+function money(value){ return `${formatMoney(value)} ر.س`; }
 
 export default function PayslipPage(){
   const params=useParams();
@@ -18,7 +22,6 @@ export default function PayslipPage(){
   const [line,setLine]=useState(null);
   const [profile,setProfile]=useState(null);
   const [attendanceImport,setAttendanceImport]=useState(null);
-  const [letterheadUrl,setLetterheadUrl]=useState('');
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState('');
 
@@ -35,12 +38,10 @@ export default function PayslipPage(){
         if(iq.error)throw iq.error;
         const pq=await supabase.from('hr_client_external_employee_profiles').select('*').eq('client_key',bq.data.client_key).eq('source_employee_key',lq.data.source_employee_key).maybeSingle();
         if(pq.error)throw pq.error;
-        setBatch(bq.data);setLine(lq.data);setAttendanceImport(iq.data);setProfile(pq.data||null);
-        if(bq.data.client_letterhead_path){
-          const path=String(bq.data.client_letterhead_path);
-          if(/^https?:\/\//i.test(path)) setLetterheadUrl(path);
-          else setLetterheadUrl(supabase.storage.from('brand').getPublicUrl(path).data.publicUrl||'');
-        }
+        setBatch(bq.data);
+        setLine(lq.data);
+        setAttendanceImport(iq.data);
+        setProfile(pq.data||null);
       }catch(e){setErr(e.message||String(e));}
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export default function PayslipPage(){
 
   if(loading)return <div className="section" style={{padding:24}}>جارٍ إعداد قسيمة الراتب…</div>;
   if(err)return <div className="msg err">{err}</div>;
-  if(!line?.calculated_at || !calc.final_net_salary && calc.final_net_salary!==0)return <div className="msg err">قسيمة الراتب غير جاهزة. ارجع إلى معالجة الرواتب ونفّذ الاحتساب أولًا.</div>;
+  if(!line?.calculated_at || (!calc.final_net_salary && calc.final_net_salary!==0))return <div className="msg err">قسيمة الراتب غير جاهزة. ارجع إلى معالجة الرواتب ونفّذ الاحتساب أولًا.</div>;
 
   const employeeName=employee.display_name||profile?.display_name||employee.source_name||'—';
   const employeeNo=employee.employee_no||profile?.display_employee_no||employee.source_no||'—';
@@ -68,64 +69,151 @@ export default function PayslipPage(){
   const timeAmount=Number(calc.time_amount||0);
   const manualAdd=Number(calc.manual_additions||0);
   const manualDeduct=Number(calc.manual_deductions||0);
-  const hasComponents=[salary.basic_salary,salary.housing_allowance,salary.transport_allowance,salary.other_allowances].some((v)=>v!=null&&Number(v)!==0);
+  const basic=salary.basic_salary ?? line.basic_salary;
+  const housing=salary.housing_allowance ?? line.housing_allowance;
+  const transport=salary.transport_allowance ?? line.transport_allowance;
+  const other=salary.other_allowances ?? line.other_allowances;
+  const gross=salary.gross_salary ?? line.calculated_gross_salary;
+  const contributory=salary.contributory_wage ?? line.calculated_contributory_wage;
+  const gosiRate=salary.gosi_employee_rate ?? line.calculated_gosi_employee_rate;
+  const gosiDeduction=salary.gosi_employee_deduction ?? line.calculated_gosi_employee_deduction;
+  const referenceNet=salary.reference_net_salary ?? line.reference_net_salary;
+  const hasAttendanceDetails=Number(attendance.absence_days||0)>0 || Number(attendance.missing_punch_days||0)>0;
+  const letterheadPath=String(batch?.client_letterhead_path||'').trim();
+  const captainCfg=letterheadPath && !/^https?:\/\//i.test(letterheadPath)
+    ? {letterhead_image_path:letterheadPath}
+    : null;
 
-  return <div className="payslip-screen">
+  return <div className="external-payslip-print">
     <style jsx global>{`
-      .payslip-screen{direction:rtl;font-family:inherit;padding:0 0 30px}.payslip-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0 18px}.payslip-page{position:relative;width:210mm;min-height:297mm;margin:0 auto;background:#fff;box-shadow:0 8px 28px rgba(15,23,42,.14);overflow:hidden}.payslip-letterhead{position:absolute;inset:0;width:210mm;height:297mm;object-fit:fill;z-index:0;pointer-events:none}.payslip-content{position:relative;z-index:1;padding:38mm 18mm 28mm;box-sizing:border-box;min-height:297mm;color:#172033}.payslip-title{text-align:center;margin:0 0 18px;font-size:24px;font-weight:800;letter-spacing:.2px}.payslip-subtitle{text-align:center;margin:-10px 0 22px;font-size:12px;color:#64748b}.payslip-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;border:1px solid #dbe3ec;border-radius:10px;padding:12px 14px;margin-bottom:16px}.payslip-field{display:flex;gap:8px;min-width:0}.payslip-field b{white-space:nowrap}.payslip-table{width:100%;border-collapse:collapse;margin:12px 0 16px;font-size:13px}.payslip-table th,.payslip-table td{border:1px solid #dbe3ec;padding:8px 9px;text-align:right;vertical-align:top}.payslip-table th{background:#f3f6f9;font-weight:800}.payslip-table td.amount,.payslip-table th.amount{text-align:left;white-space:nowrap}.payslip-section-title{font-size:14px;font-weight:800;margin:14px 0 7px}.payslip-summary{margin-top:16px;border:2px solid #25364b;border-radius:10px;overflow:hidden}.payslip-summary-row{display:flex;justify-content:space-between;gap:18px;padding:9px 12px;border-bottom:1px solid #dbe3ec}.payslip-summary-row:last-child{border-bottom:0;background:#f3f6f9;font-size:17px;font-weight:900}.payslip-note{font-size:11px;color:#526174;line-height:1.75}.payslip-payment{display:inline-block;border:1px solid #cbd5e1;border-radius:8px;padding:7px 11px;font-weight:700}.payslip-source{margin-top:18px;font-size:10px;color:#64748b;text-align:center}.payslip-muted{color:#64748b}.payslip-empty{color:#94a3b8}.payslip-action-btn{border:0;border-radius:9px;padding:10px 16px;background:#23364c;color:#fff;cursor:pointer;font-weight:700}.payslip-action-btn.secondary{background:#fff;color:#23364c;border:1px solid #cbd5e1}@media(max-width:900px){.payslip-page{transform-origin:top center;transform:scale(.72);margin-bottom:-83mm}.payslip-grid{grid-template-columns:1fr}}@media print{@page{size:A4;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important}.attendance-workflow-nav,.payslip-actions,body>nav,body>header{display:none!important}.payslip-screen{padding:0!important}.payslip-page{width:210mm;height:297mm;min-height:297mm;margin:0!important;box-shadow:none!important;transform:none!important;break-after:page;print-color-adjust:exact;-webkit-print-color-adjust:exact}.payslip-content{height:297mm;min-height:297mm}.payslip-letterhead{width:210mm;height:297mm}}
+      .external-payslip-print{direction:rtl;font-family:inherit;padding-bottom:22px}
+      .external-payslip-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px auto 10px}
+      .external-payslip-actions button{border:1px solid #b9b9b9;background:#fff;color:#2f2f31;padding:7px 12px;font:inherit;font-size:12px;cursor:pointer}
+      .external-payslip-actions button.primary{background:#8B3332;border-color:#8B3332;color:#fff}
+      .print-doc-external_payroll_payslip .external-payslip-sheet{width:100%;font-size:11.5px;line-height:1.35;color:#2f2f31}
+      .print-doc-external_payroll_payslip .external-payslip-table{width:100%;margin:0!important;border-collapse:collapse!important;table-layout:fixed}
+      .print-doc-external_payroll_payslip .external-payslip-table th,
+      .print-doc-external_payroll_payslip .external-payslip-table td{padding:1mm 1.5mm!important;line-height:1.35!important;vertical-align:middle!important;background:#fff}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-title-row th{font-size:16px!important;font-weight:800!important;text-align:center!important;background:#fff!important;color:#2f2f31!important;padding:1.5mm!important}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-client-row td{text-align:center!important;font-size:10.5px!important;color:#666!important;background:#fff!important}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-section-row th{font-size:11.5px!important;font-weight:800!important;text-align:right!important;background:#f3eeee!important;color:#5f2727!important;padding:.8mm 1.5mm!important}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-label{width:18%;font-weight:700;background:#faf8f8!important;color:#555}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-value{width:32%}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-money{text-align:left!important;direction:ltr;font-variant-numeric:tabular-nums;white-space:nowrap}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-net td{font-size:13px!important;font-weight:900!important;border-top:.45mm solid #8B3332!important;background:#fbf6f6!important}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-detail{font-size:10px!important;color:#666!important;line-height:1.45!important}
+      .print-doc-external_payroll_payslip .external-payslip-table tr{break-inside:avoid}
+      .print-doc-external_payroll_payslip .external-payslip-table .payslip-section-row{break-after:avoid}
+      .external-payslip-http-letterhead{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0}
+      @media print{
+        .external-payslip-actions,.attendance-workflow-nav,body>nav,body>header{display:none!important}
+        .external-payslip-print{padding:0!important}
+      }
     `}</style>
 
-    <div className="payslip-actions"><button className="payslip-action-btn secondary" onClick={()=>window.close()}>إغلاق</button><button className="payslip-action-btn" onClick={()=>window.print()}>طباعة / حفظ PDF</button></div>
+    <div className="external-payslip-actions no-print">
+      <button onClick={()=>window.close()}>إغلاق</button>
+      <button className="primary" onClick={()=>window.print()}>طباعة / حفظ PDF</button>
+    </div>
 
-    <article className="payslip-page">
-      {letterheadUrl&&<img className="payslip-letterhead" src={letterheadUrl} alt=""/>}
-      <div className="payslip-content">
-        <h1 className="payslip-title">قسيمة راتب</h1>
-        <div className="payslip-subtitle">{attendanceImport?.client_name_snapshot||''}</div>
+    <ConstitutionPrintFrame
+      documentKey="external_payroll_payslip"
+      cfg={captainCfg}
+      direction="rtl"
+      renderOverlay={letterheadPath && /^https?:\/\//i.test(letterheadPath)
+        ? ()=> <img className="external-payslip-http-letterhead" src={letterheadPath} alt=""/>
+        : undefined}
+    >
+      <div className="external-payslip-sheet" dir="rtl">
+        <table className="data-table external-payslip-table" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
+          <thead>
+            <tr className="payslip-title-row" data-print-row-atomic="true"><th colSpan={4}>قسيمة راتب — {payrollMonth}</th></tr>
+          </thead>
+          <tbody>
+            <tr className="payslip-client-row" data-print-row-atomic="true"><td colSpan={4}>{attendanceImport?.client_name_snapshot||''}</td></tr>
 
-        <div className="payslip-grid">
-          <div className="payslip-field"><b>الموظف:</b><span>{employeeName}</span></div>
-          <div className="payslip-field"><b>الرقم الوظيفي:</b><span>{employeeNo}</span></div>
-          {employee.show_job_title&&employee.job_title&&<div className="payslip-field"><b>المسمى الوظيفي:</b><span>{employee.job_title}</span></div>}
-          {employee.show_identity&&employee.identity_no&&<div className="payslip-field"><b>الهوية / الإقامة:</b><span>{employee.identity_no}</span></div>}
-          <div className="payslip-field"><b>شهر الرواتب:</b><span>{payrollMonth}</span></div>
-          <div className="payslip-field"><b>طريقة الدفع:</b><span>{PAYMENT_METHOD_LABEL[paymentMethod]||'غير محددة'}</span></div>
-        </div>
+            <tr className="payslip-section-row" data-print-row-atomic="true"><th colSpan={4}>بيانات الموظف</th></tr>
+            <tr>
+              <td className="payslip-label">الموظف</td><td className="payslip-value">{employeeName}</td>
+              <td className="payslip-label">الرقم الوظيفي</td><td className="payslip-value">{employeeNo}</td>
+            </tr>
+            {(employee.show_job_title&&employee.job_title || employee.show_identity&&employee.identity_no)&&<tr>
+              <td className="payslip-label">المسمى الوظيفي</td><td className="payslip-value">{employee.show_job_title&&employee.job_title?employee.job_title:'—'}</td>
+              <td className="payslip-label">الهوية / الإقامة</td><td className="payslip-value">{employee.show_identity&&employee.identity_no?employee.identity_no:'—'}</td>
+            </tr>}
+            <tr>
+              <td className="payslip-label">شهر الرواتب</td><td className="payslip-value">{payrollMonth}</td>
+              <td className="payslip-label">طريقة الدفع</td><td className="payslip-value">{PAYMENT_METHOD_LABEL[paymentMethod]||'غير محددة'}</td>
+            </tr>
 
-        {hasComponents&&<><div className="payslip-section-title">مكونات الراتب</div><table className="payslip-table"><thead><tr><th>البيان</th><th className="amount">المبلغ (ر.س)</th></tr></thead><tbody>
-          {salary.basic_salary!=null&&<tr><td>الراتب الأساسي</td><td className="amount">{formatMoney(salary.basic_salary)}</td></tr>}
-          {salary.housing_allowance!=null&&<tr><td>بدل السكن</td><td className="amount">{formatMoney(salary.housing_allowance)}</td></tr>}
-          {salary.transport_allowance!=null&&<tr><td>بدل النقل</td><td className="amount">{formatMoney(salary.transport_allowance)}</td></tr>}
-          {salary.other_allowances!=null&&<tr><td>بدلات أخرى</td><td className="amount">{formatMoney(salary.other_allowances)}</td></tr>}
-        </tbody></table></>}
+            <tr className="payslip-section-row" data-print-row-atomic="true"><th colSpan={4}>مكونات الراتب</th></tr>
+            <tr>
+              <td className="payslip-label">الراتب الأساسي</td><td className="payslip-value payslip-money">{money(basic)}</td>
+              <td className="payslip-label">بدل السكن</td><td className="payslip-value payslip-money">{money(housing)}</td>
+            </tr>
+            <tr>
+              <td className="payslip-label">بدل النقل</td><td className="payslip-value payslip-money">{money(transport)}</td>
+              <td className="payslip-label">بدلات أخرى</td><td className="payslip-value payslip-money">{money(other)}</td>
+            </tr>
+            {gross!=null&&<tr>
+              <td className="payslip-label">إجمالي الراتب</td><td className="payslip-value payslip-money">{money(gross)}</td>
+              <td className="payslip-label">الأجر الخاضع للاشتراك</td><td className="payslip-value payslip-money">{money(contributory)}</td>
+            </tr>}
+            {gosiDeduction!=null&&<tr>
+              <td className="payslip-label">خصم التأمينات</td><td className="payslip-value payslip-money">{money(gosiDeduction)}</td>
+              <td className="payslip-label">نسبة حصة الموظف</td><td className="payslip-value">{Number(gosiRate||0).toFixed(2)}%</td>
+            </tr>}
+            <tr>
+              <td className="payslip-label">صافي الراتب المرجعي</td><td className="payslip-value payslip-money">{money(referenceNet)}</td>
+              <td className="payslip-label">ساعات اليوم</td><td className="payslip-value">{line.calculated_day_hours||calc.day_hours||'—'}</td>
+            </tr>
 
-        <div className="payslip-section-title">الاستحقاقات</div>
-        <table className="payslip-table"><thead><tr><th>البيان</th><th>التفاصيل</th><th className="amount">المبلغ (ر.س)</th></tr></thead><tbody>
-          <tr><td>صافي الراتب المرجعي</td><td className="payslip-muted">قبل أثر الحضور</td><td className="amount">{formatMoney(salary.reference_net_salary)}</td></tr>
-          {timeAmount>0&&<tr><td>صافي فرق الساعات</td><td>{formatMinutesSigned(attendance.net_minutes||0)}</td><td className="amount">{formatMoney(timeAmount)}</td></tr>}
-          {manualAdd>0&&<tr><td>إضافة</td><td>{calc.manual_additions_reason||'إضافة أخرى'}</td><td className="amount">{formatMoney(manualAdd)}</td></tr>}
-          {timeAmount<=0&&manualAdd<=0&&<tr><td colSpan={3} className="payslip-empty">لا توجد إضافات أخرى.</td></tr>}
-        </tbody></table>
+            <tr className="payslip-section-row" data-print-row-atomic="true"><th colSpan={4}>أثر الحضور</th></tr>
+            <tr>
+              <td className="payslip-label">الغياب</td><td className="payslip-value">{Number(attendance.absence_days||0)} يوم</td>
+              <td className="payslip-label">خصم الغياب</td><td className="payslip-value payslip-money">{money(calc.absence_amount)}</td>
+            </tr>
+            <tr>
+              <td className="payslip-label">البصمات المفقودة</td><td className="payslip-value">{Number(attendance.missing_punch_days||0)} حالة — دخول {Number(attendance.missing_in_count||0)} / خروج {Number(attendance.missing_out_count||0)}</td>
+              <td className="payslip-label">خصم البصمات</td><td className="payslip-value payslip-money">{money(calc.missing_punch_amount)}</td>
+            </tr>
+            <tr>
+              <td className="payslip-label">صافي الساعات</td><td className="payslip-value">{formatMinutesSigned(attendance.net_minutes||0)}</td>
+              <td className="payslip-label">الأثر المالي</td><td className="payslip-value payslip-money">{timeAmount===0?money(0):`${timeAmount>0?'+':'−'} ${money(Math.abs(timeAmount))}`}</td>
+            </tr>
+            {hasAttendanceDetails&&<tr data-print-row-atomic="true">
+              <td className="payslip-label">تفاصيل الحالات</td>
+              <td colSpan={3} className="payslip-detail">
+                {Number(attendance.absence_days||0)>0&&<>الغياب: {listDates(attendance.absence_dates)}</>}
+                {Number(attendance.absence_days||0)>0&&Number(attendance.missing_punch_days||0)>0&&<> — </>}
+                {Number(attendance.missing_punch_days||0)>0&&<>البصمات: {missingDates.map((item)=>`${item.date} (${item.label})`).join('، ')}</>}
+              </td>
+            </tr>}
 
-        <div className="payslip-section-title">الخصومات</div>
-        <table className="payslip-table"><thead><tr><th>البيان</th><th>التفاصيل</th><th className="amount">المبلغ (ر.س)</th></tr></thead><tbody>
-          {Number(attendance.absence_days||0)>0&&<tr><td>غياب</td><td>{attendance.absence_days} يوم · {listDates(attendance.absence_dates)}</td><td className="amount">{formatMoney(calc.absence_amount)}</td></tr>}
-          {Number(attendance.missing_punch_days||0)>0&&<tr><td>بصمة مفقودة</td><td>{attendance.missing_punch_days} يوم · دخول {attendance.missing_in_count||0} · خروج {attendance.missing_out_count||0}<br/><span className="payslip-muted">{missingDates.map((item)=>`${item.date} (${item.label})`).join('، ')}</span></td><td className="amount">{formatMoney(calc.missing_punch_amount)}</td></tr>}
-          {timeAmount<0&&<tr><td>صافي نقص الساعات</td><td>{formatMinutesSigned(attendance.net_minutes||0)} · بعد المقاصة الشهرية</td><td className="amount">{formatMoney(Math.abs(timeAmount))}</td></tr>}
-          {manualDeduct>0&&<tr><td>خصم آخر</td><td>{calc.manual_deductions_reason||'خصم آخر'}</td><td className="amount">{formatMoney(manualDeduct)}</td></tr>}
-          {Number(calc.total_deductions||0)===0&&<tr><td colSpan={3} className="payslip-empty">لا توجد خصومات.</td></tr>}
-        </tbody></table>
+            {(manualAdd>0||manualDeduct>0)&&<tr className="payslip-section-row" data-print-row-atomic="true"><th colSpan={4}>تعديلات أخرى</th></tr>}
+            {manualAdd>0&&<tr>
+              <td className="payslip-label">إضافة</td><td className="payslip-value">{calc.manual_additions_reason||'إضافة أخرى'}</td>
+              <td className="payslip-label">المبلغ</td><td className="payslip-value payslip-money">{money(manualAdd)}</td>
+            </tr>}
+            {manualDeduct>0&&<tr>
+              <td className="payslip-label">خصم</td><td className="payslip-value">{calc.manual_deductions_reason||'خصم آخر'}</td>
+              <td className="payslip-label">المبلغ</td><td className="payslip-value payslip-money">{money(manualDeduct)}</td>
+            </tr>}
 
-        <div className="payslip-summary">
-          <div className="payslip-summary-row"><span>صافي الراتب المرجعي</span><b>{formatMoney(salary.reference_net_salary)} ر.س</b></div>
-          <div className="payslip-summary-row"><span>إجمالي الإضافات</span><b>{formatMoney(calc.total_additions)} ر.س</b></div>
-          <div className="payslip-summary-row"><span>إجمالي الخصومات</span><b>{formatMoney(calc.total_deductions)} ر.س</b></div>
-          <div className="payslip-summary-row"><span>صافي المستحق</span><b>{formatMoney(calc.final_net_salary)} ر.س</b></div>
-        </div>
-
-        <div style={{marginTop:16}}><span className="payslip-payment">طريقة الدفع: {PAYMENT_METHOD_LABEL[paymentMethod]||'غير محددة'}</span></div>
-        <div className="payslip-source">الفترة: {snapshot.period_from||attendanceImport?.period_from||'—'} إلى {snapshot.period_to||attendanceImport?.period_to||'—'}</div>
+            <tr className="payslip-section-row" data-print-row-atomic="true"><th colSpan={4}>الخلاصة</th></tr>
+            <tr>
+              <td className="payslip-label">إجمالي الإضافات</td><td className="payslip-value payslip-money">{money(calc.total_additions)}</td>
+              <td className="payslip-label">إجمالي الخصومات</td><td className="payslip-value payslip-money">{money(calc.total_deductions)}</td>
+            </tr>
+            <tr className="payslip-net" data-print-row-atomic="true">
+              <td colSpan={2}>صافي المستحق</td><td colSpan={2} className="payslip-money">{money(calc.final_net_salary)}</td>
+            </tr>
+            <tr data-print-row-atomic="true">
+              <td className="payslip-label">الفترة</td><td colSpan={3}>{snapshot.period_from||attendanceImport?.period_from||'—'} إلى {snapshot.period_to||attendanceImport?.period_to||'—'}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </article>
+    </ConstitutionPrintFrame>
   </div>;
 }
