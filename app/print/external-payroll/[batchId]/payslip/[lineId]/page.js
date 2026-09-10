@@ -123,10 +123,6 @@ export default function ExternalPayslipPrintPage(){
       .print-doc-external_payroll_payslip .external-payslip-table .payslip-final td{font-size:12.5px!important;font-weight:900!important;border-top:.45mm solid #8B3332!important;background:#fbf5f5!important}
       .print-doc-external_payroll_payslip .external-payslip-table .payslip-period{font-size:9px!important;color:#666!important;text-align:center!important;background:#fff!important}
       .external-payslip-http-letterhead{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0}
-      @media print{
-        .external-payslip-actions{display:none!important}
-        html,body{margin:0!important;padding:0!important;background:#fff!important}
-      }
     `}</style>
 
     <div className="external-payslip-actions no-print">
