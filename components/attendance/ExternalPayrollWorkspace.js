@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { externalStageHref, getCurrentExternalImportId, setCurrentExternalImportId } from '@/lib/attendance/current-external-import';
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABEL,
@@ -35,18 +37,16 @@ function cellText(cell){
   if(typeof value==='object'&&value.result!=null)return String(value.result).trim();
   return String(value).trim();
 }
-function paymentValue(value){
-  const text=String(value||'').trim();return PAYMENT_METHODS.find(([key,label])=>text===key||text===label)?.[0]||null;
-}
-function insuranceValue(value){
-  const text=String(value||'').trim();return SOCIAL_INSURANCE_SCHEMES.find(([key,label])=>text===key||text===label)?.[0]||null;
-}
+function paymentValue(value){const text=String(value||'').trim();return PAYMENT_METHODS.find(([key,label])=>text===key||text===label)?.[0]||null;}
+function insuranceValue(value){const text=String(value||'').trim();return SOCIAL_INSURANCE_SCHEMES.find(([key,label])=>text===key||text===label)?.[0]||null;}
 function safePart(value){return encodeURIComponent(String(value||'client')).replace(/%/g,'_');}
+function batchLabel(item){return `${item.client_name_snapshot||'عميل خارجي'} — ${dateOnly(item.period_from)} إلى ${dateOnly(item.period_to)}`;}
 function downloadBuffer(buffer,filename){
   const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
 
 export default function ExternalPayrollWorkspace(){
+  const searchParams=useSearchParams();
   const [imports,setImports]=useState([]);
   const [activeId,setActiveId]=useState('');
   const [days,setDays]=useState([]);
@@ -64,6 +64,7 @@ export default function ExternalPayrollWorkspace(){
   const letterheadRef=useRef(null);
 
   const activeImport=useMemo(()=>imports.find((item)=>item.id===activeId)||null,[imports,activeId]);
+  const drafts=useMemo(()=>imports.filter((item)=>item.id!==activeId),[imports,activeId]);
   const people=useMemo(()=>uniquePeople(days),[days]);
   const daysByKey=useMemo(()=>groupDaysByEmployee(days),[days]);
   const profileByKey=useMemo(()=>new Map(profiles.map((p)=>[p.source_employee_key,p])),[profiles]);
@@ -80,7 +81,13 @@ export default function ExternalPayrollWorkspace(){
   async function loadImports(){
     const q=await supabase.from('hr_attendance_imports').select('id,period_from,period_to,status,processing_scope,client_entity_id,client_name_snapshot,client_reference,uploaded_at')
       .eq('processing_scope','external').in('status',READY_IMPORT_STATUSES).order('uploaded_at',{ascending:false}).limit(30);
-    if(q.error){setErr(q.error.message);return;}const list=q.data||[];setImports(list);setActiveId((current)=>current&&list.some((x)=>x.id===current)?current:(list[0]?.id||''));
+    if(q.error){setErr(q.error.message);return;}
+    const list=q.data||[];setImports(list);
+    const urlId=searchParams.get('batch')||'';const remembered=getCurrentExternalImportId();
+    setActiveId((current)=>{
+      for(const id of [urlId,current,remembered]){if(id&&list.some((x)=>x.id===id))return id;}
+      return list[0]?.id||'';
+    });
   }
 
   async function ensureWorkspace(item,sourceDays){
@@ -118,8 +125,9 @@ export default function ExternalPayrollWorkspace(){
   }
 
   useEffect(()=>{loadImports();},[]);
-  useEffect(()=>{if(activeId&&imports.length)loadActive(activeId);},[activeId,imports.length]);
+  useEffect(()=>{if(activeId){setCurrentExternalImportId(activeId);if(imports.length)loadActive(activeId);}},[activeId,imports.length]);
 
+  function chooseBatch(id){setActiveId(id);setCurrentExternalImportId(id);}
   function setBatchField(field,value){setBatch((current)=>({...current,[field]:value}));setDirty(true);}
   function setLineField(id,field,value){setLines((list)=>list.map((line)=>line.id===id?{...line,[field]:value}:line));setDirty(true);}
   function setProfileField(id,field,value){setProfiles((list)=>list.map((p)=>p.id===id?{...p,[field]:value}:p));setDirty(true);}
@@ -212,10 +220,13 @@ export default function ExternalPayrollWorkspace(){
   },{reference:0,additions:0,deductions:0,final:0}),[people,lineByKey,salaryStateByKey]);
 
   return <div>
-    <div className="page-head"><div><h1>الرواتب</h1></div><Link className="btn ghost" href="/dashboard/attendance/external-review">المراجعة</Link></div>
+    <div className="page-head"><div><h1>الرواتب</h1></div><Link className="btn ghost" href={externalStageHref('/dashboard/attendance/external-review',activeId)}>المراجعة</Link></div>
     {err&&<div className="msg err" style={{marginTop:12}}>{err}</div>}{msg&&<div className="msg ok" style={{marginTop:12}}>{msg}</div>}
 
-    <div className="section" style={{marginTop:16}}><header><h2>فترة الرواتب</h2></header><div style={{padding:18}}><div className="field"><label>العميل والفترة</label><select value={activeId} onChange={(e)=>setActiveId(e.target.value)} disabled={busy}>{!imports.length&&<option value="">لا توجد دفعات جاهزة</option>}{imports.map((item)=><option key={item.id} value={item.id}>{item.client_name_snapshot||'عميل خارجي'} — {dateOnly(item.period_from)} إلى {dateOnly(item.period_to)}</option>)}</select></div>{activeImport&&<div className="stat-grid" style={{marginTop:14}}><div className="stat"><span>الشهر</span><strong>{payrollMonthLabel(activeImport.period_from)}</strong></div><div className="stat"><span>الموظفون</span><strong>{people.length}</strong></div><div className="stat"><span>البيانات المكتملة</span><strong>{salaryReadyCount} / {people.length}</strong></div><div className="stat"><span>صافي المستحق</span><strong>{formatMoney(totals.final)} ر.س</strong></div></div>}</div></div>
+    <div className="section" style={{marginTop:16}}><header><h2>الحالي</h2></header><div style={{padding:18}}>
+      {activeImport?<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}><div><strong style={{fontSize:16}}>{activeImport.client_name_snapshot||'عميل خارجي'}</strong><div className="hint" style={{marginTop:4}}>{dateOnly(activeImport.period_from)} — {dateOnly(activeImport.period_to)}</div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span className="tag">{payrollMonthLabel(activeImport.period_from)}</span><span className="tag">{people.length} موظف</span><span className="tag">مكتمل {salaryReadyCount}/{people.length}</span></div></div>:<strong>لا توجد دفعة حالية.</strong>}
+      {drafts.length>0&&<details style={{marginTop:14}}><summary style={{cursor:'pointer',fontWeight:700}}>المسودات ({drafts.length})</summary><div style={{display:'grid',gap:8,marginTop:10}}>{drafts.map((item)=><button key={item.id} type="button" className="btn ghost" style={{justifyContent:'space-between',textAlign:'right'}} onClick={()=>chooseBatch(item.id)}><span>{batchLabel(item)}</span><span>فتح</span></button>)}</div></details>}
+    </div></div>
 
     {batch&&<>
       <div className="section"><header><h2>بيانات الرواتب</h2><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button className="btn ghost" disabled={busy} onClick={exportSalaryTemplate}>تنزيل نموذج Excel</button><button className="btn ghost" disabled={busy} onClick={()=>salaryFileRef.current?.click()}>استيراد Excel</button><input ref={salaryFileRef} type="file" accept=".xlsx" style={{display:'none'}} onChange={(e)=>importSalaryFile(e.target.files?.[0])}/><button className="btn" disabled={busy||!dirty} onClick={()=>saveInputs(true)}>حفظ</button></div></header><div style={{padding:18,overflowX:'auto'}}><table><thead><tr><th>الرقم</th><th>الموظف</th><th>الأساسي</th><th>السكن</th><th>النقل</th><th>بدلات أخرى</th><th>التأمينات</th><th>صافي الراتب</th><th>ساعات اليوم</th><th>طريقة الدفع</th><th>تفاصيل</th></tr></thead><tbody>{people.map((person)=>{
