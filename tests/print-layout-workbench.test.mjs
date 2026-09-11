@@ -38,6 +38,7 @@ test('print preview uses side rails instead of stacking captain controls above t
   assert.match(workbench, /right:var\(--print-workbench-edge\)!important/);
   assert.match(workbench, /\.print-text-alignment-bar\{/);
   assert.match(workbench, /left:var\(--print-workbench-edge\)!important/);
+  assert.match(workbench, /\.toolbar\.no-print,/);
   assert.match(workbench, /\.print-toolbar,/);
   assert.match(workbench, /\.qtoolbar\{/);
   assert.match(workbench, /padding-left:calc\(var\(--print-workbench-rail\)/);
