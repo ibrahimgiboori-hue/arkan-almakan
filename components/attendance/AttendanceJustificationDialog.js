@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { attendanceJustificationService } from '@/lib/application/attendance-justification-service';
 
 const TYPES = [
   ['sick_leave','إجازة مرضية'],
@@ -49,36 +49,38 @@ export default function AttendanceJustificationDialog({ day, isPrimary = false, 
     if (!type) { setErr('اختر نوع التبرير.'); return; }
     if (type === 'other' && !details.trim()) { setErr('اكتب تفاصيل التبرير عند اختيار «أخرى».'); return; }
     setBusy(true); setErr(''); setMsg('');
-    const {data,error} = await supabase.rpc('hr_submit_attendance_justification_v2',{
-      p_attendance_day_id:day.id,
-      p_justification_type:type,
-      p_justification_text:details.trim() || null,
-      p_paper_reference:reference.trim() || null,
-      p_paper_approved_on:approvedOn || null,
-    });
+    try{
+      const id=await attendanceJustificationService.submit({
+        attendanceDayId:day.id,
+        type,
+        text:details,
+        reference,
+        approvedOn,
+      });
+      setJustificationId(id);
+      setDecision('pending');
+      setMsg('تم تسجيل التبرير. وجود التبرير لا يعني قبوله؛ يلزم قرار صاحب العمل ثم إعادة الاحتساب.');
+      await onRefresh?.();
+    }catch(error){setErr(error?.message||String(error));}
     setBusy(false);
-    if (error) { setErr(error.message); return; }
-    setJustificationId(data);
-    setDecision('pending');
-    setMsg('تم تسجيل التبرير. وجود التبرير لا يعني قبوله؛ يلزم قرار صاحب العمل ثم إعادة الاحتساب.');
-    await onRefresh?.();
   }
 
   async function decide(nextDecision) {
     if (!justificationId || !isPrimary) return;
     setBusy(true); setErr(''); setMsg('');
-    const {error} = await supabase.rpc('hr_decide_attendance_justification',{
-      p_justification_id:justificationId,
-      p_decision:nextDecision,
-      p_decision_note:decisionNote.trim() || null,
-      p_paper_reference:reference.trim() || null,
-      p_paper_approved_on:approvedOn || null,
-    });
+    try{
+      await attendanceJustificationService.decide({
+        justificationId,
+        decision:nextDecision,
+        note:decisionNote,
+        reference,
+        approvedOn,
+      });
+      setDecision(nextDecision);
+      setMsg(nextDecision==='accepted'?'تم قبول التبرير لهذه الحالة فقط. أعد الاحتساب لتطبيق أثر القرار.':'تم رفض التبرير لهذه الحالة فقط، ويظل الأثر قائمًا بعد إعادة الاحتساب.');
+      await onRefresh?.();
+    }catch(error){setErr(error?.message||String(error));}
     setBusy(false);
-    if (error) { setErr(error.message); return; }
-    setDecision(nextDecision);
-    setMsg(nextDecision==='accepted'?'تم قبول التبرير لهذه الحالة فقط. أعد الاحتساب لتطبيق أثر القرار.':'تم رفض التبرير لهذه الحالة فقط، ويظل الأثر قائمًا بعد إعادة الاحتساب.');
-    await onRefresh?.();
   }
 
   return <div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(15,23,42,.38)',display:'flex',alignItems:'center',justifyContent:'center',padding:18}} onMouseDown={(e)=>{if(e.target===e.currentTarget) onClose?.();}}>
