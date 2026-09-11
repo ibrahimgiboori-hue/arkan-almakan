@@ -80,16 +80,27 @@ for (const forbidden of ['single-open-accordion','expandedProjectGroupKey','togg
   if (contextualNav.includes(forbidden)) failures.push(`الملاحة الموحدة: عاد السلوك القديم ${forbidden}.`);
 }
 
-// 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد: المشروع + المقاول + تاريخ الإسناد سياق واحد.
-const projectLabor = read('app/dashboard/projects/[id]/operations/labor/page.js');
-if (!projectLabor.includes('fn_quick_add_workers') || !projectLabor.includes('data-canonical-labor-create-form')) {
-  failures.push('عمالة المشروع: يجب أن تبقى شاشة المشروع هي مسار إنشاء العمالة وإسنادها الموحد.');
+// 4) شاشة عمالة المشروع هي سطح الإنشاء الوحيد، لكن التنفيذ يمر عبر طبقات المحرك لا عبر الصفحة.
+const projectLaborRoute = read('app/dashboard/projects/[id]/operations/labor/page.js');
+const projectLaborPresentation = read('app/dashboard/projects/[id]/operations/labor/ProjectLaborWorkspaceEngineered.js');
+const projectLaborService = read('lib/application/project-labor-service.js');
+const projectLaborAdapter = read('lib/adapters/project-labor-supabase.js');
+if (!projectLaborRoute.includes('ProjectLaborWorkspaceEngineered')) {
+  failures.push('عمالة المشروع: المسار يجب أن يفوض العرض إلى مساحة العمالة الهندسية الموحدة.');
 }
-if (!projectLabor.includes('fn_assign_existing_laborer')) {
-  failures.push('عمالة المشروع: يجب أن تستخدم الإسناد الصريح للعامل الموجود.');
+if (!projectLaborPresentation.includes('data-canonical-labor-create-form="true"') || !projectLaborPresentation.includes('projectLaborService')) {
+  failures.push('عمالة المشروع: يجب أن تبقى شاشة المشروع هي سطح إنشاء العمالة الموحد فوق خدمة التطبيق.');
 }
-if (/from\(['"]laborers['"]\)\.insert|from\(['"]laborers['"]\)[\s\S]{0,160}\.insert/.test(projectLabor)) {
-  failures.push('عمالة المشروع: لا يجوز تجاوز محرك العمالة الموحد بإنشاء laborers مباشرة من الواجهة.');
+if (!projectLaborService.includes('assignWorker') || !projectLaborAdapter.includes("fn_assign_existing_laborer")) {
+  failures.push('عمالة المشروع: يجب أن تستخدم الإسناد الصريح للعامل الموجود عبر محرك العمالة.');
+}
+if (!projectLaborAdapter.includes("fn_quick_add_workers")) {
+  failures.push('عمالة المشروع: محرك العمالة فقد قناة الإضافة الجماعية المعتمدة.');
+}
+for (const source of [projectLaborRoute, projectLaborPresentation]) {
+  if (/from\(['"]laborers['"]\)\.insert|from\(['"]laborers['"]\)[\s\S]{0,160}\.insert|@\/lib\/supabase|\.rpc\s*\(/.test(source)) {
+    failures.push('عمالة المشروع: واجهة العمالة لا يجوز أن تتجاوز محرك العمالة الموحد أو تتصل بالتخزين مباشرة.');
+  }
 }
 const contractorLabor = read('app/dashboard/contractors/[id]/labor/page.js');
 if (!contractorLabor.includes('data-retired-labor-entry="contractor-level"')) {
