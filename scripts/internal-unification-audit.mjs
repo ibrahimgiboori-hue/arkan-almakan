@@ -186,8 +186,9 @@ const payrollEngine = requireText('lib/attendance/external-payroll.js', [
   'include_overtime',
   'include_time_shortage',
 ]);
-const payrollWorkspace = requireText('components/attendance/ExternalPayrollWorkspace.js', [
+const payrollWorkspace = requireText('components/attendance/ExternalPayrollWorkspaceEngineered.js', [
   "from '@/lib/attendance/external-payroll'",
+  "from '@/lib/application/external-payroll-workspace-service'",
   'calculateExternalPayroll',
   'salaryBreakdown',
 ]);
@@ -196,7 +197,7 @@ for (const forbidden of [
   /gosiEmployeeRate\s*\/\s*100/,
   /netMinutes\s*\/\s*60/,
 ]) {
-  if (forbidden.test(payrollWorkspace)) failures.push(`components/attendance/ExternalPayrollWorkspace.js: معادلة رواتب تسربت إلى الواجهة (${forbidden}).`);
+  if (forbidden.test(payrollWorkspace)) failures.push(`components/attendance/ExternalPayrollWorkspaceEngineered.js: معادلة رواتب تسربت إلى الواجهة (${forbidden}).`);
 }
 if (!payrollEngine.includes('const includeOvertime') || !payrollEngine.includes('const includeTimeShortage')) {
   failures.push('lib/attendance/external-payroll.js: سياسة فرق الساعات يجب أن تبقى داخل محرك الرواتب المركزي.');
