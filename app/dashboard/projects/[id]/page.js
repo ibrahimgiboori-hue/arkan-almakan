@@ -74,6 +74,9 @@ export default function ProjectCard() {
       setFin(workspace.financials || null);
       setTot(workspace.totals || null);
       setProjectSetupAction(workspace.setupAction || null);
+      if (workspace.readErrors?.length) {
+        setErr(`تعذّر تحميل بعض بيانات المشروع: ${workspace.readErrors.join(' · ')}`);
+      }
     } catch (error) {
       setP(null);
       setErr('تعذّر فتح المشروع: ' + (error?.message || error));
