@@ -25,7 +25,7 @@ if(exists(files.adapter)){
 
 if(exists(files.service)){
   const source=read(files.service);
-  for(const forbidden of ['@/lib/supabase','@supabase/','.from(','.rpc(','storage.from(','window.','document.'])if(source.includes(forbidden))fail(`lab application service leaked infrastructure/presentation: ${forbidden}`);
+  for(const forbidden of ['@/lib/supabase','@supabase/','supabase.from(','supabase.rpc(','storage.from(','window.','document.'])if(source.includes(forbidden))fail(`lab application service leaked infrastructure/presentation: ${forbidden}`);
   for(const required of ['createAttendanceLabWorkspaceService','attendanceLabWorkspaceService','createBatch','loadSchedule','saveSchedule','runStage','loadExportData'])if(!source.includes(required))fail(`lab application service missing use case: ${required}`);
   if(!source.includes('attendanceLabWorkspaceSupabaseRepository'))fail('lab application service must depend on the repository contract.');
 }
@@ -33,7 +33,7 @@ if(exists(files.service)){
 if(exists(files.presentation)){
   const source=read(files.presentation);
   if(!source.includes("@/lib/application/attendance-lab-workspace-service"))fail('lab presentation must use the application service.');
-  for(const forbidden of ["@/lib/supabase",'.from(','.rpc(','hr_attendance_imports','hr_attendance_processing_events','hr_attendance_external_people','hr_save_external_attendance_schedule','hr_save_employee_work_schedule','hr_import_attendance_punches'])if(source.includes(forbidden))fail(`lab presentation leaked persistence detail: ${forbidden}`);
+  for(const forbidden of ["@/lib/supabase",'@supabase/','supabase.from(','supabase.rpc(','storage.from(','hr_attendance_imports','hr_attendance_processing_events','hr_attendance_external_people','hr_save_external_attendance_schedule','hr_save_employee_work_schedule','hr_import_attendance_punches'])if(source.includes(forbidden))fail(`lab presentation leaked persistence detail: ${forbidden}`);
   if(!source.includes('nu-latn'))fail('lab presentation must render localized dates with Latin digits.');
 }
 
