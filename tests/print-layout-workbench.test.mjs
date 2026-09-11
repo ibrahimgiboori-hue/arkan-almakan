@@ -21,6 +21,8 @@ test('print layout model keeps the hidden grid immutable and the visible borders
   assert.match(model, /changes-visible-column-span-not-grid-column-width/);
   assert.match(model, /changes-visible-row-span-not-grid-row-height/);
   assert.match(model, /mayResizeHiddenGrid:false/);
+  assert.match(layout, /PRINT_LAYOUT_MODEL_VERSION/);
+  assert.match(layout, /data-print-layout-model="fixed-grid-visible-borders"/);
 });
 
 test('visible border editor moves design spans over the fixed hidden grid', () => {
