@@ -160,6 +160,58 @@ for (const file of walk('lib/adapters').filter((item) => /\.(?:js|mjs)$/.test(it
   }
 }
 
+// Critical business-rule modules are treated as core even while legacy folder names remain.
+// The UI may call these rules, but the rules must never know React, Next, Supabase or the DOM.
+const governedBusinessRuleModules = [
+  'lib/attendance/external-payroll.js',
+];
+const businessRuleForbidden = [
+  /from\s+['"]react['"]/, /from\s+['"]next\//, /@supabase\//, /@\/lib\/supabase/,
+  /@\/components\//, /@\/app\//, /\.css['"]/, /\bwindow\b/, /\bdocument\b/,
+  /\.from\s*\(/, /\.rpc\s*\(/,
+];
+for (const file of governedBusinessRuleModules) {
+  requireFile(file);
+  if (!exists(file)) continue;
+  const text = read(file);
+  for (const pattern of businessRuleForbidden) {
+    if (pattern.test(text)) failures.push(`${file}: محرك قاعدة أعمال يعرف تفصيل عرض/بنية تحتية ممنوعًا (${pattern}).`);
+  }
+}
+
+const payrollEngine = requireText('lib/attendance/external-payroll.js', [
+  'export function resolveEmployeeSocialInsuranceRate',
+  'export function salaryBreakdown',
+  'export function calculateExternalPayroll',
+  'include_overtime',
+  'include_time_shortage',
+]);
+const payrollWorkspace = requireText('components/attendance/ExternalPayrollWorkspace.js', [
+  "from '@/lib/attendance/external-payroll'",
+  'calculateExternalPayroll',
+  'salaryBreakdown',
+]);
+for (const forbidden of [
+  /referenceNet\s*\/\s*divisorDays/,
+  /gosiEmployeeRate\s*\/\s*100/,
+  /netMinutes\s*\/\s*60/,
+]) {
+  if (forbidden.test(payrollWorkspace)) failures.push(`components/attendance/ExternalPayrollWorkspace.js: معادلة رواتب تسربت إلى الواجهة (${forbidden}).`);
+}
+if (!payrollEngine.includes('const includeOvertime') || !payrollEngine.includes('const includeTimeShortage')) {
+  failures.push('lib/attendance/external-payroll.js: سياسة فرق الساعات يجب أن تبقى داخل محرك الرواتب المركزي.');
+}
+
+const payslipPrint = requireText('app/print/external-payroll/[batchId]/payslip/[lineId]/page.js', [
+  'calculation_snapshot',
+  'ConstitutionPrintFrame',
+]);
+for (const forbidden of [
+  'calculateExternalPayroll(', 'salaryBreakdown(', '.insert(', '.update(', '.delete(', '.rpc(',
+]) {
+  if (payslipPrint.includes(forbidden)) failures.push(`app/print/external-payroll/[batchId]/payslip/[lineId]/page.js: المطبوع تجاوز دوره كعارض بيانات (${forbidden}).`);
+}
+
 for (const file of walk('app').filter((item) => item.endsWith('.css'))) {
   const base = path.basename(file).toLowerCase();
   if (/(?:patch|override|resuscitation|legacy-ui-compat|visual-fix)/.test(base)) {
@@ -191,4 +243,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Internal unification audit passed: core, adapters, semantic presentation, replaceable tuxedo and print captain remain separated; legacy patch growth is blocked.');
+console.log('Internal unification audit passed: core, business rules, adapters, semantic presentation, replaceable tuxedo and print captain remain separated; legacy patch growth is blocked.');
