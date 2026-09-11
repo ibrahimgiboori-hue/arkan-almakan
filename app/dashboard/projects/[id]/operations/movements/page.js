@@ -2,55 +2,41 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { todayIsoInRiyadh } from '@/lib/format';
 import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
+import { projectDailyLedgerService } from '@/lib/application/project-daily-ledger-service';
+import {
+  PROJECT_DAILY_LEDGER_EMPTY_SUMMARY,
+  PROJECT_DAILY_LEDGER_FILTERS,
+  filterProjectDailyLedgerRows,
+} from '@/lib/project-daily-ledger.mjs';
 import styles from './movements.module.css';
 
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 function dateLabel(value){const [y,m,d]=String(value).split('-').map(Number);return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d))}
-const EMPTY_SUMMARY={attendance:0,full:0,half:0,absent:0,outputs:0,expenses:0,custody:0,advances:0,payments:0,movements:0};
-const FILTERS=[['all','الكل'],['attendance','الحضور'],['output','الإنجاز'],['expense','المصروفات'],['custody','العهدة'],['advance','السلف'],['payment','الدفعات']];
 
 export default function MovementsPage(){
   const {id:projectId}=useParams();
   const {date,ready:contextReady,setDate}=useProjectOperationContext(projectId);
   const [rows,setRows]=useState([]);
-  const [summary,setSummary]=useState(EMPTY_SUMMARY);
+  const [summary,setSummary]=useState(PROJECT_DAILY_LEDGER_EMPTY_SUMMARY);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState('');
   const [filter,setFilter]=useState('all');
 
   const load=useCallback(async()=>{
     if(!contextReady||!projectId||!date)return;
-    setLoading(true);
-    setErr('');
-    setRows([]);
-    setSummary(EMPTY_SUMMARY);
+    setLoading(true);setErr('');setRows([]);setSummary(PROJECT_DAILY_LEDGER_EMPTY_SUMMARY);
     try{
-      const {data,error}=await supabase.rpc('fn_project_daily_ledger',{
-        p_project_id:projectId,
-        p_date:date,
-      });
-      if(error)throw error;
-      const payload=data||{};
-      const nextRows=Array.isArray(payload.rows)?payload.rows.map(row=>({
-        ...row,
-        value: row.valueText || (row.amount!==null && row.amount!==undefined ? `${money(row.amount)} ر.س` : null),
-      })):[];
-      setRows(nextRows);
-      setSummary({...EMPTY_SUMMARY,...(payload.summary||{})});
-    }catch(e){
-      setErr('تعذر تحميل حركات اليوم: '+(e?.message||e));
-    }finally{
-      setLoading(false);
-    }
+      const ledger=await projectDailyLedgerService.load({projectId,date});
+      setRows(ledger.rows);setSummary(ledger.summary);
+    }catch(e){setErr('تعذر تحميل حركات اليوم: '+(e?.message||e));}
+    finally{setLoading(false);}
   },[contextReady,projectId,date]);
 
   useEffect(()=>{load()},[load]);
-
-  const visible=useMemo(()=>filter==='all'?rows:rows.filter(x=>x.type===filter),[rows,filter]);
+  const visible=useMemo(()=>filterProjectDailyLedgerRows(rows,filter),[rows,filter]);
 
   if(!contextReady)return <div className={styles.empty}>جارٍ فتح سياق المشروع…</div>;
 
@@ -72,7 +58,7 @@ export default function MovementsPage(){
       <div><span>دفعات المقاولين</span><strong>{money(summary.payments)}</strong><small>ر.س</small></div>
     </section>
 
-    <div className={styles.filters} aria-label="تصفية حركات اليوم">{FILTERS.map(([k,v])=><button type="button" key={k} className={filter===k?styles.on:''} aria-pressed={filter===k} onClick={()=>setFilter(k)}>{v}</button>)}</div>
+    <div className={styles.filters} aria-label="تصفية حركات اليوم">{PROJECT_DAILY_LEDGER_FILTERS.map(([k,v])=><button type="button" key={k} className={filter===k?styles.on:''} aria-pressed={filter===k} onClick={()=>setFilter(k)}>{v}</button>)}</div>
 
     {loading?
       <div className={styles.empty}>جارٍ تجميع حركات اليوم…</div>
