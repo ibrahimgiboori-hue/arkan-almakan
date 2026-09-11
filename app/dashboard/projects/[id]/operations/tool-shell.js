@@ -2,16 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { todayIsoInRiyadh } from '@/lib/format';
 import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
-import { selectRosterAssignmentsForDate } from '@/lib/site-operation-roster.mjs';
+import { projectOperationContextService } from '@/lib/application/project-operation-context-service';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { OutputPanel, FinancePanel } from './operation-panels';
 import DirectExpensePanel from './direct-expense-panel';
 import styles from './tool-shell.module.css';
-
-const naturalCompare = (a='',b='') => String(a).localeCompare(String(b),'ar',{numeric:true,sensitivity:'base'});
 
 function dateLabel(value){
   if(!value)return '—';
@@ -42,36 +39,10 @@ export default function OperationToolShell({ type }){
       if(!contextReady||!projectId||!date)return;
       setLoading(true);setErr('');
       try{
-        const [linkQ,assignmentQ] = await Promise.all([
-          supabase.from('project_contractors')
-            .select('contractor_id,basis,start_date,end_date,is_active')
-            .eq('project_id',projectId)
-            .eq('is_active',true)
-            .lte('start_date',date)
-            .or(`end_date.is.null,end_date.gte.${date}`),
-          supabase.from('labor_project_assignments')
-            .select('laborer_id,contractor_id,valid_from,valid_to')
-            .eq('project_id',projectId)
-            .lte('valid_from',date)
-            .or(`valid_to.is.null,valid_to.gte.${date}`),
-        ]);
-        const firstError=linkQ.error||assignmentQ.error;if(firstError)throw firstError;
-        const assignments=selectRosterAssignmentsForDate(assignmentQ.data||[],date);
-        const ids=[...new Set([
-          ...(linkQ.data||[]).map(x=>x.contractor_id),
-          ...assignments.map(x=>x.contractor_id),
-        ].filter(Boolean))];
-        const contractorQ = ids.length
-          ? await supabase.from('contractors').select('id,name_ar,operation_alias,contractor_no').in('id',ids)
-          : {data:[],error:null};
-        if(contractorQ.error)throw contractorQ.error;
+        const rows=await projectOperationContextService.loadContractors({projectId,date});
         if(!active)return;
-        const rows=(contractorQ.data||[]).map(c=>({
-          ...c,
-          project_basis:(linkQ.data||[]).find(x=>x.contractor_id===c.id)?.basis||null,
-        })).sort((a,b)=>naturalCompare(a.name_ar,b.name_ar));
         setContractors(rows);
-        if(!contractorId||!rows.some(x=>x.id===contractorId))setContractorId(rows[0]?.id||'');
+        if(!contractorId||!rows.some((row)=>row.id===contractorId))setContractorId(rows[0]?.id||'');
       }catch(e){if(active)setErr('تعذر تحميل سياق التشغيل: '+(e.message||e));}
       if(active)setLoading(false);
     })();
