@@ -35,7 +35,9 @@ test('external attendance state sequence is explicit and stable', () => {
   assert.equal(canTransitionExternalAttendance('ready_to_post','analyzed'), false);
 });
 
-test('terminal states cannot silently reopen', () => {
+test('review can reopen a calculated result without reopening terminal batches', () => {
+  assert.equal(canTransitionExternalAttendance('recalculated','justifications'),true);
+  assert.equal(canTransitionExternalAttendance('ready_to_post','justifications'),true);
   for (const status of [EXTERNAL_ATTENDANCE_STATUS.CLOSED,EXTERNAL_ATTENDANCE_STATUS.FAILED,EXTERNAL_ATTENDANCE_STATUS.SUPERSEDED]) {
     assert.equal(isExternalAttendanceTerminal(status), true);
     assert.deepEqual(externalAttendanceTransitionsFrom(status), []);
