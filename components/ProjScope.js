@@ -1,8 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { money, todayIsoInRiyadh } from '@/lib/format';
 import { ITEM_EXECUTION_AR, ITEM_EXECUTION_CLASS, MODE_AR, itemExecutionState } from '@/lib/projects';
+import { projectScopeService } from '@/lib/application/project-scope-service';
+import {
+  PROJECT_SCOPE_END_REASONS,
+  numberProjectScopeItems,
+  projectScopeAssignmentsOf,
+  projectScopeCurrentAssignment,
+  projectScopeDeleteImpact,
+  projectScopePatchNeedsCalculation,
+  summarizeProjectScope,
+} from '@/lib/project-scope.mjs';
 import ItemBudget from '@/components/ItemBudget';
 import NumericField from '@/components/NumericField';
 import ConstitutionDialog from '@/components/ui/ConstitutionDialog';
@@ -26,7 +35,6 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmErr, setConfirmErr] = useState('');
   const [buds, setBuds] = useState([]);
-  const [states, setStates] = useState([]);
   const [starting, setStarting] = useState(null);
   const [askStart, setAskStart] = useState(null);
   const [sDate, setSDate] = useState('');
@@ -35,96 +43,94 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const [i, e, c, bg, st, tt, ac] = await Promise.all([
-      supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
-      supabase.from('v_item_execution_assignments').select('*').eq('project_id', projectId)
-        .order('decided_at', { ascending: true }),
-      supabase.from('contractors').select('id, name_ar, worker_daily, tech_daily')
-        .eq('is_active', true).order('name_ar'),
-      supabase.from('v_item_budget').select('*').eq('project_id', projectId),
-      supabase.from('v_item_execution_state').select('*').eq('project_id', projectId),
-      supabase.from('v_item_assignment_totals').select('*').eq('project_id', projectId),
-      supabase.from('v_item_assignment_actuals').select('*'),
-    ]);
-    setItems(i.data || []); setExecs(e.data || []); setCons(c.data || []);
-    setBuds(bg.data || []); setStates(st.data || []); setTots(tt.data || []);
-    setActs(ac.data || []);
-    onChange?.();
+    setErr('');
+    try {
+      const workspace = await projectScopeService.loadWorkspace({ projectId });
+      setItems(workspace.items);
+      setExecs(workspace.executions);
+      setCons(workspace.contractors);
+      setBuds(workspace.budgets);
+      setTots(workspace.totals);
+      setActs(workspace.actuals);
+      onChange?.();
+    } catch (error) {
+      setErr('تعذّر تحميل نطاق المشروع: ' + (error?.message || error));
+      setItems([]);
+      setExecs([]);
+      setCons([]);
+      setBuds([]);
+      setTots([]);
+      setActs([]);
+    }
   }
 
   useEffect(() => { load(); }, [projectId]);
   useLiveRefresh(load, ['scope','budget','exec','all']);
 
-  const execsOf = (id) => execs.filter((x) => x.project_item_id === id);
-  const execOf = (id) => execsOf(id)[0];
+  const execsOf = (id) => projectScopeAssignmentsOf(execs,id);
   const totOf = (id) => tots.find((x) => x.project_item_id === id) || {};
   const actOf = (execId) => acts.find((x) => x.exec_id === execId) || {};
 
-  const END_AR = {
-    completed: 'اكتمال', mutual: 'اتفاق', underperformance: 'تقصير',
-    dispute: 'خلاف', other: 'أخرى',
-  };
-
   async function addLine(kind) {
-    const order = (items.length ? Math.max(...items.map((l)=>l.sort_order)) : 0) + 1;
-    const { error } = await supabase.from('project_items').insert({
-      project_id: projectId, sort_order: order, kind,
-      description_ar: kind === 'title' ? 'عنوان قسم' : '',
-      unit: kind === 'item' ? 'م2' : null, contract_qty: 1, sell_price: 0, budget_cost: 0,
-    });
-    if (error) setErr('تعذّر الإضافة: ' + error.message);
-    else { load(); notifyChange('scope'); }
+    setErr('');
+    try {
+      await projectScopeService.addLine({ projectId, kind });
+      await load();
+      notifyChange('scope');
+    } catch (error) {
+      setErr('تعذّر الإضافة: ' + (error?.message || error));
+    }
   }
 
   async function insertAfter(afterOrder, kind) {
-    const { error } = await supabase.rpc('project_item_insert_after', {
-      p_project: projectId, p_after_order: afterOrder, p_kind: kind,
-    });
-    if (error) setErr('تعذّر الإدراج: ' + error.message); else load();
+    setErr('');
+    try {
+      await projectScopeService.insertAfter({ projectId, afterOrder, kind });
+      await load();
+      notifyChange('scope');
+    } catch (error) {
+      setErr('تعذّر الإدراج: ' + (error?.message || error));
+    }
   }
 
-  const CALC_FIELDS = ['contract_qty','sell_price','budget_cost'];
-
   async function upd(id, fields) {
-    setItems(items.map((x) => x.id === id ? { ...x, ...fields } : x));
-    const { error } = await supabase.from('project_items').update(fields).eq('id', id);
-    if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
-
-    if (Object.keys(fields).some((k) => CALC_FIELDS.includes(k))) {
-      await refreshCalc();
+    setErr('');
+    setItems((current) => (current || []).map((x) => x.id === id ? { ...x, ...fields } : x));
+    try {
+      const saved = await projectScopeService.updateItem({ itemId:id, fields });
+      setItems((current) => (current || []).map((x) => x.id === id ? { ...x, ...saved } : x));
+      if (projectScopePatchNeedsCalculation(fields)) await refreshCalc();
+      notifyChange('scope');
+      onChange?.();
+    } catch (error) {
+      setErr('تعذّر الحفظ: ' + (error?.message || error));
+      await load();
     }
-    notifyChange('scope');
-    onChange?.();
   }
 
   async function refreshCalc() {
-    const [i, bg, st] = await Promise.all([
-      supabase.from('project_items').select('*').eq('project_id', projectId).order('sort_order'),
-      supabase.from('v_item_budget').select('*').eq('project_id', projectId),
-      supabase.from('v_item_execution_state').select('*').eq('project_id', projectId),
-    ]);
-    if (i.data) setItems(i.data);
-    setBuds(bg.data || []);
-    setStates(st.data || []);
+    try {
+      const calc = await projectScopeService.loadCalculations({ projectId });
+      setItems(calc.items || []);
+      setBuds(calc.budgets || []);
+    } catch (error) {
+      setErr('تعذّر تحديث حسابات البنود: ' + (error?.message || error));
+    }
   }
 
-  // التأكيد لم يعد داخل الدالة: الدالة تنفّذ فقط، والسؤال يعرضه الحوار الدستوري.
-  // والحذف يمر ببوابة واحدة تحرس التاريخ التشغيلي بدل حذف مباشر من الواجهة.
   async function del(id) {
-    const { data, error } = await supabase.rpc('fn_delete_project_item_safely', {
-      p_project_item_id: id,
-    });
-    if (error) throw new Error('تعذّر الحذف: ' + error.message);
-    if (!data?.deleted) throw new Error('لم يُحذف البند؛ أعد تحميل الصفحة وحاول مرة أخرى');
-    const cancelled = Number(data.cancelled_planned_assignments || 0);
-    setMsg(cancelled > 0
-      ? `حُذف البند وأُلغي معه ${cancelled} إسناد مخطط.`
+    const result = await projectScopeService.deleteItem({ itemId:id });
+    setMsg(result.cancelledPlannedAssignments > 0
+      ? `حُذف البند وأُلغي معه ${result.cancelledPlannedAssignments} إسناد مخطط.`
       : 'حُذف البند.');
-    setManageFor(null); await load(); notifyChange('scope');
+    setManageFor(null);
+    await load();
+    notifyChange('scope');
   }
 
   function requestDeleteItem(item) {
     setConfirmErr('');
+    const impact = projectScopeDeleteImpact(execs,item.id);
     setConfirmAction({
       key: `delete-item-${item.id}`,
       title: `${item.kind === 'title' ? 'حذف القسم' : 'حذف البند'}: ${item.description_ar || item.number || 'بدون وصف'}`,
@@ -132,28 +138,23 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       confirmLabel: item.kind === 'title' ? 'حذف القسم' : 'حذف البند',
       busyLabel: 'جارٍ الحذف…',
       danger: true,
-      body: (() => {
-        const list = execsOf(item.id);
-        const started = list.filter((a)=>itemExecutionState(a) !== 'planned');
-        const planned = list.length - started.length;
-        return (
-          <div style={{lineHeight:1.7}}>
-            <p style={{margin:0}}>
-              الحذف نهائي. الإسناد الذي بدأ تنفيذه فعلًا لا يُحذف — يبقى تاريخه ويُنهى.
+      body: (
+        <div style={{lineHeight:1.7}}>
+          <p style={{margin:0}}>
+            الحذف نهائي. الإسناد الذي بدأ تنفيذه فعلًا لا يُحذف — يبقى تاريخه ويُنهى.
+          </p>
+          {impact.plannedCount > 0 && (
+            <p style={{margin:'8px 0 0'}}>
+              سيُلغى معه {impact.plannedCount} إسناد مخطط لم يبدأ بعد.
             </p>
-            {planned > 0 && (
-              <p style={{margin:'8px 0 0'}}>
-                سيُلغى معه {planned} إسناد مخطط لم يبدأ بعد.
-              </p>
-            )}
-            {started.length > 0 && (
-              <p style={{margin:'8px 0 0'}}>
-                يرتبط بالبند {started.length} إسناد بدأ تنفيذه — سيُرفض الحذف حتى يُنهى.
-              </p>
-            )}
-          </div>
-        );
-      })(),
+          )}
+          {impact.startedCount > 0 && (
+            <p style={{margin:'8px 0 0'}}>
+              يرتبط بالبند {impact.startedCount} إسناد بدأ تنفيذه — سيُرفض الحذف حتى يُنهى.
+            </p>
+          )}
+        </div>
+      ),
       run: () => del(item.id),
     });
   }
@@ -184,21 +185,24 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     try {
       await confirmAction.run();
       setConfirmAction(null);
-    } catch (e) {
-      setConfirmErr(e?.message || String(e));
+    } catch (error) {
+      setConfirmErr(error?.message || String(error));
     }
     setConfirmBusy(false);
   }
 
   async function move(id, dir) {
-    const i = items.findIndex((x) => x.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= items.length) return;
-    const a = items[i], b = items[j];
-    await supabase.from('project_items').update({ sort_order: -1 }).eq('id', a.id);
-    await supabase.from('project_items').update({ sort_order: a.sort_order }).eq('id', b.id);
-    await supabase.from('project_items').update({ sort_order: b.sort_order }).eq('id', a.id);
-    load();
+    setErr('');
+    try {
+      const result = await projectScopeService.moveItem({ projectId, itemId:id, direction:dir });
+      if (result.moved) {
+        await load();
+        notifyChange('scope');
+      }
+    } catch (error) {
+      setErr('تعذّر تحريك البند: ' + (error?.message || error));
+      await load();
+    }
   }
 
   function openDecide(item, ex) {
@@ -215,43 +219,36 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     setErr(''); setMsg('');
   }
 
-  const nullableNumber = (value) => value === '' || value == null ? null : Number(value);
-
   async function saveDecision(e) {
     e.preventDefault(); setErr('');
-    const { error } = await supabase.rpc('fn_save_item_execution_assignment', {
-      p_project_item_id: decideFor.id,
-      p_mode: d.mode,
-      p_contractor_id: d.contractor_id || null,
-      p_agreed_rate: nullableNumber(d.agreed_rate),
-      p_worker_daily: nullableNumber(d.worker_daily),
-      p_tech_daily: nullableNumber(d.tech_daily),
-      p_target_output: nullableNumber(d.target_output),
-      p_shortfall_deduction: nullableNumber(d.shortfall_deduction),
-      p_planned_cost: nullableNumber(d.planned_cost),
-      p_share_qty: nullableNumber(d.share_qty),
-      p_share_percent: nullableNumber(d.share_percent),
-      p_notes: d.notes || null,
-      p_execution_id: editExec?.id || null,
-    });
-    if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
-    setMsg(editExec ? 'حُدّث الإسناد' : 'أُضيف الإسناد');
-    setDecideFor(null); setEditExec(null);
-    await load(); notifyChange('exec'); onChange?.();
+    try {
+      await projectScopeService.saveExecutionAssignment({
+        itemId:decideFor.id,
+        form:d,
+        executionId:editExec?.id || null,
+      });
+      setMsg(editExec ? 'حُدّث الإسناد' : 'أُضيف الإسناد');
+      setDecideFor(null); setEditExec(null);
+      await load(); notifyChange('exec'); onChange?.();
+    } catch (error) {
+      setErr('تعذّر الحفظ: ' + (error?.message || error));
+    }
   }
 
   async function startExec(ex, date) {
     setStarting(ex.id); setErr(''); setMsg('');
-    const { data, error } = await supabase.rpc('fn_start_item_execution_assignment',
-      { p_execution_id: ex.id, p_start_date: date || null });
+    try {
+      const { result } = await projectScopeService.startExecution({ executionId:ex.id, date });
+      const parts = ['بدأ التنفيذ'];
+      if (result?.created_project_contractor) parts.push('وتم ربط المقاول بالمشروع');
+      else if (result?.reactivated_project_contractor) parts.push('وأُعيد تفعيل ارتباط المقاول بالمشروع');
+      setMsg(parts.join(' ') + '.');
+      setAskStart(null);
+      await load(); notifyChange('exec'); onChange?.();
+    } catch (error) {
+      setErr(error?.message || String(error));
+    }
     setStarting(null);
-    if (error) { setErr(error.message); return; }
-    const parts = ['بدأ التنفيذ'];
-    if (data?.created_project_contractor) parts.push('وتم ربط المقاول بالمشروع');
-    else if (data?.reactivated_project_contractor) parts.push('وأُعيد تفعيل ارتباط المقاول بالمشروع');
-    setMsg(parts.join(' ') + '.');
-    setAskStart(null);
-    await load(); notifyChange('exec'); onChange?.();
   }
 
   function openEnd(ex, item) {
@@ -263,25 +260,19 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
   async function submitEnd(e) {
     e.preventDefault(); setErr('');
-    const { error } = await supabase.rpc('end_item_assignment', {
-      p_exec: endFor.ex.id,
-      p_end_date: endF.date,
-      p_end_reason: endF.reason,
-      p_closing_qty: endF.qty === '' ? null : Number(endF.qty),
-      p_notes: endF.notes || null,
-    });
-    if (error) { setErr(error.message); return; }
-    setMsg('أُقفل الإسناد وتحرّرت الكمية المتبقية.');
-    setEndFor(null);
-    await load(); notifyChange('exec'); onChange?.();
+    try {
+      await projectScopeService.endExecution({ executionId:endFor.ex.id, form:endF });
+      setMsg('أُقفل الإسناد وتحرّرت الكمية المتبقية.');
+      setEndFor(null);
+      await load(); notifyChange('exec'); onChange?.();
+    } catch (error) {
+      setErr(error?.message || String(error));
+    }
   }
 
   async function delDecision(ex) {
     if (!ex) return;
-    const { error } = await supabase.rpc('fn_cancel_item_execution_assignment', {
-      p_execution_id: ex.id,
-    });
-    if (error) throw new Error('تعذّر الإلغاء: ' + error.message);
+    await projectScopeService.cancelExecution({ executionId:ex.id });
     setMsg('أُلغي الإسناد المخطط.');
     setManageFor(null);
     await load(); notifyChange('exec'); onChange?.();
@@ -289,21 +280,14 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
 
   if (!items) return <div className="empty">جارٍ التحميل…</div>;
 
-  let top = 0, sub = 0, inTitle = false;
-  const numbered = items.map((l) => {
-    let number = '';
-    if (l.kind === 'title') { top += 1; sub = 0; inTitle = true; number = String(top); }
-    else if (inTitle) { sub += 1; number = `${top}-${sub}`; }
-    else { top += 1; number = String(top); }
-    return { ...l, number };
-  });
-
-  const totalContract = items.reduce((t,x) => t + Number(x.contract_value || 0), 0);
-  const totalBudget = items.reduce((t,x) => t + Number(x.budget_value || 0), 0);
-  const noDecision = items.filter((x) => x.kind === 'item' && !execOf(x.id)).length;
+  const numbered = numberProjectScopeItems(items);
+  const summary = summarizeProjectScope(items,execs);
+  const totalContract = summary.totalContract;
+  const totalBudget = summary.totalBudget;
+  const noDecision = summary.noDecision;
 
   return (
-    <>
+    <div data-project-scope-workspace="engineered-v1">
       {err && <div className="msg err" style={{marginBottom:12}}>{err}</div>}
       {msg && <div className="msg ok" style={{marginBottom:12}}>{msg}</div>}
 
@@ -357,11 +341,7 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     );
 
     const list = execsOf(l.id);
-    const openAssignments = list.filter((a)=>!a.end_date);
-    const current = openAssignments.find((a)=>a.start_date && a.is_active !== false)
-      || openAssignments.find((a)=>!a.start_date)
-      || list[list.length - 1]
-      || null;
+    const current = projectScopeCurrentAssignment(execs,l.id);
     const state = itemExecutionState(current);
     const contractor = current ? cons.find((x)=>x.id===current.contractor_id) : null;
     const bd = buds.find((x)=>x.project_item_id===l.id);
@@ -480,7 +460,7 @@ onClose={()=>setManageFor(null)}
 <form onSubmit={submitEnd} className={styles.dialogForm}>
   <div className="form-grid">
     <div className="field"><label>تاريخ الإنهاء *</label><input type="date" dir="ltr" required value={endF.date || ''} onChange={(e)=>setEndF({...endF,date:e.target.value})}/><span className="hint">لا يُحتسب لهذا المنفّذ عمل بعد هذا التاريخ</span></div>
-    <div className="field"><label>سبب الإنهاء *</label><select value={endF.reason || 'completed'} onChange={(e)=>setEndF({...endF,reason:e.target.value})}>{Object.entries(END_AR).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
+    <div className="field"><label>سبب الإنهاء *</label><select value={endF.reason || 'completed'} onChange={(e)=>setEndF({...endF,reason:e.target.value})}>{Object.entries(PROJECT_SCOPE_END_REASONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
     <div className="field"><label>الكمية المنفَّذة حتى التاريخ *</label><input type="number" step="any" dir="ltr" required value={endF.qty ?? ''} onChange={(e)=>setEndF({...endF,qty:e.target.value})}/></div>
     <div className="field span2"><label>ملاحظات</label><input value={endF.notes || ''} onChange={(e)=>setEndF({...endF,notes:e.target.value})}/></div>
   </div>
@@ -528,6 +508,6 @@ onClose={()=>setManageFor(null)}
           {confirmAction.body}
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
