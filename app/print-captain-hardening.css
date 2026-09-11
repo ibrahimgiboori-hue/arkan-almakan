@@ -1,0 +1,146 @@
+/*
+ * Captain Print Hardening
+ * -----------------------
+ * Final physical-print guardrail for every surface rendered by
+ * ConstitutionPagedFrame. Document components own content only;
+ * the Captain owns paper geometry, pagination boundaries and print fidelity.
+ */
+
+/* Screen preview: make the physical sheet boundary explicit without changing geometry. */
+@media screen {
+  .constitution-paged-pages > section.constitution-paged-sheet[data-print-page-physical='true'] {
+    outline: 1px solid rgba(46, 46, 48, 0.22);
+    outline-offset: 0;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Only the Captain's physical-page stack may create browser pages. */
+  .constitution-paged-pages[data-print-pages] {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    background: #fff !important;
+  }
+
+  .constitution-paged-pages[data-print-pages]
+    > section.constitution-paged-sheet[data-print-page-physical='true'] {
+    position: relative !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /*
+   * ConstitutionPagedFrame appends a <style> sibling after the sheets.
+   * :last-child therefore cannot identify the final sheet. :last-of-type can.
+   * This prevents an artificial blank trailing page.
+   */
+  .constitution-paged-pages[data-print-pages]
+    > section.constitution-paged-sheet[data-print-page-physical='true']:last-of-type {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  /* The sheet owns the physical box; content may not enlarge it. */
+  .constitution-paged-sheet[data-print-page-physical='true']
+    > .constitution-paged-content[data-print-content='true'] {
+    position: relative !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .constitution-paged-content[data-print-content='true'] > .print-constitution,
+  .constitution-paged-content[data-print-content='true'] [data-print-document] {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Letterhead/watermark stays behind content and can never affect flow. */
+  .constitution-paged-sheet[data-print-page-physical='true'] > .constitution-paged-assets,
+  .constitution-paged-sheet[data-print-page-physical='true'] .print-assets {
+    position: absolute !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Captain-paginated tables must measure and print with identical geometry. */
+  .constitution-paged-content [data-print-flow='repeatable-table'] {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .constitution-paged-content [data-print-flow='repeatable-table'] > thead {
+    display: table-header-group;
+  }
+
+  .constitution-paged-content [data-print-flow='repeatable-table'] > tfoot {
+    display: table-footer-group;
+  }
+
+  .constitution-paged-content [data-print-flow='repeatable-table'] > thead > tr,
+  .constitution-paged-content [data-print-flow='repeatable-table'] > tbody > tr,
+  .constitution-paged-content [data-print-flow='repeatable-table'] > tfoot > tr,
+  .constitution-paged-content tr[data-print-row-slice='true'] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .constitution-paged-content [data-print-flow='repeatable-table'] th,
+  .constitution-paged-content [data-print-flow='repeatable-table'] td {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* UI and measurement sensors are never part of the physical output. */
+  .no-print,
+  .constitution-paged-layoutbar,
+  .constitution-presentation-editor,
+  .constitution-paged-grid-overlay,
+  .constitution-safe-zone-guide,
+  .constitution-flow-measure {
+    display: none !important;
+  }
+}
