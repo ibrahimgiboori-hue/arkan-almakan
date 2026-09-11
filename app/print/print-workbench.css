@@ -256,7 +256,8 @@
    PHYSICAL PRINT GUARDS
    ConstitutionPagedFrame already created the physical A4 sheets. From this
    point the browser may print those sheets, but may not paginate their children
-   again. This removes a major source of blank first/middle/trailing pages.
+   again. These selectors deliberately use the captain-owned physical-page data
+   attribute instead of redefining .constitution-paged-sheet geometry here.
    ============================================================ */
 @media print {
   .print-route-root .constitution-paged-pages{
@@ -265,22 +266,22 @@
     gap:0!important;
   }
 
-  .print-route-root .constitution-paged-sheet{
+  .print-route-root [data-print-page-physical='true']{
     break-before:auto!important;
     page-break-before:auto!important;
   }
 
   /* A logical page boundary has already been consumed by the captain. Do not
      execute it again inside the materialized physical sheet. */
-  .print-route-root .constitution-paged-sheet .print-page-break-before,
-  .print-route-root .constitution-paged-sheet [data-print-boundary-before='force-page']{
+  .print-route-root [data-print-page-physical='true'] .print-page-break-before,
+  .print-route-root [data-print-page-physical='true'] [data-print-boundary-before='force-page']{
     break-before:auto!important;
     page-break-before:auto!important;
   }
 
   /* A <style> node follows the mapped <section> sheets in the React tree, so
      :last-child is not a reliable last-page selector. */
-  .print-route-root .constitution-paged-sheet:last-of-type{
+  .print-route-root [data-print-page-physical='true']:last-of-type{
     break-after:auto!important;
     page-break-after:auto!important;
   }
