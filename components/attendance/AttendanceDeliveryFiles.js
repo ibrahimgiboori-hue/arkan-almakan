@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import {
+  createAttendanceDeliveryDownloadUrl,
+  deleteAttendanceDeliveryFile,
+  listAttendanceDeliveryFiles,
+} from '@/lib/adapters/attendance-delivery-supabase';
 
 function fmtDateTime(value) {
   if (!value) return '—';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(d);
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{dateStyle:'medium',timeStyle:'short'}).format(d);
 }
 
 function remainingText(value) {
@@ -26,33 +30,39 @@ export default function AttendanceDeliveryFiles({ refreshKey = 0 }) {
 
   async function load() {
     setErr('');
-    const q = await supabase.from('hr_attendance_delivery_files')
-      .select('id,client_name,period_from,period_to,file_name,storage_bucket,storage_path,retention_days,expires_at,created_at')
-      .order('created_at',{ascending:false});
-    if (q.error) { setErr(q.error.message); setRows([]); return; }
-    setRows(q.data || []);
+    try{
+      setRows(await listAttendanceDeliveryFiles());
+    }catch(error){
+      setErr(error.message||String(error));
+      setRows([]);
+    }
   }
 
   useEffect(()=>{ load(); },[refreshKey]);
 
   async function download(row) {
     setBusyId(row.id); setErr('');
-    const q = await supabase.storage.from(row.storage_bucket || 'workspace-files').createSignedUrl(row.storage_path,300,{download:row.file_name});
+    try{
+      const url=await createAttendanceDeliveryDownloadUrl(row,{expiresIn:300});
+      if(!url)throw new Error('تعذر إنشاء رابط التنزيل.');
+      window.open(url,'_blank','noopener,noreferrer');
+    }catch(error){
+      setErr(error.message||String(error));
+    }
     setBusyId('');
-    if (q.error) { setErr(q.error.message); return; }
-    window.open(q.data.signedUrl,'_blank','noopener,noreferrer');
   }
 
   async function remove(row) {
     const yes = window.confirm(`حذف النسخة المؤقتة «${row.file_name}» الآن؟ لن يمكن استرجاعها من البرنامج بعد الحذف.`);
     if (!yes) return;
     setBusyId(row.id); setErr('');
-    const s = await supabase.storage.from(row.storage_bucket || 'workspace-files').remove([row.storage_path]);
-    if (s.error) { setBusyId(''); setErr(s.error.message); return; }
-    const d = await supabase.from('hr_attendance_delivery_files').delete().eq('id',row.id);
+    try{
+      await deleteAttendanceDeliveryFile(row);
+      await load();
+    }catch(error){
+      setErr(error.message||String(error));
+    }
     setBusyId('');
-    if (d.error) { setErr(d.error.message); return; }
-    await load();
   }
 
   if (!rows.length && !err) return null;
