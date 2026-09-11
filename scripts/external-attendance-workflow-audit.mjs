@@ -13,8 +13,10 @@ for(const file of [
   'lib/application/external-attendance-workflow.js',
   'lib/application/external-attendance-review-service.js',
   'lib/adapters/external-attendance-supabase.js',
+  'lib/adapters/attendance-lab-supabase.js',
   'app/dashboard/attendance/layout.js',
   'components/attendance/DeleteExternalAttendanceBatchButton.js',
+  'components/attendance/AttendanceCalibrationPanel.js',
 ]){
   if(!exists(file))fail(`${file}: missing required workflow layer.`);
 }
@@ -44,7 +46,7 @@ if(exists('lib/core/external-attendance-review.js')){
   ]){
     if(!source.includes(required))fail(`review core missing rule: ${required}`);
   }
-  if(!source.includes("missing_punch")||!source.includes("approved_leave"))fail('review core must own the absence-vs-missing-punch justification policy.');
+  if(!source.includes('missing_punch')||!source.includes('approved_leave'))fail('review core must own the absence-vs-missing-punch justification policy.');
 }
 
 if(exists('lib/application/external-attendance-workflow.js')){
@@ -86,6 +88,18 @@ if(exists('lib/adapters/external-attendance-supabase.js')){
   }
 }
 
+if(exists('lib/adapters/attendance-lab-supabase.js')){
+  const source=read('lib/adapters/attendance-lab-supabase.js');
+  for(const required of [
+    'loadAttendanceCalibrationSnapshot',
+    'calibrateAttendanceImport',
+    'applyAttendanceCalibration',
+    'analyzeAttendanceImport',
+  ]){
+    if(!source.includes(required))fail(`attendance lab adapter missing persistence operation: ${required}`);
+  }
+}
+
 if(exists('app/dashboard/attendance/layout.js')){
   const source=read('app/dashboard/attendance/layout.js');
   if(!source.includes('EXTERNAL_ATTENDANCE_NAV'))fail('attendance layout must consume the shared workflow navigation contract.');
@@ -99,10 +113,18 @@ if(exists('components/attendance/DeleteExternalAttendanceBatchButton.js')){
   if(source.includes('hr_delete_external_attendance_import'))fail('batch delete RPC name must remain inside the adapter.');
 }
 
+if(exists('components/attendance/AttendanceCalibrationPanel.js')){
+  const source=read('components/attendance/AttendanceCalibrationPanel.js');
+  if(!source.includes("@/lib/adapters/attendance-lab-supabase"))fail('calibration panel must use the attendance lab adapter.');
+  for(const forbidden of ["@/lib/supabase",'.from(','.rpc(','hr_calibrate_attendance_import','hr_apply_attendance_calibration','hr_analyze_attendance_import']){
+    if(source.includes(forbidden))fail(`calibration presentation leaked persistence detail: ${forbidden}`);
+  }
+}
+
 if(failures.length){
   console.error('\nExternal attendance workflow audit failed:\n');
   failures.forEach((item)=>console.error(`- ${item}`));
   process.exit(1);
 }
 
-console.log('External attendance workflow audit passed: state, review rules, application orchestration, navigation and persistence boundaries are centralized.');
+console.log('External attendance workflow audit passed: state, review rules, lab/review orchestration, navigation and persistence boundaries are centralized.');
