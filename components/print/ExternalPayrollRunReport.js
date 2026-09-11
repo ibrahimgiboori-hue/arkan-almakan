@@ -2,6 +2,7 @@ import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import { latinDigits } from '@/lib/latin-digits';
 import styles from './ExternalPayrollRunReport.module.css';
 
+// التفاصيل المحاسبية مثل بدلات أخرى، خصم الاشتراكات، وصافي الراتب المستحق تبقى في تقرير Excel الشامل؛ PDF يعرض الملخص التنفيذي فقط.
 const moneyFormatter=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function money(value){return latinDigits(moneyFormatter.format(Number(value||0)));}
