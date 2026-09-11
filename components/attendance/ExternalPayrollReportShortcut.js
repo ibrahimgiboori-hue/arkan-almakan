@@ -44,6 +44,6 @@ export default function ExternalPayrollReportShortcut(){
       boxShadow:'0 8px 24px rgba(15,23,42,.18)',
     }}
   >
-    طباعة مسير الرواتب PDF
+    مسير الرواتب PDF / Excel
   </Link>;
 }
