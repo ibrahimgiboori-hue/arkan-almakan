@@ -59,9 +59,10 @@ test('print preview uses side rails instead of stacking captain controls above t
 });
 
 test('browser cannot create a second pagination layer inside captain sheets', () => {
-  assert.match(workbench, /\.constitution-paged-sheet:last-of-type/);
+  assert.match(workbench, /\[data-print-page-physical='true'\]:last-of-type/);
   assert.match(workbench, /page-break-after:auto!important/);
-  assert.match(workbench, /\.constitution-paged-sheet \.print-page-break-before/);
+  assert.match(workbench, /\[data-print-page-physical='true'\] \.print-page-break-before/);
   assert.match(workbench, /\[data-print-boundary-before='force-page'\]/);
   assert.match(workbench, /page-break-before:auto!important/);
+  assert.equal(/\.constitution-paged-sheet\s*\{/.test(workbench), false);
 });
