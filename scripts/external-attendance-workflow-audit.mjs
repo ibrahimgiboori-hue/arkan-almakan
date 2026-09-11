@@ -27,11 +27,13 @@ for(const file of [
   'lib/application/external-attendance-review-service.js',
   'lib/adapters/external-attendance-supabase.js',
   'lib/adapters/attendance-lab-supabase.js',
+  'lib/adapters/attendance-report-supabase.js',
   'lib/architecture/attendance-presentation-debt.mjs',
   'app/dashboard/attendance/layout.js',
   'app/dashboard/attendance/external-review/page.js',
   'components/attendance/DeleteExternalAttendanceBatchButton.js',
   'components/attendance/AttendanceCalibrationPanel.js',
+  'components/attendance/AttendanceClientExcelReport.js',
 ]){
   if(!exists(file))fail(`${file}: missing required workflow layer.`);
 }
@@ -115,6 +117,14 @@ if(exists('lib/adapters/attendance-lab-supabase.js')){
   }
 }
 
+if(exists('lib/adapters/attendance-report-supabase.js')){
+  const source=read('lib/adapters/attendance-report-supabase.js');
+  if(!source.includes('loadAttendanceReportReadModel'))fail('attendance report adapter must expose one read-model loader.');
+  for(const required of ['v_hr_attendance_processing_days','hr_attendance_punches']){
+    if(!source.includes(required))fail(`attendance report adapter missing report source: ${required}`);
+  }
+}
+
 if(exists('app/dashboard/attendance/layout.js')){
   const source=read('app/dashboard/attendance/layout.js');
   if(!source.includes('EXTERNAL_ATTENDANCE_NAV'))fail('attendance layout must consume the shared workflow navigation contract.');
@@ -142,6 +152,14 @@ if(exists('components/attendance/AttendanceCalibrationPanel.js')){
   if(!source.includes("@/lib/adapters/attendance-lab-supabase"))fail('calibration panel must use the attendance lab adapter.');
   for(const forbidden of ["@/lib/supabase",'.from(','.rpc(','hr_calibrate_attendance_import','hr_apply_attendance_calibration','hr_analyze_attendance_import']){
     if(source.includes(forbidden))fail(`calibration presentation leaked persistence detail: ${forbidden}`);
+  }
+}
+
+if(exists('components/attendance/AttendanceClientExcelReport.js')){
+  const source=read('components/attendance/AttendanceClientExcelReport.js');
+  if(!source.includes("@/lib/adapters/attendance-report-supabase"))fail('attendance client report must use the report read-model adapter.');
+  for(const forbidden of ["@/lib/supabase",'.from(','.rpc(','v_hr_attendance_processing_days','hr_attendance_punches']){
+    if(source.includes(forbidden))fail(`attendance report presentation leaked persistence detail: ${forbidden}`);
   }
 }
 
@@ -174,4 +192,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('External attendance workflow audit passed: state, review rules, lab/review orchestration and persistence boundaries are centralized; direct presentation data access cannot grow.');
+console.log('External attendance workflow audit passed: state, review rules, lab/review/report orchestration and persistence boundaries are centralized; direct presentation data access cannot grow.');
