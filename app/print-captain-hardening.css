@@ -4,6 +4,9 @@
  * Final physical-print guardrail for every surface rendered by
  * ConstitutionPagedFrame. Document components own content only;
  * the Captain owns paper geometry, pagination boundaries and print fidelity.
+ *
+ * Important: this layer never changes text/table wrapping only at print time.
+ * Pagination is measured on screen first, so flow geometry must remain identical.
  */
 
 /* Screen preview: make the physical sheet boundary explicit without changing geometry. */
@@ -100,12 +103,11 @@
     page-break-inside: avoid !important;
   }
 
-  /* Captain-paginated tables must measure and print with identical geometry. */
+  /* Preserve the Captain's already-measured table flow; print may not re-fragment rows. */
   .constitution-paged-content [data-print-flow='repeatable-table'] {
     width: 100% !important;
     max-width: 100% !important;
     border-collapse: collapse !important;
-    table-layout: fixed !important;
     break-inside: auto !important;
     page-break-inside: auto !important;
   }
@@ -130,8 +132,6 @@
   .constitution-paged-content [data-print-flow='repeatable-table'] td {
     box-sizing: border-box !important;
     min-width: 0 !important;
-    overflow-wrap: anywhere;
-    word-break: normal;
   }
 
   /* UI and measurement sensors are never part of the physical output. */
