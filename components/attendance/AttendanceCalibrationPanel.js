@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import {
+  analyzeAttendanceImport,
+  applyAttendanceCalibration,
+  calibrateAttendanceImport,
+  loadAttendanceCalibrationSnapshot,
+} from '@/lib/adapters/attendance-lab-supabase';
 
 const CONF_AR = { high:'عالية', medium:'متوسطة', low:'منخفضة', insufficient:'غير كافية', off:'—' };
 
@@ -25,47 +30,35 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
   async function load() {
     if (!activeImport?.id) { setRows([]); setApproved(new Map()); return; }
     setErr('');
-    const proposalQ = await supabase.from('hr_attendance_calibration_proposals')
-      .select('*').eq('import_id',activeImport.id).order('weekday');
-    if (proposalQ.error) { setErr(proposalQ.error.message); return; }
-    setRows(proposalQ.data || []);
+    try{
+      const snapshot=await loadAttendanceCalibrationSnapshot({
+        importId:activeImport.id,
+        processingScope:activeImport.processing_scope,
+        employeeIds:employees.map((e)=>e.id).filter(Boolean),
+      });
+      setRows(snapshot.proposals || []);
 
-    const external = activeImport.processing_scope === 'external';
-    let scheduleQ;
-    if (external) {
-      scheduleQ = await supabase.from('hr_attendance_external_schedules')
-        .select('id,external_person_id,valid_from,updated_at')
-        .eq('import_id',activeImport.id).eq('is_active',true)
-        .order('valid_from',{ascending:false}).order('updated_at',{ascending:false});
-    } else {
-      const ids=employees.map((e)=>e.id).filter(Boolean);
-      if (!ids.length) { setApproved(new Map()); return; }
-      scheduleQ = await supabase.from('hr_employee_work_schedules')
-        .select('id,employee_id,valid_from,updated_at')
-        .in('employee_id',ids).eq('is_active',true)
-        .order('valid_from',{ascending:false}).order('updated_at',{ascending:false});
+      const external = activeImport.processing_scope === 'external';
+      const latest=new Map();
+      for (const schedule of snapshot.schedules || []) {
+        const key=external?schedule.external_person_id:schedule.employee_id;
+        if (key && !latest.has(key)) latest.set(key,schedule);
+      }
+      const bySchedule=new Map();
+      for (const day of snapshot.scheduleDays || []) {
+        if(!bySchedule.has(day.schedule_id)) bySchedule.set(day.schedule_id,[]);
+        bySchedule.get(day.schedule_id).push(day);
+      }
+      const map=new Map();
+      for (const [key,schedule] of latest.entries()) {
+        map.set(key,{patterns:uniquePatterns(bySchedule.get(schedule.id)||[]),scheduleId:schedule.id});
+      }
+      setApproved(map);
+    }catch(error){
+      setErr(error.message||String(error));
+      setRows([]);
+      setApproved(new Map());
     }
-    if (scheduleQ.error) { setErr(scheduleQ.error.message); return; }
-
-    const latest=new Map();
-    for (const s of scheduleQ.data || []) {
-      const key=external?s.external_person_id:s.employee_id;
-      if (key && !latest.has(key)) latest.set(key,s);
-    }
-    const scheduleIds=[...latest.values()].map((s)=>s.id);
-    if (!scheduleIds.length) { setApproved(new Map()); return; }
-
-    const dayTable=external?'hr_attendance_external_schedule_days':'hr_employee_work_schedule_days';
-    const dayQ=await supabase.from(dayTable).select('schedule_id,weekday,is_workday,start_time,end_time').in('schedule_id',scheduleIds).order('weekday');
-    if (dayQ.error) { setErr(dayQ.error.message); return; }
-    const bySchedule=new Map();
-    for (const d of dayQ.data || []) {
-      if(!bySchedule.has(d.schedule_id)) bySchedule.set(d.schedule_id,[]);
-      bySchedule.get(d.schedule_id).push(d);
-    }
-    const map=new Map();
-    for (const [key,s] of latest.entries()) map.set(key,{patterns:uniquePatterns(bySchedule.get(s.id)||[]),scheduleId:s.id});
-    setApproved(map);
   }
 
   useEffect(()=>{ load(); },[activeImport]);
@@ -104,17 +97,19 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
   async function act(kind) {
     if(!activeImport?.id)return;
     setBusy(true);setErr('');setMsg('');
-    let q;
-    if(kind==='calibrate') q=await supabase.rpc('hr_calibrate_attendance_import',{p_import_id:activeImport.id,p_snap_minutes:60});
-    if(kind==='apply') q=await supabase.rpc('hr_apply_attendance_calibration',{p_import_id:activeImport.id,p_min_confidence:'medium'});
-    if(kind==='analyze') q=await supabase.rpc('hr_analyze_attendance_import',{p_import_id:activeImport.id});
+    try{
+      if(kind==='calibrate')await calibrateAttendanceImport(activeImport.id,{snapMinutes:60});
+      if(kind==='apply')await applyAttendanceCalibration(activeImport.id,{minConfidence:'medium'});
+      if(kind==='analyze')await analyzeAttendanceImport(activeImport.id);
+      if(kind==='calibrate')setMsg('تم استخراج ساعات الدوام المقترحة.');
+      if(kind==='apply')setMsg('تم اعتماد ساعات الدوام الواضحة.');
+      if(kind==='analyze')setMsg('تم تحليل الحضور.');
+      await onRefresh?.();
+      await load();
+    }catch(error){
+      setErr(error.message||String(error));
+    }
     setBusy(false);
-    if(q?.error){setErr(q.error.message);return;}
-    if(kind==='calibrate')setMsg('تم استخراج ساعات الدوام المقترحة.');
-    if(kind==='apply')setMsg('تم اعتماد ساعات الدوام الواضحة.');
-    if(kind==='analyze')setMsg('تم تحليل الحضور.');
-    await onRefresh?.();
-    await load();
   }
 
   if(!activeImport || ['posted','closed'].includes(activeImport.status))return null;
@@ -140,8 +135,7 @@ export default function AttendanceCalibrationPanel({ activeImport, employees = [
           <td>{r.candidate}</td>
           <td>{r.isApproved?'—':(CONF_AR[r.confidence]||r.confidence)}</td>
           <td><strong>{r.isApproved?'معتمد':'مقترح'}</strong></td>
-        </tr>)}</tbody>
-      </table></div>}
+        </tr>)}</tbody></table></div>}
     </div>
   </div>;
 }
