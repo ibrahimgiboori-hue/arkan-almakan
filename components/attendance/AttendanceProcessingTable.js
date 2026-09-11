@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { loadAttendanceJustificationSubmitters } from '@/lib/adapters/attendance-processing-supabase';
+import { attendanceJustificationService } from '@/lib/application/attendance-justification-service';
 
 const STATUS_AR = {
   complete:'مكتمل', missing_in:'بصمة دخول مفقودة', missing_out:'بصمة خروج مفقودة',
@@ -36,7 +37,7 @@ function fmtTime(value) {
   if (!value) return '—';
   const d = new Date(String(value).replace(' ','T'));
   if (Number.isNaN(d.getTime())) return String(value).slice(11,16) || '—';
-  return new Intl.DateTimeFormat('ar-SA',{hour:'2-digit',minute:'2-digit',hour12:true}).format(d);
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{hour:'2-digit',minute:'2-digit',hour12:true}).format(d);
 }
 
 function fmtMinutes(value) {
@@ -57,7 +58,7 @@ function fmtSubmittedAt(value) {
   if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('ar-SA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d);
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d);
 }
 
 function dateOnly(value) {
@@ -174,22 +175,9 @@ export default function AttendanceProcessingTable({ days = [], stage, onOpenJust
       setSubmitterByJustification({});
       return () => { active = false; };
     }
-    (async () => {
-      const [jQ,uQ] = await Promise.all([
-        supabase.from('hr_attendance_justifications').select('id,submitted_by,submitted_at').in('id',justificationIds),
-        supabase.rpc('fn_workspace_user_directory'),
-      ]);
-      if (!active) return;
-      const users = new Map((uQ.data || []).map((u)=>[u.user_id,u.display_name]));
-      const next = {};
-      (jQ.data || []).forEach((j) => {
-        next[j.id] = {
-          name: users.get(j.submitted_by) || (j.submitted_by ? 'مستخدم النظام' : ''),
-          submittedAt: j.submitted_at || null,
-        };
-      });
-      setSubmitterByJustification(next);
-    })();
+    loadAttendanceJustificationSubmitters(justificationIds)
+      .then((next)=>{if(active)setSubmitterByJustification(next||{});})
+      .catch(()=>{if(active)setSubmitterByJustification({});});
     return () => { active = false; };
   },[justificationIds]);
 
@@ -217,7 +205,6 @@ export default function AttendanceProcessingTable({ days = [], stage, onOpenJust
   }),[baseSorted,person,review,status]);
 
   const actionable = useMemo(()=>baseSorted.filter((d)=>needsReview(d) || d.justification_id),[baseSorted]);
-  const reviewable = days.filter(needsReview).length;
   const withoutJustification = days.filter((d)=>needsReview(d) && !d.justification_id).length;
   const pending = days.filter((d)=>reviewState(d) === 'pending').length;
   const completed = days.filter((d)=>['clear','accepted'].includes(reviewState(d))).length;
@@ -394,24 +381,22 @@ export default function AttendanceProcessingTable({ days = [], stage, onOpenJust
           if(!type){ errors+=1; problems.push(`صف ${rowNumber}: اختر نوع التبرير قبل الحفظ أو القرار.`); continue; }
           if(type==='other'&&!next.details){ errors+=1; problems.push(`صف ${rowNumber}: «أخرى» تحتاج تفاصيل.`); continue; }
 
-          const submit=await supabase.rpc('hr_submit_attendance_justification_v2',{
-            p_attendance_day_id:dayId,
-            p_justification_type:type,
-            p_justification_text:next.details||null,
-            p_paper_reference:next.reference||null,
-            p_paper_approved_on:next.approvedOn||null,
+          const justificationId=await attendanceJustificationService.submit({
+            attendanceDayId:dayId,
+            type,
+            text:next.details,
+            reference:next.reference,
+            approvedOn:next.approvedOn,
           });
-          if(submit.error) throw submit.error;
 
           if(next.decision==='accepted'||next.decision==='rejected'){
-            const decide=await supabase.rpc('hr_decide_attendance_justification',{
-              p_justification_id:submit.data,
-              p_decision:next.decision,
-              p_decision_note:next.decisionNote||null,
-              p_paper_reference:next.reference||null,
-              p_paper_approved_on:next.approvedOn||null,
+            await attendanceJustificationService.decide({
+              justificationId,
+              decision:next.decision,
+              note:next.decisionNote,
+              reference:next.reference,
+              approvedOn:next.approvedOn,
             });
-            if(decide.error) throw decide.error;
           }
           applied+=1;
         }catch(e){ errors+=1; problems.push(`صف ${rowNumber}: ${e.message||e}`); }
