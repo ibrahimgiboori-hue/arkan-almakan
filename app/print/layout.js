@@ -4,6 +4,7 @@ import './print-generic-governance.css';
 import './print-blank-form.css';
 import './print-report-paper-form.css';
 import './print-register-report.css';
+import './print-workbench.css';
 import PrintGovernanceBoundary from '@/components/print/PrintGovernanceBoundary';
 
 export default function PrintLayout({ children }) {
