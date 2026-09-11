@@ -26,7 +26,7 @@ test('print layout model keeps the hidden grid immutable and the visible borders
 });
 
 test('visible border editor moves design spans over the fixed hidden grid', () => {
-  assert.match(boundaryEditor, /data\.printVisibleEdge=side/);
+  assert.match(boundaryEditor, /dataset\.printVisibleEdge=side/);
   assert.match(boundaryEditor, /dataset\.printVisibleColumnStart/);
   assert.match(boundaryEditor, /dataset\.printVisibleColumnEnd/);
   assert.match(boundaryEditor, /dataset\.printVisibleRowSpan/);
