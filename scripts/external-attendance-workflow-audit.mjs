@@ -29,6 +29,7 @@ for(const file of [
   'lib/adapters/attendance-lab-supabase.js',
   'lib/architecture/attendance-presentation-debt.mjs',
   'app/dashboard/attendance/layout.js',
+  'app/dashboard/attendance/external-review/page.js',
   'components/attendance/DeleteExternalAttendanceBatchButton.js',
   'components/attendance/AttendanceCalibrationPanel.js',
 ]){
@@ -83,7 +84,7 @@ if(exists('lib/application/external-attendance-review-service.js')){
   for(const forbidden of ['@/lib/supabase','@supabase/','.from(','.rpc(','window.','document.']){
     if(source.includes(forbidden))fail(`review application service leaked infrastructure/presentation: ${forbidden}`);
   }
-  for(const required of ['createExternalAttendanceReviewService','submitMany','decideMany','approveResult','summarizeExternalAttendanceReview']){
+  for(const required of ['createExternalAttendanceReviewService','externalAttendanceReviewService','list','submitMany','decideMany','approveResult','summarizeExternalAttendanceReview']){
     if(!source.includes(required))fail(`review application service missing orchestration contract: ${required}`);
   }
 }
@@ -118,6 +119,15 @@ if(exists('app/dashboard/attendance/layout.js')){
   const source=read('app/dashboard/attendance/layout.js');
   if(!source.includes('EXTERNAL_ATTENDANCE_NAV'))fail('attendance layout must consume the shared workflow navigation contract.');
   if(source.includes('const ITEMS ='))fail('attendance layout must not keep a second local workflow navigation registry.');
+}
+
+if(exists('app/dashboard/attendance/external-review/page.js')){
+  const source=read('app/dashboard/attendance/external-review/page.js');
+  if(!source.includes("@/lib/application/external-attendance-review-service"))fail('external review presentation must use the review application service.');
+  if(!source.includes("@/lib/core/external-attendance-review"))fail('external review presentation must consume shared review rules.');
+  for(const forbidden of ["@/lib/supabase",'.from(','.rpc(','hr_start_attendance_review','hr_submit_attendance_justification_v2','hr_decide_attendance_justification','hr_recalculate_attendance_import','const TYPE_ALLOWLIST=']){
+    if(source.includes(forbidden))fail(`external review presentation leaked review persistence/policy detail: ${forbidden}`);
+  }
 }
 
 if(exists('components/attendance/DeleteExternalAttendanceBatchButton.js')){
