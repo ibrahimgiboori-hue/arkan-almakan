@@ -6,8 +6,9 @@ import { todayIsoInRiyadh } from '@/lib/format';
 import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
 import { projectOperationContextService } from '@/lib/application/project-operation-context-service';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
-import { OutputPanel, FinancePanel } from './operation-panels';
+import OutputPanel from './output-panel';
 import DirectExpensePanel from './direct-expense-panel';
+import FinancePanel from './finance-panel';
 import styles from './tool-shell.module.css';
 
 function dateLabel(value){
