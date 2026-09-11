@@ -1,7 +1,7 @@
 'use client';
 
-import ExternalPayrollWorkspace from '@/components/attendance/ExternalPayrollWorkspace';
+import ExternalPayrollWorkspaceEngineered from '@/components/attendance/ExternalPayrollWorkspaceEngineered';
 
 export default function ExternalPayrollPage(){
-  return <ExternalPayrollWorkspace/>;
+  return <ExternalPayrollWorkspaceEngineered/>;
 }
