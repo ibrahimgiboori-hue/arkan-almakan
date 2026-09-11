@@ -1,0 +1,29 @@
+.report{direction:rtl;color:#222;font-size:8px;line-height:1.25}
+.header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 8px}
+.title{margin:0;font-size:16px;font-weight:900;color:#2f2f31}
+.subtitle{margin-top:3px;color:#666;font-size:9px}
+.meta{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:8px;color:#555}
+.metaItem{border:1px solid #ddd;border-radius:3px;padding:4px 6px;background:#fff}
+.table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0}
+.table th,.table td{border:1px solid #c9c9c9;padding:3px 2px;vertical-align:middle;text-align:center;overflow-wrap:anywhere}
+.table thead th{font-weight:800;color:#222}
+.groupHead{background:#ece8e7;font-size:8px;line-height:1.15}
+.columnHead{background:#f7f5f4;font-size:7.2px;line-height:1.15}
+.employeeName{text-align:right!important;font-weight:700;white-space:normal}
+.employeeNo,.number,.money{direction:ltr;unicode-bidi:isolate;font-family:Arial,Helvetica,sans-serif;font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+.money{text-align:left!important}
+.net{font-weight:900;background:#fbf5f5}
+.totalRow td{font-weight:900;background:#f0eceb;border-top:2px solid #8b3332}
+.totalLabel{text-align:right!important;padding-right:5px!important}
+.summaryTitle{font-size:11px;font-weight:900;margin:10px 0 5px;color:#2f2f31}
+.summaryGrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.summaryCard{border:1px solid #d7d7d7;border-radius:4px;padding:6px;background:#fff;min-width:0}
+.summaryCard span{display:block;color:#666;font-size:7.3px;margin-bottom:3px}
+.summaryCard strong{display:block;font-size:9px;font-weight:900;direction:ltr;unicode-bidi:isolate;font-family:Arial,Helvetica,sans-serif;font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+.summaryCardNet{border-color:#8b3332;background:#fbf5f5}
+.breakdown{width:100%;border-collapse:collapse;margin-top:6px;table-layout:fixed}
+.breakdown td{border:1px solid #ddd;padding:4px 5px;font-size:7.6px}
+.breakdownLabel{font-weight:700;background:#fafafa}
+.breakdownValue{font-weight:800;text-align:left;direction:ltr;unicode-bidi:isolate;font-family:Arial,Helvetica,sans-serif;font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+.note{margin:6px 0 0;color:#666;font-size:7px;line-height:1.4}
+.warning{margin:8px 0 0;border:1px solid #b45309;background:#fff7ed;color:#7c2d12;padding:6px;border-radius:4px;font-weight:700}
