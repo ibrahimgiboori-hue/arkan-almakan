@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import {
+  loadAttendanceManualResolutionQueue,
+  loadAttendanceDayPunches,
+  resolveAttendanceDayManually,
+} from '@/lib/adapters/attendance-manual-resolution-supabase';
 import { externalStageHref, getCurrentExternalImportId, setCurrentExternalImportId } from '@/lib/attendance/current-external-import';
 
-const ACTIVE_STATUSES=['analyzed','justifications','recalculated','ready_to_post'];
 const STATUS_LABEL={complete:'مكتمل',missing_in:'دخول مفقود',missing_out:'خروج مفقود',needs_review:'للمراجعة'};
 
 function toInput(value){
@@ -39,19 +42,17 @@ export default function AttendanceManualResolutionPage(){
 
   async function load(preferred=''){
     setErr('');
-    const dQ=await supabase.from('v_hr_attendance_processing_days').select('*').eq('day_status','needs_review').in('processing_status',ACTIVE_STATUSES).order('work_date',{ascending:false}).limit(1200);
-    if(dQ.error){setErr(dQ.error.message);return;}
-    const nextRows=dQ.data||[];setRows(nextRows);
-    const ids=[...new Set(nextRows.map((r)=>r.import_id).filter(Boolean))];
-    if(!ids.length){setImports([]);setActiveId('');return;}
-    const iQ=await supabase.from('hr_attendance_imports').select('id,source_file_name,period_from,period_to,status,processing_scope,client_name_snapshot,client_reference,uploaded_at').in('id',ids).order('uploaded_at',{ascending:false});
-    if(iQ.error){setErr(iQ.error.message);return;}
-    const list=iQ.data||[];setImports(list);
-    const urlId=searchParams.get('batch')||'';const remembered=getCurrentExternalImportId();
-    setActiveId((current)=>{
-      for(const id of [preferred,urlId,current,remembered]){if(id&&list.some((x)=>x.id===id))return id;}
-      return list[0]?.id||'';
-    });
+    try{
+      const result=await loadAttendanceManualResolutionQueue(1200);
+      const nextRows=result.rows||[];const list=result.imports||[];
+      setRows(nextRows);setImports(list);
+      if(!list.length){setActiveId('');return;}
+      const urlId=searchParams.get('batch')||'';const remembered=getCurrentExternalImportId();
+      setActiveId((current)=>{
+        for(const id of [preferred,urlId,current,remembered]){if(id&&list.some((x)=>x.id===id))return id;}
+        return list[0]?.id||'';
+      });
+    }catch(error){setErr(error?.message||String(error));}
   }
 
   useEffect(()=>{load();},[]);
@@ -66,16 +67,19 @@ export default function AttendanceManualResolutionPage(){
 
   async function openEditor(day){
     setEditing(day);setCheckIn(toInput(day.check_in));setCheckOut(toInput(day.check_out));setNote('');setPunches([]);setErr('');setMsg('');
-    let q=supabase.from('hr_attendance_punches').select('id,punch_local,source_sheet,source_row,match_method').eq('import_id',day.import_id).eq('punch_date',day.work_date).order('punch_local');
-    q=day.employee_id?q.eq('employee_id',day.employee_id):q.eq('external_person_id',day.external_person_id);
-    const pQ=await q;if(pQ.error){setErr(pQ.error.message);return;}setPunches(pQ.data||[]);
+    try{setPunches(await loadAttendanceDayPunches(day));}catch(error){setErr(error?.message||String(error));}
   }
   function usePunch(value,kind){const normalized=toInput(value);if(kind==='in')setCheckIn(normalized);else setCheckOut(normalized);}
   async function save(){
-    if(!editing)return;if(!checkIn&&!checkOut){setErr('حدد دخولًا أو خروجًا.');return;}if(checkIn&&checkOut&&new Date(checkOut)<=new Date(checkIn)){setErr('الخروج يجب أن يكون بعد الدخول.');return;}
+    if(!editing)return;
+    if(!checkIn&&!checkOut){setErr('حدد دخولًا أو خروجًا.');return;}
+    if(checkIn&&checkOut&&new Date(checkOut)<=new Date(checkIn)){setErr('الخروج يجب أن يكون بعد الدخول.');return;}
     setBusy(true);setErr('');setMsg('');
-    const {data,error}=await supabase.rpc('hr_resolve_attendance_day_manual',{p_attendance_day_id:editing.id,p_check_in:checkIn||null,p_check_out:checkOut||null,p_note:note.trim()||null});
-    setBusy(false);if(error){setErr(error.message);return;}const status=data?.day_status||'';setEditing(null);setPunches([]);setMsg(`تم الحفظ — ${STATUS_LABEL[status]||status}.`);await load(activeId);
+    try{
+      const data=await resolveAttendanceDayManually({attendanceDayId:editing.id,checkIn:checkIn||null,checkOut:checkOut||null,note:note.trim()||null});
+      const status=data?.day_status||'';setEditing(null);setPunches([]);setMsg(`تم الحفظ — ${STATUS_LABEL[status]||status}.`);await load(activeId);
+    }catch(error){setErr(error?.message||String(error));}
+    setBusy(false);
   }
 
   return <div className="page" dir="rtl">
