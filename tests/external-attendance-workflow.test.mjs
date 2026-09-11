@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -16,6 +17,8 @@ import {
   externalAttendanceStageAcceptsStatus,
   primaryExternalAttendanceStageForStatus,
 } from '../lib/application/external-attendance-workflow.js';
+
+const read=(path)=>fs.readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 
 test('external attendance state sequence is explicit and stable', () => {
   assert.deepEqual(EXTERNAL_ATTENDANCE_SEQUENCE, [
@@ -70,4 +73,16 @@ test('status visibility follows the workflow without duplicating execution owner
   assert.equal(primaryExternalAttendanceStageForStatus('justifications'),'review');
   assert.equal(primaryExternalAttendanceStageForStatus('recalculated'),'payroll');
   assert.equal(primaryExternalAttendanceStageForStatus('ready_to_post'),'payroll');
+});
+
+test('batch delete presentation delegates persistence to an adapter', () => {
+  const component=read('components/attendance/DeleteExternalAttendanceBatchButton.js');
+  const adapter=read('lib/adapters/external-attendance-supabase.js');
+  assert.match(component,/from '@\/lib\/adapters\/external-attendance-supabase'/);
+  assert.equal(component.includes("from '@/lib/supabase'"),false);
+  assert.equal(component.includes(".rpc('hr_delete_external_attendance_import'"),false);
+  assert.match(adapter,/deleteExternalAttendanceImport/);
+  assert.match(adapter,/hr_delete_external_attendance_import/);
+  assert.match(adapter,/getExternalAttendanceImportById/);
+  assert.match(adapter,/listRecentExternalAttendanceImports/);
 });
