@@ -246,16 +246,33 @@ if (/v_my_capabilities|fn_is_primary_user|is_system_admin/.test(projects)) failu
 if (projects.includes('SummaryStrip')) failures.push('/dashboard/projects: الحارس يتبع قانون البوابة work-first؛ لا يعيد شريط المؤشرات العام إلى مدخل المشاريع.');
 
 const projectStatus = requireText('app/dashboard/projects/[id]/page.js', [
-  'fn_project_approval_queue',
-  'fn_submit_project_setup_for_approval',
-  'fn_approval_get',
+  'projectWorkspaceService.submitSetupForApproval',
   'emitWorkSessionCompletion',
   'WORK_COMPLETION_KIND.SENT_FOR_APPROVAL',
   'data-project-setup-journey="true"',
   'إرسال تأسيس المشروع للاعتماد',
 ]);
+const projectSetupService = requireText('lib/application/project-workspace-service.js', [
+  'submitSetupForApproval',
+  'loadSetupApprovalProof',
+  'proof?.workflow?.id',
+]);
+const projectSetupAdapter = requireText('lib/adapters/project-workspace-supabase.js', [
+  "rpc('fn_project_approval_queue'",
+  "rpc('fn_submit_project_setup_for_approval'",
+  "rpc('fn_approval_get'",
+]);
+if (/fn_project_approval_queue|fn_submit_project_setup_for_approval|fn_approval_get|supabase\.rpc/.test(projectStatus)) {
+  failures.push('موقف المشروع: واجهة المشروع أعادت امتلاك RPC رحلة التأسيس؛ يجب أن تبقى الرحلة خلف خدمة التطبيق ومحول التخزين.');
+}
 if (projectStatus.includes("supabase.rpc('approve_project_contract_value'")) {
   failures.push('موقف المشروع: عاد مسار اعتماد قيمة العقد المباشر؛ التأسيس يجب أن يمر بمحرك الاعتمادات.');
+}
+if (/supabase\.|\.from\(|\.rpc\(/.test(projectSetupService)) {
+  failures.push('خدمة تأسيس المشروع: لا يجوز أن تتصل بالتخزين مباشرة؛ الـAdapter وحده يملك ذلك.');
+}
+if (!projectSetupAdapter.includes('fn_submit_project_setup_for_approval')) {
+  failures.push('محول مشروع التأسيس: فقد بوابة الاعتماد النظامية.');
 }
 
 requireText('supabase/migrations/20260904233000_remove_misclassified_project_transaction_hooks.sql', [
