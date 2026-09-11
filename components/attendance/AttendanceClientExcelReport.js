@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { loadAttendanceReportReadModel } from '@/lib/adapters/attendance-report-supabase';
 
 const STATUS_AR={complete:'حضور كامل',missing_in:'دخول مفقود',missing_out:'خروج مفقود',absent:'غياب',day_off:'إجازة',no_schedule:'دوام غير محدد',needs_review:'للمراجعة'};
 const DECISION_AR={accepted:'مقبول',rejected:'مرفوض',pending:'بانتظار العميل'};
@@ -51,13 +51,11 @@ export default function AttendanceClientExcelReport({activeImport,disabled=false
   async function exportReport(){
     if(!activeImport?.id)return;setBusy(true);setErr('');
     try{
-      const [{default:ExcelJS},dayQ,punchQ]=await Promise.all([
+      const [{default:ExcelJS},report]=await Promise.all([
         import('exceljs'),
-        supabase.from('v_hr_attendance_processing_days').select('*').eq('import_id',activeImport.id).order('subject_no').order('subject_name').order('work_date'),
-        supabase.from('hr_attendance_punches').select('employee_id,external_person_id,external_employee_no,external_employee_name,punch_local,punch_date').eq('import_id',activeImport.id).order('punch_local'),
+        loadAttendanceReportReadModel(activeImport.id),
       ]);
-      if(dayQ.error)throw dayQ.error;if(punchQ.error)throw punchQ.error;
-      const days=dayQ.data||[];const punches=punchQ.data||[];if(!days.length)throw new Error('لا توجد نتائج لهذه الدفعة.');
+      const days=report.days||[];const punches=report.punches||[];if(!days.length)throw new Error('لا توجد نتائج لهذه الدفعة.');
       if(activeImport.processing_scope==='external'){
         const unresolved=days.filter((d)=>['absent','missing_in','missing_out','needs_review'].includes(d.day_status)&&!d.justification_id).length;
         const pending=days.filter((d)=>d.justification_id&&String(d.justification_decision||'pending')==='pending').length;
