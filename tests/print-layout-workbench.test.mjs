@@ -8,6 +8,7 @@ const layout = read('app/print/layout.js');
 const workbench = read('app/print/print-workbench.css');
 const model = read('lib/print-layout-model.js');
 const grid = read('lib/print-grid.js');
+const boundaryEditor = read('components/print/BoundaryBoxEditor.js');
 
 test('print layout model keeps the hidden grid immutable and the visible borders authoritative', () => {
   assert.match(grid, /PRINT_GRID_COLUMNS = PRINT_GRID_MAJOR_COLUMNS \* PRINT_GRID_SUBDIVISIONS/);
@@ -20,6 +21,16 @@ test('print layout model keeps the hidden grid immutable and the visible borders
   assert.match(model, /changes-visible-column-span-not-grid-column-width/);
   assert.match(model, /changes-visible-row-span-not-grid-row-height/);
   assert.match(model, /mayResizeHiddenGrid:false/);
+});
+
+test('visible border editor moves design spans over the fixed hidden grid', () => {
+  assert.match(boundaryEditor, /data\.printVisibleEdge=side/);
+  assert.match(boundaryEditor, /dataset\.printVisibleColumnStart/);
+  assert.match(boundaryEditor, /dataset\.printVisibleColumnEnd/);
+  assert.match(boundaryEditor, /dataset\.printVisibleRowSpan/);
+  assert.match(boundaryEditor, /صفوف الشبكة الثابتة/);
+  assert.match(boundaryEditor, /اسحب الحد المرئي الأيسر فوق شبكة الأعمدة الثابتة/);
+  assert.match(boundaryEditor, /اسحب الحد المرئي الأيمن فوق شبكة الأعمدة الثابتة/);
 });
 
 test('content reflows inside visible boundaries while page materialization remains captain-only', () => {
