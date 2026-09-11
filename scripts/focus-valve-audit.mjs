@@ -42,7 +42,10 @@ requireText('components/ui/FocusValve.module.css', [
   '.contextLine',
 ]);
 
-const attendance = requireText('app/dashboard/attendance/page.js', [
+const attendanceRoute = requireText('app/dashboard/attendance/page.js', [
+  'AttendanceLabWorkspaceEngineered',
+]);
+const attendance = requireText('components/attendance/AttendanceLabWorkspaceEngineered.js', [
   "from '@/components/ui/FocusValve'",
   "from '@/lib/focus-valve-constitution'",
   'FOCUS_VALVE_STATE.FOCUSED',
@@ -53,7 +56,7 @@ const attendance = requireText('app/dashboard/attendance/page.js', [
   '<FocusContextLine',
   'data-attendance-focus="current-import"',
 ]);
-if (/q\.data\?\.\[0\]\?\.id/.test(attendance)) failures.push('الحضور: لا يجوز فتح آخر دفعة تلقائيًا؛ حالة READY يجب أن تكون حقيقية حتى يختار المستخدم عملًا.');
+if (/q\.data\?\.\[0\]\?\.id/.test(attendance)||/q\.data\?\.\[0\]\?\.id/.test(attendanceRoute)) failures.push('الحضور: لا يجوز فتح آخر دفعة تلقائيًا؛ حالة READY يجب أن تكون حقيقية حتى يختار المستخدم عملًا.');
 
 if (failures.length) {
   console.error('\nFocus valve audit failed:\n');
