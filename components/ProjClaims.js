@@ -2,20 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { interpretGuardedWrite } from '@/lib/guarded-write.mjs';
 import { money, dateAr } from '@/lib/format';
 import { CLAIM_CLASS } from '@/lib/projects';
+import { projectClaimsService } from '@/lib/application/project-claims-service';
+import {
+  PROJECT_CLAIM_JOURNEY,
+  PROJECT_CLAIM_STAGE_LABELS,
+  projectClaimCurrentJourneyLabel,
+  projectClaimDocsAt,
+  projectClaimJourneyState,
+  projectClaimSelectedMeasurements,
+} from '@/lib/project-claims.mjs';
 
 const MAROON = '#8B3332';
-const JOURNEY = [
-  ['measurement','القياس'],
-  ['internal','الاعتماد الداخلي'],
-  ['client_submit','التقديم للعميل'],
-  ['client_approve','اعتماد العميل'],
-  ['collection','التحصيل'],
-  ['invoice','الفاتورة'],
-];
 
 function todayLocal() {
   const d = new Date();
@@ -23,24 +22,6 @@ function todayLocal() {
   const m = String(d.getMonth()+1).padStart(2,'0');
   const day = String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
-}
-
-function journeyState(claim, ctx, invoiceFile) {
-  const wf = ctx?.approval?.workflow;
-  const internalDone = claim.status !== 'draft';
-  const clientSubmitted = Boolean(claim.client_submitted_at);
-  const ownerApproved = ['owner_approved','collected'].includes(claim.status);
-  const collected = claim.status === 'collected';
-  const invoiceDone = collected && Boolean(claim.invoice_no && claim.invoiced_at && invoiceFile);
-  return {
-    measurement:'done',
-    internal: internalDone ? 'done' : (wf?.status === 'pending' ? 'current' : 'current'),
-    client_submit: internalDone ? (clientSubmitted ? 'done' : 'current') : 'future',
-    client_approve: clientSubmitted ? (ownerApproved ? 'done' : 'current') : 'future',
-    collection: ownerApproved ? (collected ? 'done' : 'current') : 'future',
-    invoice: collected ? (invoiceDone ? 'done' : 'current') : 'future',
-    invoiceDone,
-  };
 }
 
 export default function ProjClaims({ project, canWrite, onChange }) {
@@ -66,39 +47,36 @@ export default function ProjClaims({ project, canWrite, onChange }) {
 
   async function load() {
     setErr('');
-    const [cr,av,it] = await Promise.all([
-      supabase.from('progress_claims').select('*').eq('project_id',project.id).order('seq_no'),
-      supabase.from('v_available_measurements').select('*').eq('project_id',project.id).order('period_to').order('measurement_no'),
-      supabase.from('v_item_measurement_status').select('*').eq('project_id',project.id).order('description_ar'),
-    ]);
-    if (cr.error || av.error || it.error) {
-      setErr((cr.error || av.error || it.error)?.message || 'تعذر تحميل المستخلصات');
-      setClaims([]); return;
+    try {
+      const workspace=await projectClaimsService.loadWorkspace({projectId:project.id});
+      setClaims(workspace.claims);
+      setAvailable(workspace.available);
+      setItems(workspace.items);
+      setDocs(workspace.docs);
+      setClaimLines(workspace.claimLines);
+      setJourneys(workspace.journeys);
+      setSelected((current)=>current.filter((id)=>workspace.available.some((row)=>row.measurement_id===id&&row.ready_for_claim)));
+      const ids=workspace.claims.map((claim)=>claim.id);
+      if(requestedClaim&&ids.includes(requestedClaim))setOpen(requestedClaim);
+      onChange?.();
+    } catch(error) {
+      setErr(error?.message||'تعذر تحميل المستخلصات');
+      setClaims([]);
+      setAvailable([]);
+      setItems([]);
+      setDocs({});
+      setClaimLines({});
+      setJourneys({});
     }
-    const rows = cr.data || [];
-    setClaims(rows); setAvailable(av.data || []); setItems(it.data || []);
-    setSelected(s => s.filter(id => (av.data || []).some(x=>x.measurement_id===id && x.ready_for_claim)));
-    const ids = rows.map(x=>x.id);
-    if (!ids.length) { setDocs({}); setClaimLines({}); setJourneys({}); onChange?.(); return; }
-
-    const [att,lines,...contexts] = await Promise.all([
-      supabase.from('op_attachments').select('*').eq('entity_type','claim').in('entity_id',ids).order('created_at'),
-      supabase.from('claim_lines').select('claim_id,project_item_id,qty_this,unit_price,amount,measurement_id,measurement_no_snapshot,measurement_period_from,measurement_period_to,description_snapshot,unit_snapshot').in('claim_id',ids),
-      ...ids.map(id=>supabase.rpc('fn_claim_journey_context',{p_claim_id:id})),
-    ]);
-    const dg={}; (att.data||[]).forEach(x=>{(dg[x.entity_id]=dg[x.entity_id]||[]).push(x);}); setDocs(dg);
-    const lg={}; (lines.data||[]).forEach(x=>{(lg[x.claim_id]=lg[x.claim_id]||[]).push(x);}); setClaimLines(lg);
-    const jg={}; ids.forEach((id,index)=>{ if (!contexts[index]?.error) jg[id]=contexts[index].data || {}; }); setJourneys(jg);
-    if (requestedClaim && ids.includes(requestedClaim)) setOpen(requestedClaim);
-    onChange?.();
   }
 
   useEffect(()=>{ load(); },[project.id]);
   useEffect(()=>{ if (requestedClaim && claims?.some(c=>c.id===requestedClaim)) setOpen(requestedClaim); },[requestedClaim,claims]);
 
-  const docsAt=(cid,stage,code)=>(docs[cid]||[]).filter(d=>d.stage===stage&&(!code||d.doc_code===code));
-  const selectedRows=useMemo(()=>available.filter(x=>selected.includes(x.measurement_id)),[available,selected]);
-  const selectedTotal=selectedRows.reduce((s,x)=>s+Number(x.amount||0),0);
+  const docsAt=(cid,stage,code)=>projectClaimDocsAt(docs,cid,stage,code);
+  const selectedSummary=useMemo(()=>projectClaimSelectedMeasurements(available,selected),[available,selected]);
+  const selectedRows=selectedSummary.rows;
+  const selectedTotal=selectedSummary.total;
 
   function chooseItem(itemId) {
     const it=items.find(x=>x.project_item_id===itemId);
@@ -106,22 +84,25 @@ export default function ProjClaims({ project, canWrite, onChange }) {
   }
 
   async function recordMeasurement() {
-    if (!measure.item||!measure.from||!measure.to||!measure.qty) { setErr('أدخل البند والفترة والكمية'); return; }
     setBusy('measure'); setErr(''); setMsg('');
-    const {data,error}=await supabase.rpc('record_item_measurement',{
-      p_project_item:measure.item,p_period_from:measure.from,p_period_to:measure.to,p_qty:Number(measure.qty),
-      p_unit_price:measure.price===''?null:Number(measure.price),p_document_ref:measure.ref||null,p_notes:measure.notes||null,p_measured_by_employee:null,
-    });
-    if(error)setErr(error.message); else { const r=Array.isArray(data)?data[0]:data; setMsg(`تم تسجيل التمتير رقم ${r?.measurement_no||''}`); setShowMeasure(false); setMeasure({item:'',from:'',to:'',qty:'',price:'',ref:'',notes:''}); await load(); }
+    try {
+      const result=await projectClaimsService.recordMeasurement({measure});
+      setMsg(`تم تسجيل التمتير رقم ${result?.measurement_no||''}`);
+      setShowMeasure(false);
+      setMeasure({item:'',from:'',to:'',qty:'',price:'',ref:'',notes:''});
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   async function completeHistoricalStart(m) {
     const value=window.prompt(`بداية فترة التمتير رقم ${m.measurement_no}`,m.period_from||'');
     if(value===null)return;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||value>m.period_to){setErr('راجع تاريخ بداية الفترة');return;}
-    const outcome=interpretGuardedWrite(await supabase.from('item_measurements').update({period_from:value}).eq('id',m.measurement_id).eq('status','available').select('id'),{conflictMessage:'لم يعد التمتير متاحًا للتعديل'});
-    if(!outcome.ok)setErr(outcome.message);else setMsg('تم استكمال فترة التمتير'); load();
+    try {
+      await projectClaimsService.completeHistoricalStart({measurement:m,value});
+      setMsg('تم استكمال فترة التمتير');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
   }
 
   async function editMeasurement(m) {
@@ -129,50 +110,71 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     const to=window.prompt('تاريخ القياس',m.period_to||''); if(to===null)return;
     const q=window.prompt('الكمية المقاسة',String(m.qty_measured??'')); if(q===null)return;
     const p=window.prompt('فئة السعر',String(m.unit_price??'')); if(p===null)return;
-    if(!from||!to||from>to||Number(q)<=0||Number(p)<0){setErr('راجع فترة القياس والكمية والسعر');return;}
-    const outcome=interpretGuardedWrite(await supabase.from('item_measurements').update({period_from:from,period_to:to,qty_measured:Number(q),unit_price:Number(p)}).eq('id',m.measurement_id).eq('status','available').select('id'),{conflictMessage:'لم يعد التمتير متاحًا للتعديل'});
-    if(!outcome.ok)setErr(outcome.message);else setMsg('تم تعديل التمتير'); load();
+    try {
+      await projectClaimsService.editMeasurement({measurement:m,from,to,qty:q,price:p});
+      setMsg('تم تعديل التمتير');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
   }
 
   async function cancelMeasurement(m) {
     if(!window.confirm(`إلغاء التمتير رقم ${m.measurement_no}؟`))return;
-    const outcome=interpretGuardedWrite(await supabase.from('item_measurements').update({status:'cancelled'}).eq('id',m.measurement_id).eq('status','available').select('id'),{conflictMessage:'لم يعد التمتير متاحًا للإلغاء'});
-    if(!outcome.ok)setErr(outcome.message);else setMsg('تم إلغاء التمتير'); load();
+    try {
+      await projectClaimsService.cancelMeasurement({measurement:m});
+      setMsg('تم إلغاء التمتير');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
   }
 
   async function createClaimFromSelected() {
-    if(!selected.length){setErr('اختر تمتيراً واحداً على الأقل');return;}
     setBusy('create');setErr('');setMsg('');
-    const {data,error}=await supabase.rpc('create_claim_from_measurements',{p_project:project.id,p_measurement_ids:selected});
-    if(error)setErr(error.message);else{const r=Array.isArray(data)?data[0]:data;setMsg(`تم إنشاء ${r?.claim_no||'المستخلص'}`);setSelected([]);await load();if(r?.claim_id)setOpen(r.claim_id);}
+    try {
+      const result=await projectClaimsService.createClaim({projectId:project.id,measurementIds:selected});
+      setMsg(`تم إنشاء ${result?.claim_no||result?.proof?.claim_no||'المستخلص'}`);
+      setSelected([]);
+      await load();
+      if(result?.claim_id)setOpen(result.claim_id);
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   async function issueMeasureSheet(claim) {
     setBusy(`issue:${claim.id}`); setErr('');
-    if(!docsAt(claim.id,'draft','claim_sheet').length){
-      const {error}=await supabase.from('op_attachments').insert({entity_type:'claim',entity_id:claim.id,stage:'draft',doc_code:'claim_sheet',direction:'out',title:'محضر قياس وحصر الأعمال',notes:'أُصدر من رحلة المستخلص'});
-      if(error){setErr(error.message);setBusy('');return;}
-    }
-    window.open(`/print/claim/${claim.id}?doc=measure`,'_blank','noopener,noreferrer');
-    setMsg('تم تجهيز محضر القياس'); setBusy(''); await load();
+    try {
+      await projectClaimsService.ensureMeasureSheet({
+        claimId:claim.id,
+        alreadyExists:docsAt(claim.id,'draft','claim_sheet').length>0,
+      });
+      window.open(`/print/claim/${claim.id}?doc=measure`,'_blank','noopener,noreferrer');
+      setMsg('تم تجهيز محضر القياس');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
+    setBusy('');
   }
 
   async function submitInternal(claim) {
     if(!docsAt(claim.id,'draft','claim_sheet').length){await issueMeasureSheet(claim);return;}
     setBusy(`submit:${claim.id}`);setErr('');setMsg('');
-    const {error}=await supabase.rpc('fn_submit_progress_claim_for_approval',{p_claim_id:claim.id,p_note:null});
-    if(error)setErr(error.message);else{setMsg('أُرسل المستخلص للاعتماد الداخلي');await load();}
+    try {
+      await projectClaimsService.submitInternal({claimId:claim.id});
+      setMsg('أُرسل المستخلص للاعتماد الداخلي');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   async function decideApproval(claim,decision) {
-    const ctx=journeys[claim.id]||{}; const workflowId=ctx.approval?.workflow?.id; if(!workflowId)return;
+    const ctx=journeys[claim.id]||{};
+    const workflowId=ctx.approval?.workflow?.id;
+    if(!workflowId)return;
     const note=(approvalNotes[claim.id]||'').trim();
-    if(decision!=='approve'&&!note){setErr('اكتب سبب الإرجاع أو الرفض');return;}
     setBusy(`decision:${claim.id}`);setErr('');setMsg('');
-    const {data,error}=await supabase.rpc('fn_approval_decide',{p_workflow_id:workflowId,p_decision:decision,p_comment:note||null,p_next_user_id:null,p_next_capability:null,p_next_reason:null});
-    if(error)setErr(error.message);else{setMsg(data==='approved'?'اكتمل الاعتماد الداخلي':'تم تنفيذ القرار');setApprovalNotes(v=>({...v,[claim.id]:''}));await load();}
+    try {
+      const result=await projectClaimsService.decideApproval({workflowId,decision,note});
+      setMsg(result.result==='approved'?'اكتمل الاعتماد الداخلي':'تم تنفيذ القرار');
+      setApprovalNotes((value)=>({...value,[claim.id]:''}));
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
@@ -180,57 +182,85 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     const ref=window.prompt('مرجع التسليم للعميل - اختياري',claim.client_submission_ref||''); if(ref===null)return;
     const dt=window.prompt('تاريخ التقديم للعميل',claim.client_submitted_at||todayLocal()); if(dt===null)return;
     setBusy(`client:${claim.id}`);setErr('');
-    const {error}=await supabase.rpc('record_claim_client_submission',{p_claim:claim.id,p_submission_date:dt,p_ref:ref||null});
-    if(error)setErr(error.message);else{setMsg('تم تسجيل تقديم المطالبة للعميل');await load();}
+    try {
+      await projectClaimsService.recordClientSubmission({claimId:claim.id,date:dt,reference:ref});
+      setMsg('تم تسجيل تقديم المطالبة للعميل');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   async function recordOwnerApproval(claim) {
     const ref=window.prompt('مرجع اعتماد العميل - اختياري',claim.owner_ref||''); if(ref===null)return;
     setBusy(`owner:${claim.id}`);setErr('');
-    const {error}=await supabase.rpc('advance_claim',{p_claim:claim.id,p_to:'owner_approved',p_ref:ref||null,p_amount:null});
-    if(error)setErr(error.message);else{setMsg('تم تسجيل اعتماد العميل');await load();}
+    try {
+      await projectClaimsService.recordOwnerApproval({claimId:claim.id,reference:ref});
+      setMsg('تم تسجيل اعتماد العميل');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   function patchCollect(claimId,field,value){setCollectForms(v=>({...v,[claimId]:{date:todayLocal(),account:'',ref:'',...(v[claimId]||{}),[field]:value}}));}
+
   async function collectClaim(claim) {
     const form={date:todayLocal(),account:'',ref:'',...(collectForms[claim.id]||{})};
-    if(!form.account){setErr('اختر الحساب الذي استلم المبلغ');return;}
     setBusy(`collect:${claim.id}`);setErr('');
-    const {error}=await supabase.rpc('fn_claim_collect_to_treasury',{p_claim_id:claim.id,p_account_id:form.account,p_collection_date:form.date||todayLocal(),p_reference:form.ref||null});
-    if(error)setErr(error.message);else{setMsg('تم تسجيل التحصيل وترحيله إلى الخزينة تلقائيًا');await load();}
+    try {
+      await projectClaimsService.collectClaim({claimId:claim.id,accountId:form.account,date:form.date||todayLocal(),reference:form.ref});
+      setMsg('تم تسجيل التحصيل وترحيله إلى الخزينة تلقائيًا');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   async function recordInvoice(claim) {
     const no=window.prompt('رقم الفاتورة الضريبية',claim.invoice_no||''); if(no===null)return;
-    if(!no.trim()){setErr('رقم الفاتورة مطلوب');return;}
     const dt=window.prompt('تاريخ الفاتورة',claim.invoiced_at||todayLocal()); if(dt===null)return;
-    setBusy(`invoice:${claim.id}`);
-    const {error}=await supabase.rpc('record_claim_invoice',{p_claim:claim.id,p_invoice_no:no.trim(),p_invoice_date:dt});
-    if(error)setErr(error.message);else{setMsg('تم تسجيل بيانات الفاتورة');await load();}
+    setBusy(`invoice:${claim.id}`);setErr('');
+    try {
+      await projectClaimsService.recordInvoice({claimId:claim.id,invoiceNo:no,date:dt});
+      setMsg('تم تسجيل بيانات الفاتورة');
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
   async function uploadDoc(claim,doc,file,ref) {
     setBusy(`upload:${claim.id}`);setErr('');
-    try{
-      const safe=file.name.replace(/[^\w.\-]/g,'_');const path=`claims/${claim.id}/${doc.code}_${Date.now()}_${safe}`;
-      const up=await supabase.storage.from('docs').upload(path,file);if(up.error)throw up.error;
-      const {error}=await supabase.from('op_attachments').insert({entity_type:'claim',entity_id:claim.id,stage:doc.stage,doc_code:doc.code,direction:doc.direction,title:doc.name_ar,file_path:path,ref_no:ref||null});if(error)throw error;
-      setMsg(`تم رفع ${doc.name_ar}`);setUpl(null);await load();
-    }catch(e){setErr(e.message||String(e));}
+    try {
+      await projectClaimsService.uploadDocument({claimId:claim.id,doc,file,reference:ref});
+      setMsg(`تم رفع ${doc.name_ar}`);
+      setUpl(null);
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
     setBusy('');
   }
 
-  async function openFile(path){const {data,error}=await supabase.storage.from('docs').createSignedUrl(path,120);if(error)setErr(error.message);else window.open(data.signedUrl,'_blank','noopener,noreferrer');}
-  async function upd(id,fields){const {error}=await supabase.from('progress_claims').update(fields).eq('id',id);if(error)setErr(error.message);else load();}
+  async function openFile(path){
+    try {
+      const url=await projectClaimsService.openDocument(path);
+      window.open(url,'_blank','noopener,noreferrer');
+    } catch(error) { setErr(error?.message||String(error)); }
+  }
+
+  async function upd(id,fields){
+    try {
+      await projectClaimsService.updateDraftClaim({claimId:id,fields});
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
+  }
 
   async function hardDelete(claim){
     const typed=window.prompt(`حذف ${claim.claim_no} نهائيًا وإعادة قياساته للقائمة. اكتب: حذف`);if(typed?.trim()!=='حذف')return;
-    setBusyDel(true);setErr('');const {data,error}=await supabase.rpc('delete_claim_deep',{p_claim:claim.id});
-    if(error)setErr(error.message);else{const r=Array.isArray(data)?data[0]:data;if(r?.files?.length)await supabase.storage.from('docs').remove(r.files);setMsg('تم حذف المستخلص');await load();}setBusyDel(false);
+    setBusyDel(true);setErr('');
+    try {
+      const result=await projectClaimsService.hardDelete({claimId:claim.id});
+      setMsg('تم حذف المستخلص');
+      if(result.cleanupWarning)setErr(result.cleanupWarning);
+      await load();
+    } catch(error) { setErr(error?.message||String(error)); }
+    setBusyDel(false);
   }
 
   if(claims===null)return <div className="empty">جارٍ تحميل رحلة المستخلصات…</div>;
@@ -239,7 +269,7 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     {err&&<div className="msg err" style={{marginBottom:12}}>{err}</div>}
     {msg&&<div className="msg ok" style={{marginBottom:12}}>{msg}</div>}
 
-    <div className="section" style={{marginTop:0,marginBottom:14,overflowX:'auto'}}>
+    <div className="section" style={{marginTop:0,marginBottom:14,overflowX:'auto'}} data-project-claims-journey="engineered-v1">
       <header><div><h2>القياسات الجاهزة</h2></div>{canWrite&&<button className="btn" onClick={()=>setShowMeasure(v=>!v)}>{showMeasure?'إغلاق':'تسجيل قياس'}</button>}</header>
       {showMeasure&&canWrite&&<div style={{padding:14,borderBottom:'1px solid var(--hair)'}}><div className="form-grid">
         <div className="field span2"><label>البند</label><select value={measure.item} onChange={e=>chooseItem(e.target.value)}><option value="">اختر البند</option>{items.map(x=><option key={x.project_item_id} value={x.project_item_id}>{x.description_ar}</option>)}</select></div>
@@ -257,12 +287,12 @@ export default function ProjClaims({ project, canWrite, onChange }) {
       <table><thead><tr><th>المستخلص</th><th>فترة القياس</th><th className="num">قيمة الأعمال</th><th className="num">الضريبة</th><th className="num">المستحق</th><th>أين وصل؟</th><th>العمل</th></tr></thead>
       <tbody>{claims.map(c=>{
         const ctx=journeys[c.id]||{}; const wf=ctx.approval?.workflow; const approval=ctx.approval||{}; const lines=claimLines[c.id]||[];
-        const invoiceFile=docsAt(c.id,'collected','tax_invoice').some(x=>x.file_path); const state=journeyState(c,ctx,invoiceFile);
-        const current=JOURNEY.find(([key])=>state[key]==='current')?.[1] || (state.invoiceDone?'مكتمل':'—');
+        const invoiceFile=docsAt(c.id,'collected','tax_invoice').some(x=>x.file_path); const state=projectClaimJourneyState(c,ctx,invoiceFile);
+        const current=projectClaimCurrentJourneyLabel(state);
         const form={date:todayLocal(),account:'',ref:'',...(collectForms[c.id]||{})};
         return <React.Fragment key={c.id}><tr><td><strong className="mono">{c.claim_no}</strong><div style={{fontSize:11,color:'var(--ink-soft)'}}>{lines.length} قياس</div></td><td className="mono">{dateAr(c.period_from)} - {dateAr(c.period_to)}</td><td className="num">{money(c.gross_amount)}</td><td className="num" style={{color:MAROON}}>{money(c.vat_amount)}</td><td className="num"><strong>{money(c.net_payable)}</strong></td><td><span className={`pill ${CLAIM_CLASS[c.status]||''}`}>{current}</span></td><td><button className="btn" style={mini} onClick={()=>setOpen(open===c.id?null:c.id)}>{open===c.id?'إغلاق':'فتح الرحلة'}</button></td></tr>
         {open===c.id&&<tr><td colSpan={7} style={{padding:16,background:'#FCFAFA'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(6,minmax(120px,1fr))',gap:8,overflowX:'auto',paddingBottom:8}}>{JOURNEY.map(([key,label])=><div key={key} style={{minWidth:120,padding:'10px 8px',border:'1px solid var(--hair)',borderRadius:8,background:state[key]==='current'?'#fff':state[key]==='done'?'#f5f7f4':'#fafafa',opacity:state[key]==='future'?.55:1}}><small>{state[key]==='done'?'✓ تم':state[key]==='current'?'الآن':'لاحقًا'}</small><div style={{fontWeight:700,marginTop:3}}>{label}</div></div>)}</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(6,minmax(120px,1fr))',gap:8,overflowX:'auto',paddingBottom:8}}>{PROJECT_CLAIM_JOURNEY.map(([key,label])=><div key={key} style={{minWidth:120,padding:'10px 8px',border:'1px solid var(--hair)',borderRadius:8,background:state[key]==='current'?'#fff':state[key]==='done'?'#f5f7f4':'#fafafa',opacity:state[key]==='future'?.55:1}}><small>{state[key]==='done'?'✓ تم':state[key]==='current'?'الآن':'لاحقًا'}</small><div style={{fontWeight:700,marginTop:3}}>{label}</div></div>)}</div>
 
           <div style={{marginTop:14,padding:14,border:'1px solid var(--hair)',borderRadius:10,background:'#fff'}}>
             {c.status==='draft'&&!wf&&<>{!docsAt(c.id,'draft','claim_sheet').length?<><h3>الخطوة التالية: محضر القياس</h3><button className="btn" disabled={busy===`issue:${c.id}`} onClick={()=>issueMeasureSheet(c)}>إصدار محضر القياس</button></>:<><h3>الخطوة التالية: الاعتماد الداخلي</h3><button className="btn" disabled={busy===`submit:${c.id}`} onClick={()=>submitInternal(c)}>إرسال للاعتماد الداخلي</button></>}</>}
