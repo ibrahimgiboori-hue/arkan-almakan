@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { STAGE_AR, SCOPE_AR } from '@/lib/projects';
 import { normalizeProjectView } from '@/lib/app-constitution';
 import { WORK_COMPLETION_KIND } from '@/lib/work-session-constitution';
 import { useLiveRefresh, notifyChange } from '@/lib/live';
+import { projectWorkspaceService } from '@/lib/application/project-workspace-service';
+import {
+  projectSetupState,
+  projectWorkspaceCanWrite,
+  projectWorkspaceOverview,
+} from '@/lib/project-workspace.mjs';
 import { emitWorkSessionCompletion } from '@/components/ui/WorkSessionRuntime';
 import ProjScope from '@/components/ProjScope';
 import ProjProgress from '@/components/ProjProgress';
@@ -31,67 +36,68 @@ export default function ProjectCard() {
   const [msg, setMsg] = useState('');
 
   const loadFin = useCallback(async () => {
-    const [fr, tr] = await Promise.all([
-      supabase.from('v_project_financials').select('*').eq('project_id', id).maybeSingle(),
-      supabase.from('v_project_totals').select('*').eq('project_id', id).maybeSingle(),
-    ]);
-    setFin(fr.data || null);
-    setTot(tr.data || null);
+    try {
+      const result = await projectWorkspaceService.loadFinancials({ projectId:id });
+      setFin(result.financials || null);
+      setTot(result.totals || null);
+      return result;
+    } catch (error) {
+      setErr('تعذّر تحميل الموقف المالي للمشروع: ' + (error?.message || error));
+      throw error;
+    }
   }, [id]);
 
   const loadProjectSetupAction = useCallback(async () => {
-    const { data, error } = await supabase.rpc('fn_project_approval_queue', { p_project_id:id });
-    if (error) {
-      setProjectSetupAction(null);
-      return;
+    try {
+      const action = await projectWorkspaceService.loadSetupAction({ projectId:id });
+      setProjectSetupAction(action);
+      return action;
+    } catch (error) {
+      setErr('تعذّر تحميل رحلة اعتماد تأسيس المشروع: ' + (error?.message || error));
+      throw error;
     }
-    setProjectSetupAction((data || []).find((row) => row.source_type === 'project_setup') || null);
   }, [id]);
 
   const load = useCallback(async () => {
-    const sess = (await supabase.auth.getSession()).data.session;
-    const [pr, e, en, capsQ, primaryQ, userQ] = await Promise.all([
-      supabase.from('projects').select('*').eq('id', id).maybeSingle(),
-      supabase.from('employees').select('id, full_name_ar, employee_no').order('employee_no'),
-      supabase.from('entities').select('id, name_ar').order('name_ar'),
-      supabase.from('v_my_capabilities').select('capability_key,module_key,scope_type,scope_key,source_key'),
-      supabase.rpc('fn_is_primary_user'),
-      sess?.user?.id ? supabase.from('app_users').select('is_system_admin').eq('id', sess.user.id).maybeSingle() : Promise.resolve({data:null,error:null}),
-    ]);
-    if (!pr.data) { setErr('لم يُعثر على هذا المشروع.'); return; }
-    const caps=(capsQ.data||[]).filter((cap)=>cap.module_key==='projects'&&(cap.scope_type==='all'||(cap.scope_type==='project'&&cap.scope_key===id)));
-    const systemFull=primaryQ.data===true||Boolean(userQ.data?.is_system_admin);
-    const portalFull=systemFull||caps.some((cap)=>cap.source_key==='projects_full_access');
-    setP(pr.data);
-    setEmps(e.data || []);
-    setEnts(en.data || []);
-    setAccess({full:portalFull,keys:[...new Set(caps.map((cap)=>cap.capability_key))]});
-    await Promise.all([loadFin(), loadProjectSetupAction()]);
-  }, [id, loadFin, loadProjectSetupAction]);
+    setErr('');
+    try {
+      const workspace = await projectWorkspaceService.loadWorkspace({ projectId:id });
+      if (!workspace.project) {
+        setP(null);
+        setErr('لم يُعثر على هذا المشروع.');
+        return;
+      }
+      setP(workspace.project);
+      setEmps(workspace.employees || []);
+      setEnts(workspace.entities || []);
+      setAccess(workspace.access || {full:false,keys:[]});
+      setFin(workspace.financials || null);
+      setTot(workspace.totals || null);
+      setProjectSetupAction(workspace.setupAction || null);
+    } catch (error) {
+      setP(null);
+      setErr('تعذّر فتح المشروع: ' + (error?.message || error));
+    }
+  }, [id]);
 
   useEffect(() => { load(); }, [load]);
-  useLiveRefresh(() => Promise.all([loadFin(), loadProjectSetupAction()]), ['all']);
+  useLiveRefresh(() => Promise.allSettled([loadFin(), loadProjectSetupAction()]), ['all']);
 
-  const has = (key) => access.full || access.keys.includes(key);
-  const canWrite = activeView === 'scope'
-    ? has('projects.scope.edit')
-    : activeView === 'progress'
-      ? has('projects.progress.edit')
-      : activeView === 'claims'
-        ? (has('projects.claims.edit') || has('projects.claims.create'))
-        : activeView === 'docs'
-          ? (has('projects.documents.edit') || has('projects.documents.create') || has('projects.materials.edit') || has('projects.materials.create'))
-          : has('projects.projects.edit');
+  const canWrite = projectWorkspaceCanWrite(activeView, access);
 
   async function patch(fields) {
-    setP({ ...p, ...fields });
-    const { error } = await supabase.from('projects').update(fields).eq('id', id);
-    if (error) setErr('تعذّر الحفظ: ' + error.message);
-    else {
+    setErr('');
+    setP((current) => current ? { ...current, ...fields } : current);
+    try {
+      const saved = await projectWorkspaceService.patchProject({ projectId:id, fields });
+      setP(saved);
       setMsg('حُفظ');
       setTimeout(() => setMsg(''), 1200);
-      loadFin();
+      await loadFin();
       notifyChange('project');
+    } catch (error) {
+      setErr('تعذّر الحفظ: ' + (error?.message || error));
+      await load();
     }
   }
 
@@ -101,22 +107,10 @@ export default function ProjectCard() {
     setErr('');
     setMsg('');
     try {
-      const { data:workflowId, error } = await supabase.rpc('fn_submit_project_setup_for_approval', {
-        p_project_id:id,
-        p_note:null,
+      const { proof } = await projectWorkspaceService.submitSetupForApproval({
+        projectId:id,
+        note:null,
       });
-      if (error) throw error;
-      if (!workflowId) throw new Error('لم يعد الخادم بمعرّف رحلة الاعتماد');
-
-      // نجاح RPC وحده لا يغلق جلسة العمل. نقرأ رحلة الاعتماد نفسها من الخادم
-      // ثم نعلن الخاتمة فقط بعد ثبوت أن المصدر انتقل إلى محرك الاعتمادات.
-      const { data:proof, error:proofError } = await supabase.rpc('fn_approval_get', {
-        p_workflow_id:workflowId,
-      });
-      if (proofError) throw proofError;
-      if (!proof?.workflow?.id || proof.workflow.id !== workflowId) {
-        throw new Error('تعذر إثبات انتقال تأسيس المشروع إلى رحلة الاعتماد');
-      }
 
       await Promise.all([loadFin(), loadProjectSetupAction()]);
       notifyChange('project');
@@ -147,17 +141,15 @@ export default function ProjectCard() {
 
   const f = fin || {};
   const t = tot || {};
-  const contractValue = Number(
-    t.contract_value_effective !== undefined && t.contract_value_effective !== null
-      ? t.contract_value_effective
-      : (p.contract_value || 0)
-  );
-  const contractApproved = !!t.contract_value_approved;
-  const profit = Number(f.current_profit || 0);
-  const daysLeft = f.days_remaining;
-  const setupPending = projectSetupAction?.approval_status === 'pending';
-  const setupReturned = projectSetupAction?.approval_status === 'returned';
-  const setupRejected = projectSetupAction?.approval_status === 'rejected';
+  const overview = projectWorkspaceOverview(p, f, t);
+  const contractValue = overview.contractValue;
+  const contractApproved = overview.contractApproved;
+  const profit = overview.profit;
+  const daysLeft = overview.daysLeft;
+  const setup = projectSetupState(projectSetupAction);
+  const setupPending = setup.pending;
+  const setupReturned = setup.returned;
+  const setupRejected = setup.rejected;
 
   return (
     <>
