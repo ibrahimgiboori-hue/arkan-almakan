@@ -1,13 +1,21 @@
-name: V2 Constitution Gate
+name: Engineering Quality Gate
 
 on:
   push:
     branches:
+      - main
       - v2-system-constitution
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: engineering-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  constitution:
+  quality-gate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,7 +29,7 @@ jobs:
         # The repository does not yet track package-lock.json. Use npm install until
         # dependency locking is adopted deliberately, then switch this gate to npm ci.
         run: npm install --no-audit --no-fund
-      - name: Constitution audit
+      - name: Architecture and constitution audits
         run: npm run v2:audit
       - name: Tests
         run: npm test
