@@ -135,6 +135,7 @@
 
   /* LEFT RAIL — route-specific actions. Existing pages keep their own business
      toggles, but they no longer occupy the top of the preview. */
+  .print-route-root .toolbar.no-print,
   .print-route-root .print-toolbar,
   .print-route-root .qtoolbar{
     position:fixed!important;
@@ -161,6 +162,7 @@
     box-shadow:var(--print-workbench-shadow)!important;
     z-index:90!important;
   }
+  .print-route-root .toolbar.no-print::before,
   .print-route-root .print-toolbar::before,
   .print-route-root .qtoolbar::before{
     content:'إجراءات المستند';
@@ -171,6 +173,17 @@
     font-size:14px;
     font-weight:800;
   }
+  .print-route-root .toolbar.no-print .tb-group{
+    width:100%!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:8px!important;
+    margin:0!important;
+  }
+  .print-route-root .toolbar.no-print button,
+  .print-route-root .toolbar.no-print select,
+  .print-route-root .toolbar.no-print input,
   .print-route-root .print-toolbar button,
   .print-route-root .qtoolbar button,
   .print-route-root .print-toolbar select,
@@ -178,6 +191,13 @@
     width:100%!important;
     min-height:36px;
   }
+  .print-route-root .toolbar.no-print .blank-row-control{
+    display:grid!important;
+    width:100%!important;
+    gap:5px!important;
+    font-size:11px!important;
+  }
+  .print-route-root .toolbar.no-print .tb-warn,
   .print-route-root .print-toolbar>span,
   .print-route-root .qtoolbar>span,
   .print-route-root .print-toolbar>small,
@@ -278,6 +298,7 @@
   }
   .print-route-root .constitution-paged-layoutbar,
   .print-route-root .constitution-presentation-editor,
+  .print-route-root .toolbar.no-print,
   .print-route-root .print-toolbar,
   .print-route-root .qtoolbar,
   .print-route-root .print-text-alignment-bar{
