@@ -3,27 +3,21 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { todayIsoInRiyadh } from '@/lib/format';
 import { receiptLabel } from '@/lib/operation-safety.mjs';
 import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
-import { selectRosterAssignmentsForDate } from '@/lib/site-operation-roster.mjs';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
-import { pendingOperationCount, saveOperationWithQueue, syncPendingOperations } from '@/lib/verified-operation-write';
+import { projectAttendanceService } from '@/lib/application/project-attendance-service';
+import {
+  PROJECT_ATTENDANCE_STATUS,
+  filterProjectAttendanceWorkers,
+  groupProjectAttendanceByContractor,
+  summarizeProjectAttendance,
+} from '@/lib/project-attendance.mjs';
 import BulkAttendanceList from './BulkAttendanceList';
 import RegisteredAttendanceList from './RegisteredAttendanceList';
 import styles from './operations.module.css';
 import layoutStyles from './attendance-layout.module.css';
-
-const STATUS = Object.freeze({
-  full: { label: 'كامل' },
-  half: { label: 'نصف يوم' },
-  stopped: { label: 'متوقف — حالة محفوظة', protected: true },
-  leave: { label: 'إجازة — حالة محفوظة', protected: true },
-});
-const PROTECTED_STATUSES = new Set(['stopped', 'leave']);
-const LABOR_CLASS = Object.freeze({ worker: 'عامل', technician: 'صنايعي', foreman: 'فورمان' });
-const naturalCompare = (a = '', b = '') => String(a).localeCompare(String(b), 'ar', { numeric: true, sensitivity: 'base' });
 
 function dateLabel(value) {
   if (!value) return '—';
@@ -76,78 +70,16 @@ export default function AttendanceWorkspace() {
     setLoading(true);
     setLoadError('');
     try {
-      const [dayQ, assignQ, projectContractorQ] = await Promise.all([
-        supabase.from('timesheet_days').select('id').eq('project_id', projectId).eq('work_date', requestDate).maybeSingle(),
-        supabase.from('labor_project_assignments')
-          .select('id,laborer_id,contractor_id,labor_class,trade,pay_basis,daily_rate,valid_from,valid_to')
-          .eq('project_id', projectId)
-          .lte('valid_from', requestDate)
-          .or(`valid_to.is.null,valid_to.gte.${requestDate}`),
-        supabase.from('project_contractors')
-          .select('contractor_id,basis,worker_daily,tech_daily,start_date,end_date,is_active')
-          .eq('project_id', projectId)
-          .eq('is_active', true)
-          .lte('start_date', requestDate)
-          .or(`end_date.is.null,end_date.gte.${requestDate}`),
-      ]);
-      const firstError = [dayQ, assignQ, projectContractorQ].find((query) => query.error)?.error;
-      if (firstError) throw firstError;
-
-      const assignments = selectRosterAssignmentsForDate(assignQ.data || [], requestDate);
-      const contractorIds = [...new Set([
-        ...(projectContractorQ.data || []).map((row) => row.contractor_id),
-        ...assignments.map((row) => row.contractor_id),
-      ].filter(Boolean))];
-      const laborerIds = [...new Set(assignments.map((row) => row.laborer_id).filter(Boolean))];
-
-      const [contractorQ, laborerQ, attendanceQ] = await Promise.all([
-        contractorIds.length
-          ? supabase.from('contractors').select('id,name_ar,operation_alias,contractor_no').in('id', contractorIds)
-          : Promise.resolve({ data: [], error: null }),
-        laborerIds.length
-          ? supabase.from('laborers').select('id,full_name,labor_class,trade,daily_rate,is_active').in('id', laborerIds)
-          : Promise.resolve({ data: [], error: null }),
-        dayQ.data?.id
-          ? supabase.from('attendance').select('id,laborer_id,status,rate_used,portal_last_edited_by_name,portal_last_edited_at').eq('day_id', dayQ.data.id)
-          : Promise.resolve({ data: [], error: null }),
-      ]);
-      const secondError = [contractorQ, laborerQ, attendanceQ].find((query) => query.error)?.error;
-      if (secondError) throw secondError;
+      const workspace = await projectAttendanceService.loadDay({ projectId, date: requestDate });
       if (requestSeq !== loadSeqRef.current || dateRef.current !== requestDate) return;
 
-      const contractorRows = (contractorQ.data || []).map((contractor) => {
-        const link = (projectContractorQ.data || []).find((row) => row.contractor_id === contractor.id);
-        return { ...contractor, project_basis: link?.basis || null };
-      }).sort((a, b) => naturalCompare(a.name_ar, b.name_ar));
-
-      const assignmentByWorker = new Map(assignments.map((assignment) => [assignment.laborer_id, assignment]));
-      const workerRows = (laborerQ.data || []).map((worker) => {
-        const assignment = assignmentByWorker.get(worker.id);
-        return {
-          ...worker,
-          contractor_id: assignment?.contractor_id || null,
-          labor_class: assignment?.labor_class || worker.labor_class,
-          trade: assignment?.trade || worker.trade,
-          daily_rate: assignment?.daily_rate ?? worker.daily_rate,
-          assignment_id: assignment?.id || null,
-        };
-      }).filter((worker) => worker.assignment_id).sort((a, b) => naturalCompare(a.full_name, b.full_name));
-
-      const trackedRows = (attendanceQ.data || [])
-        .filter((row) => ['full', 'half', 'stopped', 'leave'].includes(row.status))
-        .map((row) => ({
-          ...row,
-          work_date: requestDate,
-          pending: false,
-          protected: PROTECTED_STATUSES.has(row.status),
-        }));
-      setContractors(contractorRows);
-      setWorkers(workerRows);
-      setMarks(Object.fromEntries(trackedRows.map((row) => [row.laborer_id, row])));
+      setContractors(workspace.contractors);
+      setWorkers(workspace.workers);
+      setMarks(workspace.marks);
 
       const selectedId = contractorRef.current;
-      const selectedStillExists = selectedId && contractorRows.some((contractor) => contractor.id === selectedId);
-      if (!selectedStillExists) setActiveContractor(contractorRows[0]?.id || '');
+      const selectedStillExists = selectedId && workspace.contractors.some((contractor) => contractor.id === selectedId);
+      if (!selectedStillExists) setActiveContractor(workspace.contractors[0]?.id || '');
     } catch (error) {
       if (requestSeq !== loadSeqRef.current || dateRef.current !== requestDate) return;
       const message = 'تعذر فتح حضور اليوم: ' + (error.message || error);
@@ -166,7 +98,7 @@ export default function AttendanceWorkspace() {
   useEffect(() => {
     const refresh = () => {
       setOnline(navigator.onLine !== false);
-      setPendingSync(pendingOperationCount());
+      setPendingSync(projectAttendanceService.pendingCount());
     };
     refresh();
     window.addEventListener('online', refresh);
@@ -177,61 +109,33 @@ export default function AttendanceWorkspace() {
     };
   }, []);
 
-  async function writeAttendance(rows) {
-    if (!rows.length) return null;
+  async function writeAttendance(entries) {
+    if (!entries.length) return null;
     const requestDate = dateRef.current;
     setSaveProof({ status: 'saving' });
-    const result = await saveOperationWithQueue({
-      operation: 'attendance',
+    const result = await projectAttendanceService.saveEntries({
       projectId,
-      workDate: requestDate,
-      payload: {
-        rows: rows.map(({ worker, status }) => ({
-          laborer_id: worker.id,
-          status,
-          rate_used: Number(worker.daily_rate || 0),
-        })),
-      },
-      batchId: null,
-      sourceKind: 'live',
-      sourceRef: null,
-      certainty: 'confirmed',
+      date: requestDate,
+      entries,
     });
-    setPendingSync(result.pendingCount || 0);
+    setPendingSync(result?.pendingCount || 0);
 
     if (dateRef.current !== requestDate) return { ...result, stale: true };
 
     if (result.status === 'verified') {
       setSaveProof({ status: 'verified', receipt: result.receipt });
-      const snapshot = Array.isArray(result.receipt?.entity_snapshot) ? result.receipt.entity_snapshot : [];
-      const verifiedMarks = Object.fromEntries(snapshot.map((row) => [row.laborer_id, {
-        ...row,
-        work_date: requestDate,
-        pending: false,
-        protected: PROTECTED_STATUSES.has(row.status),
-      }]));
-      setMarks((current) => ({ ...current, ...verifiedMarks }));
     } else {
       setSaveProof({ status: 'queued', requestId: result.requestId });
-      const optimisticMarks = Object.fromEntries(rows.map(({ worker, status }) => [worker.id, {
-        id: null,
-        laborer_id: worker.id,
-        status,
-        work_date: requestDate,
-        pending: true,
-        request_id: result.requestId,
-        protected: false,
-      }]));
-      setMarks((current) => ({ ...current, ...optimisticMarks }));
     }
+    setMarks((current) => ({ ...current, ...(result.marks || {}) }));
     return result;
   }
 
   async function markWorker(worker, status) {
-    if (!STATUS[status] || PROTECTED_STATUSES.has(status)) return;
+    if (!PROJECT_ATTENDANCE_STATUS[status] || PROJECT_ATTENDANCE_STATUS[status].protected) return;
     const existing = marks[worker.id];
     if (existing?.protected) {
-      setErr(`حالة ${worker.full_name} محفوظة تاريخيًا (${STATUS[existing.status]?.label || existing.status}) ولا يجوز الكتابة فوقها من الإدخال السريع.`);
+      setErr(`حالة ${worker.full_name} محفوظة تاريخيًا (${PROJECT_ATTENDANCE_STATUS[existing.status]?.label || existing.status}) ولا يجوز الكتابة فوقها من الإدخال السريع.`);
       return;
     }
     if (existing?.pending) {
@@ -245,7 +149,7 @@ export default function AttendanceWorkspace() {
       const result = await writeAttendance([{ worker, status }]);
       if (result?.stale) return;
       if (result?.status === 'queued') setMsg(queuedNotice(result, `تسجيل ${worker.full_name}`));
-      else if (result?.receipt) setMsg(`${worker.full_name} — ${STATUS[status].label} · ${receiptLabel(result.receipt)}`);
+      else if (result?.receipt) setMsg(`${worker.full_name} — ${PROJECT_ATTENDANCE_STATUS[status].label} · ${receiptLabel(result.receipt)}`);
     } catch (error) {
       setSaveProof({ status: 'error' });
       setErr(error.message || String(error));
@@ -262,9 +166,9 @@ export default function AttendanceWorkspace() {
       const result = await writeAttendance(selectedWorkers.map((worker) => ({ worker, status })));
       if (result?.stale) { setBusy(''); return false; }
       if (result?.status === 'verified') {
-        setMsg(`تم تسجيل ${selectedWorkers.length} عاملًا — ${STATUS[status].label} · ${receiptLabel(result.receipt)}`);
+        setMsg(`تم تسجيل ${selectedWorkers.length} عاملًا — ${PROJECT_ATTENDANCE_STATUS[status].label} · ${receiptLabel(result.receipt)}`);
       } else {
-        setMsg(queuedNotice(result, `${selectedWorkers.length} حركة ${STATUS[status].label}`));
+        setMsg(queuedNotice(result, `${selectedWorkers.length} حركة ${PROJECT_ATTENDANCE_STATUS[status].label}`));
       }
       setBusy('');
       return true;
@@ -295,9 +199,7 @@ export default function AttendanceWorkspace() {
     setBusy(`undo-${worker.id}`);
     setErr('');
     try {
-      const { data, error } = await supabase.rpc('fn_remove_attendance_entry', { p_attendance_id: row.id });
-      if (error) throw error;
-      if (data !== true) throw new Error('لم يُحذف سجل الحضور؛ ربما تغيّر أو حُذف من جهة أخرى. حدّث اليوم قبل المحاولة مرة أخرى.');
+      await projectAttendanceService.removeEntry({ mark: row, date: requestDate });
       if (dateRef.current !== requestDate) return;
       setMarks((current) => {
         if (current[worker.id]?.id !== row.id) return current;
@@ -313,10 +215,10 @@ export default function AttendanceWorkspace() {
   }
 
   async function retrySync() {
-    if (syncing || !online || pendingOperationCount() === 0) return;
+    if (syncing || !online || projectAttendanceService.pendingCount() === 0) return;
     setSyncing(true);
     setErr('');
-    const result = await syncPendingOperations(({ status, receipt }) => {
+    const result = await projectAttendanceService.syncPending(({ status, receipt }) => {
       if (status === 'verified') setSaveProof({ status: 'verified', receipt });
     });
     setPendingSync(result.pendingCount || 0);
@@ -328,25 +230,14 @@ export default function AttendanceWorkspace() {
     }
   }
 
-  const grouped = useMemo(() => contractors.map((contractor) => ({
-    ...contractor,
-    workers: workers.filter((worker) => worker.contractor_id === contractor.id),
-  })), [contractors, workers]);
-
-  const visibleWorkers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return workers
-      .filter((worker) => !activeContractor || worker.contractor_id === activeContractor)
-      .filter((worker) => !query || [worker.full_name, worker.trade, LABOR_CLASS[worker.labor_class]].filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query)));
-  }, [activeContractor, search, workers]);
-
+  const grouped = useMemo(() => groupProjectAttendanceByContractor(contractors, workers), [contractors, workers]);
+  const visibleWorkers = useMemo(
+    () => filterProjectAttendanceWorkers(workers, activeContractor, search),
+    [activeContractor, search, workers],
+  );
   const pendingWorkers = visibleWorkers.filter((worker) => !marks[worker.id]);
   const doneWorkers = visibleWorkers.filter((worker) => marks[worker.id]);
-  const fullCount = workers.filter((worker) => marks[worker.id]?.status === 'full').length;
-  const halfCount = workers.filter((worker) => marks[worker.id]?.status === 'half').length;
-  const protectedCount = workers.filter((worker) => marks[worker.id]?.protected).length;
-  const absentCount = Math.max(0, workers.length - fullCount - halfCount - protectedCount);
+  const summary = useMemo(() => summarizeProjectAttendance(workers, marks), [workers, marks]);
   const activeContractorRow = grouped.find((contractor) => contractor.id === activeContractor);
   const activeContractorHasWorkers = Boolean(activeContractorRow?.workers?.length);
 
@@ -363,7 +254,7 @@ export default function AttendanceWorkspace() {
   if (!contextReady) return <div className={styles.loading}>جارٍ فتح سياق المشروع…</div>;
 
   return (
-    <div className={styles.root} dir="rtl">
+    <div className={styles.root} dir="rtl" data-project-attendance-workspace="engineered-v1">
       <section className={styles.controlBar}>
         <div className={styles.modeTitle}><span>التشغيل اليومي</span><strong>الحضور</strong></div>
         <div className={styles.dateNav} aria-label="التنقل بين الأيام">
@@ -386,11 +277,11 @@ export default function AttendanceWorkspace() {
       {msg && <div className={styles.success}>{msg}</div>}
 
       <section className={styles.summaryStrip}>
-        <div><span>القوة المسندة</span><strong>{workers.length}</strong></div>
-        <div className={styles.fullStat}><span>كامل</span><strong>{fullCount}</strong></div>
-        <div className={styles.halfStat}><span>نصف يوم</span><strong>{halfCount}</strong></div>
-        {protectedCount > 0 && <div><span>حالة محفوظة</span><strong>{protectedCount}</strong></div>}
-        <div className={styles.absentStat}><span>غياب تلقائي</span><strong>{absentCount}</strong></div>
+        <div><span>القوة المسندة</span><strong>{summary.total}</strong></div>
+        <div className={styles.fullStat}><span>كامل</span><strong>{summary.full}</strong></div>
+        <div className={styles.halfStat}><span>نصف يوم</span><strong>{summary.half}</strong></div>
+        {summary.protected > 0 && <div><span>حالة محفوظة</span><strong>{summary.protected}</strong></div>}
+        <div className={styles.absentStat}><span>غياب تلقائي</span><strong>{summary.absent}</strong></div>
       </section>
 
       <section className={styles.contractorBar}>
