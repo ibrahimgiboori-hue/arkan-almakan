@@ -210,15 +210,23 @@ if (!legacyApprovals.includes("redirect('/dashboard/approvals')")) {
 
 // 9) المعاملة ذات الرحلة الأصلية تملك أفعالها من أ إلى ي؛ الصناديق العامة مجرد مداخل إليها.
 const claimsJourney = read('components/ProjClaims.js');
+const claimsService = read('lib/application/project-claims-service.js');
+const claimsAdapter = read('lib/adapters/project-claims-supabase.js');
 const approvalsInbox = read('app/dashboard/approvals/page.js');
-if (!claimsJourney.includes('fn_claim_collect_to_treasury')) {
-  failures.push('رحلة المستخلص: التحصيل يجب أن يُنفذ من نفس رحلة المستخلص ويُرحّل للخزينة من الخلف.');
+if (!claimsJourney.includes('projectClaimsService.collectClaim') || !claimsAdapter.includes('fn_claim_collect_to_treasury')) {
+  failures.push('رحلة المستخلص: التحصيل يجب أن يبدأ من نفس الرحلة ويُرحّل للخزينة عبر خدمة التطبيق ومحولها النظامي.');
 }
-if (/p_to\s*:\s*['"]collected['"]/.test(claimsJourney)) {
+if (/p_to\s*:\s*['"]collected['"]/.test(claimsJourney) || /p_to\s*:\s*['"]collected['"]/.test(claimsService)) {
   failures.push('رحلة المستخلص: عاد مسار تغيير الحالة إلى collected مباشرة بدل محرك الخزينة الواحد.');
 }
-if (!claimsJourney.includes('fn_approval_decide') || !claimsJourney.includes('record_claim_client_submission')) {
-  failures.push('رحلة المستخلص: الاعتماد الداخلي والتقديم للعميل يجب أن يبقيا داخل نفس الرحلة.');
+if (!claimsJourney.includes('projectClaimsService.decideApproval') || !claimsJourney.includes('projectClaimsService.recordClientSubmission')) {
+  failures.push('رحلة المستخلص: الاعتماد الداخلي والتقديم للعميل يجب أن يبقيا داخل نفس الرحلة المرئية.');
+}
+if (!claimsAdapter.includes('fn_approval_decide') || !claimsAdapter.includes('record_claim_client_submission')) {
+  failures.push('رحلة المستخلص: محول الرحلة فقد بوابات الاعتماد الداخلي أو تقديم العميل النظامية.');
+}
+if (/@\/lib\/supabase|supabase\.|\.rpc\s*\(|\.from\s*\(/.test(claimsJourney)) {
+  failures.push('رحلة المستخلص: الواجهة لا يجوز أن تتجاوز خدمة التطبيق إلى Supabase أو RPC مباشرة.');
 }
 if (!approvalsInbox.includes("transaction_type==='progress_claim'") || !approvalsInbox.includes('view=claims&claim=')) {
   failures.push('صندوق الاعتمادات: المستخلص يجب أن يعيد المستخدم إلى رحلته الأصلية بدل إنشاء قرار موازٍ.');
