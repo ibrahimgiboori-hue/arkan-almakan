@@ -42,7 +42,7 @@ export default function ExternalPayrollRunReport({report}){
       </div>
     </div>
 
-    <table className={styles.table} data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
+    <table className={styles.table} aria-label="مسير الرواتب الشهري وتفاصيل صافي الراتب المستحق" data-print-flow={PRINT_FLOW_KIND.REPEATABLE_TABLE}>
       <colgroup>{columns.map((column)=><col key={column.key} style={{width:WIDTHS[column.key]||'6%'}}/>)}</colgroup>
       <thead>
         <tr data-print-row data-print-row-atomic="true">
