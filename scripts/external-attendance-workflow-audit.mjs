@@ -1,11 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ATTENDANCE_PRESENTATION_INFRASTRUCTURE_DEBT } from '../lib/architecture/attendance-presentation-debt.mjs';
 
 const root=process.cwd();
 const failures=[];
 const read=(relative)=>fs.readFileSync(path.join(root,relative),'utf8');
 const exists=(relative)=>fs.existsSync(path.join(root,relative));
 const fail=(message)=>failures.push(message);
+
+function walk(relative){
+  const absolute=path.join(root,relative);
+  if(!fs.existsSync(absolute))return [];
+  const files=[];
+  for(const entry of fs.readdirSync(absolute,{withFileTypes:true})){
+    const next=path.join(relative,entry.name);
+    if(entry.isDirectory())files.push(...walk(next));
+    else files.push(next.replaceAll('\\','/'));
+  }
+  return files;
+}
 
 for(const file of [
   'lib/core/external-attendance-state.js',
@@ -14,6 +27,7 @@ for(const file of [
   'lib/application/external-attendance-review-service.js',
   'lib/adapters/external-attendance-supabase.js',
   'lib/adapters/attendance-lab-supabase.js',
+  'lib/architecture/attendance-presentation-debt.mjs',
   'app/dashboard/attendance/layout.js',
   'components/attendance/DeleteExternalAttendanceBatchButton.js',
   'components/attendance/AttendanceCalibrationPanel.js',
@@ -121,10 +135,33 @@ if(exists('components/attendance/AttendanceCalibrationPanel.js')){
   }
 }
 
+const directSupabaseDebt=new Set(ATTENDANCE_PRESENTATION_INFRASTRUCTURE_DEBT.map((item)=>item.path));
+const presentationFiles=[
+  ...walk('app/dashboard/attendance'),
+  ...walk('components/attendance'),
+].filter((file)=>/\.(?:js|jsx|mjs)$/.test(file));
+
+for(const file of presentationFiles){
+  const source=read(file);
+  const direct=source.includes("from '@/lib/supabase'")||source.includes('from "@/lib/supabase"');
+  if(direct&&!directSupabaseDebt.has(file)){
+    fail(`${file}: new direct Supabase access in attendance presentation is forbidden; use an adapter/application service.`);
+  }
+}
+for(const item of ATTENDANCE_PRESENTATION_INFRASTRUCTURE_DEBT){
+  if(!exists(item.path)){
+    fail(`${item.path}: stale attendance debt entry points to a missing file; retire the ledger entry.`);
+    continue;
+  }
+  const source=read(item.path);
+  const direct=source.includes("from '@/lib/supabase'")||source.includes('from "@/lib/supabase"');
+  if(!direct)fail(`${item.path}: direct Supabase debt has already been removed; delete its grandfathered ledger entry.`);
+}
+
 if(failures.length){
   console.error('\nExternal attendance workflow audit failed:\n');
   failures.forEach((item)=>console.error(`- ${item}`));
   process.exit(1);
 }
 
-console.log('External attendance workflow audit passed: state, review rules, lab/review orchestration, navigation and persistence boundaries are centralized.');
+console.log('External attendance workflow audit passed: state, review rules, lab/review orchestration and persistence boundaries are centralized; direct presentation data access cannot grow.');
