@@ -1,5 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  DIRECT_EXPENSE_VALIDATION,
+  summarizeDirectExpenseGrid,
+  validateDirectExpenseGrid,
+} from '../lib/project-direct-expenses.mjs';
 
 const root=process.cwd();
 const failures=[];
@@ -54,10 +59,23 @@ if(exists(files.presentation)){
   ])if(source.includes(forbidden))fail(`direct expense presentation leaked persistence/business detail: ${forbidden}`);
 }
 
+const fixture=[
+  {persisted:true,amount:'100',notes:'مواد',payer:'employee',paid_by_employee_id:'e1',reimbursed_amount:25},
+  {persisted:false,amount:'50',notes:'وقود',payer:'contractor',paid_by_employee_id:'',reimbursed_amount:0},
+];
+const summary=summarizeDirectExpenseGrid(fixture);
+if(summary.savedTotal!==100||summary.currentGridTotal!==150||summary.employeeDue!==75)fail('direct expense summary invariant changed.');
+try{
+  validateDirectExpenseGrid([{amount:'10',notes:'',payer:'contractor'}]);
+  fail('direct expense validation accepted an incomplete used row.');
+}catch(error){
+  if(error?.code!==DIRECT_EXPENSE_VALIDATION.INCOMPLETE)fail('direct expense validation returned the wrong invariant code.');
+}
+
 if(failures.length){
   console.error('\nProject direct expense architecture audit failed:\n');
   failures.forEach((item)=>console.error(`- ${item}`));
   process.exit(1);
 }
 
-console.log('Project direct expense architecture audit passed: expense rules, orchestration, persistence and presentation are separated.');
+console.log('Project direct expense architecture audit passed: expense rules, orchestration, persistence and presentation are separated, and core invariants are locked.');
