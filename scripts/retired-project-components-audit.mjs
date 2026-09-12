@@ -6,8 +6,9 @@ const failures=[];
 const retiredFiles=[
   'components/ProjExecution.js',
   'components/ProjMoney.js',
+  'components/ProjectResourceView.js',
 ];
-const retiredSymbols=['ProjExecution','ProjMoney'];
+const retiredSymbols=['ProjExecution','ProjMoney','ProjectResourceView'];
 
 for(const file of retiredFiles){
   if(fs.existsSync(path.join(root,file)))failures.push(`${file}: عاد مكوّن مشروع متقاعد بعد حذفه.`);
@@ -43,4 +44,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('Retired project components audit passed: ProjExecution and ProjMoney are physically absent, no live source references them, and the old item execution RPC path cannot return.');
+console.log('Retired project components audit passed: ProjExecution, ProjMoney and ProjectResourceView are physically absent, no live source references them, and the old item execution RPC path cannot return.');
