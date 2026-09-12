@@ -18,6 +18,8 @@ const files={
   contract:'lib/document-body-grid.mjs',
   body:'components/print/DocumentContentRoot.js',
   frame:'components/print/ConstitutionPrintFrame.js',
+  workbench:'components/print/PrintContentWorkbench.js',
+  layout:'app/layout.js',
   generic:'app/print/[id]/page.js',
   hardening:'app/print-captain-hardening.css',
 };
@@ -67,6 +69,31 @@ if(exists(files.frame)){
   if(!source.includes('governedContentBody'))fail('ConstitutionPrintFrame must normalize print content through one governed body.');
   if(!source.includes('typeof root.type===\'string\''))fail('DOM document roots must be promoted into DocumentContentRoot before Captain pagination.');
   if(!source.includes('onLayoutSettled={onLayoutSettled}'))fail('Captain bridge must repaginate after fixed-grid spans settle.');
+  if(!source.includes("arkan:print-content-layout-changed"))fail('Captain must repaginate when the interactive content workbench changes block rhythm.');
+}
+
+if(exists(files.workbench)){
+  const source=read(files.workbench);
+  for(const required of [
+    "const ROW_MM = 2",
+    "contentWorkbenchProfiles",
+    "beforeRows",
+    "afterRows",
+    "tableHeader",
+    "sectionHeader",
+    "fieldLabel",
+    "textEnabled",
+    "fillEnabled",
+    "elementStyles",
+    "arkan:print-content-layout-changed",
+    "حفظ التغييرات",
+  ])if(!source.includes(required))fail(`PrintContentWorkbench missing capability: ${required}`);
+}
+
+if(exists(files.layout)){
+  const source=read(files.layout);
+  if(!source.includes("@/components/print/PrintContentWorkbench"))fail('Root layout must load the global print content workbench.');
+  if(!source.includes('<PrintContentWorkbench />'))fail('PrintContentWorkbench must be mounted outside the printed body.');
 }
 
 if(exists(files.generic)){
@@ -79,13 +106,15 @@ if(exists(files.hardening)){
   const source=read(files.hardening);
   for(const required of [
     ".document-content-body > .document-visible-block > *",
-    'margin-bottom: 2mm !important',
+    'var(--print-block-gap-before, 0mm)',
+    'var(--print-block-gap-after, 2mm)',
     "[data-print-contrast-tone='light-text']",
     "[data-print-contrast-tone='dark-text']",
     '.print-route-root .amounts th',
     '.print-route-root .pc-head',
     '.print-route-root .pt-head',
     '.print-route-root .report-items-title',
+    '.print-content-workbench',
   ])if(!source.includes(required))fail(`Captain hardening missing visible print law: ${required}`);
   const firstMediaPrint=source.indexOf('\n@media print {');
   const rhythmIndex=source.indexOf('.document-content-body > .document-visible-block > *');
@@ -108,4 +137,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('Document body grid audit passed: one continuous 48-column body, fixed 2 mm rows, two-column metadata, 2 mm inter-block rhythm, visible adaptive contrast, and Captain repagination after grid settlement are locked.');
+console.log('Document body grid audit passed: one continuous 48-column body, fixed 2 mm rows, adaptive contrast, user-selectable title colors, per-block before/after spacing and automatic repagination are locked.');
