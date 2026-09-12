@@ -1,31 +1,77 @@
 /*
- * Clean document PIN content-fit law
- * ----------------------------------
- * PIN label cells must not reserve a fixed percentage. Each label owns only
- * the width its visible text needs, and the value cell receives the remainder.
- * A safety cap prevents unusually long labels from consuming the whole pair.
+ * Clean document PIN shared-column law
+ * ------------------------------------
+ * A PIN section behaves like one logical table, not a collection of unrelated
+ * two-cell grids. The label track on each side is sized by the longest visible
+ * label that participates in that SAME vertical axis. Shorter labels therefore
+ * keep blank space inside their label cell and their separator remains exactly
+ * aligned with the rows above and below.
  *
- * Example:
- *   [عنوان من ثلاث كلمات] | [القيمة]
- *   [الموقع]              | [القيمة]
+ * Example (same right-side axis):
+ *   [اسم الموظف        ] | [القيمة]
+ *   [المشروع / الموقع  ] | [القيمة الممتدة ...]
  *
- * The separator is intentionally content-driven, not locked to one vertical
- * axis. Scope is restricted to the clean-room renderer and does not affect
- * Captain page geometry or legacy documents.
+ * Width is NOT a fixed percentage. The shared label track is content-sized,
+ * with only a safety cap for unusually long labels. Full-width rows reuse the
+ * same first label track, so their separator is perpendicular to the normal
+ * rows above them.
  */
-[data-clean-document="clean-document-v2"] [data-clean-field] {
-  grid-template-columns: fit-content(48mm) minmax(0, 1fr) !important;
+
+/* The parent PIN grid owns four shared tracks:
+ *   right label | right value | left label | left value
+ * The two label tracks are content-sized by all participating subgrid items.
+ */
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]) {
+  grid-template-columns:
+    fit-content(48mm) minmax(0, 1fr)
+    fit-content(48mm) minmax(0, 1fr) !important;
 }
 
-[data-clean-document="clean-document-v2"] [data-clean-field] > [data-print-role="constant-column"] {
-  inline-size: max-content;
-  max-inline-size: 48mm;
-  white-space: nowrap;
+/* Every normal field consumes one label/value track pair and inherits those
+ * tracks through subgrid. This is what makes separators align vertically.
+ */
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]) > [data-clean-field][data-clean-field] {
+  display: grid !important;
+  grid-column: span 2 !important;
+  grid-template-columns: subgrid !important;
 }
 
-/* Full-width fields use the same content-fit rule; they do not invent a new
-   fixed percentage just because the value spans the whole row. */
-[data-clean-document="clean-document-v2"] [data-clean-field][style*="grid-column: span 12"],
-[data-clean-document="clean-document-v2"] [data-clean-field]:last-child:nth-child(odd) {
-  grid-template-columns: fit-content(48mm) minmax(0, 1fr) !important;
+/* A deliberate full-width field spans the complete four-track ruler. */
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]) > [data-clean-field][style*="grid-column: span 12"] {
+  grid-column: 1 / -1 !important;
+}
+
+/* If a section has no deliberate full-width field and ends with one unmatched
+ * field, let it use the whole row without changing the shared separator axis.
+ */
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]):not(:has(> [data-clean-field][style*="grid-column: span 12"]))
+  > [data-clean-field]:last-child:nth-child(odd) {
+  grid-column: 1 / -1 !important;
+}
+
+/* Full-row fields still have only two children. Pin the label to the first
+ * shared label track and let the value span every remaining track.
+ */
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]) > [data-clean-field][style*="grid-column: span 12"]
+  > [data-print-role="constant-column"],
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]):not(:has(> [data-clean-field][style*="grid-column: span 12"]))
+  > [data-clean-field]:last-child:nth-child(odd)
+  > [data-print-role="constant-column"] {
+  grid-column: 1 !important;
+}
+
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]) > [data-clean-field][style*="grid-column: span 12"]
+  > [data-print-role="constant-column"] + *,
+[data-clean-document="clean-document-v2"][data-clean-document="clean-document-v2"]
+  div:has(> [data-clean-field]):not(:has(> [data-clean-field][style*="grid-column: span 12"]))
+  > [data-clean-field]:last-child:nth-child(odd)
+  > [data-print-role="constant-column"] + * {
+  grid-column: 2 / -1 !important;
 }
