@@ -8,6 +8,7 @@ import { tafqit } from '@/lib/tafqit';
 import Riyal from '@/components/Riyal';
 import { dateAr, money, qty as fmtQty } from '@/lib/format';
 import { PRINT_FLOW_KIND } from '@/lib/print-governance';
+import { isEmptyPrintValue, printEmptyKind, printEmptyToken } from '@/lib/print-empty-value.mjs';
 import PartiesPrint from '@/components/PartiesPrint';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import { PrintMark } from '@/components/print/PrintMarks';
@@ -20,7 +21,14 @@ const clampBlankRows = (value) => Math.max(1, Math.min(20, Number(value) || 5));
 const clampBlankStatusRows = (value) => Math.max(1, Math.min(8, Number(value) || 4));
 
 function BlankLine({ kind = 'text', wide = false }) {
-  return <span className={`blank-write-line blank-${kind} ${wide ? 'wide' : ''}`.trim()} aria-hidden="true" />;
+  const emptyKind = printEmptyKind(kind);
+  const token = printEmptyToken(kind);
+  return (
+    <span
+      className={`blank-write-line blank-${emptyKind} ${wide ? 'wide' : ''}`.trim()}
+      aria-hidden="true"
+    >{token}</span>
+  );
 }
 
 function BlankWritingLines({ lines = 3 }) {
@@ -79,27 +87,27 @@ export default function PrintDoc() {
   const hasLetterHead = !!custom && (tpl.layout.sections || []).some((x) => x.kind === 'letterhead');
   const titleEn = tpl?.title_en || EN_TITLES[doc.template_code] || '';
 
-  const fmt = (f, val) => {
-    if (blankForm) return <BlankLine kind={f?.type || 'text'} />;
-    if (val === undefined || val === null || val === '') return '—';
-    if (f.type === 'date') return dateAr(val);
-    if (f.type === 'money') return <>{money(val)} <Riyal /></>;
-    if (f.type === 'number') return fmtQty(val);
-    return String(val);
+  const fmt = (field, value) => {
+    const type = field?.type || 'text';
+    if (blankForm || isEmptyPrintValue(value)) return <BlankLine kind={type} />;
+    if (type === 'date') return dateAr(value);
+    if (type === 'money') return <>{money(value)} <Riyal /></>;
+    if (type === 'number') return fmtQty(value);
+    return String(value);
   };
 
   const legacyRows = !custom && legacy
-    ? legacy.fields
-        .filter((f) => blankForm || (p[f.k] !== undefined && p[f.k] !== '' && p[f.k] !== null))
-        .map((f) => {
-          const m = f.label.includes('ريال');
-          let val = p[f.k];
-          if (blankForm) val = <BlankLine kind={f.type || (m ? 'money' : 'text')} />;
-          else if (f.type === 'date') val = dateAr(val);
-          else if (f.type === 'number' && m) val = money(val);
-          else val = String(val);
-          return [f.label.replace(' (ريال)',''), val, m];
-        })
+    ? legacy.fields.map((field) => {
+        const isMoney = field.label.includes('ريال');
+        const type = field.type || (isMoney ? 'money' : 'text');
+        const rawValue = p[field.k];
+        let value;
+        if (blankForm || isEmptyPrintValue(rawValue)) value = <BlankLine kind={type} />;
+        else if (type === 'date') value = dateAr(rawValue);
+        else if (field.type === 'number' && isMoney) value = money(rawValue);
+        else value = String(rawValue);
+        return [field.label.replace(' (ريال)',''), value, isMoney];
+      })
     : [];
   const moneyRows = legacyRows.filter((r) => r[2]);
   const infoRows = legacyRows.filter((r) => !r[2]);
@@ -167,8 +175,8 @@ export default function PrintDoc() {
             <section className="card-doc">
               <div className="card-head">بيانات المستند</div>
               <table><tbody>
-                <tr><td className="k">الرقم المرجعي</td><td className="v mono">{blankForm ? <BlankLine /> : doc.doc_number}</td></tr>
-                <tr><td className="k">تاريخ الإصدار</td><td className="v mono">{blankForm ? <BlankLine kind="date" /> : dateAr(doc.created_at)}</td></tr>
+                <tr><td className="k">الرقم المرجعي</td><td className="v mono">{blankForm ? <BlankLine /> : fmt({type:'text'}, doc.doc_number)}</td></tr>
+                <tr><td className="k">تاريخ الإصدار</td><td className="v mono">{blankForm ? <BlankLine kind="date" /> : fmt({type:'date'}, doc.created_at)}</td></tr>
                 {!custom && infoRows.slice(half).map(([k,val]) => (
                   <tr key={k}><td className="k">{k}</td><td className="v">{val}</td></tr>
                 ))}
@@ -188,8 +196,8 @@ export default function PrintDoc() {
 
           {hasLetterHead && (
             <div className="ltr-meta">
-              <span className="mono">{blankForm ? <BlankLine /> : doc.doc_number}</span>
-              <span className="mono">{blankForm ? <BlankLine kind="date" /> : dateAr(doc.created_at)}</span>
+              <span className="mono">{blankForm ? <BlankLine /> : fmt({type:'text'}, doc.doc_number)}</span>
+              <span className="mono">{blankForm ? <BlankLine kind="date" /> : fmt({type:'date'}, doc.created_at)}</span>
             </div>
           )}
 
@@ -199,9 +207,7 @@ export default function PrintDoc() {
             if (isProjectWorkClaimsReport && PROJECT_REPORT_GENERATED_SECTIONS.has(s.id)) return null;
 
             if (s.kind === 'cards' || s.kind === 'totals') {
-              const fields = blankForm
-                ? (s.fields || [])
-                : (s.fields || []).filter((f) => p[f.key] !== undefined && p[f.key] !== '' && p[f.key] !== null);
+              const fields = s.fields || [];
               if (!fields.length) return null;
               const isMoneyBlock = s.kind === 'totals' || s.money === true;
 
@@ -272,12 +278,13 @@ export default function PrintDoc() {
             }
 
             if (s.kind === 'text') {
-              if (!blankForm && !p[s.key]) return null;
-              if (s.style === 'plain') return <div className="letter-body" key={s.id}>{blankForm ? <BlankWritingLines lines={5} /> : p[s.key]}</div>;
+              const textValue = p[s.key];
+              const isEmptyText = blankForm || isEmptyPrintValue(textValue);
+              if (s.style === 'plain') return <div className="letter-body" key={s.id}>{isEmptyText ? <BlankWritingLines lines={5} /> : textValue}</div>;
               return (
                 <div className={s.style === 'strict' ? 'declare' : 'card-doc'} key={s.id} style={{marginBottom:'6mm'}}>
                   <div className={s.style === 'strict' ? 'dc-head' : 'card-head'}>{s.title}</div>
-                  <div className="dc-body">{blankForm ? <BlankWritingLines lines={4} /> : p[s.key]}</div>
+                  <div className="dc-body">{isEmptyText ? <BlankWritingLines lines={4} /> : textValue}</div>
                 </div>
               );
             }
@@ -350,10 +357,10 @@ export default function PrintDoc() {
             </div>
           )}
 
-          {!custom && legacy?.text && (blankForm || p[legacy.text.k]) && (
+          {!custom && legacy?.text && (
             <div className="declare">
               <div className="dc-head">{legacy.text.label}</div>
-              <div className="dc-body">{blankForm ? <BlankWritingLines lines={5} /> : p[legacy.text.k]}</div>
+              <div className="dc-body">{blankForm || isEmptyPrintValue(p[legacy.text.k]) ? <BlankWritingLines lines={5} /> : p[legacy.text.k]}</div>
             </div>
           )}
 
