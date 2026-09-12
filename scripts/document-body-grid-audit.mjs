@@ -19,6 +19,7 @@ const files={
   body:'components/print/DocumentContentRoot.js',
   frame:'components/print/ConstitutionPrintFrame.js',
   generic:'app/print/[id]/page.js',
+  hardening:'app/print-captain-hardening.css',
 };
 for(const [role,file] of Object.entries(files))if(!exists(file))fail(`${role}: missing ${file}`);
 
@@ -74,6 +75,26 @@ if(exists(files.generic)){
   if(!source.includes('toolbar no-print'))fail('generic document controls must remain outside the printed document body.');
 }
 
+if(exists(files.hardening)){
+  const source=read(files.hardening);
+  for(const required of [
+    ".document-content-body > .document-visible-block > *",
+    'margin-bottom: 2mm !important',
+    "[data-print-contrast-tone='light-text']",
+    "[data-print-contrast-tone='dark-text']",
+    '.print-route-root .amounts th',
+    '.print-route-root .pc-head',
+    '.print-route-root .pt-head',
+    '.print-route-root .report-items-title',
+  ])if(!source.includes(required))fail(`Captain hardening missing visible print law: ${required}`);
+  const firstMediaPrint=source.indexOf('@media print');
+  const rhythmIndex=source.indexOf('.document-content-body > .document-visible-block > *');
+  const contrastIndex=source.indexOf("[data-print-contrast-tone='light-text']");
+  if(firstMediaPrint>=0&&(rhythmIndex>firstMediaPrint||contrastIndex>firstMediaPrint)){
+    fail('document rhythm and adaptive contrast must apply before @media print so preview and print geometry remain identical.');
+  }
+}
+
 if(DOCUMENT_BODY_GRID.columns!==48)fail(`document body must have 48 logical columns, got ${DOCUMENT_BODY_GRID.columns}.`);
 if(DOCUMENT_BODY_GRID.rowMm!==2)fail(`document body base row must be 2 mm, got ${DOCUMENT_BODY_GRID.rowMm}.`);
 if(documentGridRowsForMm(6.1)!==4)fail('6.1 mm content must occupy four fixed 2 mm rows, not stretch a row.');
@@ -87,4 +108,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('Document body grid audit passed: one continuous 48-column body, fixed 2 mm rows, compact metadata uses two visible columns, long fields span full width, readable header contrast is automatic, and Captain repaginates after grid settlement.');
+console.log('Document body grid audit passed: one continuous 48-column body, fixed 2 mm rows, two-column metadata, 2 mm inter-block rhythm, visible adaptive contrast, and Captain repagination after grid settlement are locked.');
