@@ -1,0 +1,19 @@
+/*
+  ARKAN CLEAN DOCUMENT BOUNDARY v1
+  --------------------------------
+  This file does not own physical paper geometry. It only defines the isolation
+  contract for the clean-room document body and a denser logical rhythm.
+*/
+
+.print-constitution [data-clean-document="clean-document-v2"] {
+  --print-block-gap-before: 0mm;
+  --print-block-gap-after: 1mm;
+  isolation: isolate;
+}
+
+/* The clean renderer declares its own semantic roles. Legacy generic selectors
+   are never reintroduced here; Captain/semantic runtime remains the authority. */
+.print-constitution [data-clean-document="clean-document-v2"] [data-print-role="title-row"],
+.print-constitution [data-clean-document="clean-document-v2"] [data-print-role="constant-column"] {
+  box-sizing: border-box;
+}
