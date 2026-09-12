@@ -12,6 +12,7 @@ const CSS_PX_PER_MM=96/25.4;
 const INTERACTIVE_SELECTOR='button,input,select,textarea,dialog,[role="dialog"],.no-print';
 const LEGACY_VISIBLE_GRIDS='.g-grid,.cards,.footer-row,.pt-wrap,.xlsx-grid';
 const LOGICAL_ROW_SELECTOR='tr,.governed-cell-row,[data-print-grid-key]';
+const PRINT_HEADER_SELECTOR='th,[data-print-header="true"],.pc-head,.pt-head,.report-items-title';
 
 function sameSpans(left,right){
   const a=left||[];
@@ -76,12 +77,61 @@ function normalizeLegacyVisibleGrids(root){
   });
 }
 
+function parseRgb(value){
+  const match=String(value||'').match(/rgba?\(([^)]+)\)/i);
+  if(!match)return null;
+  const parts=match[1].split(',').map((part)=>Number.parseFloat(part.trim()));
+  if(parts.length<3||parts.slice(0,3).some((part)=>!Number.isFinite(part)))return null;
+  return {r:parts[0],g:parts[1],b:parts[2],a:Number.isFinite(parts[3])?parts[3]:1};
+}
+
+function channelLuminance(value){
+  const c=Math.max(0,Math.min(255,value))/255;
+  return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4);
+}
+
+function luminance(rgb){
+  return 0.2126*channelLuminance(rgb.r)+0.7152*channelLuminance(rgb.g)+0.0722*channelLuminance(rgb.b);
+}
+
+function contrastRatio(a,b){
+  const lighter=Math.max(a,b);
+  const darker=Math.min(a,b);
+  return (lighter+0.05)/(darker+0.05);
+}
+
+function resolvedBackground(element,root){
+  let current=element;
+  while(current&&current!==root.parentElement){
+    const rgb=parseRgb(window.getComputedStyle(current).backgroundColor);
+    if(rgb&&rgb.a>0.02)return rgb;
+    if(current===root)break;
+    current=current.parentElement;
+  }
+  return {r:255,g:255,b:255,a:1};
+}
+
+function enforceHeaderContrast(root){
+  [...root.querySelectorAll(PRINT_HEADER_SELECTOR)].forEach((header)=>{
+    const background=resolvedBackground(header,root);
+    const bgLum=luminance(background);
+    const whiteContrast=contrastRatio(1,bgLum);
+    const darkLum=luminance({r:34,g:34,b:34});
+    const darkContrast=contrastRatio(darkLum,bgLum);
+    const color=whiteContrast>=darkContrast?'#FFFFFF':'#222222';
+    header.style.color=color;
+    header.dataset.printContrast='auto';
+    header.dataset.printContrastTone=color==='#FFFFFF'?'light-text':'dark-text';
+  });
+}
+
 export default function DocumentContentRoot({
   as:Tag='div',
   className='',
   children,
   rootProps={},
   documentKey='',
+  ...rest
 }){
   const rootRef=useRef(null);
   const childArray=useMemo(()=>Children.toArray(children),[children]);
@@ -92,6 +142,7 @@ export default function DocumentContentRoot({
     if(!root)return;
     normalizeLegacyVisibleGrids(root);
     quantizeLogicalRows(root);
+    enforceHeaderContrast(root);
     const wrappers=[...root.querySelectorAll(':scope > [data-document-visible-block="true"]')];
     const next=wrappers.map((wrapper)=>documentGridRowsForPx(naturalOuterHeight(wrapper),CSS_PX_PER_MM,1));
     setSpans((current)=>sameSpans(current,next)?current:next);
@@ -101,7 +152,7 @@ export default function DocumentContentRoot({
     }
   },[children,className,documentKey]);
 
-  const safeRootProps={...rootProps};
+  const safeRootProps={...rootProps,...rest};
   delete safeRootProps.children;
   delete safeRootProps.className;
 
