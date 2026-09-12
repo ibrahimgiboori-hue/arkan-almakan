@@ -2,6 +2,9 @@
  * Generic document compact rhythm.
  * Shared by preview and print: no @media print geometry overrides.
  * The Captain still owns physical page geometry and pagination.
+ *
+ * IMPORTANT: this file owns density/rhythm only. Semantic colors belong to
+ * the Captain's title-row / constant-column authority and must not be set here.
  */
 .print-doc-generic_document{
   --g-gap:2mm!important;
@@ -23,26 +26,6 @@
 .print-doc-generic_document .pt-wrap,
 .print-doc-generic_document .letter-body{margin-bottom:2mm!important}
 .print-doc-generic_document .fill{min-height:0!important;height:0!important}
-
-/* Every known dark filled heading uses high-contrast white text, including descendants after Captain cloning. */
-.print-doc-generic_document .card-head,
-.print-doc-generic_document .dc-head,
-.print-doc-generic_document .amounts thead th,
-.print-doc-generic_document .sigtable thead th,
-.print-doc-generic_document .pc-head,
-.print-doc-generic_document .pt-head,
-.print-doc-generic_document .report-items-title{
-  background:#7d1f2f!important;
-  color:#fff!important;
-  border-color:#7d1f2f!important;
-}
-.print-doc-generic_document .card-head *,
-.print-doc-generic_document .dc-head *,
-.print-doc-generic_document .amounts thead th *,
-.print-doc-generic_document .sigtable thead th *,
-.print-doc-generic_document .pc-head *,
-.print-doc-generic_document .pt-head *,
-.print-doc-generic_document .report-items-title *{color:inherit!important}
 
 /* Document metadata stays compact; basic metadata can use the runtime two-column projection. */
 .print-doc-generic_document .cards{gap:2mm!important}
