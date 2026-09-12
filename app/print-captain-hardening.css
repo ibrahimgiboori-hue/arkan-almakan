@@ -5,9 +5,69 @@
  * ConstitutionPagedFrame. Document components own content only;
  * the Captain owns paper geometry, pagination boundaries and print fidelity.
  *
- * Important: this layer never changes text/table wrapping only at print time.
- * Pagination is measured on screen first, so flow geometry must remain identical.
+ * Important: any shared visual law that affects measured flow lives outside
+ * @media print so screen measurement and physical print use identical geometry.
  */
+
+/*
+ * Shared visible document rhythm
+ * ------------------------------
+ * The document is one continuous body. Legacy templates used local 4–7 mm
+ * bottom margins, producing large empty bands between otherwise adjacent blocks.
+ * Captain normalizes only the OUTER rhythm here to one fixed 2 mm grid row.
+ * Internal paddings and semantic structure remain owned by each content block.
+ */
+.document-content-body > .document-visible-block > * {
+  margin-top: 0 !important;
+  margin-bottom: 2mm !important;
+}
+.document-content-body > .document-visible-block:last-child > * {
+  margin-bottom: 0 !important;
+}
+
+/*
+ * Readable fill/text contract
+ * ---------------------------
+ * DocumentContentRoot calculates the best foreground from the actual fill and
+ * emits a tone. These selectors make that decision survive measurement clones,
+ * pagination clones and nested spans in both preview and physical print.
+ */
+.constitution-paged-content [data-print-contrast-tone='light-text'],
+.constitution-flow-measure [data-print-contrast-tone='light-text'] {
+  color: #fff !important;
+}
+.constitution-paged-content [data-print-contrast-tone='light-text'] *,
+.constitution-flow-measure [data-print-contrast-tone='light-text'] * {
+  color: inherit !important;
+}
+.constitution-paged-content [data-print-contrast-tone='dark-text'],
+.constitution-flow-measure [data-print-contrast-tone='dark-text'] {
+  color: #222 !important;
+}
+.constitution-paged-content [data-print-contrast-tone='dark-text'] *,
+.constitution-flow-measure [data-print-contrast-tone='dark-text'] * {
+  color: inherit !important;
+}
+
+/*
+ * Canonical dark-fill fallback
+ * ----------------------------
+ * These known document headers are constitutionally dark maroon. The adaptive
+ * runtime remains the general law; this fallback prevents a later local color
+ * rule from ever producing black-on-maroon while a clone is being created.
+ */
+.print-route-root .amounts th,
+.print-route-root .pc-head,
+.print-route-root .pt-head,
+.print-route-root .report-items-title {
+  color: #fff !important;
+}
+.print-route-root .amounts th *,
+.print-route-root .pc-head *,
+.print-route-root .pt-head *,
+.print-route-root .report-items-title * {
+  color: inherit !important;
+}
 
 /* Screen preview: make the physical sheet boundary explicit without changing geometry. */
 @media screen {
