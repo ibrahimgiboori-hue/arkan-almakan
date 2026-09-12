@@ -87,11 +87,11 @@ if(exists(files.hardening)){
     '.print-route-root .pt-head',
     '.print-route-root .report-items-title',
   ])if(!source.includes(required))fail(`Captain hardening missing visible print law: ${required}`);
-  const firstMediaPrint=source.indexOf('@media print');
+  const firstMediaPrint=source.indexOf('\n@media print {');
   const rhythmIndex=source.indexOf('.document-content-body > .document-visible-block > *');
   const contrastIndex=source.indexOf("[data-print-contrast-tone='light-text']");
   if(firstMediaPrint>=0&&(rhythmIndex>firstMediaPrint||contrastIndex>firstMediaPrint)){
-    fail('document rhythm and adaptive contrast must apply before @media print so preview and print geometry remain identical.');
+    fail('document rhythm and adaptive contrast must apply before the actual @media print block so preview and print geometry remain identical.');
   }
 }
 
