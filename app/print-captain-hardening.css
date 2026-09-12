@@ -146,35 +146,53 @@
 }
 
 /*
- * Blank paper forms are filled by hand. Preserve the normal maroon table head,
- * but turn empty table values into a full-width dotted handwriting guide.
- * The same geometry is used in preview and physical print.
+ * Smart empty-field language
+ * --------------------------
+ * Shared by blank and populated forms. Missing text leaves a handwriting guide;
+ * missing numeric content is a dash; missing dates show their expected paper
+ * pattern. The normal maroon table head remains untouched.
  */
-.blank-form-mode .amounts th,
-.print-doc-generic_document.blank-form-mode .amounts th {
-  background: var(--maroon) !important;
-  color: #fff !important;
-  border-color: var(--maroon) !important;
-  font-weight: 700 !important;
+.blank-write-line {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 1em;
+  vertical-align: baseline;
+  color: #716868;
+  font-weight: 400;
 }
 
-.blank-form-mode .amounts .blank-write-line,
-.print-doc-generic_document.blank-form-mode .amounts .blank-write-line {
-  display: block !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  height: .9em !important;
-  box-sizing: border-box !important;
-  border: 0 !important;
-  border-bottom: 1px dotted #B8AAAA !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  color: transparent !important;
+.blank-write-line.blank-text {
+  width: 100%;
+  min-width: 18mm;
+  border: 0;
+  border-bottom: .25mm dotted #9E9292;
+  color: transparent;
 }
 
-.blank-form-mode .amounts .blank-write-line::before,
-.blank-form-mode .amounts .blank-write-line::after,
-.print-doc-generic_document.blank-form-mode .amounts .blank-write-line::before,
-.print-doc-generic_document.blank-form-mode .amounts .blank-write-line::after {
+.blank-write-line.blank-text.wide {
+  width: 100%;
+  min-width: 55mm;
+}
+
+.blank-write-line.blank-number,
+.blank-write-line.blank-date {
+  width: auto;
+  min-width: 0;
+  border: 0;
+  color: #716868;
+  white-space: nowrap;
+}
+
+.blank-write-line.blank-date {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+/* The element itself owns the placeholder; legacy pseudo markers stay disabled. */
+.blank-write-line::before,
+.blank-write-line::after {
   content: none !important;
 }
