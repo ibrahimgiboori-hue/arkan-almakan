@@ -12,7 +12,7 @@ const CSS_PX_PER_MM=96/25.4;
 const INTERACTIVE_SELECTOR='button,input,select,textarea,dialog,[role="dialog"],.no-print';
 const LEGACY_VISIBLE_GRIDS='.g-grid,.cards,.footer-row,.pt-wrap,.xlsx-grid';
 const LOGICAL_ROW_SELECTOR='tr,.governed-cell-row,[data-print-grid-key]';
-const PRINT_HEADER_SELECTOR='th,[data-print-header="true"],.pc-head,.pt-head,.report-items-title';
+const PRINT_HEADER_SELECTOR='th,[data-print-header="true"],.card-head,.pc-head,.pt-head,.dc-head,.report-items-title,.strict>.head';
 const COMPACT_METADATA_TABLES='.card-doc table:not(.amounts),.pc-table';
 const WIDE_METADATA_LABEL=/(الملاحظات|التفاصيل|المبررات|الوصف|الشرح|السبب|الغرض|العنوان|النص|الموضوع)/;
 const MIN_READABLE_CONTRAST=4.5;
@@ -98,6 +98,9 @@ function normalizeCompactMetadata(root){
     if(rows.length<4)return;
 
     table.dataset.printMetadataLayout='two-column';
+    table.style.display='block';
+    table.style.width='100%';
+    table.style.tableLayout='auto';
     body.dataset.printMetadataBody='two-column';
     body.style.display='grid';
     body.style.gridTemplateColumns='repeat(2,minmax(0,1fr))';
@@ -109,6 +112,7 @@ function normalizeCompactMetadata(root){
     if(container){
       container.dataset.printMetadataLayout='two-column';
       container.style.width='100%';
+      container.style.maxWidth='none';
       if(container.parentElement?.classList.contains('cards'))container.style.gridColumn='1 / -1';
     }
 
@@ -116,24 +120,35 @@ function normalizeCompactMetadata(root){
       const cells=[...row.children].filter((cell)=>cell.tagName==='TD'||cell.tagName==='TH');
       row.dataset.printMetadataField='true';
       row.style.display='grid';
-      row.style.gridTemplateColumns='minmax(30%,42%) minmax(0,1fr)';
+      row.style.gridTemplateColumns='minmax(26mm,34%) minmax(0,1fr)';
       row.style.minWidth='0';
+      row.style.width='100%';
+      row.style.boxSizing='border-box';
       row.style.alignItems='stretch';
       row.style.gridColumn=metadataRowIsWide(row)?'1 / -1':'auto';
       if(row.style.gridColumn==='1 / -1')row.dataset.printMetadataWide='true';
       cells.forEach((cell)=>{
         cell.style.display='flex';
         cell.style.alignItems='center';
+        cell.style.width='100%';
+        cell.style.maxWidth='none';
         cell.style.minWidth='0';
+        cell.style.boxSizing='border-box';
+        cell.style.whiteSpace='normal';
+        cell.style.overflowWrap='normal';
+        cell.style.wordBreak='normal';
       });
     });
   });
 }
 
 function parseRgb(value){
-  const match=String(value||'').match(/rgba?\(([^)]+)\)/i);
+  const raw=String(value||'').trim();
+  if(!raw||raw==='transparent')return null;
+  const match=raw.match(/rgba?\(([^)]+)\)/i);
   if(!match)return null;
-  const parts=match[1].split(',').map((part)=>Number.parseFloat(part.trim()));
+  const normalized=match[1].replace(/\s*\/\s*/g,' ').replace(/,/g,' ');
+  const parts=normalized.trim().split(/\s+/).map((part)=>Number.parseFloat(part));
   if(parts.length<3||parts.slice(0,3).some((part)=>!Number.isFinite(part)))return null;
   return {r:parts[0],g:parts[1],b:parts[2],a:Number.isFinite(parts[3])?parts[3]:1};
 }
