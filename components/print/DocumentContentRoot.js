@@ -25,11 +25,23 @@ function sameSpans(left,right){
 
 function naturalOuterHeight(element){
   if(!element)return 0;
-  const child=element.firstElementChild;
-  if(!child)return element.scrollHeight||element.getBoundingClientRect().height||0;
-  const rect=child.getBoundingClientRect();
-  const style=window.getComputedStyle(child);
-  return rect.height+(parseFloat(style.marginTop)||0)+(parseFloat(style.marginBottom)||0);
+  const wrapperRect=element.getBoundingClientRect();
+  const children=[...element.children].filter((child)=>window.getComputedStyle(child).display!=='none');
+  if(!children.length)return element.scrollHeight||wrapperRect.height||0;
+
+  // A governed React block may render multiple sibling DOM roots (for example a
+  // section title followed by a repeatable table). Measuring only the first root
+  // under-allocates the fixed 2 mm grid span and lets the following block start
+  // on top of the overflowing siblings. Measure the complete rendered extent
+  // instead, while still allowing the span to shrink when content becomes smaller.
+  let furthestBottom=0;
+  children.forEach((child)=>{
+    const rect=child.getBoundingClientRect();
+    const style=window.getComputedStyle(child);
+    const marginBottom=parseFloat(style.marginBottom)||0;
+    furthestBottom=Math.max(furthestBottom,rect.bottom-wrapperRect.top+marginBottom);
+  });
+  return Math.max(0,furthestBottom);
 }
 
 function quantizeLogicalRows(root){
