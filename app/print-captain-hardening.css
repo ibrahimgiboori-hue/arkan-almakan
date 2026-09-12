@@ -12,17 +12,17 @@
 /*
  * Shared visible document rhythm
  * ------------------------------
- * The document is one continuous body. Legacy templates used local 4–7 mm
- * bottom margins, producing large empty bands between otherwise adjacent blocks.
- * Captain normalizes only the OUTER rhythm here to one fixed 2 mm grid row.
- * Internal paddings and semantic structure remain owned by each content block.
+ * The document is one continuous body. Every block defaults to one 2 mm row
+ * after it, but the content workbench may reduce/increase before/after spacing.
+ * Because these values live on the flow itself, removing space pulls every
+ * following block upward and Captain repaginates the result.
  */
 .document-content-body > .document-visible-block > * {
-  margin-top: 0 !important;
-  margin-bottom: 2mm !important;
+  margin-top: var(--print-block-gap-before, 0mm) !important;
+  margin-bottom: var(--print-block-gap-after, 2mm) !important;
 }
 .document-content-body > .document-visible-block:last-child > * {
-  margin-bottom: 0 !important;
+  margin-bottom: var(--print-block-gap-after, 0mm) !important;
 }
 
 /*
@@ -31,6 +31,8 @@
  * DocumentContentRoot calculates the best foreground from the actual fill and
  * emits a tone. These selectors make that decision survive measurement clones,
  * pagination clones and nested spans in both preview and physical print.
+ * Manual workbench colors use inline !important values and therefore override
+ * this automatic fallback only when the user explicitly chooses them.
  */
 .constitution-paged-content [data-print-contrast-tone='light-text'],
 .constitution-flow-measure [data-print-contrast-tone='light-text'] {
@@ -198,6 +200,7 @@
   .no-print,
   .constitution-paged-layoutbar,
   .constitution-presentation-editor,
+  .print-content-workbench,
   .constitution-paged-grid-overlay,
   .constitution-safe-zone-guide,
   .constitution-flow-measure {
