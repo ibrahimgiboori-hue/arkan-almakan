@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { money, qty as fq, dateAr } from '@/lib/format';
 import { CHARGE_AR } from '@/lib/projects';
-
-const DOC_KINDS = ['محضر استلام','تقرير يومي','تقرير أسبوعي','صورة موقع','مراسلة مع المالك','مخطط','أخرى'];
+import { PROJECT_DOCUMENT_KINDS } from '@/lib/project-documents.mjs';
+import { projectDocumentsService } from '@/lib/application/project-documents-service';
 
 export default function ProjDocs({ project, canWrite, mode = 'all' }) {
   const showDocs = mode === 'all' || mode === 'documents';
@@ -20,88 +19,90 @@ export default function ProjDocs({ project, canWrite, mode = 'all' }) {
   const [msg, setMsg] = useState('');
 
   async function load() {
-    const tasks = [];
-    if (showDocs) {
-      tasks.push(supabase.from('site_documents').select('*').eq('project_id', project.id).order('doc_date', { ascending: false }));
-      tasks.push(
-        supabase
-          .from('documents')
-          .select('id,doc_number,subject,status,created_at,updated_at,template_code,internal_approval_status')
-          .eq('project_id', project.id)
-          .order('created_at', { ascending: false })
-      );
+    if (!project?.id) return;
+    setErr('');
+    try {
+      const workspace = await projectDocumentsService.loadWorkspace({ projectId:project.id, mode });
+      setDocs(workspace.siteDocs);
+      setCentralDocs(workspace.centralDocs);
+      setMats(workspace.materials);
+    } catch (error) {
+      setErr('تعذّر تحميل مستندات ومواد المشروع: ' + (error?.message || error));
     }
-    if (showMaterials) tasks.push(supabase.from('project_materials').select('*').eq('project_id', project.id).order('received_at', { ascending: false }));
-    const results = await Promise.all(tasks);
-    let i = 0;
-    if (showDocs) {
-      const siteResult = results[i++];
-      const centralResult = results[i++];
-      setDocs(siteResult?.data || []);
-      setCentralDocs(centralResult?.data || []);
-      if (siteResult?.error || centralResult?.error) {
-        setErr(siteResult?.error?.message || centralResult?.error?.message || 'تعذّر تحميل مستندات المشروع');
-      }
-    }
-    if (showMaterials) setMats(results[i++]?.data || []);
   }
 
-  useEffect(() => { load(); }, [project.id, mode]);
+  useEffect(() => { load(); }, [project?.id, mode]);
 
   async function addDoc(e) {
     e.preventDefault(); setErr(''); setMsg(''); setBusy(true);
-    let path = null;
-    if (file) {
-      const ext = file.name.split('.').pop().toLowerCase();
-      path = `${project.id}/${Date.now()}.${ext}`;
-      const up = await supabase.storage.from('site-docs').upload(path, file);
-      if (up.error) { setErr('تعذّر رفع الملف: ' + up.error.message); setBusy(false); return; }
+    try {
+      await projectDocumentsService.addSiteDocument({ projectId:project.id, draft:nd, file });
+      setMsg('أُضيف المستند');
+      setNd({ doc_kind:'محضر استلام', title:'', description:'' });
+      setFile(null);
+      await load();
+    } catch (error) {
+      setErr('تعذّر حفظ المستند: ' + (error?.message || error));
+    } finally {
+      setBusy(false);
     }
-    const { error } = await supabase.from('site_documents').insert({ project_id: project.id, ...nd, file_path: path });
-    setBusy(false);
-    if (error) { setErr('تعذّر الحفظ: ' + error.message); return; }
-    setMsg('أُضيف المستند');
-    setNd({ doc_kind:'محضر استلام', title:'', description:'' }); setFile(null); load();
   }
 
   async function openFile(path) {
-    const { data, error } = await supabase.storage.from('site-docs').createSignedUrl(path, 300);
-    if (error) { setErr('تعذّر الفتح: ' + error.message); return; }
-    window.open(data.signedUrl, '_blank');
+    setErr('');
+    try {
+      const url = await projectDocumentsService.openSiteDocument(path);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      setErr('تعذّر فتح الملف: ' + (error?.message || error));
+    }
   }
 
   async function delDoc(id) {
     if (!window.confirm('حذف هذا المستند؟')) return;
-    const { error } = await supabase.from('site_documents').delete().eq('id', id);
-    if (error) setErr(error.message); else load();
+    setErr(''); setMsg('');
+    try {
+      const result = await projectDocumentsService.deleteSiteDocument({ projectId:project.id, id });
+      if (result.cleanupWarning) setErr(result.cleanupWarning);
+      else setMsg('حُذف المستند.');
+      await load();
+    } catch (error) {
+      setErr('تعذّر حذف المستند: ' + (error?.message || error));
+    }
   }
 
   async function addMat(e) {
     e.preventDefault(); setErr(''); setMsg('');
-    const { error } = await supabase.from('project_materials').insert({
-      project_id: project.id,
-      material_name: nm.material_name, unit: nm.unit || null,
-      qty_in: Number(nm.qty_in || 0), unit_cost: Number(nm.unit_cost || 0),
-      supplier: nm.supplier || null, charge_to: nm.charge_to,
-      received_at: new Date().toISOString().slice(0,10),
-    });
-    if (error) { setErr(error.message); return; }
-    setMsg('سُجّلت المادة');
-    setNm({ material_name:'', unit:'', qty_in:'', unit_cost:'', supplier:'', charge_to:'arkan' });
-    load();
+    try {
+      await projectDocumentsService.addMaterial({ projectId:project.id, draft:nm });
+      setMsg('سُجّلت المادة');
+      setNm({ material_name:'', unit:'', qty_in:'', unit_cost:'', supplier:'', charge_to:'arkan' });
+      await load();
+    } catch (error) {
+      setErr(error?.message || String(error));
+    }
   }
 
   async function updMat(id, fields) {
-    const { error } = await supabase.from('project_materials').update(fields).eq('id', id);
-    if (error) setErr(error.message); else load();
+    setErr('');
+    try {
+      await projectDocumentsService.updateMaterial({ projectId:project.id, id, fields });
+      await load();
+    } catch (error) {
+      setErr(error?.message || String(error));
+    }
   }
 
   async function delMat(id) {
     if (!window.confirm('حذف هذه المادة؟')) return;
-    // الخطأ كان يُبتلع كليًا: يعود الصف بعد load() بلا أي تفسير للمستخدم.
-    const { error } = await supabase.from('project_materials').delete().eq('id', id);
-    if (error) setErr('تعذّر حذف المادة: ' + error.message);
-    load();
+    setErr(''); setMsg('');
+    try {
+      await projectDocumentsService.deleteMaterial({ projectId:project.id, id });
+      setMsg('حُذفت المادة.');
+      await load();
+    } catch (error) {
+      setErr('تعذّر حذف المادة: ' + (error?.message || error));
+    }
   }
 
   const laborOnly = project.supply_scope === 'labor_only';
@@ -115,7 +116,7 @@ export default function ProjDocs({ project, canWrite, mode = 'all' }) {
         <header><h2>إضافة مستند موقع</h2></header>
         <div style={{padding:18}}>
           <div className="form-grid">
-            <div className="field"><label>النوع</label><select value={nd.doc_kind} onChange={(e)=>setNd({...nd,doc_kind:e.target.value})}>{DOC_KINDS.map(k=><option key={k}>{k}</option>)}</select></div>
+            <div className="field"><label>النوع</label><select value={nd.doc_kind} onChange={(e)=>setNd({...nd,doc_kind:e.target.value})}>{PROJECT_DOCUMENT_KINDS.map(k=><option key={k}>{k}</option>)}</select></div>
             <div className="field span2"><label>العنوان *</label><input required value={nd.title} onChange={(e)=>setNd({...nd,title:e.target.value})}/></div>
             <div className="field span2"><label>الوصف</label><input value={nd.description} onChange={(e)=>setNd({...nd,description:e.target.value})}/></div>
             <div className="field"><label>الملف</label><input type="file" accept="image/*,application/pdf" onChange={(e)=>setFile(e.target.files?.[0]||null)} style={{fontSize:13}}/></div>
