@@ -13,6 +13,7 @@ const INTERACTIVE_SELECTOR='button,input,select,textarea,dialog,[role="dialog"],
 const LEGACY_VISIBLE_GRIDS='.g-grid,.cards,.footer-row,.pt-wrap,.xlsx-grid';
 const LOGICAL_ROW_SELECTOR='tr,.governed-cell-row,[data-print-grid-key]';
 const PRINT_HEADER_SELECTOR='th,[data-print-header="true"],.pc-head,.pt-head,.report-items-title';
+const MIN_READABLE_CONTRAST=4.5;
 
 function sameSpans(left,right){
   const a=left||[];
@@ -111,17 +112,38 @@ function resolvedBackground(element,root){
   return {r:255,g:255,b:255,a:1};
 }
 
+function enforceTextColor(element,color,tone){
+  element.style.setProperty('color',color,'important');
+  element.dataset.printContrast='auto';
+  element.dataset.printContrastTone=tone;
+  [...element.querySelectorAll('*')].forEach((child)=>{
+    child.style.setProperty('color','inherit','important');
+  });
+}
+
 function enforceHeaderContrast(root){
   [...root.querySelectorAll(PRINT_HEADER_SELECTOR)].forEach((header)=>{
     const background=resolvedBackground(header,root);
     const bgLum=luminance(background);
+    const current=parseRgb(window.getComputedStyle(header).color);
+    const currentContrast=current?contrastRatio(luminance(current),bgLum):0;
+
+    // الخلفية البيضاء/الفاتحة تحتفظ باللون الأصلي إذا كان مقروءًا أصلًا.
+    // عند ضعف التباين فقط نختار اللون الأعلى تباينًا؛ لذلك العنابي يحصل على أبيض،
+    // بينما الرأس الأبيض يمكن أن يحتفظ بالعنابي أو أي لون داكن مقروء.
+    if(current&&currentContrast>=MIN_READABLE_CONTRAST){
+      header.dataset.printContrast='preserved';
+      header.dataset.printContrastRatio=currentContrast.toFixed(2);
+      return;
+    }
+
     const whiteContrast=contrastRatio(1,bgLum);
-    const darkLum=luminance({r:34,g:34,b:34});
-    const darkContrast=contrastRatio(darkLum,bgLum);
-    const color=whiteContrast>=darkContrast?'#FFFFFF':'#222222';
-    header.style.color=color;
-    header.dataset.printContrast='auto';
-    header.dataset.printContrastTone=color==='#FFFFFF'?'light-text':'dark-text';
+    const darkColor={r:34,g:34,b:34};
+    const darkContrast=contrastRatio(luminance(darkColor),bgLum);
+    const useWhite=whiteContrast>=darkContrast;
+    const color=useWhite?'#FFFFFF':'#222222';
+    enforceTextColor(header,color,useWhite?'light-text':'dark-text');
+    header.dataset.printContrastRatio=Math.max(whiteContrast,darkContrast).toFixed(2);
   });
 }
 
