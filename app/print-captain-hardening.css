@@ -26,13 +26,11 @@
 }
 
 /*
- * Readable fill/text contract
+ * Readable fill/text fallback
  * ---------------------------
- * DocumentContentRoot calculates the best foreground from the actual fill and
- * emits a tone. These selectors make that decision survive measurement clones,
- * pagination clones and nested spans in both preview and physical print.
- * Manual workbench colors use inline !important values and therefore override
- * this automatic fallback only when the user explicitly chooses them.
+ * This contract is retained only for non-semantic legacy elements. Elements
+ * classified as title-row / constant-column are owned by the Captain semantic
+ * runtime and are intentionally not hard-coded in this stylesheet.
  */
 .constitution-paged-content [data-print-contrast-tone='light-text'],
 .constitution-flow-measure [data-print-contrast-tone='light-text'] {
@@ -48,26 +46,6 @@
 }
 .constitution-paged-content [data-print-contrast-tone='dark-text'] *,
 .constitution-flow-measure [data-print-contrast-tone='dark-text'] * {
-  color: inherit !important;
-}
-
-/*
- * Canonical dark-fill fallback
- * ----------------------------
- * These known document headers are constitutionally dark maroon. The adaptive
- * runtime remains the general law; this fallback prevents a later local color
- * rule from ever producing black-on-maroon while a clone is being created.
- */
-.print-route-root .amounts th,
-.print-route-root .pc-head,
-.print-route-root .pt-head,
-.print-route-root .report-items-title {
-  color: #fff !important;
-}
-.print-route-root .amounts th *,
-.print-route-root .pc-head *,
-.print-route-root .pt-head *,
-.print-route-root .report-items-title * {
   color: inherit !important;
 }
 
