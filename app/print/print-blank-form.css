@@ -1,6 +1,8 @@
 /* ============================================================
-   النموذج الورقي الفارغ — خاصية دستورية لمحرك المستندات
-   كل selector محصور داخل جذر الطباعة حتى لا يتسرب للواجهة.
+   لغة الفراغ الذكية للمطبوعات والنموذج الورقي
+   -------------------------------------------
+   هذا الملف يحدد كيف تظهر القيمة غير المدخلة حسب نوع الحقل، سواء كان
+   المستند في وضع «نموذج فارغ» أو مستندًا عاديًا به بعض القيم الناقصة.
    ============================================================ */
 
 .print-route-root .blank-row-control{
@@ -22,34 +24,67 @@
 }
 .print-route-root .toolbar button:disabled{opacity:.55;cursor:not-allowed}
 
-.print-route-root .blank-form-mode .blank-write-line{
+/*
+ * قيمة غير مدخلة:
+ * - نص: دليل نقطي ممتد لمساحة الكتابة.
+ * - رقم/مال: شرطة.
+ * - تاريخ: ..../..../......
+ * العنصر نفسه يحمل الدلالة؛ لا pseudo-content ولا شرط خاص بنموذج واحد.
+ */
+.print-route-root .blank-write-line{
   display:inline-block;
-  width:28mm;
-  min-width:16mm;
-  max-width:100%;
-  height:4.5mm;
-  border-bottom:.25mm solid #777;
-  vertical-align:bottom;
   box-sizing:border-box;
+  max-width:100%;
+  min-height:1em;
+  vertical-align:baseline;
+  color:#716868;
+  font-weight:400;
 }
-.print-route-root .blank-form-mode .blank-write-line.wide{width:min(100%,80mm)}
-.print-route-root .blank-form-mode .blank-write-line.blank-date{width:27mm}
-.print-route-root .blank-form-mode .blank-write-line.blank-number{width:18mm}
-.print-route-root .blank-form-mode .blank-write-line.blank-money{width:25mm}
+.print-route-root .blank-write-line.blank-text{
+  display:block;
+  width:100%;
+  min-width:16mm;
+  height:1em;
+  border:0;
+  border-bottom:.25mm dotted #9E9292;
+  color:transparent;
+}
+.print-route-root .blank-write-line.blank-text.wide{width:100%;min-width:55mm}
+.print-route-root .blank-write-line.blank-number,
+.print-route-root .blank-write-line.blank-date{
+  width:auto;
+  min-width:0;
+  height:auto;
+  border:0;
+  color:#716868;
+  white-space:nowrap;
+}
+.print-route-root .blank-write-line.blank-date{
+  direction:ltr;
+  unicode-bidi:isolate;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:.02em;
+}
+.print-route-root .blank-write-line::before,
+.print-route-root .blank-write-line::after{content:none!important}
+
+/* يبقى عقد النموذج الفارغ صريحًا، لكن نفس اللغة تعمل أيضًا في المستند العادي. */
+.print-route-root .blank-form-mode .blank-write-line{max-width:100%}
 .print-route-root .blank-form-mode .blank-party-value{width:100%}
 
-.print-route-root .blank-form-mode .blank-writing-lines{
+/* المساحات النصية الطويلة تستخدم عدة أسطر نقطية للكتابة اليدوية. */
+.print-route-root .blank-writing-lines{
   display:flex;
   flex-direction:column;
   width:100%;
   gap:2mm;
   min-width:0;
 }
-.print-route-root .blank-form-mode .blank-writing-lines>span{
+.print-route-root .blank-writing-lines>span{
   display:block;
   width:100%;
   height:5.5mm;
-  border-bottom:.22mm solid #9a9a9a;
+  border-bottom:.22mm dotted #9E9292;
   box-sizing:border-box;
 }
 
@@ -88,8 +123,8 @@
 
 @media print{
   .print-route-root .blank-row-control{display:none!important}
-  .print-route-root .blank-form-mode .blank-write-line,
-  .print-route-root .blank-form-mode .blank-writing-lines>span{
+  .print-route-root .blank-write-line,
+  .print-route-root .blank-writing-lines>span{
     -webkit-print-color-adjust:exact!important;
     print-color-adjust:exact!important;
   }
