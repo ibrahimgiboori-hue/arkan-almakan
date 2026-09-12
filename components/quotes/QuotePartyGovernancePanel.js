@@ -1,23 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import {
   CLIENT_KIND,
   employeeSignatoryPatch,
   isEntityClient,
   manualSignatoryPatch,
 } from '@/lib/approval-governance';
-
-const PARTY_FIELDS = [
-  'id',
-  'client_kind',
-  'client_representative_name',
-  'client_representative_title',
-  'arkan_signatory_employee_id',
-  'arkan_signatory_name',
-  'arkan_signatory_title',
-].join(',');
+import { quoteEditorService } from '@/lib/application/quote-editor-service';
 
 export default function QuotePartyGovernancePanel({ quoteId }) {
   const [record, setRecord] = useState(null);
@@ -28,38 +18,34 @@ export default function QuotePartyGovernancePanel({ quoteId }) {
 
   const load = useCallback(async () => {
     if (!quoteId) return;
-    const [quoteRes, employeesRes] = await Promise.all([
-      supabase.from('quotations').select(PARTY_FIELDS).eq('id', quoteId).maybeSingle(),
-      supabase.from('employees')
-        .select('id,full_name_ar,job_title,board_role,person_kind,status')
-        .eq('status', 'active')
-        .order('full_name_ar'),
-    ]);
-    if (quoteRes.error || !quoteRes.data) {
-      setError(quoteRes.error?.message || 'تعذر تحميل بيانات أطراف العرض.');
-      return;
+    try{
+      const workspace=await quoteEditorService.loadParty({quoteId});
+      setError('');
+      setRecord(workspace.record);
+      setEmployees(workspace.employees);
+    }catch(loadError){
+      setError(loadError?.message || 'تعذر تحميل بيانات أطراف العرض.');
     }
-    setError('');
-    setRecord(quoteRes.data);
-    setEmployees(employeesRes.data || []);
   }, [quoteId]);
 
   useEffect(() => { load(); }, [load]);
 
   async function patch(fields, successMessage = 'حُفظت بيانات الأطراف') {
     if (!record) return;
+    const previous=record;
     const next = { ...record, ...fields };
     setRecord(next);
     setMessage('');
     setError('');
-    const { error: updateError } = await supabase.from('quotations').update(fields).eq('id', quoteId);
-    if (updateError) {
-      setError('تعذر الحفظ: ' + updateError.message);
+    try{
+      await quoteEditorService.patchParty({quoteId,fields});
+      setMessage(successMessage);
+      window.setTimeout(() => setMessage(''), 1500);
+    }catch(updateError){
+      setRecord(previous);
+      setError('تعذر الحفظ: ' + (updateError?.message || updateError));
       await load();
-      return;
     }
-    setMessage(successMessage);
-    window.setTimeout(() => setMessage(''), 1500);
   }
 
   function updateDraft(field, value) {
