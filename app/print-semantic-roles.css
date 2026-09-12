@@ -1,0 +1,23 @@
+/*
+ * Captain semantic presentation authority
+ * ---------------------------------------
+ * Color is attached to meaning, not to template/class names.
+ * The runtime classifies document nodes as title-row or constant-column and
+ * exposes the active choices through these variables. Route/profile CSS may
+ * provide structural defaults, but it may not override this semantic layer.
+ */
+.document-content-body [data-print-semantic='title-row'] {
+  color: var(--captain-title-row-text, #ffffff) !important;
+  background-color: var(--captain-title-row-fill, #7d1f2f) !important;
+}
+.document-content-body [data-print-semantic='title-row'] * {
+  color: inherit !important;
+}
+
+.document-content-body [data-print-semantic='constant-column'] {
+  color: var(--captain-constant-column-text, #444444) !important;
+  background-color: var(--captain-constant-column-fill, #ffffff) !important;
+}
+.document-content-body [data-print-semantic='constant-column'] * {
+  color: inherit !important;
+}
