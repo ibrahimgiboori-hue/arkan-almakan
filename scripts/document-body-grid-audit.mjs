@@ -20,6 +20,7 @@ const files={
   frame:'components/print/ConstitutionPrintFrame.js',
   semantics:'components/print/PrintSemanticRolesRuntime.js',
   workbench:'components/print/PrintContentWorkbench.js',
+  cleanFlow:'components/print/forms-v2/CleanDocumentFlow.js',
   layout:'app/layout.js',
   generic:'app/print/[id]/page.js',
   hardening:'app/print-captain-hardening.css',
@@ -97,6 +98,20 @@ if(exists(files.workbench)){
   }
 }
 
+if(exists(files.cleanFlow)){
+  const source=read(files.cleanFlow);
+  for(const required of [
+    "CLEAN_DOCUMENT_SCHEMA = 'clean-document-v2'",
+    'data-clean-document={CLEAN_DOCUMENT_SCHEMA}',
+    'data-print-role="title-row"',
+    'data-print-role="constant-column"',
+    'buildCleanDocumentBlocks',
+  ])if(!source.includes(required))fail(`CleanDocumentFlow missing clean body contract: ${required}`);
+  for(const retired of ['governed-document-sheet','title-block','card-doc','card-head','plain-card','pc-head','pc-k','pc-v','amounts','sigtable','footer-row']){
+    if(source.includes(retired))fail(`CleanDocumentFlow inherited retired body selector: ${retired}`);
+  }
+}
+
 if(exists(files.layout)){
   const source=read(files.layout);
   if(!source.includes("@/components/print/PrintSemanticRolesRuntime"))fail('Root layout must load Captain semantic roles runtime.');
@@ -106,7 +121,8 @@ if(exists(files.layout)){
 
 if(exists(files.generic)){
   const source=read(files.generic);
-  if(!source.includes('className="governed-document-sheet"'))fail('generic document must expose one governed content root.');
+  if(!source.includes('buildCleanDocumentBlocks'))fail('generic document must expose the clean governed content root.');
+  if(source.includes('governed-document-sheet'))fail('generic document must not fall back to the legacy governed-document-sheet skin.');
 }
 
 if(exists(files.hardening)){
@@ -132,4 +148,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('Document body grid audit passed: Captain owns one continuous 48-column body, fixed 2 mm rows, semantic title-row/constant-column roles, role-based colors, per-block spacing and automatic repagination.');
+console.log('Document body grid audit passed: Captain owns one continuous 48-column body, clean documents expose an isolated semantic root, fixed 2 mm rows remain authoritative, and role-based styling repaginates automatically.');
