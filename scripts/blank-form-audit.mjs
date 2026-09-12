@@ -1,122 +1,65 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const root = process.cwd();
-const violations = [];
+const root=process.cwd();
+const violations=[];
 
-function read(rel) {
-  const file = path.join(root, rel);
-  if (!fs.existsSync(file)) {
-    violations.push(`${rel}: الملف مفقود`);
-    return '';
-  }
-  return fs.readFileSync(file, 'utf8');
+function read(rel){
+  const file=path.join(root,rel);
+  if(!fs.existsSync(file)){violations.push(`${rel}: الملف مفقود`);return'';}
+  return fs.readFileSync(file,'utf8');
+}
+function requireTokens(rel,tokens){
+  const content=read(rel);
+  for(const token of tokens)if(!content.includes(token))violations.push(`${rel}: missing blank-form contract ${token}`);
+}
+function forbidTokens(rel,tokens){
+  const content=read(rel);
+  for(const token of tokens)if(content.includes(token))violations.push(`${rel}: forbidden retired/legacy blank-form contract ${token}`);
 }
 
-function requireTokens(rel, tokens) {
-  const content = read(rel);
-  for (const token of tokens) {
-    if (!content.includes(token)) violations.push(`${rel}: missing blank-form contract ${token}`);
-  }
-}
-
-function forbidTokens(rel, tokens) {
-  const content = read(rel);
-  for (const token of tokens) {
-    if (content.includes(token)) violations.push(`${rel}: forbidden fixed journey contract ${token}`);
-  }
-}
-
-requireTokens('lib/print-empty-value.mjs', [
-  'isEmptyPrintValue',
-  'printEmptyKind',
-  'printEmptyToken',
-  "return '..../..../......'",
-  "return '—'",
+requireTokens('lib/print-empty-value.mjs',[
+  'isEmptyPrintValue','printEmptyKind','printEmptyToken',"return '..../..../......'","return '—'",
 ]);
 
-requireTokens('app/print/[id]/page.js', [
-  'blankForm',
-  'blankRows',
-  'blankStatusRows',
-  'طباعة نموذج فارغ',
-  'طباعة النموذج الفارغ',
-  "className={blankForm ? 'blank-form-mode' : ''}",
-  'const fields = s.fields || [];',
-  'isEmptyPrintValue',
-  'printEmptyKind',
-  'printEmptyToken',
-  'BlankWritingLines',
-  'blank={blankForm}',
-  'hasRepeatableSection',
-  'ProjectReportJourneyPrint',
+requireTokens('app/print/[id]/page.js',[
+  'blankForm','blankRows','blankStatusRows','hasRepeatableSection','buildCleanDocumentBlocks','CleanPrintToolbar',
+  "className={blankForm ? 'clean-blank-form' : ''}",
+]);
+forbidTokens('app/print/[id]/page.js',[
+  'ProjectReportJourneyPrint','PartiesPrint','BlankWritingLines','blank-form-mode','printEmptyKind','printEmptyToken',
 ]);
 
-requireTokens('components/print/ProjectReportJourneyPrint.js', [
-  'operational_lines',
-  'generatedSummary',
-  'generatedConclusion',
-  '_report_sections',
-  'blankStatusRows',
-  'report-operational-label',
+requireTokens('components/print/forms-v2/CleanDocumentFlow.js',[
+  'isEmptyPrintValue','BlankValue','BlankLines','blankForm','blankRows','blankStatusRows','hasRepeatableSection',
+  'طباعة نموذج فارغ','طباعة النموذج الفارغ','ProjectReportFlow','operational_lines','_report_sections',
+  'data-clean-document={CLEAN_DOCUMENT_SCHEMA}',
+]);
+forbidTokens('components/print/forms-v2/CleanDocumentFlow.js',[
+  "from '@/components/PartiesPrint'","from '@/components/print/ProjectReportJourneyPrint'",'blank-write-line','blank-writing-lines',
 ]);
 
-requireTokens('components/documents/ProjectReportJourneyEditor.js', [
-  'operational_lines',
-  'اكتب عنوان السطر',
-  'إضافة سطر',
-  'عنوان القسم',
-  'إضافة قسم',
+requireTokens('components/print/forms-v2/CleanDocumentFlow.module.css',[
+  '.blankValue {','.blankLines {','.blankLines span {','.projectItem {','.operationalRow {',
+]);
+forbidTokens('components/print/forms-v2/CleanDocumentFlow.module.css',[
+  '.blank-form-mode','.blank-write-line','.blank-writing-lines','.report-item-block','.report-operational-row',
 ]);
 
-requireTokens('components/documents/ProjectReportDocumentForm.js', [
-  'GENERATED_KEYS',
-  '_report_sections',
-  'ProjectReportJourneyEditor',
+requireTokens('components/documents/ProjectReportJourneyEditor.js',[
+  'operational_lines','اكتب عنوان السطر','إضافة سطر','عنوان القسم','إضافة قسم',
+]);
+requireTokens('components/documents/ProjectReportDocumentForm.js',[
+  'GENERATED_KEYS','_report_sections','ProjectReportJourneyEditor',
 ]);
 
-forbidTokens('app/print/[id]/page.js', [
-  'PROJECT_REPORT_OPERATIONAL_FIELDS',
-]);
+/* Legacy paper CSS may remain for specialized non-generic routes, but it must never own clean-room classes. */
+forbidTokens('app/print-captain-hardening.css',['.blank-write-line','.blank-form-mode .amounts th']);
 
-requireTokens('components/PartiesPrint.js', [
-  'blank = false',
-  'blank-party-value',
-  'blank-writing-lines',
-]);
-
-requireTokens('app/print/print-blank-form.css', [
-  '.print-route-root .blank-write-line.blank-text',
-  'border-bottom:.25mm dotted',
-  '.print-route-root .blank-write-line.blank-date',
-  '.print-route-root .blank-form-mode .blank-write-line',
-  '.print-route-root .blank-writing-lines',
-  '.print-route-root .blank-form-mode .report-item-block',
-  'page-break-inside:avoid',
-]);
-
-forbidTokens('app/print-captain-hardening.css', [
-  '.blank-write-line',
-  '.blank-form-mode .amounts th',
-]);
-
-requireTokens('app/print/print-report-paper-form.css', [
-  '.report-metric-label',
-  'border-bottom:.24mm solid #CDBABA',
-  '.report-metric-value',
-  '.report-operational-row',
-  'grid-template-columns:32mm minmax(0,1fr)',
-]);
-
-requireTokens('app/print/layout.js', [
-  "import './print-blank-form.css'",
-  "import './print-report-paper-form.css'",
-]);
-
-if (violations.length) {
+if(violations.length){
   console.error('\nBLANK FORM CONSTITUTION AUDIT FAILED\n');
-  for (const violation of violations) console.error(`- ${violation}`);
+  for(const violation of violations)console.error(`- ${violation}`);
   process.exit(1);
 }
 
-console.log('Blank form constitution audit passed: empty values are type-aware, filled and blank documents share one print path, project report titles remain flexible, and summaries remain generated.');
+console.log('Blank form constitution audit passed: generic filled and blank documents share the isolated clean flow, empty values remain type-aware, and the old ProjectReport/Parties print skins are not imported by the generic route.');
