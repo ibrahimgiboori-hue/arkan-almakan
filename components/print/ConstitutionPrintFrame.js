@@ -1,6 +1,6 @@
 'use client';
 
-import { Children, Fragment, cloneElement, isValidElement } from 'react';
+import { Children, Fragment, cloneElement, isValidElement, useCallback, useState } from 'react';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import DocumentContentRoot from '@/components/print/DocumentContentRoot';
 import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
@@ -37,7 +37,7 @@ function expandCaptainFlowBlocks(nodes) {
   });
 }
 
-function governedContentBody(documentKey,className,childArray){
+function governedContentBody(documentKey,className,childArray,onLayoutSettled,layoutRevision){
   if(childArray.length===1&&isValidElement(childArray[0])){
     const root=childArray[0];
     if(typeof root.type==='string'){
@@ -47,6 +47,8 @@ function governedContentBody(documentKey,className,childArray){
           documentKey={documentKey}
           rootProps={root.props}
           className={mergeClassName(root.props.className,className)}
+          onLayoutSettled={onLayoutSettled}
+          layoutRevision={layoutRevision}
         >
           {expandCaptainFlowBlocks(root.props.children)}
         </DocumentContentRoot>
@@ -58,7 +60,12 @@ function governedContentBody(documentKey,className,childArray){
     },expandCaptainFlowBlocks(root.props.children));
   }
   return (
-    <DocumentContentRoot documentKey={documentKey} className={className}>
+    <DocumentContentRoot
+      documentKey={documentKey}
+      className={className}
+      onLayoutSettled={onLayoutSettled}
+      layoutRevision={layoutRevision}
+    >
       {expandCaptainFlowBlocks(childArray)}
     </DocumentContentRoot>
   );
@@ -77,8 +84,10 @@ export default function ConstitutionPrintFrame({
   signatureStyle,
   ...rest
 }) {
+  const [layoutRevision,setLayoutRevision]=useState(0);
+  const onLayoutSettled=useCallback(()=>setLayoutRevision((value)=>value+1),[]);
   const childArray = Children.toArray(children);
-  const flowChildren = governedContentBody(documentKey,className,childArray);
+  const flowChildren = governedContentBody(documentKey,className,childArray,onLayoutSettled,layoutRevision);
 
   return (
     <ConstitutionPagedFrame
@@ -94,6 +103,7 @@ export default function ConstitutionPrintFrame({
       showPageNumbers={false}
       pageClassName="print-page"
       contentClassName="print-content"
+      dataDocumentLayoutRevision={layoutRevision}
     >
       {flowChildren}
     </ConstitutionPagedFrame>
