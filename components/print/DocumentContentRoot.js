@@ -13,6 +13,8 @@ const INTERACTIVE_SELECTOR='button,input,select,textarea,dialog,[role="dialog"],
 const LEGACY_VISIBLE_GRIDS='.g-grid,.cards,.footer-row,.pt-wrap,.xlsx-grid';
 const LOGICAL_ROW_SELECTOR='tr,.governed-cell-row,[data-print-grid-key]';
 const PRINT_HEADER_SELECTOR='th,[data-print-header="true"],.pc-head,.pt-head,.report-items-title';
+const COMPACT_METADATA_TABLES='.card-doc table:not(.amounts),.pc-table';
+const WIDE_METADATA_LABEL=/(الملاحظات|التفاصيل|المبررات|الوصف|الشرح|السبب|الغرض|العنوان|النص|الموضوع)/;
 const MIN_READABLE_CONTRAST=4.5;
 
 function sameSpans(left,right){
@@ -78,6 +80,56 @@ function normalizeLegacyVisibleGrids(root){
   });
 }
 
+function metadataRowIsWide(row){
+  const label=row.querySelector('.k,.pc-k,td:first-child')?.textContent?.trim()||'';
+  const valueCell=row.querySelector('.v,.pc-v,td:last-child');
+  if(WIDE_METADATA_LABEL.test(label))return true;
+  if(valueCell?.querySelector('.blank-writing-lines,textarea,[data-print-full-width="true"]'))return true;
+  if(valueCell?.querySelector('.blank-write-line'))return false;
+  const value=String(valueCell?.textContent||'').replace(/\s+/g,' ').trim();
+  return value.length>52;
+}
+
+function normalizeCompactMetadata(root){
+  [...root.querySelectorAll(COMPACT_METADATA_TABLES)].forEach((table)=>{
+    const body=table.tBodies?.[0]||table.querySelector('tbody');
+    if(!body)return;
+    const rows=[...body.children].filter((row)=>row.tagName==='TR'&&window.getComputedStyle(row).display!=='none');
+    if(rows.length<4)return;
+
+    table.dataset.printMetadataLayout='two-column';
+    body.dataset.printMetadataBody='two-column';
+    body.style.display='grid';
+    body.style.gridTemplateColumns='repeat(2,minmax(0,1fr))';
+    body.style.gridAutoFlow='row';
+    body.style.alignItems='stretch';
+    body.style.width='100%';
+
+    const container=table.closest('.plain-card,.card-doc');
+    if(container){
+      container.dataset.printMetadataLayout='two-column';
+      container.style.width='100%';
+      if(container.parentElement?.classList.contains('cards'))container.style.gridColumn='1 / -1';
+    }
+
+    rows.forEach((row)=>{
+      const cells=[...row.children].filter((cell)=>cell.tagName==='TD'||cell.tagName==='TH');
+      row.dataset.printMetadataField='true';
+      row.style.display='grid';
+      row.style.gridTemplateColumns='minmax(30%,42%) minmax(0,1fr)';
+      row.style.minWidth='0';
+      row.style.alignItems='stretch';
+      row.style.gridColumn=metadataRowIsWide(row)?'1 / -1':'auto';
+      if(row.style.gridColumn==='1 / -1')row.dataset.printMetadataWide='true';
+      cells.forEach((cell)=>{
+        cell.style.display='flex';
+        cell.style.alignItems='center';
+        cell.style.minWidth='0';
+      });
+    });
+  });
+}
+
 function parseRgb(value){
   const match=String(value||'').match(/rgba?\(([^)]+)\)/i);
   if(!match)return null;
@@ -116,9 +168,7 @@ function enforceTextColor(element,color,tone){
   element.style.setProperty('color',color,'important');
   element.dataset.printContrast='auto';
   element.dataset.printContrastTone=tone;
-  [...element.querySelectorAll('*')].forEach((child)=>{
-    child.style.setProperty('color','inherit','important');
-  });
+  [...element.querySelectorAll('*')].forEach((child)=>child.style.setProperty('color','inherit','important'));
 }
 
 function enforceHeaderContrast(root){
@@ -127,22 +177,16 @@ function enforceHeaderContrast(root){
     const bgLum=luminance(background);
     const current=parseRgb(window.getComputedStyle(header).color);
     const currentContrast=current?contrastRatio(luminance(current),bgLum):0;
-
-    // الخلفية البيضاء/الفاتحة تحتفظ باللون الأصلي إذا كان مقروءًا أصلًا.
-    // عند ضعف التباين فقط نختار اللون الأعلى تباينًا؛ لذلك العنابي يحصل على أبيض،
-    // بينما الرأس الأبيض يمكن أن يحتفظ بالعنابي أو أي لون داكن مقروء.
     if(current&&currentContrast>=MIN_READABLE_CONTRAST){
       header.dataset.printContrast='preserved';
       header.dataset.printContrastRatio=currentContrast.toFixed(2);
       return;
     }
-
     const whiteContrast=contrastRatio(1,bgLum);
     const darkColor={r:34,g:34,b:34};
     const darkContrast=contrastRatio(luminance(darkColor),bgLum);
     const useWhite=whiteContrast>=darkContrast;
-    const color=useWhite?'#FFFFFF':'#222222';
-    enforceTextColor(header,color,useWhite?'light-text':'dark-text');
+    enforceTextColor(header,useWhite?'#FFFFFF':'#222222',useWhite?'light-text':'dark-text');
     header.dataset.printContrastRatio=Math.max(whiteContrast,darkContrast).toFixed(2);
   });
 }
@@ -153,6 +197,8 @@ export default function DocumentContentRoot({
   children,
   rootProps={},
   documentKey='',
+  onLayoutSettled,
+  layoutRevision=0,
   ...rest
 }){
   const rootRef=useRef(null);
@@ -163,16 +209,20 @@ export default function DocumentContentRoot({
     const root=rootRef.current;
     if(!root)return;
     normalizeLegacyVisibleGrids(root);
+    normalizeCompactMetadata(root);
     quantizeLogicalRows(root);
     enforceHeaderContrast(root);
     const wrappers=[...root.querySelectorAll(':scope > [data-document-visible-block="true"]')];
     const next=wrappers.map((wrapper)=>documentGridRowsForPx(naturalOuterHeight(wrapper),CSS_PX_PER_MM,1));
-    setSpans((current)=>sameSpans(current,next)?current:next);
+    if(!sameSpans(spans,next)){
+      setSpans(next);
+      requestAnimationFrame(()=>onLayoutSettled?.());
+    }
 
     if(process.env.NODE_ENV!=='production'&&root.querySelector(INTERACTIVE_SELECTOR)){
       console.warn('[print] interactive/editor control found inside the governed document body; dialogs and editors must remain outside printed content.');
     }
-  },[children,className,documentKey]);
+  },[children,className,documentKey,layoutRevision,onLayoutSettled,spans]);
 
   const safeRootProps={...rootProps,...rest};
   delete safeRootProps.children;
@@ -190,6 +240,7 @@ export default function DocumentContentRoot({
       data-document-base-rows="immutable"
       data-document-dialogs="outside-body"
       data-document-key={documentKey||undefined}
+      data-document-layout-revision={layoutRevision}
       style={{
         ...(safeRootProps.style||{}),
         display:'grid',
