@@ -144,3 +144,24 @@
     display: none !important;
   }
 }
+
+/*
+ * Blank paper forms are filled by hand. Keep them readable even on monochrome,
+ * toner-saving or background-disabled printers. These rules apply equally to
+ * preview and physical print so the Captain measures the exact same content.
+ */
+.blank-form-mode .amounts th,
+.print-doc-generic_document.blank-form-mode .amounts th {
+  background: #fff !important;
+  color: #7C2B28 !important;
+  border-color: #8B3332 !important;
+  font-weight: 700 !important;
+}
+
+/* A blank cell is not a value. Replace the old dash marker with a light handwriting guide. */
+.blank-form-mode .amounts .blank-write-line::after,
+.print-doc-generic_document.blank-form-mode .amounts .blank-write-line::after {
+  content: '................................' !important;
+  color: #B8AAAA !important;
+  font-weight: 400 !important;
+}
