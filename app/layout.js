@@ -2,6 +2,7 @@ import './globals.css';
 import './ui-active-skin.css';
 import './print-captain-hardening.css';
 import './print-semantic-roles.css';
+import './print-clean-pin-ruler.css';
 import { Suspense } from 'react';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
