@@ -1,0 +1,33 @@
+/*
+ * Clean document PIN column ruler
+ * --------------------------------
+ * PIN sections must read as one continuous table. Vertical separators are
+ * therefore governed by one shared ruler, not by each field independently.
+ *
+ * Two-field row:
+ *   label 17% | value 33% | label 17% | value 33%
+ * Full-width row:
+ *   label 17% | value 83%
+ *
+ * This keeps the label/value separator on the exact same vertical axis from
+ * row to row, including a lone/full-width field. Scope is restricted to the
+ * clean-room renderer and does not touch legacy documents or Captain geometry.
+ */
+[data-clean-document="clean-document-v2"] {
+  --clean-pin-label-half: 34%;
+  --clean-pin-label-full: 17%;
+}
+
+/* A normal field occupies half of the PIN row, so its label is 34% of that
+   half = 17% of the complete section width. */
+[data-clean-document="clean-document-v2"] [data-clean-field] {
+  grid-template-columns: var(--clean-pin-label-half) minmax(0, 1fr) !important;
+}
+
+/* A deliberate full-width field, or the odd final field expanded by the
+   balanced-row law, keeps the SAME 17% label axis instead of recalculating a
+   new 20/34% divider. */
+[data-clean-document="clean-document-v2"] [data-clean-field][style*="grid-column: span 12"],
+[data-clean-document="clean-document-v2"] [data-clean-field]:last-child:nth-child(odd) {
+  grid-template-columns: var(--clean-pin-label-full) minmax(0, 1fr) !important;
+}
