@@ -3,11 +3,15 @@ import path from 'node:path';
 
 const root=process.cwd();
 const failures=[];
-const retiredFiles=new Set([
+const retiredFiles=[
   'components/ProjExecution.js',
   'components/ProjMoney.js',
-]);
+];
 const retiredSymbols=['ProjExecution','ProjMoney'];
+
+for(const file of retiredFiles){
+  if(fs.existsSync(path.join(root,file)))failures.push(`${file}: عاد مكوّن مشروع متقاعد بعد حذفه.`);
+}
 
 function walk(relative,files=[]){
   const absolute=path.join(root,relative);
@@ -21,10 +25,15 @@ function walk(relative,files=[]){
 }
 
 for(const file of [...walk('app'),...walk('components'),...walk('lib')]){
-  if(retiredFiles.has(file))continue;
   const source=fs.readFileSync(path.join(root,file),'utf8');
   for(const symbol of retiredSymbols){
-    if(source.includes(symbol))failures.push(`${file}: ما زال يعتمد على المكوّن القديم ${symbol}.`);
+    if(source.includes(symbol))failures.push(`${file}: أعاد اعتمادًا على المكوّن القديم ${symbol}.`);
+  }
+  if(/\.rpc\(\s*['"]start_item_execution['"]/.test(source)){
+    failures.push(`${file}: أعاد RPC بدء التنفيذ القديم بدل دورة إسناد البند الموحدة.`);
+  }
+  if(/\.rpc\(\s*['"]finish_item_execution['"]/.test(source)){
+    failures.push(`${file}: أعاد RPC إنهاء التنفيذ القديم بدل دورة إسناد البند الموحدة.`);
   }
 }
 
@@ -34,4 +43,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('Retired project components audit passed: no live app/component/lib source depends on ProjExecution or ProjMoney; they are safe candidates for physical removal.');
+console.log('Retired project components audit passed: ProjExecution and ProjMoney are physically absent, no live source references them, and the old item execution RPC path cannot return.');
