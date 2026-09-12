@@ -146,27 +146,35 @@
 }
 
 /*
- * Blank paper forms are filled by hand. Keep them readable even on monochrome,
- * toner-saving or background-disabled printers. These rules apply equally to
- * preview and physical print so the Captain measures the exact same content.
+ * Blank paper forms are filled by hand. Preserve the normal maroon table head,
+ * but turn empty table values into a full-width dotted handwriting guide.
+ * The same geometry is used in preview and physical print.
  */
 .blank-form-mode .amounts th,
 .print-doc-generic_document.blank-form-mode .amounts th {
-  background: #fff !important;
-  color: #7C2B28 !important;
-  border-color: #8B3332 !important;
+  background: var(--maroon) !important;
+  color: #fff !important;
+  border-color: var(--maroon) !important;
   font-weight: 700 !important;
 }
 
-/* A blank cell is not a value. Remove any legacy dash and show a light handwriting guide. */
-.blank-form-mode .amounts .blank-write-line::before,
-.print-doc-generic_document.blank-form-mode .amounts .blank-write-line::before {
-  content: none !important;
+.blank-form-mode .amounts .blank-write-line,
+.print-doc-generic_document.blank-form-mode .amounts .blank-write-line {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: .9em !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  border-bottom: 1px dotted #B8AAAA !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: transparent !important;
 }
 
+.blank-form-mode .amounts .blank-write-line::before,
 .blank-form-mode .amounts .blank-write-line::after,
+.print-doc-generic_document.blank-form-mode .amounts .blank-write-line::before,
 .print-doc-generic_document.blank-form-mode .amounts .blank-write-line::after {
-  content: '................................' !important;
-  color: #B8AAAA !important;
-  font-weight: 400 !important;
+  content: none !important;
 }
