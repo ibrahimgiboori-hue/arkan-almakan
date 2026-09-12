@@ -1,7 +1,6 @@
 import './globals.css';
 import './ui-active-skin.css';
 import './print-captain-hardening.css';
-import './print-document-compact.css';
 import './print-semantic-roles.css';
 import { Suspense } from 'react';
 import { IBM_Plex_Sans_Arabic } from 'next/font/google';
