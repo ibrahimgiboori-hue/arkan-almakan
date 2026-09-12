@@ -1,16 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
-
-const GUARANTEE_KIND = {
-  advance:'دفعة مقدمة',
-  performance:'حسن تنفيذ',
-  final:'نهائي',
-  maintenance:'صيانة',
-  other:'أخرى',
-};
+import { PROJECT_GUARANTEE_KINDS } from '@/lib/project-guarantees.mjs';
+import { projectGuaranteesService } from '@/lib/application/project-guarantees-service';
 
 export default function ProjGuarantees({ project, canWrite, onChange }) {
   const [guarantees, setGuarantees] = useState([]);
@@ -21,18 +14,15 @@ export default function ProjGuarantees({ project, canWrite, onChange }) {
 
   async function load() {
     if (!project?.id) return;
-    const [g, r] = await Promise.all([
-      supabase.from('guarantees').select('*').eq('project_id', project.id).order('expiry_date'),
-      supabase.from('retentions').select('*').eq('project_id', project.id).order('held_at'),
-    ]);
-    const firstError = [g, r].find((x) => x.error)?.error;
-    if (firstError) {
-      setErr('تعذر تحميل الضمانات والمحتجزات: ' + firstError.message);
-      return;
+    setErr('');
+    try {
+      const workspace=await projectGuaranteesService.loadWorkspace({ projectId:project.id });
+      setGuarantees(workspace.guarantees);
+      setRetentions(workspace.retentions);
+      onChange?.();
+    } catch (error) {
+      setErr('تعذر تحميل الضمانات والمحتجزات: ' + (error?.message || error));
     }
-    setGuarantees(g.data || []);
-    setRetentions(r.data || []);
-    onChange?.();
   }
 
   useEffect(() => { load(); }, [project?.id]);
@@ -40,18 +30,14 @@ export default function ProjGuarantees({ project, canWrite, onChange }) {
   async function addGuarantee(e) {
     e.preventDefault();
     setErr(''); setMsg('');
-    const { error } = await supabase.from('guarantees').insert({
-      project_id: project.id,
-      kind: form.kind,
-      issuer: form.issuer || null,
-      reference_no: form.reference_no || null,
-      amount: Number(form.amount || 0),
-      expiry_date: form.expiry_date || null,
-    });
-    if (error) { setErr('تعذر إضافة الضمان: ' + error.message); return; }
-    setForm({ kind:'performance', issuer:'', reference_no:'', amount:'', expiry_date:'' });
-    setMsg('أُضيف الضمان.');
-    await load();
+    try {
+      await projectGuaranteesService.addGuarantee({ projectId:project.id, form });
+      setForm({ kind:'performance', issuer:'', reference_no:'', amount:'', expiry_date:'' });
+      setMsg('أُضيف الضمان.');
+      await load();
+    } catch (error) {
+      setErr('تعذر إضافة الضمان: ' + (error?.message || error));
+    }
   }
 
   return (
@@ -68,7 +54,7 @@ export default function ProjGuarantees({ project, canWrite, onChange }) {
                 <div className="field">
                   <label>النوع</label>
                   <select value={form.kind} onChange={(e)=>setForm({...form,kind:e.target.value})}>
-                    {Object.entries(GUARANTEE_KIND).map(([key,label])=><option key={key} value={key}>{label}</option>)}
+                    {Object.entries(PROJECT_GUARANTEE_KINDS).map(([key,label])=><option key={key} value={key}>{label}</option>)}
                   </select>
                 </div>
                 <div className="field">
@@ -100,21 +86,16 @@ export default function ProjGuarantees({ project, canWrite, onChange }) {
             <table>
               <thead><tr><th>النوع</th><th className="num">القيمة</th><th>الانتهاء</th><th>الحالة</th></tr></thead>
               <tbody>
-                {guarantees.map((g) => {
-                  const left = g.expiry_date ? Math.round((new Date(g.expiry_date) - new Date()) / 86400000) : null;
-                  return (
-                    <tr key={g.id}>
-                      <td>{GUARANTEE_KIND[g.kind] || g.kind}</td>
-                      <td className="num">{money(g.amount)}</td>
-                      <td className="mono">{dateAr(g.expiry_date)}</td>
-                      <td>{left === null ? '—' : (
-                        <span className={`pill ${left < 0 ? 'bad' : left <= 30 ? 'warn' : 'ok'}`}>
-                          {left < 0 ? `منتهٍ منذ ${Math.abs(left)} يوم` : `${left} يوم`}
-                        </span>
-                      )}</td>
-                    </tr>
-                  );
-                })}
+                {guarantees.map((g) => (
+                  <tr key={g.id}>
+                    <td>{PROJECT_GUARANTEE_KINDS[g.kind] || g.kind}</td>
+                    <td className="num">{money(g.amount)}</td>
+                    <td className="mono">{dateAr(g.expiry_date)}</td>
+                    <td>{g.expiry_state ? (
+                      <span className={`pill ${g.expiry_state.tone}`}>{g.expiry_state.label}</span>
+                    ) : '—'}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
