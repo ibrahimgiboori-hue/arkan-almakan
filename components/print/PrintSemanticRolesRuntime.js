@@ -12,7 +12,7 @@ const EXPLICIT_TITLE_SELECTOR = '[data-print-role="title-row"],[data-print-seman
 const EXPLICIT_CONSTANT_SELECTOR = '[data-print-role="constant-column"],[data-print-semantic="constant-column"]';
 
 const LEGACY_TITLE_SELECTORS = [
-  'thead th',
+  'thead',
   '[data-print-header="true"]',
   '.card-head',
   '.pc-head',
@@ -39,6 +39,33 @@ function mark(element,role,source='captain') {
   element.dataset.printSemanticSource=source;
 }
 
+function markTitleStructure(element,source='captain') {
+  if (!element) return;
+  const tag=element.tagName;
+
+  if (tag==='THEAD') {
+    [...element.querySelectorAll(':scope > tr')].forEach((row)=>markTitleStructure(row,source));
+    return;
+  }
+
+  if (tag==='TR') {
+    mark(element,PRINT_SEMANTIC_ROLE.TITLE_ROW,source);
+    [...element.children]
+      .filter((cell)=>['TH','TD'].includes(cell.tagName))
+      .forEach((cell)=>mark(cell,PRINT_SEMANTIC_ROLE.TITLE_ROW,source));
+    return;
+  }
+
+  if (['TH','TD'].includes(tag) && element.closest('thead')) {
+    const row=element.closest('tr');
+    if (row) markTitleStructure(row,source);
+    else mark(element,PRINT_SEMANTIC_ROLE.TITLE_ROW,source);
+    return;
+  }
+
+  mark(element,PRINT_SEMANTIC_ROLE.TITLE_ROW,source);
+}
+
 function inferKeyValueTables(scope) {
   const tables=[...scope.querySelectorAll('table')];
   tables.forEach((table)=>{
@@ -60,13 +87,11 @@ function inferKeyValueTables(scope) {
 export function applyPrintSemanticRoles(root=document) {
   const scopes=[...root.querySelectorAll(PRINT_SCOPE_SELECTOR)];
   scopes.forEach((scope)=>{
-    [...scope.querySelectorAll(EXPLICIT_TITLE_SELECTOR)].forEach((element)=>mark(element,PRINT_SEMANTIC_ROLE.TITLE_ROW,'explicit'));
+    [...scope.querySelectorAll(EXPLICIT_TITLE_SELECTOR)].forEach((element)=>markTitleStructure(element,'explicit'));
     [...scope.querySelectorAll(EXPLICIT_CONSTANT_SELECTOR)].forEach((element)=>mark(element,PRINT_SEMANTIC_ROLE.CONSTANT_COLUMN,'explicit'));
 
     LEGACY_TITLE_SELECTORS.forEach((selector)=>{
-      [...scope.querySelectorAll(selector)].forEach((element)=>{
-        if (!element.dataset.printSemantic) mark(element,PRINT_SEMANTIC_ROLE.TITLE_ROW,'captain-fallback');
-      });
+      [...scope.querySelectorAll(selector)].forEach((element)=>markTitleStructure(element,'captain-fallback'));
     });
 
     LEGACY_CONSTANT_SELECTORS.forEach((selector)=>{
