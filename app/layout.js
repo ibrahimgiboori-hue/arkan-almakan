@@ -7,6 +7,7 @@ import { IBM_Plex_Sans_Arabic } from 'next/font/google';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import ActiveUISkinRuntime from '@/components/ui/ActiveUISkinRuntime';
 import LatinDigitsRuntime from '@/components/LatinDigitsRuntime';
+import PrintCaptainEditingBridge from '@/components/print/PrintCaptainEditingBridge';
 import PrintContentWorkbench from '@/components/print/PrintContentWorkbench';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
 import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
@@ -46,6 +47,7 @@ export default function RootLayout({ children }) {
         <Suspense fallback={null}>
           <ActiveUISkinRuntime />
         </Suspense>
+        <PrintCaptainEditingBridge />
         <PrintContentWorkbench />
         {children}
       </body>
