@@ -48,7 +48,14 @@ if(exists(files.body)){
     'data-document-visible-block="true"',
     'quantizeLogicalRows(root)',
     'normalizeLegacyVisibleGrids(root)',
-    'LEGACY_VISIBLE_GRIDS',
+    'normalizeCompactMetadata(root)',
+    'COMPACT_METADATA_TABLES',
+    "rows.length<4",
+    "gridTemplateColumns='repeat(2,minmax(0,1fr))'",
+    "row.style.gridColumn=metadataRowIsWide(row)?'1 / -1':'auto'",
+    'enforceHeaderContrast(root)',
+    'MIN_READABLE_CONTRAST=4.5',
+    'onLayoutSettled',
   ])if(!source.includes(required))fail(`DocumentContentRoot missing runtime contract: ${required}`);
   if(source.includes('@media print'))fail('DocumentContentRoot may not use print-only geometry; preview and print must share one body geometry.');
 }
@@ -58,6 +65,7 @@ if(exists(files.frame)){
   if(!source.includes("@/components/print/DocumentContentRoot"))fail('ConstitutionPrintFrame must own the shared DocumentContentRoot bridge.');
   if(!source.includes('governedContentBody'))fail('ConstitutionPrintFrame must normalize print content through one governed body.');
   if(!source.includes('typeof root.type===\'string\''))fail('DOM document roots must be promoted into DocumentContentRoot before Captain pagination.');
+  if(!source.includes('onLayoutSettled={onLayoutSettled}'))fail('Captain bridge must repaginate after fixed-grid spans settle.');
 }
 
 if(exists(files.generic)){
@@ -79,4 +87,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log('Document body grid audit passed: printed content is one continuous 48-column body, base rows stay fixed at 2 mm, visible regions consume integer row spans, and dialogs remain outside the document body.');
+console.log('Document body grid audit passed: one continuous 48-column body, fixed 2 mm rows, compact metadata uses two visible columns, long fields span full width, readable header contrast is automatic, and Captain repaginates after grid settlement.');
