@@ -11,6 +11,7 @@ import {
 const CSS_PX_PER_MM=96/25.4;
 const INTERACTIVE_SELECTOR='button,input,select,textarea,dialog,[role="dialog"],.no-print';
 const LEGACY_VISIBLE_GRIDS='.g-grid,.cards,.footer-row,.pt-wrap,.xlsx-grid';
+const LOGICAL_ROW_SELECTOR='tr,.governed-cell-row,[data-print-grid-key]';
 
 function sameSpans(left,right){
   const a=left||[];
@@ -27,13 +28,17 @@ function naturalOuterHeight(element){
   return rect.height+(parseFloat(style.marginTop)||0)+(parseFloat(style.marginBottom)||0);
 }
 
-function quantizeTableRows(root){
-  const rows=[...root.querySelectorAll('tr')];
-  rows.forEach((row)=>{
-    row.style.removeProperty('height');
+function quantizeLogicalRows(root){
+  const logicalRows=[...new Set([...root.querySelectorAll(LOGICAL_ROW_SELECTOR)])];
+  logicalRows.forEach((row)=>{
+    if(row.dataset.documentGridQuantized==='true')row.style.removeProperty('height');
     const rect=row.getBoundingClientRect();
-    const rowsUsed=documentGridRowsForPx(rect.height,CSS_PX_PER_MM,1);
+    const style=window.getComputedStyle(row);
+    const preferredMinPx=parseFloat(style.minHeight)||0;
+    const naturalPx=Math.max(rect.height,row.scrollHeight||0,preferredMinPx);
+    const rowsUsed=documentGridRowsForPx(naturalPx,CSS_PX_PER_MM,1);
     row.dataset.documentGridRows=String(rowsUsed);
+    row.dataset.documentGridQuantized='true';
     row.style.height=`${documentGridSpanMm(rowsUsed)}mm`;
   });
 }
@@ -86,7 +91,7 @@ export default function DocumentContentRoot({
     const root=rootRef.current;
     if(!root)return;
     normalizeLegacyVisibleGrids(root);
-    quantizeTableRows(root);
+    quantizeLogicalRows(root);
     const wrappers=[...root.querySelectorAll(':scope > [data-document-visible-block="true"]')];
     const next=wrappers.map((wrapper)=>documentGridRowsForPx(naturalOuterHeight(wrapper),CSS_PX_PER_MM,1));
     setSpans((current)=>sameSpans(current,next)?current:next);
