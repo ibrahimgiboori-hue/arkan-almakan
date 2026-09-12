@@ -1,6 +1,6 @@
 'use client';
 
-import { Children, Fragment, cloneElement, isValidElement, useCallback, useState } from 'react';
+import { Children, Fragment, cloneElement, isValidElement, useCallback, useEffect, useState } from 'react';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
 import DocumentContentRoot from '@/components/print/DocumentContentRoot';
 import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
@@ -86,6 +86,13 @@ export default function ConstitutionPrintFrame({
 }) {
   const [layoutRevision,setLayoutRevision]=useState(0);
   const onLayoutSettled=useCallback(()=>setLayoutRevision((value)=>value+1),[]);
+
+  useEffect(()=>{
+    const refresh=()=>setLayoutRevision((value)=>value+1);
+    window.addEventListener('arkan:print-content-layout-changed',refresh);
+    return ()=>window.removeEventListener('arkan:print-content-layout-changed',refresh);
+  },[]);
+
   const childArray = Children.toArray(children);
   const flowChildren = governedContentBody(documentKey,className,childArray,onLayoutSettled,layoutRevision);
 
