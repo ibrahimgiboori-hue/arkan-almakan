@@ -1,5 +1,6 @@
 import './print-constitution.css';
 import './print-office-model.css';
+import './print-clean-document.css';
 import './print-register-report.css';
 import './print-workbench.css';
 import PrintGovernanceBoundary from '@/components/print/PrintGovernanceBoundary';
