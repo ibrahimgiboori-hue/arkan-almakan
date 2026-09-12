@@ -67,7 +67,7 @@ if(exists(files.semantics)){
   for(const required of [
     "TITLE_ROW:'title-row'",
     "CONSTANT_COLUMN:'constant-column'",
-    'data.printSemantic',
+    'dataset.printSemantic',
     'captain-fallback',
     'captain-inference',
     'inferKeyValueTables',
