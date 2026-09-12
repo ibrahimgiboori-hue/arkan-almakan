@@ -36,10 +36,11 @@ export default function GovernedCellGrid({ gridKey, rows = [], className = '' })
             className={`governed-cell-row ${row.className || ''}`.trim()}
             data-print-grid-key={rowKey}
             data-print-grid-tracks={tracks.join(',')}
+            data-print-row-span={heightUnits || undefined}
             style={{
               ...row.style,
               gridTemplateColumns:`repeat(${PRINT_GRID_COLUMNS},minmax(0,1fr))`,
-              minHeight:heightUnits ? `${heightUnits * PRINT_GRID_ROW_MM}mm` : undefined,
+              height:heightUnits ? `${heightUnits * PRINT_GRID_ROW_MM}mm` : undefined,
             }}
           >
             {cells.map((cell, cellIndex) => (
@@ -107,7 +108,7 @@ export default function GovernedCellGrid({ gridKey, rows = [], className = '' })
             {editing && (
               <span
                 className="governed-cell-height-resizer no-print"
-                title="اسحب لضبط ارتفاع الصف بوحدات 2 مم — نقرتان لإلغاء الارتفاع المخصص"
+                title="اسحب لتحديد امتداد المنطقة على صفوف الشبكة الثابتة 2 مم — نقرتان للعودة للامتداد الطبيعي"
                 onPointerDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -116,16 +117,16 @@ export default function GovernedCellGrid({ gridKey, rows = [], className = '' })
                   const rowElement = handle.closest('.governed-cell-row');
                   const startY = event.clientY;
                   const naturalUnits = Math.max(2, Math.ceil(
-                    (rowElement?.getBoundingClientRect().height || 1) / (PRINT_GRID_ROW_MM * MM_TO_CSS_PX)
+                    Math.max(rowElement?.scrollHeight||0,rowElement?.getBoundingClientRect().height||1) / (PRINT_GRID_ROW_MM * MM_TO_CSS_PX)
                   ));
-                  const startUnits = heightUnits || naturalUnits;
+                  const startUnits = Math.max(heightUnits||0,naturalUnits);
                   handle.classList.add('dragging');
-                  if (readout) readout.textContent = `${startUnits * PRINT_GRID_ROW_MM} مم`;
+                  if (readout) readout.textContent = `${startUnits} صف · ${startUnits * PRINT_GRID_ROW_MM} مم`;
 
                   const onMove = (moveEvent) => {
                     const delta = Math.round((moveEvent.clientY - startY) / (PRINT_GRID_ROW_MM * MM_TO_CSS_PX));
-                    const units = Math.max(2, startUnits + delta);
-                    if (readout) readout.textContent = `${units * PRINT_GRID_ROW_MM} مم`;
+                    const units = Math.max(naturalUnits, startUnits + delta);
+                    if (readout) readout.textContent = `${units} صف · ${units * PRINT_GRID_ROW_MM} مم`;
                     setRowHeight(rowKey, units);
                   };
                   const onUp = () => {
@@ -150,10 +151,10 @@ export default function GovernedCellGrid({ gridKey, rows = [], className = '' })
       })}
 
       <style jsx global>{`
-        .governed-cell-grid{width:100%;margin:0 0 2.5mm;border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;break-inside:avoid;page-break-inside:avoid;direction:rtl;text-align:right}
+        .governed-cell-grid{width:100%;margin:0 0 2mm;border-top:.22mm solid #9b9b9b;border-right:.22mm solid #9b9b9b;break-inside:avoid;page-break-inside:avoid;direction:rtl;text-align:right}
         .governed-cell-row{position:relative;display:grid;width:100%;min-width:0;grid-auto-flow:column}
         .governed-cell-row.dragging-row{outline:1px solid rgba(139,51,50,.2);outline-offset:-1px}
-        .governed-cell{position:relative;min-width:0;min-height:6.1mm;display:flex;align-items:center;justify-content:flex-start;padding:1.1mm 1.5mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;font-size:8.45pt;line-height:1.35;overflow-wrap:anywhere;background:#fff;color:#222;text-align:right;direction:rtl}
+        .governed-cell{position:relative;min-width:0;min-height:6mm;display:flex;align-items:center;justify-content:flex-start;padding:1.1mm 1.5mm;border-left:.22mm solid #9b9b9b;border-bottom:.22mm solid #9b9b9b;font-size:8.45pt;line-height:1.35;overflow-wrap:anywhere;background:#fff;color:#222;text-align:right;direction:rtl}
         .governed-cell-label{font-weight:700;background:#f1f1f1;white-space:nowrap}
         .governed-cell.num{direction:ltr;text-align:left;justify-content:flex-end;font-variant-numeric:tabular-nums;white-space:nowrap}
         .governed-cell.bank-value{direction:rtl;text-align:right;justify-content:flex-start;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:8.15pt;letter-spacing:.12px}
