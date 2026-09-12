@@ -2,6 +2,7 @@
 
 import { Children, Fragment, cloneElement, isValidElement } from 'react';
 import ConstitutionPagedFrame from '@/components/print/ConstitutionPagedFrame';
+import DocumentContentRoot from '@/components/print/DocumentContentRoot';
 import ProjectReportJourneyPrint from '@/components/print/ProjectReportJourneyPrint';
 
 function mergeClassName(base, extra) {
@@ -20,7 +21,8 @@ function flattenRenderedBlocks(nodes) {
  * القبطان يستقبل تيار المحتوى الحقيقي لا غلافًا صناعيًا حوله.
  * الرحلات المركبة التي تنتج عدة كتل تُفك قبل القياس حتى تبقى حدود React وDOM متطابقة.
  * هندسة الورقة، Word baseline، الليترهيد، الاتجاه، مناطق الأمان والتقسيم كلها ملك ConstitutionPagedFrame وحده.
- * لا توجد هنا أي قناة لإدخال هوامش أو أبعاد من المستندات القديمة.
+ * جسم المحتوى المرئي نفسه واحد ومستمر؛ DocumentContentRoot يربط كتل المحتوى بشبكة 48×2 مم.
+ * الحوارات والمحررات وأدوات الإدخال تبقى خارج هذا الجسم ولا تدخل شجرة الطباعة.
  */
 function expandCaptainFlowBlocks(nodes) {
   return Children.toArray(nodes).flatMap((node) => {
@@ -33,6 +35,33 @@ function expandCaptainFlowBlocks(nodes) {
     }
     return [node];
   });
+}
+
+function governedContentBody(documentKey,className,childArray){
+  if(childArray.length===1&&isValidElement(childArray[0])){
+    const root=childArray[0];
+    if(typeof root.type==='string'){
+      return (
+        <DocumentContentRoot
+          as={root.type}
+          documentKey={documentKey}
+          rootProps={root.props}
+          className={mergeClassName(root.props.className,className)}
+        >
+          {expandCaptainFlowBlocks(root.props.children)}
+        </DocumentContentRoot>
+      );
+    }
+    // المركبات المتخصصة التي تدير DOM خاصًا بها تبقى كما هي إلى أن تنتقل صراحة إلى عقد الجسم الواحد.
+    return cloneElement(root,{
+      className:mergeClassName(root.props.className,className),
+    },expandCaptainFlowBlocks(root.props.children));
+  }
+  return (
+    <DocumentContentRoot documentKey={documentKey} className={className}>
+      {expandCaptainFlowBlocks(childArray)}
+    </DocumentContentRoot>
+  );
 }
 
 export default function ConstitutionPrintFrame({
@@ -49,11 +78,7 @@ export default function ConstitutionPrintFrame({
   ...rest
 }) {
   const childArray = Children.toArray(children);
-  const flowChildren = childArray.length === 1 && isValidElement(childArray[0])
-    ? cloneElement(childArray[0], {
-        className:mergeClassName(childArray[0].props.className, className),
-      }, expandCaptainFlowBlocks(childArray[0].props.children))
-    : <div className={className}>{expandCaptainFlowBlocks(childArray)}</div>;
+  const flowChildren = governedContentBody(documentKey,className,childArray);
 
   return (
     <ConstitutionPagedFrame
