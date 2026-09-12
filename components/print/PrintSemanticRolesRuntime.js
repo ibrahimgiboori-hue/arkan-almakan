@@ -50,8 +50,8 @@ const LEGACY_CONSTANT_SELECTORS = [
 
 function mark(element,role,source='captain') {
   if (!element || element.dataset.printSemanticLocked==='true') return;
-  element.dataset.printSemantic=role;
-  element.dataset.printSemanticSource=source;
+  if (element.dataset.printSemantic!==role) element.dataset.printSemantic=role;
+  if (element.dataset.printSemanticSource!==source) element.dataset.printSemanticSource=source;
 }
 
 function markTitleStructure(element,source='captain') {
@@ -116,7 +116,9 @@ export function applyPrintSemanticRoles(root=document) {
     });
 
     inferKeyValueTables(scope);
-    scope.dataset.printSemanticSchema='title-row|constant-column';
+    if (scope.dataset.printSemanticSchema!=='title-row|constant-column') {
+      scope.dataset.printSemanticSchema='title-row|constant-column';
+    }
   });
 }
 
@@ -157,7 +159,7 @@ function enforceRoleStyle(root,role,style) {
   [...root.querySelectorAll(`[data-print-semantic="${role}"]`)].forEach((element)=>{
     setImportant(element,'color',text);
     setImportant(element,'background-color',fill);
-    element.dataset.printSemanticAuthority='captain';
+    if (element.dataset.printSemanticAuthority!=='captain') element.dataset.printSemanticAuthority='captain';
     [...element.querySelectorAll('*')].forEach((child)=>setImportant(child,'color','inherit'));
   });
 }
