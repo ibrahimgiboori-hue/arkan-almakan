@@ -186,8 +186,18 @@ function enforceTextColor(element,color,tone){
   [...element.querySelectorAll('*')].forEach((child)=>child.style.setProperty('color','inherit','important'));
 }
 
+function hasManualWorkbenchColor(element){
+  return element.dataset.printManualColor==='semantic-role'
+    || element.dataset.printWorkbenchStyle==='true'
+    || Boolean(element.closest('[data-print-manual-color="semantic-role"],[data-print-workbench-style="true"]'));
+}
+
 function enforceHeaderContrast(root){
   [...root.querySelectorAll(PRINT_HEADER_SELECTOR)].forEach((header)=>{
+    if(hasManualWorkbenchColor(header)){
+      header.dataset.printContrast='manual-authority';
+      return;
+    }
     const background=resolvedBackground(header,root);
     const bgLum=luminance(background);
     const current=parseRgb(window.getComputedStyle(header).color);
