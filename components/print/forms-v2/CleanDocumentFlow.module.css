@@ -182,6 +182,29 @@
   border-right: .2mm solid var(--clean-border);
 }
 
+/*
+ * Balanced PIN law
+ * ----------------
+ * The old span hints describe data importance, not visual width. Letting those
+ * hints directly drive the clean renderer produced 4/6/12-column mixtures,
+ * ragged left edges and half-empty rows. A normal information field is now one
+ * of two equal cells per row. Only genuinely wide/textarea fields own a full
+ * row. This is the stable visual rhythm seen in the balanced Nadeem form.
+ */
+.sectionBlock > .pinGrid > .fieldPair:not(.fieldFull) {
+  grid-column: span 6 !important;
+}
+
+.sectionBlock > .pinGrid > .fieldFull {
+  grid-column: 1 / -1 !important;
+}
+
+/* When a card set contains no deliberate full-width field, an odd final field
+   expands instead of leaving a dead half-row. */
+.sectionBlock > .pinGrid:not(:has(> .fieldFull)) > .fieldPair:last-child:nth-child(odd) {
+  grid-column: 1 / -1 !important;
+}
+
 .fieldPair {
   border-left: .2mm solid var(--clean-border);
   border-bottom: .2mm solid var(--clean-border);
@@ -299,6 +322,12 @@
   border-bottom: .2mm solid var(--clean-border);
 }
 
+/* A lone total on the last row uses the whole width instead of leaving a
+   visually broken half-row. */
+.totalsGrid > .totalPair:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .totalPair .constant,
 .totalPair .value {
   min-height: 6.4mm;
@@ -346,6 +375,10 @@
   display: grid;
   grid-template-columns: repeat(2,minmax(0,1fr));
   gap: 1.5mm;
+}
+
+.partiesGrid > .partyCard:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .partyCard {
