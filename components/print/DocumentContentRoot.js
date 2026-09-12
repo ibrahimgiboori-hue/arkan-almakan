@@ -10,6 +10,7 @@ import {
 
 const CSS_PX_PER_MM=96/25.4;
 const INTERACTIVE_SELECTOR='button,input,select,textarea,dialog,[role="dialog"],.no-print';
+const LEGACY_VISIBLE_GRIDS='.g-grid,.cards,.footer-row,.pt-wrap,.xlsx-grid';
 
 function sameSpans(left,right){
   const a=left||[];
@@ -37,6 +38,39 @@ function quantizeTableRows(root){
   });
 }
 
+function parseLegacySpan(element){
+  const computed=window.getComputedStyle(element);
+  const values=[element.style.gridColumnEnd,element.style.gridColumn,computed.gridColumnEnd,computed.gridColumn];
+  for(const value of values){
+    const match=String(value||'').match(/span\s+(\d+)/i);
+    if(match)return Number(match[1]);
+  }
+  return null;
+}
+
+function normalizeLegacyVisibleGrids(root){
+  const grids=[...root.querySelectorAll(LEGACY_VISIBLE_GRIDS)];
+  grids.forEach((grid)=>{
+    const children=[...grid.children].filter((child)=>window.getComputedStyle(child).display!=='none');
+    const legacySpans=children.map(parseLegacySpan);
+    grid.dataset.documentGridColumns=String(DOCUMENT_BODY_GRID.columns);
+    grid.style.gridTemplateColumns=`repeat(${DOCUMENT_BODY_GRID.columns},minmax(0,1fr))`;
+    grid.style.columnGap='0';
+
+    children.forEach((child,index)=>{
+      const legacy=legacySpans[index];
+      let span=legacy&&legacy<=12?legacy*4:null;
+      if(!span&&grid.classList.contains('pt-wrap')){
+        span=grid.classList.contains('single')?24:Math.max(1,Math.floor(DOCUMENT_BODY_GRID.columns/Math.max(1,children.length)));
+      }
+      if(span){
+        child.style.gridColumn=`span ${Math.min(DOCUMENT_BODY_GRID.columns,span)}`;
+        child.dataset.documentGridSpan=String(Math.min(DOCUMENT_BODY_GRID.columns,span));
+      }
+    });
+  });
+}
+
 export default function DocumentContentRoot({
   as:Tag='div',
   className='',
@@ -51,6 +85,7 @@ export default function DocumentContentRoot({
   useLayoutEffect(()=>{
     const root=rootRef.current;
     if(!root)return;
+    normalizeLegacyVisibleGrids(root);
     quantizeTableRows(root);
     const wrappers=[...root.querySelectorAll(':scope > [data-document-visible-block="true"]')];
     const next=wrappers.map((wrapper)=>documentGridRowsForPx(naturalOuterHeight(wrapper),CSS_PX_PER_MM,1));
