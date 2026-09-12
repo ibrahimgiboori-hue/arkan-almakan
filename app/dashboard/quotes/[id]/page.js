@@ -2,32 +2,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals, VAT_AR, QSTATUS_AR } from '@/lib/quote-calc';
 import { useLiveRefresh } from '@/lib/live';
+import {
+  QUOTE_EDITOR_TOGGLES as TOGGLES,
+  QUOTE_EDITOR_SECTIONS as SECTIONS,
+} from '@/lib/quote-editor.mjs';
+import { quoteEditorService } from '@/lib/application/quote-editor-service';
 import QuotePartyGovernancePanel from '@/components/quotes/QuotePartyGovernancePanel';
-
-const TOGGLES = [
-  ['show_unit','عمود الوحدة'],
-  ['show_qty','عمود الكمية'],
-  ['show_unit_price','عمود الفئة'],
-  ['show_line_total','عمود الإجمالي'],
-  ['show_en_desc','وصف إنجليزي'],
-];
-const SECTIONS = [
-  ['show_intro','النص الافتتاحي'],
-  ['show_payments','الدفعات المقترحة'],
-  ['show_terms','الشروط والأحكام'],
-  ['show_closing','النص الختامي'],
-  ['show_bank','الحساب البنكي'],
-  ['show_stamp','الختم'],
-  ['show_signature','التوقيع'],
-];
-const RETIRED_PRINT_KEYS = new Set([
-  'show_letterhead','margin_top_mm','margin_bottom_mm','margin_side_mm',
-  'stamp_size_mm','stamp_x_mm','stamp_y_mm','sign_size_mm','sign_x_mm','sign_y_mm',
-]);
 
 export default function QuoteEditor() {
   const { id } = useParams();
@@ -41,16 +24,17 @@ export default function QuoteEditor() {
   const [saved, setSaved] = useState('');
 
   const load = useCallback(async () => {
-    const [a, b, c, d, e] = await Promise.all([
-      supabase.from('quotations').select('*').eq('id', id).maybeSingle(),
-      supabase.from('quotation_lines').select('*').eq('quotation_id', id).order('sort_order'),
-      supabase.from('quotation_payments').select('*').eq('quotation_id', id).order('sort_order'),
-      supabase.from('work_items').select('*').order('use_count', { ascending: false }).limit(300),
-      supabase.from('quote_presets').select('*').order('sort_order'),
-    ]);
-    if (!a.data) { setErr('لم يُعثر على هذا العرض.'); return; }
-    setQ(a.data); setLines(b.data || []); setPays(c.data || []);
-    setItems(d.data || []); setPresets(e.data || []);
+    setErr('');
+    try {
+      const workspace = await quoteEditorService.loadWorkspace({ quoteId:id });
+      setQ(workspace.quote);
+      setLines(workspace.lines);
+      setPays(workspace.payments);
+      setItems(workspace.workItems);
+      setPresets(workspace.presets);
+    } catch (error) {
+      setErr(error?.message || 'تعذّر تحميل عرض السعر.');
+    }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -59,35 +43,45 @@ export default function QuoteEditor() {
   const flash = (m) => { setSaved(m); setTimeout(()=>setSaved(''), 1600); };
 
   async function patch(fields) {
-    const clean = Object.fromEntries(Object.entries(fields || {}).filter(([key]) => !RETIRED_PRINT_KEYS.has(key)));
-    if (!Object.keys(clean).length) return;
-    setQ({ ...q, ...clean });
-    const { error } = await supabase.from('quotations').update(clean).eq('id', id);
-    if (error) setErr('تعذّر الحفظ: ' + error.message); else flash('حُفظ');
+    const previous = q;
+    setQ((current) => current ? { ...current, ...fields } : current);
+    setErr('');
+    try {
+      const server = await quoteEditorService.patchQuote({ quoteId:id, fields });
+      if (server) setQ((current) => current ? { ...current, ...server } : server);
+      flash('حُفظ');
+      return true;
+    } catch (error) {
+      setQ(previous);
+      setErr('تعذّر الحفظ: ' + (error?.message || error));
+      await load();
+      return false;
+    }
   }
 
   async function applyPreset(p) {
-    await patch(p.switches || {});
-    flash('طُبّق قالب: ' + p.name_ar);
+    const ok = await patch(p.switches || {});
+    if (ok) flash('طُبّق قالب: ' + p.name_ar);
   }
 
   async function addLine(kind) {
-    const order = (lines.length ? Math.max(...lines.map((l)=>l.sort_order)) : 0) + 1;
-    const { data, error } = await supabase.from('quotation_lines').insert({
-      quotation_id: id, sort_order: order, kind,
-      description_ar: kind === 'title' ? 'عنوان قسم' : '',
-      unit: kind === 'item' ? 'م2' : null, qty: 1, unit_price: 0,
-    }).select('*').single();
-    if (error) { setErr('تعذّر الإضافة: ' + error.message); return; }
-    setLines([...lines, data]);
+    setErr('');
+    try {
+      const data = await quoteEditorService.addLine({ quoteId:id, kind });
+      setLines((current) => [...current, data].sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)));
+    } catch (error) {
+      setErr('تعذّر الإضافة: ' + (error?.message || error));
+    }
   }
 
   async function insertAfter(afterOrder, kind) {
-    const { error } = await supabase.rpc('quote_line_insert_after', {
-      p_quotation: id, p_after_order: afterOrder, p_kind: kind,
-    });
-    if (error) { setErr('تعذّر الإدراج: ' + error.message); return; }
-    load();
+    setErr('');
+    try {
+      const next = await quoteEditorService.insertAfter({ quoteId:id, afterOrder, kind });
+      setLines(next);
+    } catch (error) {
+      setErr('تعذّر الإدراج: ' + (error?.message || error));
+    }
   }
 
   function editLine(lineId, fields) {
@@ -95,8 +89,17 @@ export default function QuoteEditor() {
   }
 
   async function saveLine(lineId, fields) {
-    const { error } = await supabase.from('quotation_lines').update(fields).eq('id', lineId);
-    if (error) setErr('تعذّر الحفظ: ' + error.message); else flash('حُفظ');
+    setErr('');
+    try {
+      const server = await quoteEditorService.saveLine({ quoteId:id, lineId, fields });
+      setLines((current) => current.map((line) => line.id === lineId ? { ...line, ...server } : line));
+      flash('حُفظ');
+      return server;
+    } catch (error) {
+      setErr('تعذّر الحفظ: ' + (error?.message || error));
+      await load();
+      return null;
+    }
   }
 
   async function updLine(lineId, fields) {
@@ -105,60 +108,82 @@ export default function QuoteEditor() {
   }
 
   async function delLine(lineId) {
-    const { error } = await supabase.from('quotation_lines').delete().eq('id', lineId);
-    if (error) { setErr('تعذّر الحذف: ' + error.message); return; }
-    setLines(lines.filter((l) => l.id !== lineId));
+    setErr('');
+    try {
+      await quoteEditorService.deleteLine({ quoteId:id, lineId });
+      setLines((current) => current.filter((l) => l.id !== lineId));
+    } catch (error) {
+      setErr('تعذّر الحذف: ' + (error?.message || error));
+    }
   }
 
   async function move(lineId, dir) {
-    const i = lines.findIndex((l) => l.id === lineId);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= lines.length) return;
-    const a = lines[i], b = lines[j];
-    await supabase.from('quotation_lines').update({ sort_order: -1 }).eq('id', a.id);
-    await supabase.from('quotation_lines').update({ sort_order: a.sort_order }).eq('id', b.id);
-    await supabase.from('quotation_lines').update({ sort_order: b.sort_order }).eq('id', a.id);
-    const next = [...lines];
-    next[i] = { ...b, sort_order: a.sort_order };
-    next[j] = { ...a, sort_order: b.sort_order };
-    setLines(next.sort((x,y)=>x.sort_order-y.sort_order));
+    setErr('');
+    try {
+      const next = await quoteEditorService.moveLine({ quoteId:id, lineId, direction:dir });
+      setLines(next);
+    } catch (error) {
+      setErr('تعذّر تغيير الترتيب: ' + (error?.message || error));
+      await load();
+    }
   }
 
   async function pickItem(lineId, wid) {
-    const w = items.find((x) => x.id === wid);
-    if (!w) return;
-    await updLine(lineId, {
-      work_item_id: w.id, description_ar: w.description_ar,
-      description_en: w.description_en, unit: w.unit,
-      unit_price: w.last_sell_price || 0, cost_price: w.last_cost_price,
-    });
-    await supabase.from('work_items').update({ use_count: (w.use_count||0)+1 }).eq('id', w.id);
+    if (!wid) return;
+    setErr('');
+    try {
+      const result = await quoteEditorService.pickWorkItem({ quoteId:id, lineId, workItemId:wid });
+      setLines((current) => current.map((line) => line.id === lineId ? { ...line, ...result.line } : line));
+      setItems((current) => current.map((item) => item.id === wid ? { ...item, use_count:Number(item.use_count || 0)+1 } : item));
+      if (result.usageWarning) setErr(result.usageWarning);
+      else flash('حُفظ');
+    } catch (error) {
+      setErr('تعذّر تطبيق بند الدليل: ' + (error?.message || error));
+      await load();
+    }
   }
 
-  async function saveToLibrary(l) {
-    const { error } = await supabase.from('work_items').insert({
-      description_ar: l.description_ar, description_en: l.description_en,
-      unit: l.unit, last_sell_price: l.unit_price, last_cost_price: l.cost_price,
-    });
-    if (error) setErr('تعذّر الإضافة للمكتبة: ' + error.message);
-    else { flash('أُضيف إلى دليل البنود'); load(); }
+  async function saveToLibrary(line) {
+    setErr('');
+    try {
+      await quoteEditorService.saveLineToLibrary({ line });
+      flash('أُضيف إلى دليل البنود');
+      await load();
+    } catch (error) {
+      setErr('تعذّر الإضافة للمكتبة: ' + (error?.message || error));
+    }
   }
 
   async function addPay() {
-    const order = (pays.length ? Math.max(...pays.map((p)=>p.sort_order)) : 0) + 1;
-    const { data, error } = await supabase.from('quotation_payments').insert({
-      quotation_id: id, sort_order: order, label: 'دفعة', percent: 0,
-    }).select('*').single();
-    if (error) { setErr(error.message); return; }
-    setPays([...pays, data]);
+    setErr('');
+    try {
+      const data = await quoteEditorService.addPayment({ quoteId:id });
+      setPays((current) => [...current, data].sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)));
+    } catch (error) {
+      setErr('تعذّر إضافة الدفعة: ' + (error?.message || error));
+    }
   }
+
   async function updPay(pid, fields) {
-    setPays(pays.map((p) => p.id === pid ? { ...p, ...fields } : p));
-    await supabase.from('quotation_payments').update(fields).eq('id', pid);
+    setPays((current) => current.map((p) => p.id === pid ? { ...p, ...fields } : p));
+    setErr('');
+    try {
+      const server = await quoteEditorService.updatePayment({ quoteId:id, paymentId:pid, fields });
+      setPays((current) => current.map((p) => p.id === pid ? { ...p, ...server } : p));
+    } catch (error) {
+      setErr('تعذّر حفظ الدفعة: ' + (error?.message || error));
+      await load();
+    }
   }
+
   async function delPay(pid) {
-    await supabase.from('quotation_payments').delete().eq('id', pid);
-    setPays(pays.filter((p) => p.id !== pid));
+    setErr('');
+    try {
+      await quoteEditorService.deletePayment({ quoteId:id, paymentId:pid });
+      setPays((current) => current.filter((p) => p.id !== pid));
+    } catch (error) {
+      setErr('تعذّر حذف الدفعة: ' + (error?.message || error));
+    }
   }
 
   if (err && !q) return <div className="msg err">{err}</div>;
