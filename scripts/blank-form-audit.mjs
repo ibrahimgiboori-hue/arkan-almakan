@@ -27,6 +27,14 @@ function forbidTokens(rel, tokens) {
   }
 }
 
+requireTokens('lib/print-empty-value.mjs', [
+  'isEmptyPrintValue',
+  'printEmptyKind',
+  'printEmptyToken',
+  "return '..../..../......'",
+  "return '—'",
+]);
+
 requireTokens('app/print/[id]/page.js', [
   'blankForm',
   'blankRows',
@@ -34,7 +42,10 @@ requireTokens('app/print/[id]/page.js', [
   'طباعة نموذج فارغ',
   'طباعة النموذج الفارغ',
   "className={blankForm ? 'blank-form-mode' : ''}",
-  'const fields = blankForm',
+  'const fields = s.fields || [];',
+  'isEmptyPrintValue',
+  'printEmptyKind',
+  'printEmptyToken',
   'BlankWritingLines',
   'blank={blankForm}',
   'hasRepeatableSection',
@@ -75,10 +86,18 @@ requireTokens('components/PartiesPrint.js', [
 ]);
 
 requireTokens('app/print/print-blank-form.css', [
-  '.blank-form-mode .blank-write-line',
-  '.blank-form-mode .blank-writing-lines',
-  '.blank-form-mode .report-item-block',
+  '.print-route-root .blank-write-line.blank-text',
+  'border-bottom:.25mm dotted',
+  '.print-route-root .blank-write-line.blank-date',
+  '.print-route-root .blank-form-mode .blank-write-line',
+  '.print-route-root .blank-writing-lines',
+  '.print-route-root .blank-form-mode .report-item-block',
   'page-break-inside:avoid',
+]);
+
+forbidTokens('app/print-captain-hardening.css', [
+  '.blank-write-line',
+  '.blank-form-mode .amounts th',
 ]);
 
 requireTokens('app/print/print-report-paper-form.css', [
@@ -100,4 +119,4 @@ if (violations.length) {
   process.exit(1);
 }
 
-console.log('Blank form constitution audit passed: filled and blank documents share one print path, project report titles remain flexible, numeric labels are separated from write-in values, and summaries remain generated.');
+console.log('Blank form constitution audit passed: empty values are type-aware, filled and blank documents share one print path, project report titles remain flexible, and summaries remain generated.');
