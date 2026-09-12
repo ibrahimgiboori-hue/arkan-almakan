@@ -1,0 +1,486 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid #d9dde3;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(10px);
+  font-family: inherit;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar button,
+.toolbar input {
+  font: inherit;
+}
+
+.toolbar button {
+  border: 1px solid #c7cdd5;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 11px;
+  cursor: pointer;
+}
+
+.toolbar button[data-active="true"] {
+  border-color: #7d1f2f;
+  box-shadow: inset 0 0 0 1px #7d1f2f;
+}
+
+.toolbar button[data-primary="true"] {
+  background: #172d3f;
+  color: #fff;
+  border-color: #172d3f;
+}
+
+.toolbarNotice {
+  font-size: 12px;
+  color: #59636e;
+}
+
+.rowControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.rowControl input {
+  width: 58px;
+  border: 1px solid #c7cdd5;
+  border-radius: 7px;
+  padding: 6px;
+  text-align: center;
+}
+
+/*
+ * Clean-room document skin.
+ * No selector in this file targets legacy print classes. The Captain owns
+ * physical page geometry; this module owns only the logical content skin.
+ */
+.document {
+  --clean-border: #aeb9c5;
+  --clean-soft: #eef3f7;
+  --clean-ink: #1d2832;
+  --clean-muted: #66717c;
+  direction: rtl;
+  color: var(--clean-ink);
+  font-size: 10.6pt;
+  line-height: 1.42;
+  width: 100%;
+}
+
+.document,
+.document * {
+  box-sizing: border-box;
+}
+
+.headerBlock {
+  width: 100%;
+  display: grid;
+  gap: 1.6mm;
+  margin: 0;
+}
+
+.titleLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2.5mm;
+  min-height: 7mm;
+  padding: .5mm 0 1mm;
+  border-bottom: .35mm solid #78818a;
+  text-align: center;
+}
+
+.titleAr {
+  margin: 0;
+  font-size: 17pt;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.titleEn {
+  font-size: 9.5pt;
+  font-weight: 700;
+  direction: ltr;
+}
+
+.documentMeta {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  border: .2mm solid var(--clean-border);
+}
+
+.metaPair,
+.fieldPair {
+  display: grid;
+  grid-template-columns: minmax(24mm,34%) minmax(0,1fr);
+  min-width: 0;
+}
+
+.metaPair + .metaPair {
+  border-right: .2mm solid var(--clean-border);
+}
+
+.constant,
+.value {
+  min-height: 6.6mm;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 1mm 1.4mm;
+  overflow-wrap: anywhere;
+}
+
+.constant {
+  font-weight: 700;
+  border-left: .2mm solid var(--clean-border);
+}
+
+.value {
+  background: #fff;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.sectionBlock {
+  width: 100%;
+  min-width: 0;
+}
+
+.sectionTitle {
+  min-height: 5.1mm;
+  display: flex;
+  align-items: center;
+  padding: .65mm 1.5mm;
+  font-size: 10.5pt;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.pinGrid {
+  display: grid;
+  grid-template-columns: repeat(12,minmax(0,1fr));
+  border-top: .2mm solid var(--clean-border);
+  border-right: .2mm solid var(--clean-border);
+}
+
+.fieldPair {
+  border-left: .2mm solid var(--clean-border);
+  border-bottom: .2mm solid var(--clean-border);
+}
+
+.fieldFull {
+  grid-template-columns: minmax(30mm,20%) minmax(0,1fr);
+}
+
+.fieldTextarea .value {
+  align-items: flex-start;
+  min-height: 9mm;
+  white-space: pre-wrap;
+}
+
+.tableWrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.table th,
+.table td {
+  border: .2mm solid var(--clean-border);
+  padding: .9mm 1.1mm;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.table th {
+  min-height: 6.3mm;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.24;
+}
+
+.table td {
+  min-height: 6.6mm;
+}
+
+.table .serial {
+  width: 7mm;
+  text-align: center;
+  padding-left: .4mm;
+  padding-right: .4mm;
+}
+
+.numberCell {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.moneyCell {
+  text-align: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.textBlock {
+  width: 100%;
+  border: .2mm solid var(--clean-border);
+}
+
+.textBody {
+  min-height: 7mm;
+  padding: 1.4mm 1.7mm;
+  white-space: pre-wrap;
+  line-height: 1.52;
+}
+
+.legalText .textBody {
+  text-align: justify;
+  font-size: 9.7pt;
+  line-height: 1.5;
+}
+
+.blankLines {
+  display: grid;
+  gap: 2.4mm;
+  width: 100%;
+  padding: .8mm 0;
+}
+
+.blankLines span {
+  display: block;
+  height: 3.4mm;
+  border-bottom: .18mm dotted #7f8993;
+}
+
+.blankValue {
+  display: inline-block;
+  width: 100%;
+  min-width: 14mm;
+  min-height: 3.6mm;
+  border-bottom: .18mm dotted #7f8993;
+}
+
+.totalsGrid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  border-top: .2mm solid var(--clean-border);
+  border-right: .2mm solid var(--clean-border);
+}
+
+.totalPair {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(28mm,38%);
+  border-left: .2mm solid var(--clean-border);
+  border-bottom: .2mm solid var(--clean-border);
+}
+
+.totalPair .constant,
+.totalPair .value {
+  min-height: 6.4mm;
+}
+
+.totalEmphasis {
+  font-weight: 800;
+}
+
+.signatureGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--signature-count,3),minmax(0,1fr));
+  border-top: .2mm solid var(--clean-border);
+  border-right: .2mm solid var(--clean-border);
+}
+
+.signatureCard {
+  min-height: 22mm;
+  padding: 1.2mm 1.5mm;
+  border-left: .2mm solid var(--clean-border);
+  border-bottom: .2mm solid var(--clean-border);
+}
+
+.signatureRole {
+  margin-bottom: 1mm;
+  font-weight: 800;
+  text-align: center;
+}
+
+.signatureLine {
+  display: grid;
+  grid-template-columns: 13mm minmax(0,1fr);
+  gap: 1mm;
+  align-items: end;
+  min-height: 5mm;
+  font-size: 9.4pt;
+}
+
+.signatureWrite {
+  min-height: 3.7mm;
+  border-bottom: .18mm dotted #7f8993;
+}
+
+.partiesGrid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 1.5mm;
+}
+
+.partyCard {
+  border: .2mm solid var(--clean-border);
+  min-width: 0;
+}
+
+.partyHeading {
+  min-height: 5mm;
+  display: flex;
+  align-items: center;
+  padding: .6mm 1.3mm;
+  font-weight: 800;
+}
+
+.partyRow {
+  display: grid;
+  grid-template-columns: minmax(25mm,34%) minmax(0,1fr);
+  border-top: .2mm solid var(--clean-border);
+}
+
+.partyRow > * {
+  min-height: 6.2mm;
+  padding: .9mm 1.2mm;
+}
+
+.partyRow > :first-child {
+  font-weight: 700;
+  border-left: .2mm solid var(--clean-border);
+}
+
+.letterHeadBlock {
+  width: 100%;
+  display: grid;
+  gap: 1.5mm;
+}
+
+.letterAddress {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(38mm,auto);
+  gap: 3mm;
+  align-items: start;
+}
+
+.letterAddressee {
+  font-weight: 800;
+}
+
+.letterSubject {
+  text-align: center;
+  font-weight: 800;
+  border-block: .2mm solid var(--clean-border);
+  padding: 1.2mm;
+}
+
+.projectItem {
+  border: .2mm solid var(--clean-border);
+}
+
+.projectItemGrid {
+  display: grid;
+  grid-template-columns: 7mm minmax(35mm,2.4fr) repeat(2,minmax(13mm,.7fr)) repeat(3,minmax(20mm,1fr)) minmax(19mm,.9fr);
+}
+
+.projectMetric {
+  min-width: 0;
+  border-left: .2mm solid var(--clean-border);
+}
+
+.projectMetric:last-child {
+  border-left: 0;
+}
+
+.projectMetricLabel {
+  min-height: 5mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: .5mm;
+  font-size: 8.5pt;
+  font-weight: 800;
+  text-align: center;
+}
+
+.projectMetricValue {
+  min-height: 6.2mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: .7mm;
+  border-top: .2mm solid var(--clean-border);
+  text-align: center;
+}
+
+.operationalRow {
+  display: grid;
+  grid-template-columns: minmax(30mm,24%) minmax(0,1fr);
+  border-top: .2mm solid var(--clean-border);
+}
+
+.operationalRow > * {
+  min-height: 6.2mm;
+  padding: .9mm 1.2mm;
+}
+
+.operationalRow > :first-child {
+  font-weight: 700;
+  border-left: .2mm solid var(--clean-border);
+}
+
+.footerInfo {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 2mm;
+  align-items: end;
+  border-top: .2mm solid var(--clean-border);
+  padding-top: 1.5mm;
+  color: var(--clean-muted);
+  font-size: 8.5pt;
+}
+
+.bankBlock {
+  display: grid;
+  gap: .6mm;
+}
+
+.bankTitle {
+  font-weight: 800;
+  color: var(--clean-ink);
+}
+
+@media (max-width: 820px) {
+  .toolbar { position: relative; }
+}
+
+@media print {
+  .toolbar { display: none !important; }
+}
