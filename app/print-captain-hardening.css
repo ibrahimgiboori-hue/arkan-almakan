@@ -158,7 +158,12 @@
   font-weight: 700 !important;
 }
 
-/* A blank cell is not a value. Replace the old dash marker with a light handwriting guide. */
+/* A blank cell is not a value. Remove any legacy dash and show a light handwriting guide. */
+.blank-form-mode .amounts .blank-write-line::before,
+.print-doc-generic_document.blank-form-mode .amounts .blank-write-line::before {
+  content: none !important;
+}
+
 .blank-form-mode .amounts .blank-write-line::after,
 .print-doc-generic_document.blank-form-mode .amounts .blank-write-line::after {
   content: '................................' !important;
