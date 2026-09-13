@@ -239,12 +239,12 @@ function CleanTable({ section, rows, blankForm }) {
   );
 }
 
-function TextSection({ section, payload, blankForm }) {
+function TextSection({ section, payload, blankForm, isLetterBody = false }) {
   const raw = section.staticText ?? payload?.[section.key];
   if (!blankForm && !hasValue(raw)) return null;
   return (
-    <section className={`${styles.textBlock} ${section.legal ? styles.legalText : ''}`} data-print-block-key={`clean:${section.id || 'text'}`}>
-      <SectionTitle>{section.title}</SectionTitle>
+    <section className={`${styles.textBlock} ${section.legal ? styles.legalText : ''} ${isLetterBody ? styles.letterBody : ''}`} data-print-block-key={`clean:${section.id || 'text'}`}>
+      {!isLetterBody && <SectionTitle>{section.title}</SectionTitle>}
       <div className={styles.textBody}>
         {blankForm && !section.staticText ? <BlankLines count={section.blankLines || section.rows || 3} /> : raw}
       </div>
@@ -437,11 +437,12 @@ function ProjectReportFlow({ rows, payload, blankForm, blankStatusRows }) {
   return blocks;
 }
 
-function FooterInfo({ cfg, bank, stamp, blankForm, hasStampSection }) {
+function FooterInfo({ cfg, bank, stamp, blankForm, hasStampSection, language }) {
   if (blankForm) return null;
+  const english = language === 'en';
   const companyLines = [];
-  if (cfg?.cr_number) companyLines.push(`سجل تجاري ${cfg.cr_number}`);
-  if (cfg?.vat_number) companyLines.push(`رقم ضريبي ${cfg.vat_number}`);
+  if (cfg?.cr_number) companyLines.push(`${english ? 'CR No.' : 'سجل تجاري'} ${cfg.cr_number}`);
+  if (cfg?.vat_number) companyLines.push(`${english ? 'VAT No.' : 'رقم ضريبي'} ${cfg.vat_number}`);
   const contact = [cfg?.phone_1, cfg?.email].filter(Boolean).join(' · ');
   const showBank = bank && (cfg?.bank_name_full || cfg?.bank_account_no || cfg?.bank_iban);
   const hasAnything = showBank || companyLines.length || contact || (stamp && !hasStampSection);
@@ -451,9 +452,9 @@ function FooterInfo({ cfg, bank, stamp, blankForm, hasStampSection }) {
       <div className={styles.bankBlock}>
         {showBank ? (
           <>
-            <div className={styles.bankTitle}>تفاصيل الحساب البنكي</div>
+            <div className={styles.bankTitle}>{english ? 'Bank details' : 'تفاصيل الحساب البنكي'}</div>
             {cfg.bank_name_full && <div>{cfg.bank_name_full}</div>}
-            {cfg.bank_account_no && <div>رقم الحساب: <span className={styles.mono}>{cfg.bank_account_no}</span></div>}
+            {cfg.bank_account_no && <div>{english ? 'Account No.:' : 'رقم الحساب:'} <span className={styles.mono}>{cfg.bank_account_no}</span></div>}
             {cfg.bank_iban && <div className={styles.mono}>IBAN: {cfg.bank_iban}</div>}
           </>
         ) : (
@@ -525,7 +526,7 @@ export function buildCleanDocumentBlocks({
       return;
     }
     if (section.kind === 'text') {
-      blocks.push(<TextSection key={section.id || `text-${index}`} section={section} payload={payload} blankForm={blankForm} />);
+      blocks.push(<TextSection key={section.id || `text-${index}`} section={section} payload={payload} blankForm={blankForm} isLetterBody={hasLetterHead && section.key === 'letter_body'} />);
       return;
     }
     if (section.kind === 'signatures') {
@@ -541,11 +542,13 @@ export function buildCleanDocumentBlocks({
     }
   });
 
-  blocks.push(<FooterInfo key="clean-footer" cfg={cfg} bank={bank} stamp={stamp} blankForm={blankForm} hasStampSection={hasStampSection} />);
+  blocks.push(<FooterInfo key="clean-footer" cfg={cfg} bank={bank} stamp={stamp} blankForm={blankForm} hasStampSection={hasStampSection} language={doc?.language} />);
 
   return (
     <div
       className={styles.document}
+      dir={doc?.language === 'en' ? 'ltr' : 'rtl'}
+      lang={doc?.language === 'en' ? 'en' : 'ar'}
       data-clean-document={CLEAN_DOCUMENT_SCHEMA}
       data-clean-template-code={doc?.template_code || ''}
       data-print-semantic-scope="true"

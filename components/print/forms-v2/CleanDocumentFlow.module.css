@@ -82,6 +82,11 @@
   width: 100%;
 }
 
+.document[dir="ltr"] {
+  direction: ltr;
+  text-align: left;
+}
+
 .document,
 .document * {
   box-sizing: border-box;
@@ -279,6 +284,17 @@
   padding: 1.4mm 1.7mm;
   white-space: pre-wrap;
   line-height: 1.52;
+}
+
+.letterBody {
+  border: 0;
+}
+
+.letterBody .textBody {
+  min-height: 0;
+  padding: 2mm 0 0;
+  line-height: 1.6;
+  text-align: start;
 }
 
 .legalText .textBody {

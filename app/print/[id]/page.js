@@ -120,6 +120,7 @@ export default function PrintDoc() {
 
       <ConstitutionPrintFrame
         documentKey="generic_document"
+        direction={doc.language === 'en' ? 'ltr' : 'rtl'}
         cfg={cfg}
         className={blankForm ? 'clean-blank-form' : ''}
       >
