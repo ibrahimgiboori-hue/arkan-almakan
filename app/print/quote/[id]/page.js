@@ -25,6 +25,7 @@ export default function QuotePrint(){
   const [cfg,setCfg]=useState(null);
   const [saved,setSaved]=useState('');
   const [err,setErr]=useState('');
+  const [excelBusy,setExcelBusy]=useState(false);
 
   const loadQuote=useCallback(async()=>{
     const[a,b,c,d]=await Promise.all([
@@ -33,9 +34,9 @@ export default function QuotePrint(){
       supabase.from('quotation_payments').select('*').eq('quotation_id',id).order('sort_order'),
       supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),
     ]);
-    if(!a.data){setErr('لم يُعثر على هذا العرض.');return false}
+    if(!a.data || a.error || b.error || c.error || d.error){setErr('تعذر تحميل بيانات عرض السعر كاملة.');return false}
     setErr('');setQ(a.data);setLines(b.data||[]);setPays(c.data||[]);setCfg(d.data);
-    return true;
+    return {quote:a.data,lines:b.data||[],payments:c.data||[],settings:d.data||{}};
   },[id]);
 
   useEffect(()=>{loadQuote();const timer=window.setTimeout(()=>loadQuote(),500);return()=>window.clearTimeout(timer)},[loadQuote]);
@@ -72,6 +73,25 @@ export default function QuotePrint(){
 
   async function printFresh(){setSaved(tr('جارٍ تحديث المعاينة…','Refreshing preview…'));const ok=await loadQuote();if(!ok)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));setSaved('');window.print()}
 
+  async function downloadExcel(){
+    setExcelBusy(true);setSaved(tr('جارٍ إعداد ملف Excel…','Preparing Excel workbook…'));
+    try{
+      const snapshot=await loadQuote();
+      if(!snapshot)throw new Error(tr('تعذر قراءة العرض المحفوظ.','Could not load the saved quotation.'));
+      const {buildQuoteExcel,quoteExcelFileName}=await import('@/lib/quote-excel');
+      const workbook=buildQuoteExcel(snapshot);
+      const buffer=await workbook.xlsx.writeBuffer();
+      const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');
+      link.href=url;link.download=quoteExcelFileName(snapshot.quote);
+      document.body.appendChild(link);link.click();link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+      setSaved(tr('تم تنزيل ملف Excel.','Excel workbook downloaded.'));
+    }catch(error){setSaved(tr('تعذر إنشاء ملف Excel: ','Could not export Excel: ')+(error?.message||error));}
+    finally{setExcelBusy(false)}
+  }
+
   const TableCols=()=> <colgroup><col className="c-no"/><col/>{q.show_unit&&<col className="c-unit"/>}{q.show_qty&&<col className="c-qty"/>}{q.show_unit_price&&<col className="c-price"/>}{showTotalCol&&<col className="c-total"/>}</colgroup>;
   const TableHead=()=> <thead><tr><th>{tr('م','No.')}</th><th>{tr(`بيان الأعمال${q.show_en_desc?' / Description':''}`,'Description of Works')}</th>{q.show_unit&&<th>{tr('الوحدة','Unit')}</th>}{q.show_qty&&<th className="num">{tr('الكمية','Qty')}</th>}{q.show_unit_price&&<th className="num">{tr('الفئة','Unit Rate')}</th>}{showTotalCol&&<th className="num">{tr('الإجمالي','Amount')}</th>}</tr></thead>;
   const Row=({l})=>l.kind==='title'?<tr className="trow" data-print-flow-item="row"><td className="mono">{l.number}</td><td colSpan={cols-1-(showTotalCol?1:0)}>{lineDesc(l)}</td>{showTotalCol&&<td className="num">{money(subs[l.id]||0)}</td>}</tr>:l.kind==='note'?<tr className="nrow" data-print-flow-item="row"><td/><td colSpan={cols-1}>{lineDesc(l)}</td></tr>:<tr data-print-flow-item="row"><td className="mono">{l.number}</td><td className="desc">{lineDesc(l)}{!isEn&&q.show_en_desc&&l.description_en&&<span className="desc-en">{l.description_en}</span>}</td>{q.show_unit&&<td className="ctr">{unitText(l.unit)}</td>}{q.show_qty&&<td className="num">{fmtQty(l.qty)}</td>}{q.show_unit_price&&<td className="num">{money(l.unit_price)}</td>}{showTotalCol&&<td className="num">{money(lineTotal(l,q.show_qty))}</td>}</tr>;
@@ -82,6 +102,7 @@ export default function QuotePrint(){
     <div className="qtoolbar no-print">
       <div className="tb-group">
         <button className="primary" onClick={printFresh}>{tr('طباعة أو حفظ PDF','Print / Save PDF')}</button>
+        <button onClick={downloadExcel} disabled={excelBusy}>{excelBusy?tr('جارٍ التجهيز…','Preparing…'):tr('تنزيل Excel','Download Excel')}</button>
       </div>
       <span className="qt-note">{saved||tr('الهندسة والتقسيم والختم والتوقيع من القبطان للطباعة','Geometry, pagination and marks by Print Captain')}</span>
     </div>
