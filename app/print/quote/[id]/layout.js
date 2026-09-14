@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import QuoteExcelAction from '@/components/quotes/QuoteExcelAction';
 
 export default function QuotePrintLayout({ children }) {
   const { id } = useParams();
@@ -70,6 +71,7 @@ export default function QuotePrintLayout({ children }) {
 
   return (
     <>
+      <QuoteExcelAction quoteId={id} placement="print" />
       <style>{rules}</style>
       <div className="quote-meta-visibility no-print" dir="rtl">
         <strong>إعداد الطباعة</strong>
