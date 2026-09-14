@@ -204,7 +204,7 @@ export default function QuoteEditor() {
           <p>{q.client_name} — {VAT_AR[q.vat_mode]}</p>
         </div>
         <div className="rowsplit">
-          <Link className="btn" href={`/print/quote/${id}`} target="_blank">معاينة وطباعة</Link>
+          <Link className="btn" href={`/print/quote/${id}`} target="_blank">معاينة · PDF · Excel</Link>
           <Link className="btn ghost" href="/dashboard/quotes">السجل</Link>
         </div>
       </div>
