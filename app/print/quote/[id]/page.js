@@ -108,8 +108,8 @@ export default function QuotePrint(){
       documentKey="quotation"
       cfg={cfg}
       direction={dir}
-      showStamp={Boolean(q.show_stamp)}
-      showSignature={Boolean(q.show_signature)}
+      showStamp={false}
+      showSignature={false}
       captainOptions={[
         {key:'stamp',label:tr('إظهار الختم','Show stamp'),checked:Boolean(q.show_stamp),disabled:savingCaptainOption==='show_stamp',onChange:(value)=>saveCaptainOption('show_stamp',value,tr('الختم','stamp'))},
         {key:'signature',label:tr('إظهار التوقيع','Show signature'),checked:Boolean(q.show_signature),disabled:savingCaptainOption==='show_signature',onChange:(value)=>saveCaptainOption('show_signature',value,tr('التوقيع','signature'))},
@@ -143,7 +143,7 @@ export default function QuotePrint(){
           </section>)}
         </>:null}
         {q.show_closing&&q.closing_text?<p className="q-closing">{q.closing_text}</p>:null}
-        {paperApproval?<PrintApprovalBlock declaration={tr('بالتوقيع أدناه، يؤكد العميل قبوله لهذا العرض وشروطه التجارية.','By signing below, the Client confirms acceptance of this quotation and its commercial terms.')} parties={approvalParties}/>:null}
+        {paperApproval?<PrintApprovalBlock declaration={tr('بالتوقيع أدناه، يؤكد العميل قبوله لهذا العرض وشروطه التجارية.','By signing below, the Client confirms acceptance of this quotation and its commercial terms.')} parties={approvalParties} marks={{cfg,showStamp:Boolean(q.show_stamp),showSignature:Boolean(q.show_signature)}}/>:null}
         <div className="q-foot">{q.show_bank&&(cfg.bank_name_full||cfg.bank_account_no||cfg.bank_iban)&&<div className="q-bank" dir={dir}><div className="qb-t">{tr('تفاصيل الحساب البنكي','Bank Details')}</div><div className="bank-line">{bankName}</div>{cfg.bank_account_no&&<div className="bank-line"><span className="bank-label">{tr('رقم الحساب','Account No.')}:</span> <span className="mono acct">{cfg.bank_account_no}</span></div>}{cfg.bank_iban&&<div className="bank-line"><span className="bank-label">IBAN:</span> <span className="mono acct">{cfg.bank_iban}</span></div>}</div>}</div>
       </div>
     </ConstitutionPrintFrame>

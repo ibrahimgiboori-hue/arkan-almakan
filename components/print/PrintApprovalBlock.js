@@ -1,4 +1,6 @@
-export default function PrintApprovalBlock({ declaration, parties = [] }) {
+import { PrintMark } from '@/components/print/PrintMarks';
+
+export default function PrintApprovalBlock({ declaration, parties = [], marks = null }) {
   if (!parties.length) return null;
 
   return (
@@ -29,6 +31,12 @@ export default function PrintApprovalBlock({ declaration, parties = [] }) {
             </div>
             {party?.stampLabel && (
               <div className="print-signoff-stamp">{party.stampLabel}</div>
+            )}
+            {party?.role === 'arkan' && (marks?.showStamp || marks?.showSignature) && (
+              <div className="print-signoff-marks" aria-label="الختم والتوقيع المعتمدان">
+                <PrintMark cfg={marks.cfg} kind="signature" show={marks.showSignature} mode="inline" />
+                <PrintMark cfg={marks.cfg} kind="stamp" show={marks.showStamp} mode="inline" />
+              </div>
             )}
           </div>
         ))}

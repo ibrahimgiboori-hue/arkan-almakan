@@ -242,6 +242,16 @@
   text-align:start;
 }
 .print-signoff-stamp.is-empty{visibility:hidden}
+.print-signoff-marks{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:3mm;
+  min-height:31mm;
+  margin-top:1mm;
+}
+.print-signoff-marks .print-inline-stamp,
+.print-signoff-marks .print-inline-signature{flex:0 0 auto}
 
 /* ----- Shared procedure system ----- */
 .procedure-electronic{display:block}
