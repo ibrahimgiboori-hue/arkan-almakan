@@ -50,12 +50,24 @@ test('employee selection creates a stable signatory snapshot with provenance', (
 test('arkan approval uses stored snapshot without a second employee lookup', () => {
   const parties = buildQuotationApprovalParties({
     client_name:'عميل',
+    quote_date:'2026-09-17',
     arkan_signatory_employee_id:'employee-1',
     arkan_signatory_name:'المفوّض وقت إصدار العرض',
     arkan_signatory_title:'المدير العام',
-  });
+  }, undefined, { formatDate:(value)=>`formatted:${value}` });
   assert.equal(parties[1].fields[0].value, 'المفوّض وقت إصدار العرض');
   assert.equal(parties[1].fields[1].value, 'المدير العام');
+  assert.equal(parties[1].fields[3].value, 'formatted:2026-09-17');
+});
+
+test('arkan position and date fields remain visible even before a representative is selected', () => {
+  const parties = buildQuotationApprovalParties({client_name:'عميل',quote_date:'2026-09-17'}, undefined, {
+    formatDate:()=> '17/09/2026',
+  });
+  assert.deepEqual(parties[1].fields.map((field)=>field.label), [
+    'المفوض بالتوقيع','المنصب / الصفة','التوقيع','التاريخ',
+  ]);
+  assert.equal(parties[1].fields[3].value, '17/09/2026');
 });
 
 test('arkan representative can be omitted without leaving an empty approval card', () => {

@@ -61,7 +61,7 @@ export default function QuotePrint(){
   const lineDesc=line=>isEn?(line.description_en||line.description_ar||''):(line.description_ar||'');
   const unitText=unit=>isEn?(EN_UNIT[unit]||unit||'—'):(unit||'—');
   const showArkanRepresentative=q.show_arkan_representative!==false;
-  const approvalParties=buildQuotationApprovalParties(q,tr,{includeArkan:showArkanRepresentative});
+  const approvalParties=buildQuotationApprovalParties(q,tr,{includeArkan:showArkanRepresentative,formatDate});
   const title=q.title_override||(q.doc_kind==='boq'?tr('جدول كميات','BILL OF QUANTITIES (BOQ)'):tr('عرض سعر','QUOTATION'));
   const validUntil=q.show_validity&&q.quote_date?new Date(new Date(q.quote_date).getTime()+q.valid_days*86400000):null;
   const cols=2+(q.show_unit?1:0)+(q.show_qty?1:0)+(q.show_unit_price?1:0)+(showTotalCol?1:0);
