@@ -31,6 +31,9 @@ test('stamp and signature assets have one shared renderer owned by the paged cap
   assert.doesNotMatch(quote, /import PrintMarks/);
   assert.match(quote, /showStamp=\{Boolean\(q\.show_stamp\)\}/);
   assert.match(quote, /showSignature=\{Boolean\(q\.show_signature\)\}/);
+  assert.match(quote, /captainOptions=\{/);
+  assert.match(quote, /show_arkan_representative/);
+  assert.match(pagedFrame, /الاعتمادات والتوقيعات/);
   assert.doesNotMatch(quote, /stamp_image_path|signature_image_path|getPublicUrl/);
 });
 

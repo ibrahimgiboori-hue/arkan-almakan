@@ -25,6 +25,7 @@ export default function QuotePrint(){
   const [cfg,setCfg]=useState(null);
   const [saved,setSaved]=useState('');
   const [err,setErr]=useState('');
+  const [savingCaptainOption,setSavingCaptainOption]=useState('');
 
   const loadQuote=useCallback(async()=>{
     const[a,b,c,d]=await Promise.all([
@@ -59,7 +60,8 @@ export default function QuotePrint(){
   const formatDate=value=>isEn?dateEn(value):dateAr(value);
   const lineDesc=line=>isEn?(line.description_en||line.description_ar||''):(line.description_ar||'');
   const unitText=unit=>isEn?(EN_UNIT[unit]||unit||'—'):(unit||'—');
-  const approvalParties=buildQuotationApprovalParties(q,tr);
+  const showArkanRepresentative=q.show_arkan_representative!==false;
+  const approvalParties=buildQuotationApprovalParties(q,tr,{includeArkan:showArkanRepresentative});
   const title=q.title_override||(q.doc_kind==='boq'?tr('جدول كميات','BILL OF QUANTITIES (BOQ)'):tr('عرض سعر','QUOTATION'));
   const validUntil=q.show_validity&&q.quote_date?new Date(new Date(q.quote_date).getTime()+q.valid_days*86400000):null;
   const cols=2+(q.show_unit?1:0)+(q.show_qty?1:0)+(q.show_unit_price?1:0)+(showTotalCol?1:0);
@@ -71,6 +73,22 @@ export default function QuotePrint(){
   if(q.show_validity)metaCells.push(<div className="mcell" key="valid"><span className="mk">{tr('صلاحية العرض','Quotation Validity')}</span><span className="mv">{q.valid_days} {tr('يوماً','Days')}</span>{validUntil&&<span className="ms mono">{tr('حتى','Valid Until')}: {formatDate(validUntil)}</span>}</div>);
 
   async function printFresh(){setSaved(tr('جارٍ تحديث المعاينة…','Refreshing preview…'));const ok=await loadQuote();if(!ok)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));setSaved('');window.print()}
+
+  async function saveCaptainOption(field,value,label){
+    const previous=q[field];
+    setSavingCaptainOption(field);
+    setSaved(tr(`جارٍ حفظ ${label}…`,`Saving ${label}…`));
+    setQ((current)=>current?{...current,[field]:value}:current);
+    const {error}=await supabase.from('quotations').update({[field]:value}).eq('id',id);
+    if(error){
+      setQ((current)=>current?{...current,[field]:previous}:current);
+      setSaved(tr(`تعذر حفظ ${label}: ${error.message}`,`Could not save ${label}: ${error.message}`));
+    }else{
+      setSaved(tr(`تم حفظ ${label}`,`${label} saved`));
+      window.setTimeout(()=>setSaved(''),1600);
+    }
+    setSavingCaptainOption('');
+  }
 
   const TableCols=()=> <colgroup><col className="c-no"/><col/>{q.show_unit&&<col className="c-unit"/>}{q.show_qty&&<col className="c-qty"/>}{q.show_unit_price&&<col className="c-price"/>}{showTotalCol&&<col className="c-total"/>}</colgroup>;
   const TableHead=()=> <thead><tr><th>{tr('م','No.')}</th><th>{tr(`بيان الأعمال${q.show_en_desc?' / Description':''}`,'Description of Works')}</th>{q.show_unit&&<th>{tr('الوحدة','Unit')}</th>}{q.show_qty&&<th className="num">{tr('الكمية','Qty')}</th>}{q.show_unit_price&&<th className="num">{tr('الفئة','Unit Rate')}</th>}{showTotalCol&&<th className="num">{tr('الإجمالي','Amount')}</th>}</tr></thead>;
@@ -92,6 +110,11 @@ export default function QuotePrint(){
       direction={dir}
       showStamp={Boolean(q.show_stamp)}
       showSignature={Boolean(q.show_signature)}
+      captainOptions={[
+        {key:'stamp',label:tr('إظهار الختم','Show stamp'),checked:Boolean(q.show_stamp),disabled:savingCaptainOption==='show_stamp',onChange:(value)=>saveCaptainOption('show_stamp',value,tr('الختم','stamp'))},
+        {key:'signature',label:tr('إظهار التوقيع','Show signature'),checked:Boolean(q.show_signature),disabled:savingCaptainOption==='show_signature',onChange:(value)=>saveCaptainOption('show_signature',value,tr('التوقيع','signature'))},
+        {key:'arkan-representative',label:tr('إظهار ممثل أركان','Show Arkan representative'),checked:showArkanRepresentative,disabled:savingCaptainOption==='show_arkan_representative',onChange:(value)=>saveCaptainOption('show_arkan_representative',value,tr('ممثل أركان','Arkan representative'))},
+      ]}
     >
       <div className="quote-document-flow" dir={dir}>
         <div className="q-title" data-print-keep-with-next="true"><h1>{title}</h1><span className="rule"/></div>

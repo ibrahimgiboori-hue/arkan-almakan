@@ -265,6 +265,7 @@ export default function ConstitutionPagedFrame({
   signatureSizeMm,
   stampStyle,
   signatureStyle,
+  captainOptions = [],
   contentTopMm,
   contentBottomMm,
   contentSideMm,
@@ -792,6 +793,22 @@ export default function ConstitutionPagedFrame({
             <label>الهامش الأيمن <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setEdge('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم</strong></label>
             <label>تباعد الكتل <input type="range" min="1" max="8" step="0.5" value={draft.blockGapMm} onChange={(event)=>setDraft((previous)=>({...previous,blockGapMm:snap(event.target.value)}))} /><strong>{Number(draft.blockGapMm).toFixed(1)} مم</strong></label>
             <label>تباعد الأقسام <input type="range" min="2" max="14" step="0.5" value={draft.sectionGapMm} onChange={(event)=>setDraft((previous)=>({...previous,sectionGapMm:snap(event.target.value)}))} /><strong>{Number(draft.sectionGapMm).toFixed(1)} مم</strong></label>
+            {captainOptions.length > 0 && (
+              <fieldset className="constitution-captain-approvals" aria-label="الاعتمادات والتوقيعات">
+                <legend>الاعتمادات والتوقيعات</legend>
+                {captainOptions.map((option)=>(
+                  <label className="constitution-captain-toggle" key={option.key}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(option.checked)}
+                      disabled={Boolean(option.disabled)}
+                      onChange={(event)=>option.onChange?.(event.target.checked)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <button type="button" onClick={()=>saveLayout('document')}>حفظ هندسة هذا المطبوع</button>
             <button type="button" onClick={()=>saveLayout('family')}>حفظ هندسة العائلة</button>
             <button type="button" onClick={followFamily}>استخدام هندسة العائلة</button>
@@ -910,7 +927,7 @@ export default function ConstitutionPagedFrame({
           ))}
           <style jsx global>{`
             .constitution-paged-layoutbar{position:sticky;top:0;z-index:28;max-width:297mm;margin:8px auto 0;padding:8px 10px;background:#fff;border:1px solid #c7c7c7;display:flex;gap:7px;align-items:center;flex-wrap:wrap;direction:rtl;box-shadow:0 1px 6px rgba(0,0,0,.08)}
-            .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:62px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}.constitution-paper-standard{color:#6b6b6d!important}
+            .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:62px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}.constitution-paper-standard{color:#6b6b6d!important}.constitution-captain-approvals{display:flex;align-items:center;gap:8px;margin:0;padding:5px 8px;border:1px solid #d8b8b6;border-radius:8px;background:#fff8f7}.constitution-captain-approvals legend{padding:0 5px;font-size:11px;font-weight:800;color:#7c2b28}.constitution-captain-toggle{cursor:pointer;font-weight:700}.constitution-captain-toggle input{width:16px;height:16px;margin:0;accent-color:#8b3332}.constitution-captain-toggle input:disabled{cursor:wait;opacity:.55}.constitution-captain-toggle span{color:#332f2f!important;white-space:nowrap}
             .constitution-presentation-editor{position:sticky;top:48px;z-index:27;max-width:297mm;margin:6px auto;padding:8px 10px;background:#fff;border:1px solid #d5d5d5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;direction:rtl}.constitution-presentation-editor>strong{font-size:12px}.constitution-presentation-editor label{display:flex;align-items:center;gap:4px;font-size:10.5px;color:#555}.constitution-presentation-editor input{width:130px;font:inherit;font-size:11.5px;padding:4px 5px;border:1px solid #bbb}
             .constitution-flow-measure{position:fixed!important;z-index:-1000!important;left:-10000px!important;top:0!important;height:auto!important;min-height:0!important;box-sizing:border-box!important;visibility:hidden!important;pointer-events:none!important;background:#fff!important;font-size:9pt;line-height:1.45;overflow:visible!important}
             .constitution-paged-pages{padding:24px 14px 60px;display:flex;flex-direction:column;align-items:center;gap:20px;background:#efeaea}.constitution-paged-sheet{position:relative;background:#fff;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 6px rgba(0,0,0,.16)}.constitution-paged-sheet.dragging{cursor:grabbing;user-select:none}.constitution-paged-assets{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}.constitution-paged-full{position:absolute;object-fit:fill;display:block}.constitution-paged-header{position:absolute;top:0;right:0;object-fit:fill;display:block}.constitution-paged-footer{position:absolute;bottom:0;right:0;object-fit:fill;display:block}.constitution-paged-watermark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:60%;max-height:60%;object-fit:contain;display:block}

@@ -57,3 +57,12 @@ test('arkan approval uses stored snapshot without a second employee lookup', () 
   assert.equal(parties[1].fields[0].value, 'المفوّض وقت إصدار العرض');
   assert.equal(parties[1].fields[1].value, 'المدير العام');
 });
+
+test('arkan representative can be omitted without leaving an empty approval card', () => {
+  const parties = buildQuotationApprovalParties({
+    client_name:'عميل',
+    arkan_signatory_name:'ممثل أركان',
+  }, undefined, { includeArkan:false });
+
+  assert.deepEqual(parties.map((party)=>party.role), ['client']);
+});
