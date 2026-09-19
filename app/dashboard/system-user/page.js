@@ -321,7 +321,7 @@ export default function SystemUserPage() {
           </div>:null}
         </div>
         {newAccount.accessProfile==='operational'&&newLevel.scopeType === 'project' && <ProjectPicker projects={directory.projects || []} selected={newAccount.projectIds} onToggle={(id) => toggleProject(setNewAccount, id)} />}
-        <ApprovalPermissionPicker policies={approvalPolicies} selected={newAccount.approvalCapabilities} onToggle={(key)=>setNewAccount(current=>({...current,approvalCapabilities:current.approvalCapabilities.includes(key)?current.approvalCapabilities.filter(x=>x!==key):[...current.approvalCapabilities,key]}))} />
+        <ApprovalPermissionPicker policies={approvalPolicies} accessProfile={newAccount.accessProfile} selected={newAccount.approvalCapabilities} onToggle={(key)=>setNewAccount(current=>({...current,approvalCapabilities:current.approvalCapabilities.includes(key)?current.approvalCapabilities.filter(x=>x!==key):[...current.approvalCapabilities,key]}))} />
         <div className="rowsplit" style={{ marginTop: 16 }}>
           <button className="btn" disabled={busy === 'provision' || !newAccount.employeeId || (newAccount.accessProfile==='operational'&&newLevel.scopeType === 'project' && !newAccount.projectIds.length) || (newAccount.accessProfile==='approval_only'&&!newAccount.approvalCapabilities.length)}>
             {busy === 'provision' ? 'جارٍ إنشاء المستخدم…' : 'إنشاء المستخدم وكلمة مرور مؤقتة'}
@@ -387,7 +387,7 @@ export default function SystemUserPage() {
                     <span className="hint">{editLevel.description}</span>
                   </div>:null}
                   {editAccess.accessProfile==='operational'&&editLevel.scopeType === 'project' && <ProjectPicker projects={directory.projects || []} selected={editAccess.projectIds} onToggle={(id) => toggleProject(setEditAccess, id)} />}
-                  <ApprovalPermissionPicker policies={approvalPolicies} selected={editAccess.approvalCapabilities} onToggle={(key)=>setEditAccess(current=>({...current,approvalCapabilities:current.approvalCapabilities.includes(key)?current.approvalCapabilities.filter(x=>x!==key):[...current.approvalCapabilities,key]}))} />
+                  <ApprovalPermissionPicker policies={approvalPolicies} accessProfile={editAccess.accessProfile} selected={editAccess.approvalCapabilities} onToggle={(key)=>setEditAccess(current=>({...current,approvalCapabilities:current.approvalCapabilities.includes(key)?current.approvalCapabilities.filter(x=>x!==key):[...current.approvalCapabilities,key]}))} />
                   <button className="btn" style={{ marginTop: 14 }} onClick={saveAccess} disabled={busy === 'access' || (editAccess.accessProfile==='operational'&&editLevel.scopeType === 'project' && !editAccess.projectIds.length) || (editAccess.accessProfile==='approval_only'&&!editAccess.approvalCapabilities.length)}>
                     {busy === 'access' ? 'جارٍ الحفظ…' : 'حفظ نوع المستخدم ومسارات الاعتماد'}
                   </button>
@@ -421,8 +421,9 @@ export default function SystemUserPage() {
   </>;
 }
 
-function ApprovalPermissionPicker({ policies, selected, onToggle }) {
-  const groups=policies.reduce((acc,row)=>{
+function ApprovalPermissionPicker({ policies, accessProfile='operational', selected, onToggle }) {
+  const visiblePolicies=accessProfile==='approval_only'?policies.filter(row=>row.transaction_type!=='progress_claim'):policies;
+  const groups=visiblePolicies.reduce((acc,row)=>{
     const key=row.source_module||'other';
     if(!acc[key])acc[key]=[];
     acc[key].push(row);
@@ -430,7 +431,7 @@ function ApprovalPermissionPicker({ policies, selected, onToggle }) {
   },{});
   return <div style={{ marginTop:16 }}>
     <div style={{fontWeight:800,marginBottom:4}}>مسارات الاعتماد</div>
-    <div className="hint" style={{marginBottom:10}}>اختر أكثر من معاملة. هذه الصلاحيات تمنح حق القرار فقط، ولا تمنح دخول البوابة التنفيذية بذاتها.</div>
+    <div className="hint" style={{marginBottom:10}}>اختر أكثر من معاملة. هذه الصلاحيات تمنح حق القرار فقط، ولا تمنح دخول البوابة التنفيذية بذاتها.{accessProfile==='approval_only'?' اعتماد مطالبات المشاريع يبقى داخل رحلة المشروع لذلك يظهر فقط للمستخدم التشغيلي.':''}</div>
     {Object.keys(groups).length===0?<div className="empty">لا توجد مسارات اعتماد معرفة حاليًا.</div>:<div style={{display:'grid',gap:12}}>
       {Object.entries(groups).map(([module,rows])=><div key={module} style={{border:'1px solid var(--hair)',borderRadius:12,padding:12}}>
         <strong style={{display:'block',marginBottom:8}}>{MODULE_LABELS[module]||module}</strong>
