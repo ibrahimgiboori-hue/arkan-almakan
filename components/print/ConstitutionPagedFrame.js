@@ -41,7 +41,7 @@ const snap = (value) => Math.round(Number(value) * 2) / 2;
 const finiteMm = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const MAX_MARGIN = 90;
 const CSS_PX_PER_MM = 96 / 25.4;
-const CAPTAIN_GEOMETRY_SCHEMA = 6;
+const CAPTAIN_GEOMETRY_SCHEMA = 7;
 
 function pxToMm(value) {
   return Number(value || 0) / CSS_PX_PER_MM;
@@ -307,6 +307,11 @@ export default function ConstitutionPagedFrame({
   const defaultRight = clamp(Math.max(finiteMm(contentRightMm,requestedSide),wordMarginMm),minMarginMm,MAX_MARGIN);
   const defaultBlockGap = clamp(layout.grid?.blockGapMm ?? 3, 1, 8);
   const defaultSectionGap = clamp(layout.grid?.sectionGapMm ?? 6, 2, 14);
+  const surfacePolicy = layout.surface || null;
+  const defaultSurfaceWidthMm = finiteMm(surfacePolicy?.widthMm, 180);
+  const defaultSurfaceHeightMm = finiteMm(surfacePolicy?.heightMm, 120);
+  const defaultSurfaceOffsetXMm = finiteMm(surfacePolicy?.offsetXMm, 0);
+  const defaultSurfaceOffsetYMm = finiteMm(surfacePolicy?.offsetYMm, 0);
 
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState('');
@@ -320,6 +325,10 @@ export default function ConstitutionPagedFrame({
     orientation:layout.orientation || PRINT_ORIENTATION.PORTRAIT,
     letterheadSource:layout.letterheadSource || PRINT_LETTERHEAD_SOURCE.DIGITAL,
     paperRotation:layout.paperRotation || PRINT_PAPER_ROTATION.CLOCKWISE,
+    surfaceWidthMm:defaultSurfaceWidthMm,
+    surfaceHeightMm:defaultSurfaceHeightMm,
+    surfaceOffsetXMm:defaultSurfaceOffsetXMm,
+    surfaceOffsetYMm:defaultSurfaceOffsetYMm,
     grids:{}, rows:{},
   });
   const [presentationLabels, setPresentationLabels] = useState(defaultLabels);
@@ -351,6 +360,10 @@ export default function ConstitutionPagedFrame({
         paperRotation:geometryCurrent && Object.values(PRINT_PAPER_ROTATION).includes(merged.paperRotation)
           ? merged.paperRotation
           : (layout.paperRotation || PRINT_PAPER_ROTATION.CLOCKWISE),
+        surfaceWidthMm:geometryCurrent ? finiteMm(merged.surfaceWidthMm,defaultSurfaceWidthMm) : defaultSurfaceWidthMm,
+        surfaceHeightMm:geometryCurrent ? finiteMm(merged.surfaceHeightMm,defaultSurfaceHeightMm) : defaultSurfaceHeightMm,
+        surfaceOffsetXMm:geometryCurrent ? finiteMm(merged.surfaceOffsetXMm,defaultSurfaceOffsetXMm) : defaultSurfaceOffsetXMm,
+        surfaceOffsetYMm:geometryCurrent ? finiteMm(merged.surfaceOffsetYMm,defaultSurfaceOffsetYMm) : defaultSurfaceOffsetYMm,
         grids:merged.grids || {}, rows:merged.rows || {},
       });
     }
@@ -406,6 +419,10 @@ export default function ConstitutionPagedFrame({
         orientation:draft.orientation,
         letterheadSource:draft.letterheadSource,
         paperRotation:draft.paperRotation,
+        surfaceWidthMm:draft.surfaceWidthMm,
+        surfaceHeightMm:draft.surfaceHeightMm,
+        surfaceOffsetXMm:draft.surfaceOffsetXMm,
+        surfaceOffsetYMm:draft.surfaceOffsetYMm,
         grids:draft.grids || {}, rows:draft.rows || {},
       },
       updated_by_user_id:user?.id || null,
@@ -452,6 +469,10 @@ export default function ConstitutionPagedFrame({
       orientation:layout.orientation || PRINT_ORIENTATION.PORTRAIT,
       letterheadSource:layout.letterheadSource || PRINT_LETTERHEAD_SOURCE.DIGITAL,
       paperRotation:layout.paperRotation || PRINT_PAPER_ROTATION.CLOCKWISE,
+      surfaceWidthMm:defaultSurfaceWidthMm,
+      surfaceHeightMm:defaultSurfaceHeightMm,
+      surfaceOffsetXMm:defaultSurfaceOffsetXMm,
+      surfaceOffsetYMm:defaultSurfaceOffsetYMm,
       grids:{}, rows:{},
     });
     setPresentationLabels(defaultLabels);
@@ -464,6 +485,23 @@ export default function ConstitutionPagedFrame({
   const landscape = orientation === PRINT_ORIENTATION.LANDSCAPE;
   const pageHeightMm = landscape ? finiteMm(paper?.landscapeHeightMm,210) : finiteMm(paper?.portraitHeightMm,297);
   const pageWidthMm = landscape ? finiteMm(paper?.landscapeWidthMm,297) : finiteMm(paper?.portraitWidthMm,210);
+  const surfaceMode = surfacePolicy?.mode === 'carrier';
+  const surfaceWidthMm = surfaceMode
+    ? clamp(finiteMm(draft.surfaceWidthMm,defaultSurfaceWidthMm), finiteMm(surfacePolicy?.minWidthMm,120), Math.min(pageWidthMm,finiteMm(surfacePolicy?.maxWidthMm,pageWidthMm)))
+    : null;
+  const surfaceHeightMm = surfaceMode
+    ? clamp(finiteMm(draft.surfaceHeightMm,defaultSurfaceHeightMm), finiteMm(surfacePolicy?.minHeightMm,80), Math.min(pageHeightMm,finiteMm(surfacePolicy?.maxHeightMm,pageHeightMm)))
+    : null;
+  const surfaceOffsetXMm = surfaceMode ? clamp(finiteMm(draft.surfaceOffsetXMm,defaultSurfaceOffsetXMm),-30,30) : 0;
+  const surfaceOffsetYMm = surfaceMode ? clamp(finiteMm(draft.surfaceOffsetYMm,defaultSurfaceOffsetYMm),-60,60) : 0;
+  const surfaceLeftMm = surfaceMode
+    ? clamp((pageWidthMm-surfaceWidthMm)/2 + surfaceOffsetXMm,0,pageWidthMm-surfaceWidthMm)
+    : null;
+  const surfaceTopMm = surfaceMode
+    ? clamp((pageHeightMm-surfaceHeightMm)/2 + surfaceOffsetYMm,0,pageHeightMm-surfaceHeightMm)
+    : null;
+  const surfaceRightMm = surfaceMode ? pageWidthMm-surfaceLeftMm-surfaceWidthMm : null;
+  const surfaceBottomMm = surfaceMode ? pageHeightMm-surfaceTopMm-surfaceHeightMm : null;
   const letterheadTop = finiteMm(letterheadProfile?.portraitTopArtworkMm,34.23);
   const letterheadBottom = finiteMm(letterheadProfile?.portraitBottomArtworkMm,19.13);
   const headerClearanceMm = finiteMm(paper?.headerFromEdgeMm,12.7);
@@ -477,22 +515,22 @@ export default function ConstitutionPagedFrame({
   );
   const topBottomReservedLetterhead = letterheadSource !== PRINT_LETTERHEAD_SOURCE.NONE && !sideReservedLetterhead;
 
-  const requestedTop = clamp(draft.topMm ?? defaultTop,minMarginMm,MAX_MARGIN);
-  const requestedBottom = clamp(draft.bottomMm ?? defaultBottom,minMarginMm,MAX_MARGIN);
-  const requestedLeft = clamp(draft.leftMm ?? defaultLeft,minMarginMm,MAX_MARGIN);
-  const requestedRight = clamp(draft.rightMm ?? defaultRight,minMarginMm,MAX_MARGIN);
-  const physicalLeft = sideReservedLetterhead
+  const requestedTop = surfaceMode ? surfaceTopMm : clamp(draft.topMm ?? defaultTop,minMarginMm,MAX_MARGIN);
+  const requestedBottom = surfaceMode ? surfaceBottomMm : clamp(draft.bottomMm ?? defaultBottom,minMarginMm,MAX_MARGIN);
+  const requestedLeft = surfaceMode ? surfaceLeftMm : clamp(draft.leftMm ?? defaultLeft,minMarginMm,MAX_MARGIN);
+  const requestedRight = surfaceMode ? surfaceRightMm : clamp(draft.rightMm ?? defaultRight,minMarginMm,MAX_MARGIN);
+  const physicalLeft = surfaceMode ? requestedLeft : (sideReservedLetterhead
     ? Math.max(requestedLeft, paperRotation === PRINT_PAPER_ROTATION.CLOCKWISE ? letterheadBottom : letterheadTop)
-    : requestedLeft;
-  const physicalRight = sideReservedLetterhead
+    : requestedLeft);
+  const physicalRight = surfaceMode ? requestedRight : (sideReservedLetterhead
     ? Math.max(requestedRight, paperRotation === PRINT_PAPER_ROTATION.CLOCKWISE ? letterheadTop : letterheadBottom)
-    : requestedRight;
-  const top = topBottomReservedLetterhead
+    : requestedRight);
+  const top = surfaceMode ? requestedTop : (topBottomReservedLetterhead
     ? Math.max(requestedTop, letterheadTop + headerClearanceMm)
-    : requestedTop;
-  const bottom = topBottomReservedLetterhead
+    : requestedTop);
+  const bottom = surfaceMode ? requestedBottom : (topBottomReservedLetterhead
     ? Math.max(requestedBottom, letterheadBottom + footerClearanceMm)
-    : requestedBottom;
+    : requestedBottom);
   const grid = { ...(layout.grid || {}), blockGapMm:draft.blockGapMm, sectionGapMm:draft.sectionGapMm };
 
   useEffect(() => {
@@ -515,8 +553,13 @@ export default function ConstitutionPagedFrame({
       letterheadBottomArtworkMm:letterheadBottom,
       blockGapMm:grid.blockGapMm,
       sectionGapMm:grid.sectionGapMm,
+      surfaceMode,
+      surfaceWidthMm,
+      surfaceHeightMm,
+      surfaceOffsetXMm,
+      surfaceOffsetYMm,
     });
-  }, [bottom, footerClearanceMm, grid.blockGapMm, grid.sectionGapMm, headerClearanceMm, letterheadBottom, letterheadSource, letterheadTop, onLayoutChange, orientation, paperRotation, physicalLeft, physicalRight, requestedBottom, requestedLeft, requestedRight, requestedTop, top, wordMarginMm]);
+  }, [bottom, footerClearanceMm, grid.blockGapMm, grid.sectionGapMm, headerClearanceMm, letterheadBottom, letterheadSource, letterheadTop, onLayoutChange, orientation, paperRotation, physicalLeft, physicalRight, requestedBottom, requestedLeft, requestedRight, requestedTop, surfaceHeightMm, surfaceMode, surfaceOffsetXMm, surfaceOffsetYMm, surfaceWidthMm, top, wordMarginMm]);
 
   const layoutContext = useMemo(()=>({
     editing,
@@ -787,10 +830,17 @@ export default function ConstitutionPagedFrame({
                 </select>
               </label>
             )}
-            <label>هامش Word العلوي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedTop} onChange={(event)=>setEdge('topMm',event.target.value)} /><strong>{top.toFixed(1)} مم فعلي</strong></label>
-            <label>هامش Word السفلي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedBottom} onChange={(event)=>setEdge('bottomMm',event.target.value)} /><strong>{bottom.toFixed(1)} مم فعلي</strong></label>
-            <label>الهامش الأيسر <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedLeft} onChange={(event)=>setEdge('leftMm',event.target.value)} /><strong>{physicalLeft.toFixed(1)} مم</strong></label>
-            <label>الهامش الأيمن <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setEdge('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم</strong></label>
+            {surfaceMode ? <>
+              <label>عرض المستند <input type="range" min={surfacePolicy.minWidthMm || 120} max={Math.min(pageWidthMm,surfacePolicy.maxWidthMm || pageWidthMm)} step="0.5" value={surfaceWidthMm} onChange={(event)=>setDraft((previous)=>({...previous,surfaceWidthMm:snap(event.target.value)}))} /><strong>{surfaceWidthMm.toFixed(1)} مم</strong></label>
+              <label>ارتفاع المستند <input type="range" min={surfacePolicy.minHeightMm || 80} max={Math.min(pageHeightMm,surfacePolicy.maxHeightMm || pageHeightMm)} step="0.5" value={surfaceHeightMm} onChange={(event)=>setDraft((previous)=>({...previous,surfaceHeightMm:snap(event.target.value)}))} /><strong>{surfaceHeightMm.toFixed(1)} مم</strong></label>
+              <label>تحريك أفقي <input type="range" min="-30" max="30" step="0.5" value={surfaceOffsetXMm} onChange={(event)=>setDraft((previous)=>({...previous,surfaceOffsetXMm:snap(event.target.value)}))} /><strong>{surfaceOffsetXMm.toFixed(1)} مم</strong></label>
+              <label>تحريك رأسي <input type="range" min="-60" max="60" step="0.5" value={surfaceOffsetYMm} onChange={(event)=>setDraft((previous)=>({...previous,surfaceOffsetYMm:snap(event.target.value)}))} /><strong>{surfaceOffsetYMm.toFixed(1)} مم</strong></label>
+            </> : <>
+              <label>هامش Word العلوي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedTop} onChange={(event)=>setEdge('topMm',event.target.value)} /><strong>{top.toFixed(1)} مم فعلي</strong></label>
+              <label>هامش Word السفلي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedBottom} onChange={(event)=>setEdge('bottomMm',event.target.value)} /><strong>{bottom.toFixed(1)} مم فعلي</strong></label>
+              <label>الهامش الأيسر <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedLeft} onChange={(event)=>setEdge('leftMm',event.target.value)} /><strong>{physicalLeft.toFixed(1)} مم</strong></label>
+              <label>الهامش الأيمن <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setEdge('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم</strong></label>
+            </>}
             <label>تباعد الكتل <input type="range" min="1" max="8" step="0.5" value={draft.blockGapMm} onChange={(event)=>setDraft((previous)=>({...previous,blockGapMm:snap(event.target.value)}))} /><strong>{Number(draft.blockGapMm).toFixed(1)} مم</strong></label>
             <label>تباعد الأقسام <input type="range" min="2" max="14" step="0.5" value={draft.sectionGapMm} onChange={(event)=>setDraft((previous)=>({...previous,sectionGapMm:snap(event.target.value)}))} /><strong>{Number(draft.sectionGapMm).toFixed(1)} مم</strong></label>
             {captainOptions.length > 0 && (
@@ -813,7 +863,7 @@ export default function ConstitutionPagedFrame({
             <button type="button" onClick={()=>saveLayout('family')}>حفظ هندسة العائلة</button>
             <button type="button" onClick={followFamily}>استخدام هندسة العائلة</button>
             <button type="button" onClick={resetDraft}>إعادة Word القياسي</button>
-            <span className="constitution-paper-mode">{landscape ? 'أفقي' : 'عمودي'} · {sourceLabel(letterheadSource)}</span>
+            <span className="constitution-paper-mode">{landscape ? 'أفقي' : 'عمودي'} · {sourceLabel(letterheadSource)}{surfaceMode ? ` · مستند ${surfaceWidthMm.toFixed(1)}×${surfaceHeightMm.toFixed(1)} مم على A4` : ''}</span>
             <span className="constitution-paper-standard">Word 25.4 مم · Header 12.7 · Footer 12.7 · Letterhead {letterheadTop.toFixed(2)}/{letterheadBottom.toFixed(2)}</span>
           </>}
           {message && <span>{message}</span>}
