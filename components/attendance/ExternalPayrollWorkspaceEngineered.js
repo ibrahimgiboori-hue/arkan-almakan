@@ -271,9 +271,9 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ws.getCell('C3').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}};
 
       const headers=[
-        'رقم الموظف','الموظف','الأساسي','السكن','النقل','بدلات أخرى','نسبة التأمينات %','خصم التأمينات','صافي الراتب المرجعي',
-        'ساعات اليوم','الغياب (يوم)','خصم الغياب','البصمات المفقودة','خصم البصمات','فرق الساعات (ساعة)','أثر الساعات',
-        'إضافات يدوية','خصومات يدوية','إجمالي الإضافات','إجمالي الخصومات','صافي المستحق','طريقة الدفع','ملاحظات'
+        'رقم الموظف','الموظف','الأساسي','السكن','النقل','بدلات أخرى','نسبة التأمينات %','خصم التأمينات (ر.س)','صافي الراتب المرجعي (ر.س)',
+        'ساعات اليوم','الغياب (يوم)','خصم الغياب (ر.س)','البصمات المفقودة','خصم البصمات (ر.س)','فرق الساعات (ساعة)','أثر الساعات (ر.س)',
+        'إضافات يدوية','خصومات يدوية','إجمالي الإضافات (ر.س)','إجمالي الخصومات (ر.س)','صافي المستحق (ر.س)','طريقة الدفع','ملاحظات'
       ];
       const headerRow=ws.getRow(6);
       headerRow.values=headers;
@@ -341,7 +341,8 @@ export default function ExternalPayrollWorkspaceEngineered(){
         row.getCell(2).alignment={horizontal:'right',vertical:'middle'};
         inputCols.forEach((col)=>{row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}};});
         formulaCols.forEach((col)=>{row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}};});
-        [3,4,5,6,8,9,12,14,16,17,18,19,20,21].forEach((col)=>{row.getCell(col).numFmt='#,##0.00';});
+        [3,4,5,6,17,18].forEach((col)=>{row.getCell(col).numFmt='#,##0.00';});
+        [8,9,12,14,16,19,20,21].forEach((col)=>{row.getCell(col).numFmt='#,##0.00 "ر.س"';});
         row.getCell(7).numFmt='0.00';
         row.getCell(10).numFmt='0.00';
         row.getCell(11).numFmt='0.00';
@@ -357,7 +358,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       for(const col of [3,4,5,6,8,9,12,14,16,17,18,19,20,21]){
         const letter=ws.getColumn(col).letter;
         totalRow.getCell(col).value={formula:`SUM(${letter}7:${letter}${lastDataRow})`};
-        totalRow.getCell(col).numFmt='#,##0.00';
+        totalRow.getCell(col).numFmt=[8,9,12,14,16,19,20,21].includes(col)?'#,##0.00 "ر.س"':'#,##0.00';
       }
       totalRow.height=25;
       totalRow.eachCell((cell)=>{
@@ -371,7 +372,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ws.getCell('B4').value=Math.max(0,lastDataRow-6);
       ws.getCell('C4').value='إجمالي صافي المستحق';
       ws.getCell('D4').value={formula:`SUM(U7:U${lastDataRow})`,result:Number(totals.final||0)};
-      ws.getCell('D4').numFmt='#,##0.00';
+      ws.getCell('D4').numFmt='#,##0.00 "ر.س"';
       ['A4','C4'].forEach((cell)=>{ws.getCell(cell).font={bold:true,color:{argb:'FFFFFFFF'}};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};});
       ['B4','D4'].forEach((cell)=>{ws.getCell(cell).font={bold:true};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};ws.getCell(cell).alignment={horizontal:'center'};});
 
