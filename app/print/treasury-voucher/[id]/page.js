@@ -16,12 +16,12 @@ export default function TreasuryVoucherPrintPage(){
     let cancelled=false;
     (async()=>{
       const [voucherQ,settingsQ]=await Promise.all([
-        supabase.from('cash_vouchers').select('*').eq('id',id).maybeSingle(),
+        supabase.rpc('fn_cash_voucher_print_get',{p_voucher_id:id}),
         supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),
       ]);
       if(cancelled)return;
       if(voucherQ.error||!voucherQ.data){
-        setError('لم يُعثر على السند، أو لا تملك صلاحية عرضه.');
+        setError(voucherQ.error?.message||'لم يُعثر على السند، أو لا تملك صلاحية عرضه.');
         return;
       }
       setVoucher(voucherQ.data);
