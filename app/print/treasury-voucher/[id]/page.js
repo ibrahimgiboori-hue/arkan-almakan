@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import ConstitutionPrintFrame from '@/components/print/ConstitutionPrintFrame';
 import TreasuryVoucherPrint from '@/components/print/TreasuryVoucherPrint';
 
 export default function TreasuryVoucherPrintPage(){
   const { id } = useParams();
+  const search=useSearchParams();
+  const embed=search.get('embed')==='1';
   const [voucher,setVoucher]=useState(null);
   const [settings,setSettings]=useState(null);
   const [error,setError]=useState('');
@@ -34,15 +36,16 @@ export default function TreasuryVoucherPrintPage(){
   if(!voucher||!settings)return <div style={{padding:40,direction:'rtl'}}>جارٍ تجهيز السند…</div>;
 
   return <>
-    <div className="print-toolbar no-print">
+    {!embed?<div className="print-toolbar no-print">
       <button type="button" onClick={()=>window.print()}>طباعة / حفظ PDF</button>
       <span>السند داخل قبطان الطباعة: ورقة A4 حاملة، والمستند المصغر مستقل وبدون ليترهيد.</span>
-    </div>
+    </div>:null}
 
     <ConstitutionPrintFrame
       documentKey="treasury_voucher"
       cfg={settings}
       direction="rtl"
+      previewOnly={embed}
       showStamp={voucher.status==='posted' && settings.show_stamp_by_default!==false}
       stampSizeMm={25}
       stampStyle={{
