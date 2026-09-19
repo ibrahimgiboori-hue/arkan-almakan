@@ -95,9 +95,11 @@
 .treasury-voucher-document .tv-brand-name strong{
   display:block;
   color:var(--tv-brand-dark);
-  font-size:14pt;
+  font-size:13.6pt;
   font-weight:800;
-  letter-spacing:-.08pt;
+  letter-spacing:normal;
+  word-spacing:normal;
+  white-space:nowrap;
 }
 .treasury-voucher-document .tv-brand-name span{
   display:block;
