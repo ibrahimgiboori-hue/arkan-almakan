@@ -20,6 +20,9 @@ const ACCESS_LEVELS = {
 
 type AccessLevelKey = keyof typeof ACCESS_LEVELS;
 
+const ACCESS_PROFILES = new Set(['operational','approval_only']);
+const APPROVAL_SYSTEM_CAPS = ['system.approvals.view','system.approvals.route'];
+
 const MANAGED_BUNDLE_KEYS = [
   'projects_full_access',
   'project_site_supervisor',
@@ -139,6 +142,106 @@ async function replaceProjectAccess(admin: any, actorId: string, userId: string,
   return { ok: true };
 }
 
+async function approvalPolicies(admin: any) {
+  const { data, error } = await admin
+    .from('approval_workflow_policies')
+    .select('transaction_type,label_ar,source_module,initial_target_capability,initial_target_group_label,allow_additional,is_active')
+    .eq('is_active', true)
+    .not('initial_target_capability', 'is', null)
+    .order('source_module')
+    .order('label_ar');
+  if (error) return { error: 'approval_policy_lookup_failed', message: error.message, rows: [] };
+  return {
+    rows:(data || []).map((row: any) => ({
+      ...row,
+      capability_key:row.initial_target_capability,
+    })),
+  };
+}
+
+async function replaceApprovalAccess(admin: any, actorId: string, userId: string, accessProfile: string, requestedCapabilities: string[]) {
+  if (!ACCESS_PROFILES.has(accessProfile)) return { error:'invalid_access_profile' };
+  const policyResult = await approvalPolicies(admin);
+  if ('error' in policyResult) return policyResult;
+  const validKeys = new Set((policyResult.rows || []).map((row: any) => String(row.capability_key || '')).filter(Boolean));
+  const selected = [...new Set((requestedCapabilities || []).map(String).filter((key) => validKeys.has(key)))];
+  if (accessProfile === 'approval_only' && !selected.length) return { error:'approval_route_required' };
+
+  const managed = [...validKeys, ...APPROVAL_SYSTEM_CAPS];
+
+  if (accessProfile === 'approval_only') {
+    const { error: bundleError } = await admin
+      .from('user_permission_bundles')
+      .update({ is_active:false, note:'إدارة الدخول: مستخدم إداري اعتمادات فقط' })
+      .eq('user_id', userId)
+      .eq('is_active', true);
+    if (bundleError) return { error:'approval_profile_bundle_disable_failed', message:bundleError.message };
+
+    const { error: overrideError } = await admin
+      .from('user_permission_overrides')
+      .update({ is_active:false, note:'إدارة الدخول: أوقفت الصلاحيات التشغيلية لملف الاعتمادات' })
+      .eq('user_id', userId)
+      .eq('effect', 'allow')
+      .eq('is_active', true);
+    if (overrideError) return { error:'approval_profile_override_disable_failed', message:overrideError.message };
+  } else if (managed.length) {
+    const { error: managedError } = await admin
+      .from('user_permission_overrides')
+      .update({ is_active:false, note:'إدارة الدخول: تحديث مسارات الاعتماد' })
+      .eq('user_id', userId)
+      .eq('effect', 'allow')
+      .in('capability_key', managed);
+    if (managedError) return { error:'approval_access_disable_failed', message:managedError.message };
+  }
+
+  const activeKeys = selected.length ? [...selected, ...APPROVAL_SYSTEM_CAPS] : [];
+  for (const capabilityKey of activeKeys) {
+    const { data: existing, error: existingError } = await admin
+      .from('user_permission_overrides')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('capability_key', capabilityKey)
+      .eq('scope_type', 'all')
+      .is('scope_key', null)
+      .order('granted_at', { ascending:false })
+      .limit(1)
+      .maybeSingle();
+    if (existingError) return { error:'approval_access_lookup_failed', message:existingError.message };
+
+    const patch = {
+      effect:'allow',
+      scope_type:'all',
+      scope_key:null,
+      amount_limit:null,
+      valid_from:null,
+      valid_until:null,
+      is_active:true,
+      granted_by:actorId,
+      granted_at:new Date().toISOString(),
+      note:accessProfile === 'approval_only' ? 'إدارة الدخول: إداري اعتمادات فقط' : 'إدارة الدخول: صلاحية اعتماد إضافية',
+    };
+
+    if (existing?.id) {
+      const { error } = await admin.from('user_permission_overrides').update(patch).eq('id', existing.id);
+      if (error) return { error:'approval_access_save_failed', message:error.message };
+    } else {
+      const { error } = await admin.from('user_permission_overrides').insert({ user_id:userId, capability_key:capabilityKey, ...patch });
+      if (error) return { error:'approval_access_save_failed', message:error.message };
+    }
+  }
+
+  const { error: profileError } = await admin
+    .from('app_users')
+    .update({
+      access_profile:accessProfile,
+      access_note:accessProfile === 'approval_only' ? 'إداري — اعتمادات فقط' : 'تنفيذي / تشغيلي',
+    })
+    .eq('id', userId);
+  if (profileError) return { error:'access_profile_save_failed', message:profileError.message };
+
+  return { ok:true, selected };
+}
+
 async function userImpact(admin: any, userId: string) {
   const { data, error } = await admin.rpc('admin_user_data_impact', { p_user_id: userId });
   if (error) return { error: 'impact_scan_failed', message: error.message };
@@ -179,16 +282,18 @@ Deno.serve(async (req: Request) => {
     const action = String(body.action || '');
 
     if (action === 'directory') {
-      const [employeesQ, usersQ, grantsQ, bundlesQ, projectsQ, settingsQ, authUsersQ] = await Promise.all([
+      const [employeesQ, usersQ, grantsQ, bundlesQ, projectsQ, overridesQ, policiesQ, settingsQ, authUsersQ] = await Promise.all([
         admin.from('employees').select('id,employee_no,full_name_ar,job_title,department,email,status').order('full_name_ar'),
-        admin.from('app_users').select('id,employee_id,role,is_active,is_system_admin,must_change_password,temporary_password_set_at,password_changed_at,access_note,archived_at,archived_by,created_at'),
+        admin.from('app_users').select('id,employee_id,role,is_active,is_system_admin,must_change_password,temporary_password_set_at,password_changed_at,access_note,access_profile,archived_at,archived_by,created_at'),
         admin.from('user_permission_bundles').select('id,user_id,bundle_id,scope_type,scope_key,is_active,valid_from,valid_until,note,granted_at'),
         admin.from('permission_bundles').select('id,bundle_key,name_ar,description_ar,is_active').in('bundle_key', MANAGED_BUNDLE_KEYS),
         admin.from('projects').select('id,project_no,name_ar,city,stage,status').order('project_no'),
+        admin.from('user_permission_overrides').select('id,user_id,capability_key,effect,scope_type,scope_key,is_active,valid_from,valid_until,note,granted_at'),
+        admin.from('approval_workflow_policies').select('transaction_type,label_ar,source_module,initial_target_capability,initial_target_group_label,allow_additional,is_active').eq('is_active',true).not('initial_target_capability','is',null).order('source_module').order('label_ar'),
         admin.from('system_access_settings').select('primary_user_id').eq('singleton', true).maybeSingle(),
         admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
       ]);
-      const firstError = [employeesQ, usersQ, grantsQ, bundlesQ, projectsQ, settingsQ].find((q) => q.error)?.error;
+      const firstError = [employeesQ, usersQ, grantsQ, bundlesQ, projectsQ, overridesQ, policiesQ, settingsQ].find((q) => q.error)?.error;
       if (firstError) return json({ error: 'directory_failed', message: firstError.message }, 400);
       const emailById = new Map((authUsersQ.data?.users || []).map((item: any) => [item.id, item.email || '']));
       const users = (usersQ.data || []).map((item: any) => ({ ...item, auth_email: emailById.get(item.id) || '' }));
@@ -199,16 +304,21 @@ Deno.serve(async (req: Request) => {
         grants: grantsQ.data || [],
         bundles: bundlesQ.data || [],
         projects: projectsQ.data || [],
+        overrides: overridesQ.data || [],
+        approvalPolicies: (policiesQ.data || []).map((row: any) => ({ ...row, capability_key:row.initial_target_capability })),
         primaryUserId: settingsQ.data?.primary_user_id || null,
       });
     }
 
     if (action === 'provision') {
       const employeeId = String(body.employeeId || '');
+      const accessProfile = String(body.accessProfile || 'operational');
       const accessLevel = String(body.accessLevel || 'projects_portal_full') as AccessLevelKey;
       const projectIds = Array.isArray(body.projectIds) ? [...new Set(body.projectIds.map(String).filter(Boolean))] : [];
+      const approvalCapabilities = Array.isArray(body.approvalCapabilities) ? [...new Set(body.approvalCapabilities.map(String).filter(Boolean))] : [];
       if (!employeeId) return json({ error: 'employee_required' }, 400);
-      if (!ACCESS_LEVELS[accessLevel]) return json({ error: 'invalid_access_level' }, 400);
+      if (!ACCESS_PROFILES.has(accessProfile)) return json({ error:'invalid_access_profile' },400);
+      if (accessProfile === 'operational' && !ACCESS_LEVELS[accessLevel]) return json({ error: 'invalid_access_level' }, 400);
 
       const { data: employee, error: employeeError } = await admin
         .from('employees')
@@ -260,12 +370,17 @@ Deno.serve(async (req: Request) => {
         temporary_password_set_at: now,
         archived_at: null,
         archived_by: null,
-        access_note: 'أُنشئ من إدارة الدخول وفق هرمية البوابات',
+        access_profile: accessProfile,
+        access_note: accessProfile === 'approval_only' ? 'إداري — اعتمادات فقط' : 'أُنشئ من إدارة الدخول وفق هرمية البوابات',
       }, { onConflict: 'id' });
       if (appUserError) return json({ error: 'app_user_create_failed', message: appUserError.message }, 400);
 
-      const accessResult = await replaceProjectAccess(admin, user.id, authUser.id, accessLevel, projectIds);
-      if ('error' in accessResult) return json(accessResult, 400);
+      if (accessProfile === 'operational') {
+        const accessResult = await replaceProjectAccess(admin, user.id, authUser.id, accessLevel, projectIds);
+        if ('error' in accessResult) return json(accessResult, 400);
+      }
+      const approvalResult = await replaceApprovalAccess(admin, user.id, authUser.id, accessProfile, approvalCapabilities);
+      if ('error' in approvalResult) return json(approvalResult, 400);
 
       return json({
         ok: true,
@@ -278,7 +393,7 @@ Deno.serve(async (req: Request) => {
     if (!userId) return json({ error: 'user_required' }, 400);
     const { data: appUser, error: lookupError } = await admin
       .from('app_users')
-      .select('id,employee_id,is_active,is_system_admin,archived_at')
+      .select('id,employee_id,is_active,is_system_admin,access_profile,archived_at')
       .eq('id', userId)
       .maybeSingle();
     if (lookupError || !appUser) return json({ error: 'account_not_found' }, 404);
@@ -341,6 +456,25 @@ Deno.serve(async (req: Request) => {
       const { error } = await admin.from('app_users').update({ is_active: isActive }).eq('id', userId);
       if (error) return json({ error: 'status_update_failed', message: error.message }, 400);
       return json({ ok: true, isActive });
+    }
+
+    if (action === 'set_access_profile') {
+      if (isPrimaryTarget) return json({ error:'primary_user_protected' },400);
+      const accessProfile=String(body.accessProfile||'operational');
+      const accessLevel=String(body.accessLevel||'projects_portal_full') as AccessLevelKey;
+      const projectIds=Array.isArray(body.projectIds)?[...new Set(body.projectIds.map(String).filter(Boolean))]:[];
+      const approvalCapabilities=Array.isArray(body.approvalCapabilities)?[...new Set(body.approvalCapabilities.map(String).filter(Boolean))]:[];
+      if(!ACCESS_PROFILES.has(accessProfile))return json({error:'invalid_access_profile'},400);
+
+      if(accessProfile==='operational'){
+        if(!ACCESS_LEVELS[accessLevel])return json({error:'invalid_access_level'},400);
+        const result=await replaceProjectAccess(admin,user.id,userId,accessLevel,projectIds);
+        if('error' in result)return json(result,400);
+      }
+
+      const approvalResult=await replaceApprovalAccess(admin,user.id,userId,accessProfile,approvalCapabilities);
+      if('error' in approvalResult)return json(approvalResult,400);
+      return json({ok:true,accessProfile,approvalCapabilities:approvalResult.selected||[]});
     }
 
     if (action === 'set_access_level') {
