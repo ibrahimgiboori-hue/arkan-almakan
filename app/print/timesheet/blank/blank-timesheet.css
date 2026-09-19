@@ -11,3 +11,8 @@
 .print-family-site-operations .ts-blank-table tbody tr{height:7mm}
 .print-family-site-operations .ts-blank-table td:nth-child(2),.print-family-site-operations .ts-blank-table td:last-child{text-align:right}
 .print-family-site-operations .ts-blank-table tfoot th{height:7mm;font-weight:800}
+
+/* Keep the 12-row blank weekly sheet, totals and approvals on one A4 page. */
+.print-family-site-operations .ts-blank-page .ts-paper-count{margin-top:1.2mm;padding:1mm}
+.print-family-site-operations .ts-blank-page .ts-signatures{margin-top:1.2mm}
+.print-family-site-operations .ts-blank-page .ts-signatures>div{min-height:20mm;padding:1.1mm 1.6mm;gap:.7mm}
