@@ -309,3 +309,103 @@
   .routeBox .field:nth-child(3){grid-column:auto}
   .documentFrame{height:420px}
 }
+
+.queueTabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-bottom:12px;
+  padding:4px;
+  border-radius:12px;
+  background:#f4f0ee;
+}
+.queueTabs button{
+  border:0;
+  border-radius:9px;
+  padding:9px 8px;
+  background:transparent;
+  color:#6c625e;
+  font:inherit;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+.queueTabs button b{
+  display:inline-grid;
+  place-items:center;
+  min-width:20px;
+  height:20px;
+  margin-inline-start:5px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#fff;
+  font-size:10px;
+}
+.queueTabs .tabActive{
+  background:#fff;
+  color:#7C2B28;
+  box-shadow:0 1px 4px rgba(62,46,40,.10);
+}
+.archiveFilters{
+  display:grid;
+  gap:7px;
+  margin-bottom:12px;
+  padding:10px;
+  border:1px solid #ece4e0;
+  border-radius:12px;
+  background:#fcfbfa;
+}
+.archiveFilters input,.archiveFilters select{
+  width:100%;
+  border:1px solid #ddd3ce;
+  border-radius:9px;
+  padding:8px 9px;
+  background:#fff;
+  color:#2c2826;
+  font:inherit;
+  font-size:11px;
+}
+.dateFilters{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dateFilters label{display:grid;gap:4px;color:#776d68;font-size:10px;font-weight:700}
+.clearFilters{
+  justify-self:start;
+  border:0;
+  background:transparent;
+  color:#8B3332;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.actionBadge{
+  padding:3px 7px;
+  border-radius:999px;
+  background:#f3eae8;
+  color:#7C2B28;
+  font-size:10px!important;
+  font-weight:800;
+}
+.archiveDecision{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:16px;
+  padding:14px;
+  border:1px solid #ddd4d0;
+  border-radius:14px;
+  background:#faf8f7;
+}
+.archiveDecision>div{
+  display:grid;
+  gap:3px;
+  min-width:140px;
+}
+.archiveDecision span{font-size:10px;color:#80746f}
+.archiveDecision strong{font-size:13px}
+.previousNote{
+  flex:1 1 100%;
+  min-width:100%!important;
+  padding-top:10px;
+  border-top:1px solid #e8dfdb;
+}
+.previousNote p{margin:4px 0 0;line-height:1.7;font-size:12px}
