@@ -19,35 +19,25 @@ function excelLegacyPasswordHash(password){
   return (hash&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
 }
 
-function protectWorkbookXml(xml,passwordHash){
-  const tag=`<workbookProtection workbookPassword="${passwordHash}" lockStructure="1"/>`;
-  if(/<workbookProtection\b[^>]*(?:\/>|>.*?<\/workbookProtection>)/s.test(xml)){
-    return xml.replace(/<workbookProtection\b[^>]*(?:\/>|>.*?<\/workbookProtection>)/s,tag);
-  }
-  if(xml.includes('<bookViews>'))return xml.replace('<bookViews>',`${tag}<bookViews>`);
-  if(xml.includes('<sheets>'))return xml.replace('<sheets>',`${tag}<sheets>`);
-  throw new Error('workbook_structure_anchor_missing');
-}
-
 function protectWorksheetXml(xml,passwordHash){
   const tag=[
     `<sheetProtection password="${passwordHash}"`,
     ' sheet="1"',
-    ' objects="1"',
-    ' scenarios="1"',
-    ' formatCells="1"',
-    ' formatColumns="1"',
-    ' formatRows="1"',
+    ' objects="0"',
+    ' scenarios="0"',
+    ' formatCells="0"',
+    ' formatColumns="0"',
+    ' formatRows="0"',
     ' insertColumns="1"',
-    ' insertRows="1"',
-    ' insertHyperlinks="1"',
+    ' insertRows="0"',
+    ' insertHyperlinks="0"',
     ' deleteColumns="1"',
-    ' deleteRows="1"',
-    ' selectLockedCells="1"',
+    ' deleteRows="0"',
+    ' selectLockedCells="0"',
     ' selectUnlockedCells="0"',
     ' sort="0"',
     ' autoFilter="0"',
-    ' pivotTables="1"/>',
+    ' pivotTables="0"/>',
   ].join('');
 
   if(/<sheetProtection\b[^>]*(?:\/>|>.*?<\/sheetProtection>)/s.test(xml)){
@@ -67,12 +57,7 @@ export async function POST(request){
     }
 
     const files=unzipSync(new Uint8Array(input));
-    const workbookFile=files['xl/workbook.xml'];
-    if(!workbookFile)return new Response('invalid_xlsx_workbook',{status:400});
-
     const passwordHash=excelLegacyPasswordHash(PROTECTION_PASSWORD);
-    const workbookXml=strFromU8(workbookFile);
-    files['xl/workbook.xml']=strToU8(protectWorkbookXml(workbookXml,passwordHash));
 
     const sheetPaths=Object.keys(files).filter((name)=>/^xl\/worksheets\/sheet\d+\.xml$/.test(name));
     if(!sheetPaths.length)return new Response('invalid_xlsx_worksheets',{status:400});
