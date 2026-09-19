@@ -33,10 +33,6 @@ export default function TreasuryVoucherPrintPage(){
   if(error)return <div style={{padding:40,direction:'rtl'}}>{error}</div>;
   if(!voucher||!settings)return <div style={{padding:40,direction:'rtl'}}>جارٍ تجهيز السند…</div>;
 
-  const stampUrl=settings.stamp_image_path
-    ? supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl
-    : '';
-
   return <>
     <div className="print-toolbar no-print">
       <button type="button" onClick={()=>window.print()}>طباعة / حفظ PDF</button>
@@ -47,8 +43,20 @@ export default function TreasuryVoucherPrintPage(){
       documentKey="treasury_voucher"
       cfg={settings}
       direction="rtl"
+      showStamp={voucher.status==='posted' && settings.show_stamp_by_default!==false}
+      stampSizeMm={25}
+      stampStyle={{
+        position:'absolute',
+        right:'26mm',
+        top:'174mm',
+        maxWidth:'25mm',
+        maxHeight:'13mm',
+        objectFit:'contain',
+        opacity:.84,
+        zIndex:5,
+      }}
     >
-      <TreasuryVoucherPrint voucher={voucher} settings={settings} stampUrl={stampUrl}/>
+      <TreasuryVoucherPrint voucher={voucher} settings={settings}/>
     </ConstitutionPrintFrame>
   </>;
 }
