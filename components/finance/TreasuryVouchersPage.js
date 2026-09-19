@@ -395,18 +395,18 @@ export default function TreasuryVouchersPage(){
       .meta,.amount-box,.voucher-box{border:1px solid var(--brand);height:27mm}
       .meta{display:grid;grid-template-rows:repeat(4,1fr);direction:ltr}
       .meta-row{display:grid;grid-template-columns:40% 60%;min-height:0}
-      .meta-label{background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11.2px;border-bottom:1px solid #fff;border-right:1px solid #fff;direction:rtl}
-      .meta-value{background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;border-bottom:1px solid #fff;direction:ltr;font-variant-numeric:tabular-nums}
+      .meta-label{background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11.2px;border-bottom:1px solid #fff;border-right:1px solid var(--brand);direction:rtl}
+      .meta-value{background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;border-bottom:1px solid var(--brand);direction:ltr;font-variant-numeric:tabular-nums}
       .meta-row:last-child .meta-label,.meta-row:last-child .meta-value{border-bottom:0}
       .voucher-box{display:grid;grid-template-rows:1fr 2fr 1fr;background:#fff}
       .voucher-blank{background:#fff}
-      .voucher-title{background:var(--brand);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+      .voucher-title{background:var(--brand);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-top:1px solid var(--brand);border-bottom:1px solid var(--brand)}
       .voucher-title .ar{font-size:17px;font-weight:800;line-height:1.05}
       .voucher-title .en{font-size:9.5px;letter-spacing:.03em;margin-top:.4mm}
       .amount-box{display:grid;grid-template-columns:66% 34%;grid-template-rows:repeat(4,1fr);direction:ltr}
-      .amount-white,.amount-red{display:flex;align-items:center;justify-content:center;border-bottom:1px solid #fff;min-height:0}
-      .amount-white{background:#fff;color:#111;font-weight:800;direction:rtl}
-      .amount-red{background:var(--brand);color:#fff;font-weight:700;direction:rtl;border-left:1px solid #fff}
+      .amount-white,.amount-red{display:flex;align-items:center;justify-content:center;min-height:0}
+      .amount-white{background:#fff;color:#111;font-weight:800;direction:rtl;border-bottom:1px solid var(--brand)}
+      .amount-red{background:var(--brand);color:#fff;font-weight:700;direction:rtl;border-bottom:1px solid #fff;border-left:1px solid var(--brand)}
       .amount-title{grid-column:1;grid-row:1;font-size:11px}
       .amount-number{grid-column:1;grid-row:2;font-size:12.2px;direction:ltr;font-variant-numeric:tabular-nums}
       .amount-riyal{grid-column:2;grid-row:1/3;font-size:11.5px}
@@ -414,7 +414,7 @@ export default function TreasuryVouchersPage(){
       .amount-halala-label{grid-column:2;grid-row:3;font-size:11px}
       .amount-words{grid-column:1;grid-row:4;font-size:10px;padding:0 1mm;text-align:center}
       .amount-words-label{grid-column:2;grid-row:4;font-size:11px}
-      .amount-box>*:nth-last-child(-n+2){border-bottom:0}
+      .amount-words,.amount-words-label{border-bottom:0}
       .body{border-top:1px solid var(--brand);padding-top:1.7mm;margin-top:2mm}
       .sentence,.payment-line{display:flex;align-items:flex-end;gap:1mm;min-height:6.5mm;white-space:nowrap}
       .fixed{font-weight:700;flex:0 0 auto;font-size:12.2px}
