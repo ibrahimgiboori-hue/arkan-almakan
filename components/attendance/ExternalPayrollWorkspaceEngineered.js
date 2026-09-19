@@ -419,19 +419,133 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ws.pageSetup.printArea=`A1:W${rowIndex}`;
       ws.headerFooter.oddFooter='&Cصفحة &P من &N';
 
+      const protectionPassword=`ArkanPayroll-${String(batch.id||'sheet').replace(/[^a-zA-Z0-9]/g,'').slice(-10)}`;
+
       if(lastDataRow>=8){
         for(let r=8;r<=lastDataRow;r++){
-          ws.getCell(`G${r}`).dataValidation={type:'decimal',operator:'between',allowBlank:false,formulae:[0,100],showErrorMessage:true,errorTitle:'نسبة غير صحيحة',error:'أدخل نسبة بين 0 و100.'};
-          ws.getCell(`J${r}`).dataValidation={type:'decimal',operator:'greaterThan',allowBlank:false,formulae:[0],showErrorMessage:true,errorTitle:'ساعات اليوم',error:'ساعات اليوم يجب أن تكون أكبر من صفر.'};
-          ws.getCell(`K${r}`).dataValidation={type:'decimal',operator:'greaterThanOrEqual',allowBlank:false,formulae:[0]};
-          ws.getCell(`M${r}`).dataValidation={type:'whole',operator:'greaterThanOrEqual',allowBlank:false,formulae:[0]};
-          ws.getCell(`V${r}`).dataValidation={type:'list',allowBlank:true,formulae:[`"${PAYMENT_METHODS.map(([,label])=>label).join(',')}"`]};
+          // لا يفتح للمستخدم إلا خلايا الإدخال الصفراء المحددة؛ بقية الملف مقفول.
+          inputCols.forEach((col)=>{ws.getCell(r,col).protection={locked:false,hidden:false};});
+          formulaCols.forEach((col)=>{ws.getCell(r,col).protection={locked:true,hidden:true};});
+
+          const numericStop=(config)=>({
+            allowBlank:false,
+            showErrorMessage:true,
+            errorStyle:'stop',
+            errorTitle:'نوع بيانات غير صحيح',
+            ...config,
+          });
+
+          ws.getCell(`C${r}`).dataValidation=numericStop({type:'decimal',operator:'greaterThan',formulae:[0],error:'الراتب الأساسي يجب أن يكون رقمًا أكبر من صفر.'});
+          ['D','E','F','Q','R'].forEach((col)=>{
+            ws.getCell(`${col}${r}`).dataValidation=numericStop({type:'decimal',operator:'greaterThanOrEqual',formulae:[0],error:'هذه الخانة تقبل أرقامًا فقط بقيمة صفر أو أكبر.'});
+          });
+          ws.getCell(`G${r}`).dataValidation=numericStop({type:'decimal',operator:'between',formulae:[0,100],error:'نسبة التأمينات يجب أن تكون رقمًا بين 0 و100.'});
+          ws.getCell(`J${r}`).dataValidation=numericStop({type:'decimal',operator:'between',formulae:[0.25,24],error:'ساعات اليوم يجب أن تكون رقمًا بين 0.25 و24.'});
+          ws.getCell(`K${r}`).dataValidation=numericStop({type:'decimal',operator:'between',formulae:[0,31],error:'أيام الغياب يجب أن تكون رقمًا بين 0 و31.'});
+          ws.getCell(`M${r}`).dataValidation=numericStop({type:'whole',operator:'between',formulae:[0,62],error:'عدد البصمات المفقودة يجب أن يكون رقمًا صحيحًا.'});
+          ws.getCell(`O${r}`).dataValidation=numericStop({type:'decimal',operator:'between',formulae:[-744,744],error:'فرق الساعات يجب أن يكون رقمًا، ويمكن أن يكون موجبًا أو سالبًا.'});
+          ws.getCell(`V${r}`).dataValidation={
+            type:'list',
+            allowBlank:true,
+            formulae:[`"${PAYMENT_METHODS.map(([,label])=>label).join(',')}"`],
+            showErrorMessage:true,
+            errorStyle:'stop',
+            errorTitle:'طريقة دفع غير معتمدة',
+            error:'اختر طريقة الدفع من القائمة فقط.',
+          };
+          ws.getCell(`W${r}`).dataValidation={
+            type:'custom',
+            allowBlank:true,
+            formulae:[`OR(ISBLANK(W${r}),ISTEXT(W${r}))`],
+            showErrorMessage:true,
+            errorStyle:'stop',
+            errorTitle:'الملاحظات نصية',
+            error:'خانة الملاحظات تقبل نصًا فقط، وليس رقمًا مجردًا.',
+          };
         }
       }
 
+      // الإعدادات العامة قابلة للتعديل فقط في القيم الرقمية الثلاث المحددة.
+      ['B2','B3','B4'].forEach((address)=>{cfg.getCell(address).protection={locked:false,hidden:false};});
+      cfg.getCell('B2').dataValidation={type:'whole',operator:'between',allowBlank:false,formulae:[1,31],showErrorMessage:true,errorStyle:'stop',errorTitle:'القاسم اليومي',error:'أدخل عددًا صحيحًا بين 1 و31.'};
+      cfg.getCell('B3').dataValidation={type:'decimal',operator:'between',allowBlank:false,formulae:[0,31],showErrorMessage:true,errorStyle:'stop',errorTitle:'خصم البصمة',error:'أدخل رقمًا بين 0 و31.'};
+      cfg.getCell('B4').dataValidation={type:'decimal',operator:'greaterThan',allowBlank:false,formulae:[0],showErrorMessage:true,errorStyle:'stop',errorTitle:'حد التأمينات',error:'أدخل قيمة رقمية أكبر من صفر.'};
+
+      // حماية بنية الأوراق: لا إدراج/حذف أعمدة أو صفوف، لا تغيير تنسيق، مع إبقاء الفرز والفلاتر متاحين.
+      await ws.protect(protectionPassword,{
+        selectLockedCells:false,
+        selectUnlockedCells:true,
+        formatCells:false,
+        formatColumns:false,
+        formatRows:false,
+        insertColumns:false,
+        insertRows:false,
+        insertHyperlinks:false,
+        deleteColumns:false,
+        deleteRows:false,
+        sort:true,
+        autoFilter:true,
+        pivotTables:false,
+        objects:true,
+        scenarios:true,
+      });
+      await cfg.protect(protectionPassword,{
+        selectLockedCells:false,
+        selectUnlockedCells:true,
+        formatCells:false,
+        formatColumns:false,
+        formatRows:false,
+        insertColumns:false,
+        insertRows:false,
+        insertHyperlinks:false,
+        deleteColumns:false,
+        deleteRows:false,
+        sort:false,
+        autoFilter:true,
+        pivotTables:false,
+        objects:true,
+        scenarios:true,
+      });
+
       const filename=`مسير_الرواتب_التفاعلي_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
-      downloadBuffer(await wb.xlsx.writeBuffer(),filename);
-      setMsg('تم تنزيل مسير الرواتب التفاعلي. الخلايا الصفراء قابلة للتعديل والمعادلات تعيد الاحتساب تلقائيًا.');
+
+      // ExcelJS يحمي الأوراق لكنه لا يحمي بنية المصنف من إضافة/حذف صفحات؛
+      // لذلك نثبت حماية بنية المصنف مباشرة داخل OOXML قبل التنزيل.
+      const rawBuffer=await wb.xlsx.writeBuffer();
+      const JSZipModule=await import('jszip');
+      const JSZip=JSZipModule.default||JSZipModule;
+      const zip=await JSZip.loadAsync(rawBuffer);
+      const workbookFile=zip.file('xl/workbook.xml');
+      if(!workbookFile)throw new Error('تعذر تثبيت حماية بنية ملف Excel.');
+      let workbookXml=await workbookFile.async('string');
+
+      const hashExcelPassword=(password)=>{
+        const chars=Array.from(String(password||'').slice(0,15));
+        let hash=0;
+        for(let i=chars.length-1;i>=0;i-=1){
+          hash^=(chars[i].charCodeAt(0)&0xFF);
+          hash=((hash<<1)&0x7FFF)|((hash>>14)&0x01);
+        }
+        hash^=chars.length;
+        hash^=0xCE4B;
+        return (hash&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
+      };
+
+      const structureProtection=`<workbookProtection workbookPassword="${hashExcelPassword(protectionPassword)}" lockStructure="1"/>`;
+      if(/<workbookProtection\b[^>]*\/>/.test(workbookXml)){
+        workbookXml=workbookXml.replace(/<workbookProtection\b[^>]*\/>/,structureProtection);
+      }else if(workbookXml.includes('<bookViews>')){
+        workbookXml=workbookXml.replace('<bookViews>',`${structureProtection}<bookViews>`);
+      }else if(workbookXml.includes('<sheets>')){
+        workbookXml=workbookXml.replace('<sheets>',`${structureProtection}<sheets>`);
+      }else{
+        throw new Error('تعذر العثور على موضع حماية بنية المصنف.');
+      }
+      zip.file('xl/workbook.xml',workbookXml);
+
+      const protectedBuffer=await zip.generateAsync({type:'arraybuffer',compression:'DEFLATE'});
+      downloadBuffer(protectedBuffer,filename);
+      setMsg('تم تنزيل مسير Excel محمي البنية: التعديل مسموح فقط في الخلايا الصفراء وبنوع البيانات الصحيح.');
     }catch(error){
       setErr(error.message||String(error));
     }finally{
