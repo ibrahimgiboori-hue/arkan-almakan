@@ -1,15 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function Login() {
   const router = useRouter();
-  const search=useSearchParams();
-  const presetEmail=search.get('email')||'';
-  const requestedNext=search.get('next')||'/dashboard';
-  const safeNext=requestedNext.startsWith('/')&&!requestedNext.startsWith('//')?requestedNext:'/dashboard';
-  const [email, setEmail] = useState(presetEmail);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -23,7 +19,7 @@ export default function Login() {
       setBusy(false);
       return;
     }
-    router.replace(safeNext);
+    router.replace('/dashboard');
   }
 
   return (
