@@ -24,6 +24,9 @@ const ERROR_AR = {
   primary_user_protected: 'المستخدم الرئيسي محمي ولا يمكن حذفه أو تقليص صلاحياته.',
   account_archived: 'هذا الحساب مؤرشف ولا يقبل تعديلات تشغيلية.',
   impact_scan_failed: 'تعذر فحص أثر المستخدم على بيانات البرنامج.',
+  invalid_login_email: 'اكتب بريد دخول صحيحًا.',
+  login_email_exists: 'بريد الدخول مستخدم في حساب آخر.',
+  login_email_update_failed: 'تعذر تحديث بريد الدخول.',
 };
 
 const ACCESS_PROFILES = Object.freeze([
@@ -32,6 +35,7 @@ const ACCESS_PROFILES = Object.freeze([
 ]);
 
 const MODULE_LABELS = Object.freeze({projects:'المشاريع',hr:'الموارد البشرية',finance:'المالية',documents:'المستندات',admin:'الإدارة',approvals:'الاعتمادات'});
+const CANONICAL_APP_URL='https://my.arkanalmakansa.com';
 
 const MANAGED_BUNDLES = new Set([
   'projects_full_access',
@@ -73,6 +77,7 @@ export default function SystemUserPage() {
   const [busy, setBusy] = useState('');
   const [credentials, setCredentials] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [loginEmail,setLoginEmail]=useState('');
   const [deletePlan, setDeletePlan] = useState(null);
   const [newAccount, setNewAccount] = useState({ employeeId: '', accessProfile:'operational', accessLevel: 'projects_portal_full', projectIds: [], approvalCapabilities:[] });
   const [editAccess, setEditAccess] = useState({ accessProfile:'operational', accessLevel: 'projects_portal_full', projectIds: [], approvalCapabilities:[] });
@@ -130,6 +135,7 @@ export default function SystemUserPage() {
     [activeUsers, selectedUserId],
   );
   const selectedEmployee = selectedUser ? employeeById.get(selectedUser.employee_id) : null;
+  useEffect(()=>{setLoginEmail(selectedUser?.auth_email||'');},[selectedUserId,selectedUser?.auth_email]);
   const selectedGrants = useMemo(
     () => (directory?.grants || []).filter((grant) => grant.user_id === selectedUserId),
     [directory, selectedUserId],
@@ -195,6 +201,19 @@ export default function SystemUserPage() {
     } catch (error) {
       setErr(error.message || 'تعذر حفظ الصلاحية.');
     }
+    setBusy('');
+  }
+
+  async function saveLoginEmail(){
+    if(!selectedUser || selectedUser.id===directory.primaryUserId)return;
+    const email=String(loginEmail||'').trim().toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setErr(ERROR_AR.invalid_login_email);return;}
+    setBusy('login-email');setErr('');setMsg('');
+    try{
+      await callAdmin({action:'set_login_email',userId:selectedUser.id,email});
+      setMsg('تم تحديث اسم الدخول / البريد المستخدم للدخول.');
+      await load();
+    }catch(error){setErr(error.message||ERROR_AR.login_email_update_failed);}
     setBusy('');
   }
 
@@ -280,6 +299,8 @@ export default function SystemUserPage() {
   const editLevel = PROJECT_ACCESS_LEVELS.find((level) => level.key === editAccess.accessLevel) || PROJECT_ACCESS_LEVELS[0];
   const newProfile = ACCESS_PROFILES.find((item)=>item.key===newAccount.accessProfile)||ACCESS_PROFILES[0];
   const editProfile = ACCESS_PROFILES.find((item)=>item.key===editAccess.accessProfile)||ACCESS_PROFILES[0];
+  const loginNext=selectedUser?.access_profile==='approval_only'?'/dashboard/approvals':'/dashboard';
+  const loginLink=selectedUser?`${CANONICAL_APP_URL}/login?email=${encodeURIComponent(selectedUser.auth_email||'')}&next=${encodeURIComponent(loginNext)}`:`${CANONICAL_APP_URL}/login`;
 
   return <>
     <div className="page-head">
@@ -364,6 +385,31 @@ export default function SystemUserPage() {
             <div className="card"><h3>البريد</h3><div className="big" style={{ fontSize: 14, direction: 'ltr' }}>{selectedUser.auth_email || selectedEmployee?.email || '—'}</div></div>
             <div className="card"><h3>الحالة</h3><div className="big" style={{ fontSize: 17 }}>{selectedUser.is_active ? 'مفعّل' : 'معطّل'}</div><div className="foot">{selectedUser.must_change_password ? 'ينتظر تغيير كلمة المرور' : 'كلمة المرور مستقرة'}</div></div>
             <div className="card"><h3>الوصول</h3><div className="big" style={{ fontSize: 16 }}>{selectedUser.id === directory.primaryUserId ? 'كل النظام' : selectedUser.access_profile==='approval_only'?'إداري — اعتمادات فقط':(PROJECT_ACCESS_LEVELS.find((level) => level.key === detectedAccess.key)?.label || '—')}</div></div>
+          </div>
+
+          <div className="section" style={{ margin:'0 0 14px' }}>
+            <header><h2>بيانات الدخول</h2></header>
+            <div style={{ padding:16 }}>
+              <div className="form-grid">
+                <div className="field span2">
+                  <label>رابط دخول هذا المستخدم</label>
+                  <div className="rowsplit">
+                    <input readOnly dir="ltr" value={loginLink}/>
+                    <button type="button" className="btn ghost" onClick={()=>copy(loginLink,'رابط الدخول')}>نسخ الرابط</button>
+                    <a className="btn ghost" href={loginLink} target="_blank" rel="noreferrer">فتح الرابط</a>
+                  </div>
+                  <span className="hint">الرابط دائمًا على الدومين الرسمي للبرنامج، وليس على رابط Vercel المؤقت.</span>
+                </div>
+                <div className="field span2">
+                  <label>اسم الدخول / البريد المستخدم للدخول</label>
+                  <div className="rowsplit">
+                    <input dir="ltr" type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} disabled={selectedUser.id===directory.primaryUserId}/>
+                    {selectedUser.id!==directory.primaryUserId?<button type="button" className="btn ghost" onClick={saveLoginEmail} disabled={busy==='login-email'||loginEmail.trim().toLowerCase()===(selectedUser.auth_email||'').trim().toLowerCase()}>{busy==='login-email'?'جارٍ الحفظ…':'حفظ اسم الدخول'}</button>:null}
+                  </div>
+                  <span className="hint">يمكن للمستخدم الرئيسي تغيير بريد الدخول من هنا. لا حاجة لاستخدام بريد وهمي متى توفر بريد حقيقي.</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {selectedUser.id === directory.primaryUserId
