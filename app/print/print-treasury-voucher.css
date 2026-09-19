@@ -4,6 +4,7 @@
 .treasury-voucher-document{
   --tv-brand:#8B3332;
   --tv-brand-dark:#7C2B28;
+  --tv-brand-gray:#5F6468;
   --tv-ink:#242426;
   --tv-rule:1px;
   --tv-frame:2px;
@@ -47,38 +48,39 @@
   overflow:visible;
   position:relative;
   z-index:3;
+  isolation:isolate;
 }
 .treasury-voucher-document .tv-brand-logo-box{
   position:absolute;
-  top:0;
-  height:21.5mm; /* 15mm header + 6.5mm carved company strip */
+  top:-1px;
+  height:calc(21.5mm + 1px); /* header + company strip as one integrated panel */
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:1mm .8mm;
-  background:#fff;
-  overflow:visible;
-  z-index:5;
+  padding:1mm .75mm .8mm;
+  background:var(--tv-brand-gray);
+  overflow:hidden;
+  z-index:6;
 }
 .treasury-voucher-document .tv-brand-logo-box:first-child{
-  left:0;
-  width:var(--tv-cut-left);
+  left:-1px;
+  width:calc(var(--tv-cut-left) + 1px);
 }
 .treasury-voucher-document .tv-brand-logo-box:last-child{
-  right:0;
-  width:var(--tv-cut-right);
+  right:-1px;
+  width:calc(var(--tv-cut-right) + 1px);
 }
 .treasury-voucher-document .tv-brand img{
   display:block;
-  width:16mm;
-  height:18mm;
-  max-width:calc(100% - 1.2mm);
-  max-height:18mm;
+  width:17.4mm;
+  height:19.2mm;
+  max-width:calc(100% - 1.1mm);
+  max-height:19.2mm;
   object-fit:contain;
   object-position:center center;
-  transform:none;
+  transform:translateY(.35mm);
   position:relative;
-  z-index:5;
+  z-index:7;
 }
 .treasury-voucher-document .tv-brand-name{
   position:absolute;
@@ -102,20 +104,19 @@
   height:6.5mm;
   display:grid;
   /*
-   * The white cuts follow the exact vertical paths of the coloured side
-   * columns below:
-   *  left  = 40% of the 1.15fr metadata block  ≈ 11.795% of total width
-   *  right = 34% of the 1.15fr amount block    ≈ 10.026% of total width
+   * One continuous identity band: the side logo panels and the company
+   * information strip share the official charcoal identity colour.
+   * The side widths remain locked to the coloured table columns below.
    */
   grid-template-columns:var(--tv-cut-left) minmax(0,1fr) var(--tv-cut-right);
   direction:ltr;
   position:relative;
-  z-index:2;
-  background:#fff;
+  z-index:4;
+  background:var(--tv-brand-gray);
 }
 .treasury-voucher-document .tv-company-cut{
   height:6.5mm;
-  background:#fff;
+  background:var(--tv-brand-gray);
   border:0;
 }
 .treasury-voucher-document .tv-legal-bar{
@@ -125,11 +126,8 @@
   align-items:center;
   justify-content:center;
   padding:0 1.5mm;
-  border-top:var(--tv-rule) solid var(--tv-brand);
-  border-bottom:var(--tv-rule) solid var(--tv-brand);
-  border-left:var(--tv-rule) solid var(--tv-brand);
-  border-right:var(--tv-rule) solid var(--tv-brand);
-  background:var(--tv-brand);
+  border:0;
+  background:var(--tv-brand-gray);
   color:#fff;
   font-size:7.4pt;
   font-weight:700;
