@@ -7,6 +7,8 @@
   --tv-ink:#242426;
   --tv-rule:1px;
   --tv-frame:2px;
+  --tv-cut-left:11.795%;
+  --tv-cut-right:10.026%;
   position:relative;
   width:100%;
   height:100%;
@@ -37,9 +39,7 @@
 
 .treasury-voucher-document .tv-brand{
   height:15mm;
-  display:grid;
-  grid-template-columns:28mm minmax(0,1fr) 28mm;
-  align-items:stretch;
+  display:block;
   border:var(--tv-rule) solid var(--tv-brand);
   border-bottom:0;
   direction:ltr;
@@ -49,30 +49,47 @@
   z-index:3;
 }
 .treasury-voucher-document .tv-brand-logo-box{
-  height:15mm;
+  position:absolute;
+  top:0;
+  height:21.5mm; /* 15mm header + 6.5mm carved company strip */
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:center;
-  padding-top:.9mm;
+  padding:1mm .8mm;
+  background:#fff;
   overflow:visible;
-  position:relative;
   z-index:5;
+}
+.treasury-voucher-document .tv-brand-logo-box:first-child{
+  left:0;
+  width:var(--tv-cut-left);
+}
+.treasury-voucher-document .tv-brand-logo-box:last-child{
+  right:0;
+  width:var(--tv-cut-right);
 }
 .treasury-voucher-document .tv-brand img{
   display:block;
-  width:19.5mm;
-  height:19.5mm;
+  width:16mm;
+  height:18mm;
+  max-width:calc(100% - 1.2mm);
+  max-height:18mm;
   object-fit:contain;
-  object-position:center top;
+  object-position:center center;
   transform:none;
   position:relative;
   z-index:5;
 }
 .treasury-voucher-document .tv-brand-name{
-  align-self:center;
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:62%;
+  transform:translate(-50%,-50%);
   text-align:center;
   direction:rtl;
   line-height:1.03;
+  z-index:4;
 }
 .treasury-voucher-document .tv-brand-name strong{
   display:block;color:var(--tv-brand-dark);font-size:12.2pt;font-weight:800;
@@ -90,7 +107,7 @@
    *  left  = 40% of the 1.15fr metadata block  ≈ 11.795% of total width
    *  right = 34% of the 1.15fr amount block    ≈ 10.026% of total width
    */
-  grid-template-columns:11.795% minmax(0,1fr) 10.026%;
+  grid-template-columns:var(--tv-cut-left) minmax(0,1fr) var(--tv-cut-right);
   direction:ltr;
   position:relative;
   z-index:2;
