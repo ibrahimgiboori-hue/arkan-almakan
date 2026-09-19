@@ -227,7 +227,7 @@ export default function TreasuryVouchersPage(){
     const approverName=voucher.approved_by_name_snapshot||actorMap.get(voucher.approved_by_employee_id)?.full_name_ar||'—';
     const approverTitle=voucher.approved_by_title_snapshot||actorMap.get(voucher.approved_by_employee_id)?.job_title||'';
     const stampUrl=settings.stamp_image_path?supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl:'';
-    const logoUrl='/brand/arkan-logo.svg';
+    const logoUrl='/brand/arkan-logo-official.svg';
     const stampSizeMm=Math.min(55,Math.max(15,Number(settings.stamp_size_mm||30)));
     const isReceipt=voucher.voucher_type==='receipt';
     const isEntity=voucher.party_id_kind==='cr';
@@ -413,7 +413,7 @@ export default function TreasuryVouchersPage(){
       .payment-line.no-bank .payment-segment-reference{flex:3.4 1 85mm}
       .signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;margin-top:2.2mm}
       .sign{min-height:16mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1mm;position:relative;overflow:visible}
-      .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:8.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.84;z-index:4;pointer-events:none}
+      .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.sign .signature-note{display:block;margin-top:.7mm;font-size:8.1px;font-weight:700;color:#444;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:8.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.84;z-index:4;pointer-events:none}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
       @media screen{body{min-width:210mm;min-height:297mm;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
@@ -457,8 +457,8 @@ export default function TreasuryVouchersPage(){
         <div class="legal-ack">${esc(legalAcknowledgement)}</div>
       </div>
       <div class="signatures">
-        <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span></div>
-        <div class="sign"><strong>المحاسب</strong><span class="person-name">................................</span></div>
+        <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span><span class="signature-note">التوقيع:</span></div>
+        <div class="sign"><strong>المحاسب</strong><span class="person-name">اسلام ابراهيم</span><span class="signature-note">التوقيع:</span></div>
         <div class="sign"><strong>اعتماد الإدارة</strong><span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}</div>
       </div>
       <div class="foot"><span>هذا السند ملزم في حدود مبلغه وبيانه وتوقيعاته.</span></div>
