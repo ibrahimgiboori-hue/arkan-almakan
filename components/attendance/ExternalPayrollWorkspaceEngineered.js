@@ -270,6 +270,30 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ws.getCell('A3').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}};
       ws.getCell('C3').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}};
 
+      // Common payroll terminology: basic salary data, payroll variables, and calculation results.
+      const groups=[
+        ['A5:B5','بيانات الموظف','FF5F6468'],
+        ['C5:J5','البيانات الأساسية للراتب','FF5F6468'],
+        ['K5:R5','متغيرات المسير','FF8B3332'],
+        ['S5:U5','نتائج الاحتساب','FF4F5558'],
+        ['V5:W5','بيانات الصرف','FF5F6468'],
+      ];
+      groups.forEach(([range,label,color])=>{
+        ws.mergeCells(range);
+        const cell=ws.getCell(range.split(':')[0]);
+        cell.value=label;
+        cell.font={bold:true,color:{argb:'FFFFFFFF'},size:10};
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:color}};
+        cell.alignment={horizontal:'center',vertical:'middle'};
+        cell.border={
+          top:{style:'thin',color:{argb:'FFFFFFFF'}},
+          bottom:{style:'thin',color:{argb:'FFFFFFFF'}},
+          left:{style:'thin',color:{argb:'FFFFFFFF'}},
+          right:{style:'thin',color:{argb:'FFFFFFFF'}},
+        };
+      });
+      ws.getRow(5).height=23;
+
       const headers=[
         'رقم الموظف','الموظف','الأساسي','السكن','النقل','بدلات أخرى','نسبة التأمينات %','خصم التأمينات (ر.س)','صافي الراتب المرجعي (ر.س)',
         'ساعات اليوم','الغياب (يوم)','خصم الغياب (ر.س)','البصمات المفقودة','خصم البصمات (ر.س)','فرق الساعات (ساعة)','أثر الساعات (ر.س)',
@@ -283,6 +307,12 @@ export default function ExternalPayrollWorkspaceEngineered(){
         cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF8B3332'}};
         cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
         cell.border={top:{style:'thin',color:{argb:'FF7C2B28'}},bottom:{style:'thin',color:{argb:'FF7C2B28'}},left:{style:'thin',color:{argb:'FFFFFFFF'}},right:{style:'thin',color:{argb:'FFFFFFFF'}}};
+      });
+      [3,11,19,22].forEach((col)=>{
+        headerRow.getCell(col).border={
+          ...headerRow.getCell(col).border,
+          left:{style:'medium',color:{argb:'FFFFFFFF'}},
+        };
       });
 
       const inputCols=[3,4,5,6,7,10,11,13,15,17,18,22,23];
@@ -341,6 +371,12 @@ export default function ExternalPayrollWorkspaceEngineered(){
         row.getCell(2).alignment={horizontal:'right',vertical:'middle'};
         inputCols.forEach((col)=>{row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}};});
         formulaCols.forEach((col)=>{row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}};});
+        [3,11,19,22].forEach((col)=>{
+          row.getCell(col).border={
+            ...row.getCell(col).border,
+            left:{style:'medium',color:{argb:'FF8B3332'}},
+          };
+        });
         [3,4,5,6,17,18].forEach((col)=>{row.getCell(col).numFmt='#,##0.00';});
         [8,9,12,14,16,19,20,21].forEach((col)=>{row.getCell(col).numFmt='#,##0.00 "ر.س"';});
         row.getCell(7).numFmt='0.00';
