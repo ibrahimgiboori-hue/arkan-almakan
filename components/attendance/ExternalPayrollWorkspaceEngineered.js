@@ -176,7 +176,45 @@ export default function ExternalPayrollWorkspaceEngineered(){
       const wb=new ExcelJS.Workbook();
       wb.creator='Arkan Al Makan';
       wb.created=new Date();
+      wb.calcProperties.fullCalcOnLoad=true;
+      wb.calcProperties.forceFullCalc=true;
+
       const ws=wb.addWorksheet('مسير الرواتب',{views:[{rightToLeft:true,state:'frozen',ySplit:6}]});
+      const cfg=wb.addWorksheet('الإعدادات',{views:[{rightToLeft:true}]});
+
+      const divisorDays=batch?.divisor_policy==='calendar_days'
+        ? Math.max(1,Math.round((new Date(activeImport.period_to)-new Date(activeImport.period_from))/86400000)+1)
+        : 30;
+      const missingPunchDays=Math.max(0,Number(batch?.missing_punch_deduction_days||0));
+
+      cfg.columns=[{width:34},{width:20},{width:70}];
+      const settingsRows=[
+        ['الإعداد','القيمة','ملاحظة'],
+        ['القاسم اليومي',divisorDays,'يستخدم في قيمة اليوم وخصم الغياب.'],
+        ['خصم البصمة المفقودة (يوم/حالة)',missingPunchDays,'عدد الأيام المخصومة عن كل حالة بصمة مفقودة.'],
+        ['الحد الأعلى للأجر الخاضع للتأمينات',45000,'الأساسي + السكن بحد أقصى 45,000 ريال.'],
+        ['الفترة من',dateOnly(activeImport.period_from),'مرجعي'],
+        ['الفترة إلى',dateOnly(activeImport.period_to),'مرجعي'],
+        ['ملاحظة','الخلايا الصفراء قابلة للتعديل، والخلايا الرمادية تحتوي معادلات مترابطة.','لا توجد ماكرو أو برمجة داخل الملف؛ معادلات Excel عادية.'],
+      ];
+      settingsRows.forEach((row)=>cfg.addRow(row));
+      cfg.getRow(1).height=26;
+      cfg.getRow(1).eachCell((cell)=>{
+        cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};
+        cell.alignment={horizontal:'center',vertical:'middle'};
+      });
+      for(let r=2;r<=settingsRows.length;r++){
+        cfg.getRow(r).height=23;
+        cfg.getCell(`A${r}`).font={bold:true};
+        cfg.getCell(`B${r}`).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}};
+        cfg.getCell(`B${r}`).alignment={horizontal:'center'};
+        cfg.getCell(`C${r}`).alignment={wrapText:true,horizontal:'right'};
+      }
+      cfg.getCell('B2').numFmt='0';
+      cfg.getCell('B3').numFmt='0.00';
+      cfg.getCell('B4').numFmt='#,##0.00';
+      cfg.autoFilter={from:{row:1,column:1},to:{row:1,column:3}};
 
       ws.pageSetup={
         orientation:'landscape',
@@ -184,118 +222,176 @@ export default function ExternalPayrollWorkspaceEngineered(){
         fitToPage:true,
         fitToWidth:1,
         fitToHeight:0,
-        margins:{left:0.25,right:0.25,top:0.4,bottom:0.4,header:0.15,footer:0.15},
+        margins:{left:0.2,right:0.2,top:0.35,bottom:0.35,header:0.1,footer:0.1},
       };
 
       ws.columns=[
-        {key:'no',width:14},
-        {key:'name',width:28},
+        {key:'no',width:13},
+        {key:'name',width:27},
+        {key:'basic',width:13},
+        {key:'housing',width:12},
+        {key:'transport',width:12},
+        {key:'other',width:12},
+        {key:'gosi_rate',width:13},
+        {key:'gosi',width:14},
         {key:'reference',width:16},
-        {key:'absence',width:11},
-        {key:'missing',width:14},
-        {key:'time',width:13},
-        {key:'additions',width:14},
-        {key:'deductions',width:14},
+        {key:'day_hours',width:12},
+        {key:'absence_days',width:11},
+        {key:'absence_amount',width:14},
+        {key:'missing_count',width:14},
+        {key:'missing_amount',width:14},
+        {key:'time_hours',width:14},
+        {key:'time_amount',width:14},
+        {key:'manual_add',width:14},
+        {key:'manual_ded',width:14},
+        {key:'total_add',width:14},
+        {key:'total_ded',width:14},
         {key:'final',width:16},
-        {key:'payment',width:16},
+        {key:'payment',width:18},
+        {key:'notes',width:24},
       ];
 
-      ws.mergeCells('A1:J1');
-      ws.getCell('A1').value='مسير الرواتب';
+      ws.mergeCells('A1:W1');
+      ws.getCell('A1').value='مسير الرواتب — نموذج احتساب تفاعلي';
       ws.getCell('A1').font={bold:true,size:16,color:{argb:'FF8B3332'}};
       ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
       ws.getRow(1).height=28;
 
-      ws.mergeCells('A2:J2');
+      ws.mergeCells('A2:W2');
       ws.getCell('A2').value=`${activeImport.client_name_snapshot||'عميل خارجي'} — ${payrollMonthLabel(activeImport.period_from)} — ${dateOnly(activeImport.period_from)} إلى ${dateOnly(activeImport.period_to)}`;
       ws.getCell('A2').font={bold:true,size:11};
       ws.getCell('A2').alignment={horizontal:'center',vertical:'middle'};
       ws.getRow(2).height=22;
 
-      ws.getCell('A3').value='عدد الموظفين';ws.getCell('B3').value=people.length;
-      ws.getCell('C3').value='صافي الراتب';ws.getCell('D3').value=Number(totals.reference||0);
-      ws.getCell('E3').value='الإضافات';ws.getCell('F3').value=Number(totals.additions||0);
-      ws.getCell('G3').value='الخصومات';ws.getCell('H3').value=Number(totals.deductions||0);
-      ws.getCell('I3').value='صافي المستحق';ws.getCell('J3').value=Number(totals.final||0);
-      for(const c of ['A3','C3','E3','G3','I3']){
-        ws.getCell(c).font={bold:true,color:{argb:'FFFFFFFF'}};
-        ws.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};
-        ws.getCell(c).alignment={horizontal:'center',vertical:'middle'};
-      }
-      for(const c of ['B3','D3','F3','H3','J3']){
-        ws.getCell(c).font={bold:true};
-        ws.getCell(c).alignment={horizontal:'center',vertical:'middle'};
-        ws.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};
-      }
-      for(const c of ['D3','F3','H3','J3'])ws.getCell(c).numFmt='#,##0.00';
+      ws.mergeCells('A3:B3');ws.getCell('A3').value='الخلايا الصفراء = مدخلات قابلة للتعديل';
+      ws.mergeCells('C3:D3');ws.getCell('C3').value='الخلايا الرمادية = معادلات تلقائية';
+      ws.mergeCells('E3:W3');ws.getCell('E3').value='غيّر الراتب أو أيام الغياب أو ساعات اليوم أو فرق الساعات؛ يعاد احتساب الخصومات وصافي المستحق تلقائيًا.';
+      ['A3','C3','E3'].forEach((cell)=>{ws.getCell(cell).font={bold:true};ws.getCell(cell).alignment={horizontal:'center',vertical:'middle',wrapText:true};});
+      ws.getCell('A3').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}};
+      ws.getCell('C3').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}};
 
-      const headers=['رقم الموظف','الموظف','صافي الراتب','الغياب','البصمات المفقودة','فرق الساعات','الإضافات','الخصومات','صافي المستحق','طريقة الدفع'];
+      const headers=[
+        'رقم الموظف','الموظف','الأساسي','السكن','النقل','بدلات أخرى','نسبة التأمينات %','خصم التأمينات','صافي الراتب المرجعي',
+        'ساعات اليوم','الغياب (يوم)','خصم الغياب','البصمات المفقودة','خصم البصمات','فرق الساعات (ساعة)','أثر الساعات',
+        'إضافات يدوية','خصومات يدوية','إجمالي الإضافات','إجمالي الخصومات','صافي المستحق','طريقة الدفع','ملاحظات'
+      ];
       const headerRow=ws.getRow(6);
       headerRow.values=headers;
-      headerRow.height=26;
+      headerRow.height=34;
       headerRow.eachCell((cell)=>{
-        cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+        cell.font={bold:true,color:{argb:'FFFFFFFF'},size:9};
         cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF8B3332'}};
         cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
-        cell.border={top:{style:'thin',color:{argb:'FF7C2B28'}},bottom:{style:'thin',color:{argb:'FF7C2B28'}},left:{style:'thin',color:{argb:'FFD8C0BD'}},right:{style:'thin',color:{argb:'FFD8C0BD'}}};
+        cell.border={top:{style:'thin',color:{argb:'FF7C2B28'}},bottom:{style:'thin',color:{argb:'FF7C2B28'}},left:{style:'thin',color:{argb:'FFFFFFFF'}},right:{style:'thin',color:{argb:'FFFFFFFF'}}};
       });
 
+      const inputCols=[3,4,5,6,7,10,11,13,15,17,18,22,23];
+      const formulaCols=[8,9,12,14,16,19,20,21];
       let rowIndex=7;
+
       for(const person of people){
         const line=lineByKey.get(person.key);
         const profile=profileByKey.get(person.key);
         if(!line||!profile||!line.calculated_at)continue;
         const calc=calculateExternalPayroll({days:daysByKey.get(person.key)||[],line,batch,profile,periodFrom:activeImport.period_from,periodTo:activeImport.period_to});
         if(!calc.ready)continue;
-        const row=ws.getRow(rowIndex++);
+
+        const row=ws.getRow(rowIndex);
         row.values=[
           profile.display_employee_no||person.no||'',
           profile.display_name||person.name||'',
-          Number(calc.referenceNetSalary||0),
+          Number(calc.snapshot?.salary?.basic_salary||0),
+          Number(calc.snapshot?.salary?.housing_allowance||0),
+          Number(calc.snapshot?.salary?.transport_allowance||0),
+          Number(calc.snapshot?.salary?.other_allowances||0),
+          Number(calc.gosiEmployeeRate||0),
+          null,
+          null,
+          Number(calc.dayHours||0),
           Number(calc.absenceDays||0),
+          null,
           Number(calc.missingPunchDays||0),
-          formatMinutesSigned(calc.netMinutes),
-          Number(calc.totalAdditions||0),
-          Number(calc.totalDeductions||0),
-          Number(calc.finalNetSalary||0),
+          null,
+          Number(calc.netMinutes||0)/60,
+          null,
+          Number(line.manual_additions||0),
+          Number(line.manual_deductions||0),
+          null,
+          null,
+          null,
           PAYMENT_METHOD_LABEL[calc.paymentMethod]||calc.paymentMethod||'',
+          '',
         ];
-        row.height=22;
+
+        const r=rowIndex;
+        row.getCell(8).value={formula:`ROUND(MIN(C${r}+D${r},'الإعدادات'!$B$4)*G${r}/100,2)`,result:Number(calc.gosiEmployeeDeduction||0)};
+        row.getCell(9).value={formula:`ROUND(C${r}+D${r}+E${r}+F${r}-H${r},2)`,result:Number(calc.referenceNetSalary||0)};
+        row.getCell(12).value={formula:`ROUND(K${r}*(I${r}/'الإعدادات'!$B$2),2)`,result:Number(calc.absenceAmount||0)};
+        row.getCell(14).value={formula:`ROUND(M${r}*'الإعدادات'!$B$3*(I${r}/'الإعدادات'!$B$2),2)`,result:Number(calc.missingPunchAmount||0)};
+        row.getCell(16).value={formula:`ROUND(IF(J${r}>0,O${r}*(I${r}/'الإعدادات'!$B$2/J${r}),0),2)`,result:Number(calc.timeAmount||0)};
+        row.getCell(19).value={formula:`ROUND(MAX(P${r},0)+Q${r},2)`,result:Number(calc.totalAdditions||0)};
+        row.getCell(20).value={formula:`ROUND(L${r}+N${r}+MAX(-P${r},0)+R${r},2)`,result:Number(calc.totalDeductions||0)};
+        row.getCell(21).value={formula:`ROUND(I${r}+S${r}-T${r},2)`,result:Number(calc.finalNetSalary||0)};
+
+        row.height=23;
         row.eachCell((cell)=>{
           cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
           cell.border={top:{style:'hair',color:{argb:'FFE2D6D2'}},bottom:{style:'hair',color:{argb:'FFE2D6D2'}},left:{style:'hair',color:{argb:'FFE2D6D2'}},right:{style:'hair',color:{argb:'FFE2D6D2'}}};
         });
         row.getCell(2).alignment={horizontal:'right',vertical:'middle'};
-        [3,7,8,9].forEach((col)=>{row.getCell(col).numFmt='#,##0.00';});
-        if(rowIndex%2===0){
-          row.eachCell((cell)=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBF8F7'}};});
-        }
+        inputCols.forEach((col)=>{row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}};});
+        formulaCols.forEach((col)=>{row.getCell(col).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}};});
+        [3,4,5,6,8,9,12,14,16,17,18,19,20,21].forEach((col)=>{row.getCell(col).numFmt='#,##0.00';});
+        row.getCell(7).numFmt='0.00';
+        row.getCell(10).numFmt='0.00';
+        row.getCell(11).numFmt='0.00';
+        row.getCell(13).numFmt='0';
+        row.getCell(15).numFmt='0.00';
+        rowIndex+=1;
       }
 
       const lastDataRow=Math.max(6,rowIndex-1);
       const totalRow=ws.getRow(rowIndex);
-      totalRow.getCell(1).value='الإجمالي';
       ws.mergeCells(`A${rowIndex}:B${rowIndex}`);
-      totalRow.getCell(3).value={formula:`SUM(C7:C${lastDataRow})`};
-      totalRow.getCell(7).value={formula:`SUM(G7:G${lastDataRow})`};
-      totalRow.getCell(8).value={formula:`SUM(H7:H${lastDataRow})`};
-      totalRow.getCell(9).value={formula:`SUM(I7:I${lastDataRow})`};
-      totalRow.height=24;
+      totalRow.getCell(1).value='الإجمالي';
+      for(const col of [3,4,5,6,8,9,12,14,16,17,18,19,20,21]){
+        const letter=ws.getColumn(col).letter;
+        totalRow.getCell(col).value={formula:`SUM(${letter}7:${letter}${lastDataRow})`};
+        totalRow.getCell(col).numFmt='#,##0.00';
+      }
+      totalRow.height=25;
       totalRow.eachCell((cell)=>{
         cell.font={bold:true,color:{argb:'FFFFFFFF'}};
         cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};
         cell.alignment={horizontal:'center',vertical:'middle'};
         cell.border={top:{style:'thin',color:{argb:'FF8B3332'}},bottom:{style:'thin',color:{argb:'FF8B3332'}},left:{style:'thin',color:{argb:'FFFFFFFF'}},right:{style:'thin',color:{argb:'FFFFFFFF'}}};
       });
-      [3,7,8,9].forEach((col)=>{totalRow.getCell(col).numFmt='#,##0.00';});
 
-      ws.autoFilter={from:{row:6,column:1},to:{row:lastDataRow,column:10}};
-      ws.pageSetup.printArea=`A1:J${rowIndex}`;
+      ws.getCell('A4').value='عدد الموظفين';
+      ws.getCell('B4').value=Math.max(0,lastDataRow-6);
+      ws.getCell('C4').value='إجمالي صافي المستحق';
+      ws.getCell('D4').value={formula:`SUM(U7:U${lastDataRow})`,result:Number(totals.final||0)};
+      ws.getCell('D4').numFmt='#,##0.00';
+      ['A4','C4'].forEach((cell)=>{ws.getCell(cell).font={bold:true,color:{argb:'FFFFFFFF'}};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};});
+      ['B4','D4'].forEach((cell)=>{ws.getCell(cell).font={bold:true};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};ws.getCell(cell).alignment={horizontal:'center'};});
+
+      ws.autoFilter={from:{row:6,column:1},to:{row:lastDataRow,column:23}};
+      ws.pageSetup.printArea=`A1:W${rowIndex}`;
       ws.headerFooter.oddFooter='&Cصفحة &P من &N';
 
-      const filename=`مسير_الرواتب_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
+      if(lastDataRow>=7){
+        for(let r=7;r<=lastDataRow;r++){
+          ws.getCell(`G${r}`).dataValidation={type:'decimal',operator:'between',allowBlank:false,formulae:[0,100],showErrorMessage:true,errorTitle:'نسبة غير صحيحة',error:'أدخل نسبة بين 0 و100.'};
+          ws.getCell(`J${r}`).dataValidation={type:'decimal',operator:'greaterThan',allowBlank:false,formulae:[0],showErrorMessage:true,errorTitle:'ساعات اليوم',error:'ساعات اليوم يجب أن تكون أكبر من صفر.'};
+          ws.getCell(`K${r}`).dataValidation={type:'decimal',operator:'greaterThanOrEqual',allowBlank:false,formulae:[0]};
+          ws.getCell(`M${r}`).dataValidation={type:'whole',operator:'greaterThanOrEqual',allowBlank:false,formulae:[0]};
+          ws.getCell(`V${r}`).dataValidation={type:'list',allowBlank:true,formulae:[`"${PAYMENT_METHODS.map(([,label])=>label).join(',')}"`]};
+        }
+      }
+
+      const filename=`مسير_الرواتب_التفاعلي_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
       downloadBuffer(await wb.xlsx.writeBuffer(),filename);
-      setMsg('تم تنزيل مسير الرواتب Excel بصيغة جاهزة للمراجعة والطباعة.');
+      setMsg('تم تنزيل مسير الرواتب التفاعلي. الخلايا الصفراء قابلة للتعديل والمعادلات تعيد الاحتساب تلقائيًا.');
     }catch(error){
       setErr(error.message||String(error));
     }finally{
