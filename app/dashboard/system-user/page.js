@@ -24,6 +24,13 @@ const ERROR_AR = {
   impact_scan_failed: 'تعذر فحص أثر المستخدم على بيانات البرنامج.',
 };
 
+const ACCESS_PROFILES = Object.freeze([
+  { key:'operational', label:'تنفيذي / تشغيلي', description:'يعمل داخل البوابات الممنوحة له، ويمكن إضافة مسارات اعتماد فوق صلاحياته التشغيلية.' },
+  { key:'approval_only', label:'إداري — اعتمادات فقط', description:'لا يدخل البوابات التنفيذية؛ يرى فقط المستندات والمعاملات الموجهة إليه في مكتب الاعتمادات.' },
+]);
+
+const MODULE_LABELS = Object.freeze({projects:'المشاريع',hr:'الموارد البشرية',finance:'المالية',documents:'المستندات',admin:'الإدارة',approvals:'الاعتمادات'});
+
 const MANAGED_BUNDLES = new Set([
   'projects_full_access',
   'project_site_supervisor',
@@ -65,8 +72,8 @@ export default function SystemUserPage() {
   const [credentials, setCredentials] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [deletePlan, setDeletePlan] = useState(null);
-  const [newAccount, setNewAccount] = useState({ employeeId: '', accessLevel: 'projects_portal_full', projectIds: [] });
-  const [editAccess, setEditAccess] = useState({ accessLevel: 'projects_portal_full', projectIds: [] });
+  const [newAccount, setNewAccount] = useState({ employeeId: '', accessProfile:'operational', accessLevel: 'projects_portal_full', projectIds: [], approvalCapabilities:[] });
+  const [editAccess, setEditAccess] = useState({ accessProfile:'operational', accessLevel: 'projects_portal_full', projectIds: [], approvalCapabilities:[] });
 
   async function callAdmin(body) {
     const { data, error } = await supabase.functions.invoke('system-user-admin', { body });
@@ -90,7 +97,7 @@ export default function SystemUserPage() {
       setSelectedUserId(next);
     } catch (error) {
       setErr(error.message || 'تعذر تحميل إدارة الدخول.');
-      setDirectory({ employees: [], users: [], grants: [], bundles: [], projects: [], primaryUserId: null });
+      setDirectory({ employees: [], users: [], grants: [], bundles: [], projects: [], approvalPolicies:[], overrides:[], primaryUserId: null });
     }
   }
 
@@ -129,11 +136,22 @@ export default function SystemUserPage() {
     () => levelForGrants(selectedGrants, bundleById),
     [selectedGrants, bundleById],
   );
+  const approvalPolicies = useMemo(() => directory?.approvalPolicies || [], [directory]);
+  const selectedApprovalCapabilities = useMemo(() => {
+    const allowed=new Set((directory?.overrides||[])
+      .filter(row=>row.user_id===selectedUserId&&row.is_active&&row.effect==='allow')
+      .map(row=>row.capability_key));
+    return approvalPolicies.map(row=>row.capability_key).filter(key=>allowed.has(key));
+  }, [directory, selectedUserId, approvalPolicies]);
 
   useEffect(() => {
-    setEditAccess(detectedAccess);
+    setEditAccess({
+      ...detectedAccess,
+      accessProfile:selectedUser?.access_profile||'operational',
+      approvalCapabilities:selectedApprovalCapabilities,
+    });
     setDeletePlan(null);
-  }, [selectedUserId, detectedAccess.key, JSON.stringify(detectedAccess.projectIds)]);
+  }, [selectedUserId, selectedUser?.access_profile, detectedAccess.key, JSON.stringify(detectedAccess.projectIds), JSON.stringify(selectedApprovalCapabilities)]);
 
   function toggleProject(setter, projectId) {
     setter((current) => ({
@@ -154,7 +172,7 @@ export default function SystemUserPage() {
       const data = await callAdmin({ action: 'provision', ...newAccount });
       setCredentials({ email: data.account.email, password: data.temporaryPassword, name: data.account.displayName });
       setMsg('تم إنشاء المستخدم. يبدأ من صفحة اليوم ويغيّر كلمة المرور عند أول دخول.');
-      setNewAccount({ employeeId: '', accessLevel: 'projects_portal_full', projectIds: [] });
+      setNewAccount({ employeeId: '', accessProfile:'operational', accessLevel: 'projects_portal_full', projectIds: [], approvalCapabilities:[] });
       await load(false);
       setSelectedUserId(data.account.userId);
     } catch (error) {
@@ -169,8 +187,8 @@ export default function SystemUserPage() {
     setErr('');
     setMsg('');
     try {
-      await callAdmin({ action: 'set_access_level', userId: selectedUser.id, ...editAccess });
-      setMsg('تم حفظ صلاحية المستخدم. صفحة اليوم ستتكيف تلقائيًا مع المستوى الجديد.');
+      await callAdmin({ action: 'set_access_profile', userId: selectedUser.id, ...editAccess });
+      setMsg(editAccess.accessProfile==='approval_only'?'تم حفظ المستخدم كإداري اعتمادات فقط، مع المسارات المحددة.':'تم حفظ الصلاحيات التشغيلية ومسارات الاعتماد المحددة.');
       await load();
     } catch (error) {
       setErr(error.message || 'تعذر حفظ الصلاحية.');
@@ -258,6 +276,8 @@ export default function SystemUserPage() {
 
   const newLevel = PROJECT_ACCESS_LEVELS.find((level) => level.key === newAccount.accessLevel) || PROJECT_ACCESS_LEVELS[0];
   const editLevel = PROJECT_ACCESS_LEVELS.find((level) => level.key === editAccess.accessLevel) || PROJECT_ACCESS_LEVELS[0];
+  const newProfile = ACCESS_PROFILES.find((item)=>item.key===newAccount.accessProfile)||ACCESS_PROFILES[0];
+  const editProfile = ACCESS_PROFILES.find((item)=>item.key===editAccess.accessProfile)||ACCESS_PROFILES[0];
 
   return <>
     <div className="page-head">
@@ -284,19 +304,27 @@ export default function SystemUserPage() {
             </select>
           </div>
           <div className="field span2">
-            <label>مستوى الوصول *</label>
+            <label>نوع المستخدم *</label>
+            <select value={newAccount.accessProfile} onChange={(event) => setNewAccount({ ...newAccount, accessProfile:event.target.value, projectIds:[] })}>
+              {ACCESS_PROFILES.map((profile)=><option key={profile.key} value={profile.key}>{profile.label}</option>)}
+            </select>
+            <span className="hint">{newProfile.description}</span>
+          </div>
+          {newAccount.accessProfile==='operational'?<div className="field span2">
+            <label>مستوى الوصول التشغيلي *</label>
             <select value={newAccount.accessLevel} onChange={(event) => setNewAccount({ ...newAccount, accessLevel: event.target.value, projectIds: [] })}>
               {PROJECT_ACCESS_LEVELS.map((level) => <option key={level.key} value={level.key}>{level.label}</option>)}
             </select>
             <span className="hint">{newLevel.description}</span>
-          </div>
+          </div>:null}
         </div>
-        {newLevel.scopeType === 'project' && <ProjectPicker projects={directory.projects || []} selected={newAccount.projectIds} onToggle={(id) => toggleProject(setNewAccount, id)} />}
+        {newAccount.accessProfile==='operational'&&newLevel.scopeType === 'project' && <ProjectPicker projects={directory.projects || []} selected={newAccount.projectIds} onToggle={(id) => toggleProject(setNewAccount, id)} />}
+        <ApprovalPermissionPicker policies={approvalPolicies} selected={newAccount.approvalCapabilities} onToggle={(key)=>setNewAccount(current=>({...current,approvalCapabilities:current.approvalCapabilities.includes(key)?current.approvalCapabilities.filter(x=>x!==key):[...current.approvalCapabilities,key]}))} />
         <div className="rowsplit" style={{ marginTop: 16 }}>
-          <button className="btn" disabled={busy === 'provision' || !newAccount.employeeId || (newLevel.scopeType === 'project' && !newAccount.projectIds.length)}>
+          <button className="btn" disabled={busy === 'provision' || !newAccount.employeeId || (newAccount.accessProfile==='operational'&&newLevel.scopeType === 'project' && !newAccount.projectIds.length) || (newAccount.accessProfile==='approval_only'&&!newAccount.approvalCapabilities.length)}>
             {busy === 'provision' ? 'جارٍ إنشاء المستخدم…' : 'إنشاء المستخدم وكلمة مرور مؤقتة'}
           </button>
-          <span className="hint">كل مستخدم غير رئيسي يبدأ من صفحة اليوم.</span>
+          <span className="hint">{newAccount.accessProfile==='approval_only'?'سيبدأ مباشرة من مكتب الاعتمادات.':'يمكنه العمل في بوابته، وتظهر له الاعتمادات المختارة عند توجيهها إليه.'}</span>
         </div>
       </form>
     </div>
@@ -333,7 +361,7 @@ export default function SystemUserPage() {
             <div className="card"><h3>المستخدم</h3><div className="big" style={{ fontSize: 17 }}>{selectedEmployee?.full_name_ar || '—'}</div><div className="foot">{selectedEmployee?.job_title || '—'}</div></div>
             <div className="card"><h3>البريد</h3><div className="big" style={{ fontSize: 14, direction: 'ltr' }}>{selectedUser.auth_email || selectedEmployee?.email || '—'}</div></div>
             <div className="card"><h3>الحالة</h3><div className="big" style={{ fontSize: 17 }}>{selectedUser.is_active ? 'مفعّل' : 'معطّل'}</div><div className="foot">{selectedUser.must_change_password ? 'ينتظر تغيير كلمة المرور' : 'كلمة المرور مستقرة'}</div></div>
-            <div className="card"><h3>الوصول</h3><div className="big" style={{ fontSize: 16 }}>{selectedUser.id === directory.primaryUserId ? 'كل النظام' : (PROJECT_ACCESS_LEVELS.find((level) => level.key === detectedAccess.key)?.label || '—')}</div></div>
+            <div className="card"><h3>الوصول</h3><div className="big" style={{ fontSize: 16 }}>{selectedUser.id === directory.primaryUserId ? 'كل النظام' : selectedUser.access_profile==='approval_only'?'إداري — اعتمادات فقط':(PROJECT_ACCESS_LEVELS.find((level) => level.key === detectedAccess.key)?.label || '—')}</div></div>
           </div>
 
           {selectedUser.id === directory.primaryUserId
@@ -343,15 +371,23 @@ export default function SystemUserPage() {
                 <header><h2>صلاحية المستخدم</h2></header>
                 <div style={{ padding: 16 }}>
                   <div className="field" style={{ maxWidth: 620 }}>
-                    <label>المستوى</label>
-                    <select value={editAccess.accessLevel} onChange={(event) => setEditAccess({ accessLevel: event.target.value, projectIds: [] })}>
+                    <label>نوع المستخدم</label>
+                    <select value={editAccess.accessProfile} onChange={(event) => setEditAccess(current=>({ ...current, accessProfile:event.target.value, projectIds:event.target.value==='approval_only'?[]:current.projectIds }))}>
+                      {ACCESS_PROFILES.map((profile)=><option key={profile.key} value={profile.key}>{profile.label}</option>)}
+                    </select>
+                    <span className="hint">{editProfile.description}</span>
+                  </div>
+                  {editAccess.accessProfile==='operational'?<div className="field" style={{ maxWidth: 620, marginTop:12 }}>
+                    <label>المستوى التشغيلي</label>
+                    <select value={editAccess.accessLevel} onChange={(event) => setEditAccess(current=>({ ...current, accessLevel: event.target.value, projectIds: [] }))}>
                       {PROJECT_ACCESS_LEVELS.map((level) => <option key={level.key} value={level.key}>{level.label}</option>)}
                     </select>
                     <span className="hint">{editLevel.description}</span>
-                  </div>
-                  {editLevel.scopeType === 'project' && <ProjectPicker projects={directory.projects || []} selected={editAccess.projectIds} onToggle={(id) => toggleProject(setEditAccess, id)} />}
-                  <button className="btn" style={{ marginTop: 14 }} onClick={saveAccess} disabled={busy === 'access' || (editLevel.scopeType === 'project' && !editAccess.projectIds.length)}>
-                    {busy === 'access' ? 'جارٍ الحفظ…' : 'حفظ الصلاحية'}
+                  </div>:null}
+                  {editAccess.accessProfile==='operational'&&editLevel.scopeType === 'project' && <ProjectPicker projects={directory.projects || []} selected={editAccess.projectIds} onToggle={(id) => toggleProject(setEditAccess, id)} />}
+                  <ApprovalPermissionPicker policies={approvalPolicies} selected={editAccess.approvalCapabilities} onToggle={(key)=>setEditAccess(current=>({...current,approvalCapabilities:current.approvalCapabilities.includes(key)?current.approvalCapabilities.filter(x=>x!==key):[...current.approvalCapabilities,key]}))} />
+                  <button className="btn" style={{ marginTop: 14 }} onClick={saveAccess} disabled={busy === 'access' || (editAccess.accessProfile==='operational'&&editLevel.scopeType === 'project' && !editAccess.projectIds.length) || (editAccess.accessProfile==='approval_only'&&!editAccess.approvalCapabilities.length)}>
+                    {busy === 'access' ? 'جارٍ الحفظ…' : 'حفظ نوع المستخدم ومسارات الاعتماد'}
                   </button>
                 </div>
               </div>
@@ -362,7 +398,7 @@ export default function SystemUserPage() {
                 <button className="btn ghost" onClick={prepareDelete} disabled={busy === 'delete-preview' || busy === 'delete'}>{busy === 'delete-preview' ? 'جارٍ فحص الأثر…' : 'حذف المستخدم'}</button>
               </div>
             </>}
-          <DocumentPackAccessManager userId={selectedUser.id} primaryUserId={directory.primaryUserId} />
+          {selectedUser.access_profile!=='approval_only'?<DocumentPackAccessManager userId={selectedUser.id} primaryUserId={directory.primaryUserId} />:null}
         </>}
       </div>
     </div>
@@ -381,6 +417,30 @@ export default function SystemUserPage() {
       </div>
     </div>}
   </>;
+}
+
+function ApprovalPermissionPicker({ policies, selected, onToggle }) {
+  const groups=policies.reduce((acc,row)=>{
+    const key=row.source_module||'other';
+    if(!acc[key])acc[key]=[];
+    acc[key].push(row);
+    return acc;
+  },{});
+  return <div style={{ marginTop:16 }}>
+    <div style={{fontWeight:800,marginBottom:4}}>مسارات الاعتماد</div>
+    <div className="hint" style={{marginBottom:10}}>اختر أكثر من معاملة. هذه الصلاحيات تمنح حق القرار فقط، ولا تمنح دخول البوابة التنفيذية بذاتها.</div>
+    {Object.keys(groups).length===0?<div className="empty">لا توجد مسارات اعتماد معرفة حاليًا.</div>:<div style={{display:'grid',gap:12}}>
+      {Object.entries(groups).map(([module,rows])=><div key={module} style={{border:'1px solid var(--hair)',borderRadius:12,padding:12}}>
+        <strong style={{display:'block',marginBottom:8}}>{MODULE_LABELS[module]||module}</strong>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:8}}>
+          {rows.map((row)=><label key={row.capability_key} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'9px 10px',border:'1px solid rgba(111,37,43,.12)',borderRadius:9,cursor:'pointer'}}>
+            <input type="checkbox" checked={selected.includes(row.capability_key)} onChange={()=>onToggle(row.capability_key)} />
+            <span><strong style={{display:'block'}}>{row.label_ar}</strong><small>{row.initial_target_group_label||'مسار اعتماد'}{row.allow_additional?' · يسمح بالتوجيه لاعتماد إضافي':''}</small></span>
+          </label>)}
+        </div>
+      </div>)}
+    </div>}
+  </div>;
 }
 
 function ProjectPicker({ projects, selected, onToggle }) {
