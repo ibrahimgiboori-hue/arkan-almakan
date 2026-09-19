@@ -83,16 +83,15 @@ export default function ApprovalsPage(){
 
   const selected=useMemo(()=>rows?.find(row=>row.workflow_id===selectedId)||null,[rows,selectedId]);
   const isClaim=selected?.transaction_type==='progress_claim';
-  const claimUsesProjectJourney=isClaim&&!approverOnly;
 
   useEffect(()=>{
-    if(claimUsesProjectJourney||!detail?.can_route){setRouteDestinations([]);return;}
+    if(isClaim||!detail?.can_route){setRouteDestinations([]);return;}
     let alive=true;
     supabase.rpc('fn_approval_route_destinations').then(({data,error:rpcError})=>{
       if(!alive)return;if(rpcError)setError(rpcError.message||'تعذر تحميل جهات التعميد.');else setRouteDestinations(data||[]);
     });
     return()=>{alive=false;};
-  },[detail?.can_route,selectedId,claimUsesProjectJourney]);
+  },[detail?.can_route,selectedId,isClaim]);
 
   useEffect(()=>{
     if(!routeDestination){setRouteUsers([]);setNextUser('');return;}
@@ -104,7 +103,7 @@ export default function ApprovalsPage(){
   },[routeDestination]);
 
   async function decide(decision,{route=false}={}){
-    if(!selectedId||claimUsesProjectJourney)return;const clean=note.trim();
+    if(!selectedId||isClaim)return;const clean=note.trim();
     if(decision!=='approve'&&!clean){setError('اكتب سبب الإرجاع أو الرفض قبل تنفيذ القرار.');return;}
     if(route&&(!routeDestination||!nextUser)){setError('اختر بوابة التعميد والشخص الذي ستُحال إليه المعاملة.');return;}
     if(route&&!nextReason.trim()){setError('اكتب سبب الإحالة للتعميد.');return;}
@@ -139,7 +138,7 @@ export default function ApprovalsPage(){
           <div className={styles.summary}><div><span>الحالة</span><strong>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</strong></div><div><span>المرحلة الحالية</span><strong>{stageLabel}</strong></div><div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div></div>
           <div className={styles.block}><h3>نسخة المعاملة المرسلة للاعتماد</h3><ApprovalSnapshot snapshot={detail?.snapshot}/></div>
 
-          {claimUsesProjectJourney?<div className={styles.block}>
+          {isClaim?<div className={styles.block}>
             <h3>المستخلص له رحلة واحدة</h3>
             <div className={styles.muted} style={{marginBottom:12}}>لن تتخذ القرار هنا ثم تعود للمشروع. افتح المستخلص نفسه، وستجد قرار الاعتماد والخطوة التالية في نفس المسار حتى التحصيل والفاتورة.</div>
             <Link className="btn" href={`/dashboard/projects/${workflow.project_id}?view=claims&claim=${workflow.source_id}`}>فتح رحلة المستخلص</Link>
