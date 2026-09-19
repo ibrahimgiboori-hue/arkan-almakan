@@ -3,6 +3,7 @@ import './print-office-model.css';
 import './print-clean-document.css';
 import './print-register-report.css';
 import './print-workbench.css';
+import './print-treasury-voucher.css';
 import PrintGovernanceBoundary from '@/components/print/PrintGovernanceBoundary';
 import { PRINT_LAYOUT_MODEL_VERSION } from '@/lib/print-layout-model';
 
