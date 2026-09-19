@@ -121,8 +121,10 @@ export default function ApprovalsPage(){
   }
 
   if(rows===null)return <ConstitutionPage><EmptyState title="جارٍ تحميل الاعتمادات" description="يتم جمع المعاملات التي تحتاج قرارك الآن."/></ConstitutionPage>;
-  const workflow=detail?.workflow||null,steps=detail?.steps||[],events=detail?.events||[];
+  const workflow=detail?.workflow||null,steps=detail?.steps||[],events=detail?.events||[],decisions=detail?.decisions||[];
   const stageLabel=detail?.current_stage_label||'القرار';
+  const currentPrintHref=workflow?.transaction_type==='cash_voucher'&&workflow?.source_id?`/print/treasury-voucher/${workflow.source_id}`:(workflow?.id?`/print/approval/${workflow.id}?mode=incoming`:'#');
+  const decisionPrintHref=workflow?.id?`/print/approval/${workflow.id}?mode=decision`:'#';
   const approveLabel=detail?.is_final_stage===false?'اعتماد المرحلة':'اعتماد نهائي';
 
   return <ConstitutionPage>
@@ -136,6 +138,10 @@ export default function ApprovalsPage(){
       <div id="approval-detail" ref={detailRef} className={styles.detail} style={{scrollMarginTop:112}}>
         {!selected?<EmptyState title="اختر معاملة" description="اختر معاملة من القائمة."/>:!workflow?<EmptyState title="جارٍ قراءة المعاملة" description="يتم تحميل تفاصيل النسخة الحالية."/>:<Section title={workflow.source_label||selected.label_ar||'معاملة اعتماد'} description={`${workflow.workflow_no||'—'} · النسخة ${workflow.version_no||1}`}>
           <div className={styles.summary}><div><span>الحالة</span><strong>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</strong></div><div><span>المرحلة الحالية</span><strong>{stageLabel}</strong></div><div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div></div>
+          <div className={styles.actions} style={{margin:'12px 0 4px'}}>
+            <a className="btn ghost" href={currentPrintHref} target="_blank" rel="noreferrer">طباعة المستند الحالي</a>
+            {decisions.length?<a className="btn ghost" href={decisionPrintHref} target="_blank" rel="noreferrer">طباعة نسخة القرار</a>:null}
+          </div>
           <div className={styles.block}><h3>نسخة المعاملة المرسلة للاعتماد</h3><ApprovalSnapshot snapshot={detail?.snapshot}/></div>
 
           {isClaim?<div className={styles.block}>
