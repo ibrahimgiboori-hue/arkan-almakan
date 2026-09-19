@@ -249,9 +249,22 @@ export default function TreasuryVouchersPage(){
     const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span></span>`;
     const flowFill=(value,extraClass='')=>`<span class="fill flow-fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span><span class="soft-fill" aria-hidden="true"></span></span>`;
     const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span><span class="soft-fill" aria-hidden="true"></span></span>`;
-    const popup=window.open('','_blank','width=1100,height=760');
-    if(!popup){setMessage('اسمح بالنوافذ المنبثقة لطباعة السند.');return;}
-    popup.opener=null;
+    const previousFrame=document.getElementById('arkan-voucher-print-frame');
+    if(previousFrame)previousFrame.remove();
+    const printFrame=document.createElement('iframe');
+    printFrame.id='arkan-voucher-print-frame';
+    printFrame.setAttribute('aria-hidden','true');
+    printFrame.style.position='fixed';
+    printFrame.style.left='-10000px';
+    printFrame.style.top='0';
+    printFrame.style.width='1px';
+    printFrame.style.height='1px';
+    printFrame.style.border='0';
+    printFrame.style.opacity='0';
+    printFrame.style.pointerEvents='none';
+    document.body.appendChild(printFrame);
+    const popup=printFrame.contentWindow;
+    if(!popup){printFrame.remove();setMessage('تعذر تجهيز نافذة الطباعة.');return;}
 
     const paymentOpening=isEntity?'استلمنا نحن':'استلمت أنا';
     const bodyHtml=isReceipt
@@ -400,13 +413,47 @@ export default function TreasuryVouchersPage(){
           tries+=1;
         }
       }
-      async function finalizeVoucherPrint(){
-        if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
-        requestAnimationFrame(()=>{ensureSinglePage();requestAnimationFrame(()=>window.print());});
+      function cleanupPrintFrame(){
+        setTimeout(()=>{
+          try{
+            const frame=window.frameElement;
+            if(frame&&frame.parentNode)frame.parentNode.removeChild(frame);
+          }catch(e){}
+        },80);
       }
-      window.onload=finalizeVoucherPrint;
+      async function waitForPrintAssets(){
+        const images=Array.from(document.images||[]);
+        if(!images.length)return;
+        await Promise.race([
+          Promise.all(images.map((img)=>img.complete?Promise.resolve():new Promise((resolve)=>{
+            const done=()=>resolve();
+            img.addEventListener('load',done,{once:true});
+            img.addEventListener('error',done,{once:true});
+          }))),
+          new Promise((resolve)=>setTimeout(resolve,1200))
+        ]);
+      }
+      async function finalizeVoucherPrint(){
+        try{
+          await waitForPrintAssets();
+          ensureSinglePage();
+          requestAnimationFrame(()=>setTimeout(()=>{
+            try{window.focus();window.print();}catch(e){cleanupPrintFrame();}
+          },60));
+        }catch(e){
+          cleanupPrintFrame();
+        }
+      }
+      window.addEventListener('afterprint',cleanupPrintFrame,{once:true});
+      window.addEventListener('load',finalizeVoucherPrint,{once:true});
+      setTimeout(cleanupPrintFrame,120000);
     </script></body></html>`);
-    popup.document.close();
+    try{
+      popup.document.close();
+    }catch(error){
+      printFrame.remove();
+      setMessage('تعذر تجهيز السند للطباعة. أعد المحاولة.');
+    }
   }
 
   if(state.loading&&!state.accounts.length&&!state.vouchers.length)return <ConstitutionPage><EmptyState title="جارٍ تجهيز الخزينة والسندات" description="نقرأ الحسابات والدفاتر والسندات المسجلة."/></ConstitutionPage>;
