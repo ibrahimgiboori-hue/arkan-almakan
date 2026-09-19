@@ -218,6 +218,7 @@ export default function TreasuryVouchersPage(){
     const approverName=voucher.approved_by_name_snapshot||actorMap.get(voucher.approved_by_employee_id)?.full_name_ar||'—';
     const approverTitle=voucher.approved_by_title_snapshot||actorMap.get(voucher.approved_by_employee_id)?.job_title||'';
     const stampUrl=settings.stamp_image_path?supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl:'';
+    const stampSizeMm=Math.min(55,Math.max(15,Number(settings.stamp_size_mm||30)));
     const isReceipt=voucher.voucher_type==='receipt';
     const isEntity=voucher.party_id_kind==='cr';
     const idNumberLabel=ID_NUMBER_LABEL[voucher.party_id_kind]||'رقم إثبات';
@@ -296,39 +297,39 @@ export default function TreasuryVouchersPage(){
       :root{--brand:#8B3332;--brand-dark:#7C2B28;--brand-soft:#F6EEEE;--line:#9C8E8E;--ink:#242426}
       html,body{margin:0;padding:0;background:#fff;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
       body{font-size:11.5px}
-      .sheet{width:198mm;min-height:136mm;border:1.6px solid var(--brand);padding:5mm 6mm 4mm;position:relative;overflow:hidden;background:#fff}
-      .company-card{border:1px solid var(--brand);background:#fff;text-align:center;padding:2.4mm 3mm;margin-bottom:3mm}
-      .company-card .company{font-size:15px;font-weight:800;color:var(--brand-dark);line-height:1.15}
-      .company-card .en{font-size:8.5px;margin-top:.7mm;color:#555}
-      .company-card .legal-meta{font-size:8.5px;margin-top:1mm;color:#555}
-      .top{display:grid;grid-template-columns:1fr 1.05fr 1fr;gap:4mm;align-items:stretch}
+      .sheet{width:198mm;height:136mm;min-height:136mm;max-height:136mm;border:1.6px solid var(--brand);padding:4mm 6mm 3mm;position:relative;overflow:hidden;background:#fff;break-inside:avoid;page-break-inside:avoid}
+      .company-card{border:1px solid var(--brand);background:#fff;text-align:center;padding:1.6mm 3mm;margin-bottom:2mm}
+      .company-card .company{font-size:14px;font-weight:800;color:var(--brand-dark);line-height:1.08}
+      .company-card .en{font-size:8px;margin-top:.45mm;color:#555}
+      .company-card .legal-meta{font-size:8px;margin-top:.55mm;color:#555}
+      .top{display:grid;grid-template-columns:1fr 1.05fr 1fr;gap:3mm;align-items:stretch}
       .meta,.amount-box,.voucher-box{border:1px solid var(--brand)}
-      .voucher-box{background:var(--brand);color:#fff;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5mm}
-      .voucher-box .ar{font-size:18px;font-weight:800;line-height:1.1}
-      .voucher-box .en{font-size:8.5px;letter-spacing:.06em;margin-top:1mm;opacity:.92}
-      .meta{padding:2.3mm 3mm;display:grid;grid-template-columns:max-content max-content;column-gap:1.4mm;row-gap:1.1mm;align-content:center;justify-content:start;direction:rtl}
+      .voucher-box{background:var(--brand);color:#fff;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.8mm}
+      .voucher-box .ar{font-size:17px;font-weight:800;line-height:1.05}
+      .voucher-box .en{font-size:8px;letter-spacing:.06em;margin-top:.6mm;opacity:.92}
+      .meta{padding:1.6mm 2.4mm;display:grid;grid-template-columns:max-content max-content;column-gap:1.2mm;row-gap:.7mm;align-content:center;justify-content:start;direction:rtl}
       .meta b{color:var(--brand-dark);white-space:nowrap}.meta span{white-space:nowrap}.meta .ref{direction:ltr;text-align:right;font-weight:700}
       .amount-box{display:grid;grid-template-rows:auto 1fr}
-      .amount-box .label{background:var(--brand);color:#fff;text-align:center;font-weight:700;padding:1.5mm}
-      .amount-parts{display:grid;grid-template-columns:2fr 1fr;min-height:15mm}
+      .amount-box .label{background:var(--brand);color:#fff;text-align:center;font-weight:700;padding:1.1mm}
+      .amount-parts{display:grid;grid-template-columns:2fr 1fr;min-height:13mm}
       .amount-part{display:grid;grid-template-rows:auto 1fr;text-align:center;border-left:1px solid var(--line)}
-      .amount-part:last-child{border-left:0}.amount-part b{font-size:9.5px;color:var(--brand-dark);padding:1mm 0;border-bottom:1px solid #E0D6D6}.amount-part span{font-size:18px;font-weight:800;display:grid;place-items:center;direction:ltr;font-variant-numeric:tabular-nums}
-      .body{border-top:1px solid var(--brand);padding-top:2.5mm;margin-top:3mm}
-      .sentence,.payment-line{display:flex;align-items:flex-end;gap:1.4mm;min-height:7.2mm;white-space:nowrap}
+      .amount-part:last-child{border-left:0}.amount-part b{font-size:9px;color:var(--brand-dark);padding:.65mm 0;border-bottom:1px solid #E0D6D6}.amount-part span{font-size:17px;font-weight:800;display:grid;place-items:center;direction:ltr;font-variant-numeric:tabular-nums}
+      .body{border-top:1px solid var(--brand);padding-top:1.7mm;margin-top:2mm}
+      .sentence,.payment-line{display:flex;align-items:flex-end;gap:1.2mm;min-height:6.1mm;white-space:nowrap}
       .fixed{font-weight:700;flex:0 0 auto}
-      .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.2mm;border-bottom:1px dotted #555;height:6.2mm;overflow:hidden;white-space:nowrap}
+      .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.1mm;border-bottom:1px dotted #555;height:5.3mm;overflow:hidden;white-space:nowrap}
       .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
       .fill .hashes{font-weight:700;letter-spacing:.03em;flex:1 1 auto;overflow:hidden;white-space:nowrap;direction:ltr;text-align:left;color:#555;min-width:0}
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
-      .seal-line{height:5.8mm;border-bottom:1px dotted #555;display:flex;align-items:flex-end;overflow:hidden;margin-top:.2mm}
+      .seal-line{height:4.6mm;border-bottom:1px dotted #555;display:flex;align-items:flex-end;overflow:hidden;margin-top:.1mm}
       .seal-line span{font-weight:700;white-space:nowrap;color:#555;direction:ltr;width:100%;text-align:left;overflow:hidden}
-      .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:1.3mm;margin-bottom:.4mm}
-      .reason-line{margin-bottom:.1mm}
-      .legal-ack{margin-top:1.3mm;padding:1.8mm 2mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:9.15px;line-height:1.72;text-align:justify;font-weight:600}
-      .payment-line{margin-top:1.8mm;padding-top:1.5mm;border-top:1px solid #D5CACA}
-      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:3.2mm}
-      .sign{min-height:17.5mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1.2mm;position:relative}
-      .sign strong{display:block;color:var(--brand-dark);font-size:10.5px}.sign .person-name{display:block;margin-top:1.2mm;font-size:10px;font-weight:700;word-spacing:.5em}.sign .person-title{display:block;margin-top:.6mm;font-size:8.5px;color:#666}.sign .signature-label{display:block;margin-top:2.2mm;font-size:8.5px;color:#555}.approval-stamp{position:absolute;left:50%;bottom:-1mm;transform:translateX(-50%);max-width:22mm;max-height:13mm;object-fit:contain;opacity:.9}
+      .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
+      .reason-line{margin-bottom:0}
+      .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
+      .payment-line{margin-top:1.1mm;padding-top:1mm;border-top:1px solid #D5CACA}
+      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:2.2mm}
+      .sign{min-height:16mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1mm;position:relative;overflow:visible}
+      .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:1.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.78;z-index:1;pointer-events:none}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
       @media screen{body{display:grid;place-items:start center;padding:12px;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
@@ -355,10 +356,10 @@ export default function TreasuryVouchersPage(){
         ${paymentDetails}
       </div>
       <div class="signatures">
-        <div class="sign"><strong>مصدر السند</strong><span class="person-name">${esc(issuerName)}</span><span class="person-title">${esc(issuerTitle)}</span><span class="signature-label">التوقيع</span></div>
-        <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span><span class="signature-label">التوقيع</span></div>
-        <div class="sign"><strong>المحاسب</strong><span class="person-name">................................</span><span class="signature-label">الاسم / التوقيع</span></div>
-        <div class="sign"><strong>اعتماد الإدارة</strong><span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span><span class="signature-label">التوقيع</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}</div>
+        <div class="sign"><strong>مصدر السند</strong><span class="person-name">${esc(issuerName)}</span><span class="person-title">${esc(issuerTitle)}</span></div>
+        <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span></div>
+        <div class="sign"><strong>المحاسب</strong><span class="person-name">................................</span></div>
+        <div class="sign"><strong>اعتماد الإدارة</strong><span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}</div>
       </div>
       <div class="foot"><span>الأصل للطرف — نسخة للحسابات — نسخة بالدفتر</span><span>حالة السند: ${voucher.status==='void'?'ملغى':'ساري'}</span></div>
     </div><script>
@@ -387,10 +388,21 @@ export default function TreasuryVouchersPage(){
         const count=Math.max(0,Math.floor((available + gapWidth - comfort)/(tokenWidth + gapWidth)));
         el.textContent=count>0?Array(count).fill('###').join(' '):'';
       }
+      function ensureSinglePage(){
+        const sheet=document.querySelector('.sheet');
+        if(!sheet)return;
+        let tries=0;
+        while(sheet.scrollHeight>sheet.clientHeight&&tries<6){
+          const current=parseFloat(getComputedStyle(document.body).fontSize)||11.5;
+          document.body.style.fontSize=Math.max(9.4,current-.3)+'px';
+          tries+=1;
+        }
+      }
       async function finalizeVoucherPrint(){
         if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
         requestAnimationFrame(()=>{
           document.querySelectorAll('[data-seal-fill="true"]').forEach(fitSealHashes);
+          ensureSinglePage();
           requestAnimationFrame(()=>window.print());
         });
       }
