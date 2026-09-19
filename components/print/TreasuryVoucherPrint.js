@@ -88,8 +88,12 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
     </header>
 
-    <div className="tv-legal-bar" data-print-resizable-block>
-      حي الملك فهد، الرياض &nbsp; | &nbsp; الرمز البريدي 12274 &nbsp; | &nbsp; س:ت: {latinDigits(settings?.cr_number||'—')} &nbsp; | &nbsp; الرقم الضريبي: {latinDigits(settings?.vat_number||'—')}
+    <div className="tv-company-strip" data-print-resizable-block>
+      <div className="tv-company-cut tv-company-cut-left" aria-hidden="true"/>
+      <div className="tv-legal-bar">
+        حي الملك فهد، الرياض &nbsp; | &nbsp; الرمز البريدي 12274 &nbsp; | &nbsp; س:ت: {latinDigits(settings?.cr_number||'—')} &nbsp; | &nbsp; الرقم الضريبي: {latinDigits(settings?.vat_number||'—')}
+      </div>
+      <div className="tv-company-cut tv-company-cut-right" aria-hidden="true"/>
     </div>
 
     <section className="tv-top" data-print-grid-row data-print-grid-name="treasury-top" data-print-resizable-block>
