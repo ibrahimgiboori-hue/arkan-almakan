@@ -198,7 +198,7 @@ export default function ApprovalsPage(){
         <div>
           <span className={styles.eyebrow}>{approverOnly?'الإدارة':'العمل'}</span>
           <h1>مكتب الاعتمادات</h1>
-          <p>راجع المستند، اكتب ملاحظتك عند الحاجة، ثم اتخذ القرار. التفاصيل الفنية تبقى مخفية ما لم تطلبها.</p>
+          <p>{approverOnly?'اختر المعاملة، راجع مستندها، ثم اتخذ القرار. التفاصيل التشغيلية تبقى عند أصحاب التنفيذ.':'راجع المستند ثم اتخذ الإجراء المطلوب.'}</p>
         </div>
         <div className={styles.queueCount}><strong>{rows.length}</strong><span>بانتظار قرارك</span></div>
       </header>
@@ -208,13 +208,37 @@ export default function ApprovalsPage(){
 
       <div className={styles.shell}>
         <aside className={styles.queuePanel}>
-          <div className={styles.queueHeader}>
-            <div><strong>المعاملات الواردة</strong><span>اختر معاملة للمراجعة</span></div>
-            <b>{rows.length}</b>
+          <div className={styles.queueTabs}>
+            <button type="button" className={view==='pending'?styles.tabActive:''} onClick={()=>setView('pending')}>بانتظار قراري <b>{rows.length}</b></button>
+            <button type="button" className={view==='archive'?styles.tabActive:''} onClick={()=>setView('archive')}>الأرشيف <b>{archiveRows.length}</b></button>
           </div>
-          {rows.length===0
-            ? <EmptyState title="لا توجد اعتمادات بانتظارك" description="ستظهر هنا المعاملة فور وصول دورك في الاعتماد."/>
-            : <div className={styles.list}>{rows.map(row=><button
+          {view==='archive'?<div className={styles.archiveFilters}>
+            <input value={archiveQuery} onChange={e=>setArchiveQuery(e.target.value)} placeholder="بحث بالاسم أو الرقم"/>
+            <select value={archiveType} onChange={e=>setArchiveType(e.target.value)}>
+              <option value="">كل أنواع المعاملات</option>
+              {archiveTypes.map(([key,label])=><option key={key} value={key}>{label}</option>)}
+            </select>
+            <select value={archiveAction} onChange={e=>setArchiveAction(e.target.value)}>
+              <option value="">كل الإجراءات</option>
+              <option value="approved">اعتماد</option>
+              <option value="routed">توجيه</option>
+              <option value="returned">إرجاع للتعديل</option>
+              <option value="rejected">رفض</option>
+              <option value="cancelled">إلغاء</option>
+            </select>
+            <div className={styles.dateFilters}>
+              <label>من<input type="date" value={archiveFrom} onChange={e=>setArchiveFrom(e.target.value)}/></label>
+              <label>إلى<input type="date" value={archiveTo} onChange={e=>setArchiveTo(e.target.value)}/></label>
+            </div>
+            {(archiveQuery||archiveType||archiveAction||archiveFrom||archiveTo)?<button type="button" className={styles.clearFilters} onClick={()=>{setArchiveQuery('');setArchiveType('');setArchiveAction('');setArchiveFrom('');setArchiveTo('');}}>مسح الفلاتر</button>:null}
+          </div>:null}
+          <div className={styles.queueHeader}>
+            <div><strong>{view==='pending'?'المعاملات الواردة':'المعاملات السابقة'}</strong><span>{view==='pending'?'اختر معاملة لاستعراض مستندها':'اختر معاملة لاستعراض مستندها وقرارك السابق'}</span></div>
+            <b>{visibleRows.length}</b>
+          </div>
+          {visibleRows.length===0
+            ? <EmptyState title={view==='pending'?'لا توجد معاملات بانتظارك':'لا توجد نتائج في الأرشيف'} description={view==='pending'?'ستظهر المعاملة هنا فور وصول دورك في الاعتماد.':'جرّب تغيير فلاتر البحث.'}/>
+            : <div className={styles.list}>{visibleRows.map(row=><button
                 type="button"
                 key={row.workflow_id}
                 className={`${styles.item} ${row.workflow_id===selectedId?styles.active:''}`}
@@ -222,9 +246,9 @@ export default function ApprovalsPage(){
                 aria-expanded={row.workflow_id===selectedId}
                 onClick={()=>setSelectedId(row.workflow_id)}
               >
-                <div className={styles.itemHead}><strong>{row.label_ar||'معاملة اعتماد'}</strong><span>{moneyOrDash(row.amount)}</span></div>
+                <div className={styles.itemHead}><strong>{row.label_ar||'معاملة اعتماد'}</strong>{view==='archive'?<span className={styles.actionBadge}>{STEP_STATUS[row.action_status]||row.action_status||'تم الإجراء'}</span>:null}</div>
                 <div className={styles.title}>{row.source_label||'معاملة'}</div>
-                <div className={styles.itemFoot}><span>{row.target_group_label||'اعتماد'}</span><small>{dateTimeAr(row.submitted_at)}</small></div>
+                <div className={styles.itemFoot}><span>{row.workflow_no||'—'}</span><small>{dateTimeAr(view==='archive'?row.acted_at:row.submitted_at)}</small></div>
               </button>)}</div>}
         </aside>
 
@@ -243,23 +267,30 @@ export default function ApprovalsPage(){
                     <span className={styles.statusPill}>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</span>
                   </header>
 
-                  <div className={styles.facts}>
+                  {!approverOnly?<div className={styles.facts}>
                     <div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div>
                     <div><span>المرحلة المطلوبة</span><strong>{stageLabel}</strong></div>
                     <div><span>جهة الإرسال</span><strong>{selected.origin_group_label||'—'}</strong></div>
-                  </div>
+                  </div>:null}
 
                   <section className={styles.documentPanel}>
                     <div className={styles.panelHeader}>
-                      <div><strong>المستند المرسل للاعتماد</strong><span>هذه هي النسخة التي تبني عليها قرارك.</span></div>
-                      <a className="btn ghost" href={currentPrintHref} target="_blank" rel="noreferrer">فتح بالحجم الكامل</a>
+                      <div><strong>المستند</strong><span>{selectedArchived?'المستند المرتبط بالمعاملة التي سبق أن اتخذت عليها إجراء.':'راجع المستند كاملًا؛ منه تحصل على تفاصيل المعاملة التي تحتاجها.'}</span></div>
+                      <a className="btn ghost" href={currentPrintHref} target="_blank" rel="noreferrer">استعراض بالحجم الكامل</a>
                     </div>
                     {embeddedPrintHref!=='#'
                       ? <iframe className={styles.documentFrame} src={embeddedPrintHref} title="المستند المرسل للاعتماد"/>
                       : <ApprovalEssentials snapshot={detail?.snapshot}/>}
                   </section>
 
-                  {isClaim
+                  {selectedArchived
+                    ? <section className={styles.archiveDecision}>
+                        <div><span>الإجراء الذي تم</span><strong>{STEP_STATUS[selected.action_status]||selected.action_status||'تم الإجراء'}</strong></div>
+                        <div><span>التاريخ</span><strong>{dateTimeAr(selected.acted_at)}</strong></div>
+                        {selected.decision_comment?<div className={styles.previousNote}><span>التهميش</span><p>{selected.decision_comment}</p></div>:null}
+                        {decisionPrintHref!=='#'?<a className="btn ghost" href={decisionPrintHref} target="_blank" rel="noreferrer">عرض نسخة القرار</a>:null}
+                      </section>
+                    : isClaim
                     ? <section className={styles.decisionCard}>
                         <div><h3>المستخلص له رحلة واحدة</h3><p>افتح المستخلص نفسه لاتخاذ القرار داخل مساره التشغيلي.</p></div>
                         <Link className="btn" href={`/dashboard/projects/${workflow.project_id}?view=claims&claim=${workflow.source_id}`}>فتح رحلة المستخلص</Link>
@@ -303,7 +334,7 @@ export default function ApprovalsPage(){
                         </section>
                       : <section className={styles.readOnlyNotice}>هذه المعاملة للمتابعة فقط أو لم تعد بانتظار قرارك.</section>}
 
-                  <section className={styles.supporting}>
+                  {!approverOnly?<section className={styles.supporting}>
                     <details>
                       <summary>بيانات المعاملة المختصرة</summary>
                       <ApprovalEssentials snapshot={detail?.snapshot}/>
@@ -327,7 +358,7 @@ export default function ApprovalsPage(){
                       <ApprovalSnapshot snapshot={detail?.snapshot}/>
                     </details>
                     {decisions.length?<a className={styles.decisionPrintLink} href={decisionPrintHref} target="_blank" rel="noreferrer">طباعة نسخة القرار السابقة</a>:null}
-                  </section>
+                  </section>:null}
                 </div>}
         </main>
       </div>
