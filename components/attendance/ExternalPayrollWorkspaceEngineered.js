@@ -168,6 +168,141 @@ export default function ExternalPayrollWorkspaceEngineered(){
     finally{setBusy(false);}
   }
 
+  async function exportPayrollExcel(){
+    if(!batch||!activeImport)return;
+    setBusy(true);setErr('');setMsg('');
+    try{
+      const {default:ExcelJS}=await import('exceljs');
+      const wb=new ExcelJS.Workbook();
+      wb.creator='Arkan Al Makan';
+      wb.created=new Date();
+      const ws=wb.addWorksheet('مسير الرواتب',{views:[{rightToLeft:true,state:'frozen',ySplit:6}]});
+
+      ws.pageSetup={
+        orientation:'landscape',
+        paperSize:9,
+        fitToPage:true,
+        fitToWidth:1,
+        fitToHeight:0,
+        margins:{left:0.25,right:0.25,top:0.4,bottom:0.4,header:0.15,footer:0.15},
+      };
+
+      ws.columns=[
+        {key:'no',width:14},
+        {key:'name',width:28},
+        {key:'reference',width:16},
+        {key:'absence',width:11},
+        {key:'missing',width:14},
+        {key:'time',width:13},
+        {key:'additions',width:14},
+        {key:'deductions',width:14},
+        {key:'final',width:16},
+        {key:'payment',width:16},
+      ];
+
+      ws.mergeCells('A1:J1');
+      ws.getCell('A1').value='مسير الرواتب';
+      ws.getCell('A1').font={bold:true,size:16,color:{argb:'FF8B3332'}};
+      ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
+      ws.getRow(1).height=28;
+
+      ws.mergeCells('A2:J2');
+      ws.getCell('A2').value=`${activeImport.client_name_snapshot||'عميل خارجي'} — ${payrollMonthLabel(activeImport.period_from)} — ${dateOnly(activeImport.period_from)} إلى ${dateOnly(activeImport.period_to)}`;
+      ws.getCell('A2').font={bold:true,size:11};
+      ws.getCell('A2').alignment={horizontal:'center',vertical:'middle'};
+      ws.getRow(2).height=22;
+
+      ws.getCell('A3').value='عدد الموظفين';ws.getCell('B3').value=people.length;
+      ws.getCell('C3').value='صافي الراتب';ws.getCell('D3').value=Number(totals.reference||0);
+      ws.getCell('E3').value='الإضافات';ws.getCell('F3').value=Number(totals.additions||0);
+      ws.getCell('G3').value='الخصومات';ws.getCell('H3').value=Number(totals.deductions||0);
+      ws.getCell('I3').value='صافي المستحق';ws.getCell('J3').value=Number(totals.final||0);
+      for(const c of ['A3','C3','E3','G3','I3']){
+        ws.getCell(c).font={bold:true,color:{argb:'FFFFFFFF'}};
+        ws.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};
+        ws.getCell(c).alignment={horizontal:'center',vertical:'middle'};
+      }
+      for(const c of ['B3','D3','F3','H3','J3']){
+        ws.getCell(c).font={bold:true};
+        ws.getCell(c).alignment={horizontal:'center',vertical:'middle'};
+        ws.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};
+      }
+      for(const c of ['D3','F3','H3','J3'])ws.getCell(c).numFmt='#,##0.00';
+
+      const headers=['رقم الموظف','الموظف','صافي الراتب','الغياب','البصمات المفقودة','فرق الساعات','الإضافات','الخصومات','صافي المستحق','طريقة الدفع'];
+      const headerRow=ws.getRow(6);
+      headerRow.values=headers;
+      headerRow.height=26;
+      headerRow.eachCell((cell)=>{
+        cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF8B3332'}};
+        cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+        cell.border={top:{style:'thin',color:{argb:'FF7C2B28'}},bottom:{style:'thin',color:{argb:'FF7C2B28'}},left:{style:'thin',color:{argb:'FFD8C0BD'}},right:{style:'thin',color:{argb:'FFD8C0BD'}}};
+      });
+
+      let rowIndex=7;
+      for(const person of people){
+        const line=lineByKey.get(person.key);
+        const profile=profileByKey.get(person.key);
+        if(!line||!profile||!line.calculated_at)continue;
+        const calc=calculateExternalPayroll({days:daysByKey.get(person.key)||[],line,batch,profile,periodFrom:activeImport.period_from,periodTo:activeImport.period_to});
+        if(!calc.ready)continue;
+        const row=ws.getRow(rowIndex++);
+        row.values=[
+          profile.display_employee_no||person.no||'',
+          profile.display_name||person.name||'',
+          Number(calc.referenceNetSalary||0),
+          Number(calc.absenceDays||0),
+          Number(calc.missingPunchDays||0),
+          formatMinutesSigned(calc.netMinutes),
+          Number(calc.totalAdditions||0),
+          Number(calc.totalDeductions||0),
+          Number(calc.finalNetSalary||0),
+          PAYMENT_METHOD_LABEL[calc.paymentMethod]||calc.paymentMethod||'',
+        ];
+        row.height=22;
+        row.eachCell((cell)=>{
+          cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+          cell.border={top:{style:'hair',color:{argb:'FFE2D6D2'}},bottom:{style:'hair',color:{argb:'FFE2D6D2'}},left:{style:'hair',color:{argb:'FFE2D6D2'}},right:{style:'hair',color:{argb:'FFE2D6D2'}}};
+        });
+        row.getCell(2).alignment={horizontal:'right',vertical:'middle'};
+        [3,7,8,9].forEach((col)=>{row.getCell(col).numFmt='#,##0.00';});
+        if(rowIndex%2===0){
+          row.eachCell((cell)=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFBF8F7'}};});
+        }
+      }
+
+      const lastDataRow=Math.max(6,rowIndex-1);
+      const totalRow=ws.getRow(rowIndex);
+      totalRow.getCell(1).value='الإجمالي';
+      ws.mergeCells(`A${rowIndex}:B${rowIndex}`);
+      totalRow.getCell(3).value={formula:`SUM(C7:C${lastDataRow})`};
+      totalRow.getCell(7).value={formula:`SUM(G7:G${lastDataRow})`};
+      totalRow.getCell(8).value={formula:`SUM(H7:H${lastDataRow})`};
+      totalRow.getCell(9).value={formula:`SUM(I7:I${lastDataRow})`};
+      totalRow.height=24;
+      totalRow.eachCell((cell)=>{
+        cell.font={bold:true,color:{argb:'FFFFFFFF'}};
+        cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};
+        cell.alignment={horizontal:'center',vertical:'middle'};
+        cell.border={top:{style:'thin',color:{argb:'FF8B3332'}},bottom:{style:'thin',color:{argb:'FF8B3332'}},left:{style:'thin',color:{argb:'FFFFFFFF'}},right:{style:'thin',color:{argb:'FFFFFFFF'}}};
+      });
+      [3,7,8,9].forEach((col)=>{totalRow.getCell(col).numFmt='#,##0.00';});
+
+      ws.autoFilter={from:{row:6,column:1},to:{row:lastDataRow,column:10}};
+      ws.pageSetup.printArea=`A1:J${rowIndex}`;
+      ws.headerFooter.oddFooter='&Cصفحة &P من &N';
+
+      const filename=`مسير_الرواتب_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
+      downloadBuffer(await wb.xlsx.writeBuffer(),filename);
+      setMsg('تم تنزيل مسير الرواتب Excel بصيغة جاهزة للمراجعة والطباعة.');
+    }catch(error){
+      setErr(error.message||String(error));
+    }finally{
+      setBusy(false);
+    }
+  }
+
   const totals=useMemo(()=>people.reduce((acc,person)=>{const line=lineByKey.get(person.key)||{};const breakdown=salaryStateByKey.get(person.key);if(breakdown?.ready)acc.reference+=Number(breakdown.referenceNetSalary||0);acc.additions+=Number(line.calculated_total_additions||0);acc.deductions+=Number(line.calculated_total_deductions||0);acc.final+=Number(line.calculated_final_net_salary||0);return acc;},{reference:0,additions:0,deductions:0,final:0}),[people,lineByKey,salaryStateByKey]);
 
   return <div>
@@ -182,7 +317,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       <div className="section"><header><h2>احتساب المسير</h2></header><div style={{padding:18,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><strong>{salaryMissingCount===0?'جاهز للاحتساب':`أكمل بيانات ${salaryMissingCount} موظف`}</strong><button className="btn" disabled={busy||salaryMissingCount>0} onClick={calculateAll}>{busy?'جارٍ الاحتساب…':'احتساب الرواتب'}</button></div></div>
 
-      {!dirty&&lines.some((line)=>line.calculated_at)&&<div className="section"><header><h2>مسير الرواتب</h2></header><div className="stat-grid" style={{padding:18}}><div className="stat"><span>صافي الراتب</span><strong>{formatMoney(totals.reference)} ر.س</strong></div><div className="stat"><span>الإضافات</span><strong>{formatMoney(totals.additions)} ر.س</strong></div><div className="stat"><span>الخصومات</span><strong>{formatMoney(totals.deductions)} ر.س</strong></div><div className="stat"><span>صافي المستحق</span><strong>{formatMoney(totals.final)} ر.س</strong></div></div><div style={{overflowX:'auto'}}><table><thead><tr><th>الموظف</th><th>الغياب</th><th>البصمات المفقودة</th>{showTimeDifference&&<th>فرق الساعات</th>}<th>الإضافات</th><th>الخصومات</th><th>صافي المستحق</th><th>القسيمة</th></tr></thead><tbody>{people.map((person)=>{const line=lineByKey.get(person.key);const profile=profileByKey.get(person.key);if(!line||!profile||!line.calculated_at)return null;const calc=calculateExternalPayroll({days:daysByKey.get(person.key)||[],line,batch,profile,periodFrom:activeImport?.period_from,periodTo:activeImport?.period_to});const open=expanded===person.key;return <tr key={person.key} style={{verticalAlign:'top'}}><td><strong>{profile.display_name}</strong><div className="hint">{profile.display_employee_no||person.no||'—'}</div></td><td><button className="btn ghost" style={{padding:'6px 9px'}} onClick={()=>setExpanded(open?'':person.key)}>{calc.ready?`${calc.absenceDays} يوم`:'—'}</button>{open&&calc.ready&&<div className="hint" style={{marginTop:5,maxWidth:190}}>{calc.absenceDates.length?calc.absenceDates.join('، '):'لا يوجد'}</div>}</td><td><button className="btn ghost" style={{padding:'6px 9px'}} onClick={()=>setExpanded(open?'':person.key)}>{calc.ready?`${calc.missingPunchDays} حالة`:'—'}</button>{open&&calc.ready&&<div className="hint" style={{marginTop:5,maxWidth:210}}>دخول {calc.missingInCount} · خروج {calc.missingOutCount}{calc.missingPunchDates.length?<><br/>{calc.missingPunchDates.map((item)=>`${item.date} ${item.kind==='missing_in'?'(دخول)':'(خروج)'}`).join('، ')}</>:null}</div>}</td>{showTimeDifference&&<td>{calc.ready?<strong>{formatMinutesSigned(calc.netMinutes)}</strong>:'—'}</td>}<td>{calc.ready?`${formatMoney(calc.totalAdditions)} ر.س`:'—'}</td><td>{calc.ready?`${formatMoney(calc.totalDeductions)} ر.س`:'—'}</td><td><strong>{calc.ready?`${formatMoney(calc.finalNetSalary)} ر.س`:'—'}</strong></td><td><Link className="btn" href={`/dashboard/attendance/payroll/${batch.id}/payslip/${line.id}`} target="_blank">قسيمة الراتب</Link></td></tr>;})}</tbody></table></div></div>}
+      {!dirty&&lines.some((line)=>line.calculated_at)&&<div className="section"><header><h2>مسير الرواتب</h2><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button className="btn ghost" type="button" disabled={busy} onClick={exportPayrollExcel}>تنزيل Excel</button></div></header><div className="stat-grid" style={{padding:18}}><div className="stat"><span>صافي الراتب</span><strong>{formatMoney(totals.reference)} ر.س</strong></div><div className="stat"><span>الإضافات</span><strong>{formatMoney(totals.additions)} ر.س</strong></div><div className="stat"><span>الخصومات</span><strong>{formatMoney(totals.deductions)} ر.س</strong></div><div className="stat"><span>صافي المستحق</span><strong>{formatMoney(totals.final)} ر.س</strong></div></div><div style={{overflowX:'auto'}}><table><thead><tr><th>الموظف</th><th>الغياب</th><th>البصمات المفقودة</th>{showTimeDifference&&<th>فرق الساعات</th>}<th>الإضافات</th><th>الخصومات</th><th>صافي المستحق</th><th>القسيمة</th></tr></thead><tbody>{people.map((person)=>{const line=lineByKey.get(person.key);const profile=profileByKey.get(person.key);if(!line||!profile||!line.calculated_at)return null;const calc=calculateExternalPayroll({days:daysByKey.get(person.key)||[],line,batch,profile,periodFrom:activeImport?.period_from,periodTo:activeImport?.period_to});const open=expanded===person.key;return <tr key={person.key} style={{verticalAlign:'top'}}><td><strong>{profile.display_name}</strong><div className="hint">{profile.display_employee_no||person.no||'—'}</div></td><td><button className="btn ghost" style={{padding:'6px 9px'}} onClick={()=>setExpanded(open?'':person.key)}>{calc.ready?`${calc.absenceDays} يوم`:'—'}</button>{open&&calc.ready&&<div className="hint" style={{marginTop:5,maxWidth:190}}>{calc.absenceDates.length?calc.absenceDates.join('، '):'لا يوجد'}</div>}</td><td><button className="btn ghost" style={{padding:'6px 9px'}} onClick={()=>setExpanded(open?'':person.key)}>{calc.ready?`${calc.missingPunchDays} حالة`:'—'}</button>{open&&calc.ready&&<div className="hint" style={{marginTop:5,maxWidth:210}}>دخول {calc.missingInCount} · خروج {calc.missingOutCount}{calc.missingPunchDates.length?<><br/>{calc.missingPunchDates.map((item)=>`${item.date} ${item.kind==='missing_in'?'(دخول)':'(خروج)'}`).join('، ')}</>:null}</div>}</td>{showTimeDifference&&<td>{calc.ready?<strong>{formatMinutesSigned(calc.netMinutes)}</strong>:'—'}</td>}<td>{calc.ready?`${formatMoney(calc.totalAdditions)} ر.س`:'—'}</td><td>{calc.ready?`${formatMoney(calc.totalDeductions)} ر.س`:'—'}</td><td><strong>{calc.ready?`${formatMoney(calc.finalNetSalary)} ر.س`:'—'}</strong></td><td><Link className="btn" href={`/dashboard/attendance/payroll/${batch.id}/payslip/${line.id}`} target="_blank">قسيمة الراتب</Link></td></tr>;})}</tbody></table></div></div>}
     </>}
 
 
