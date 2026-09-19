@@ -270,6 +270,7 @@ export default function TreasuryVouchersPage(){
     if(!popup){printFrame.remove();setMessage('تعذر تجهيز نافذة الطباعة.');return;}
 
     const paymentOpening=isEntity?'استلمنا نحن':'استلمت أنا';
+    const legalAcknowledgement=`وأقر أنا المستفيد الموقع أدناه باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.`;
     const bodyHtml=isReceipt
       ? `
         <div class="sentence">
@@ -313,7 +314,6 @@ export default function TreasuryVouchersPage(){
             <span class="fixed">وذلك مقابل قيمة الاستحقاق /</span>${sealedFill(voucher.description,'entitlement-fill')}
           </span>
         </div>
-        <div class="legal-ack">وأقر أنا المستفيد باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.</div>
       `;
 
     const paymentDetails=isReceipt?`
@@ -440,6 +440,7 @@ export default function TreasuryVouchersPage(){
       <div class="body">
         ${bodyHtml}
         ${paymentDetails}
+        <div class="legal-ack">${esc(legalAcknowledgement)}</div>
       </div>
       <div class="signatures">
         <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span></div>
