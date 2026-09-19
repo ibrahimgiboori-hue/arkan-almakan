@@ -51,19 +51,19 @@
 .treasury-voucher-document .tv-brand-logo-box{
   height:15mm;
   display:flex;
-  align-items:flex-end;
+  align-items:flex-start;
   justify-content:center;
-  padding-bottom:.75mm;
+  padding-top:.9mm;
   overflow:visible;
   position:relative;
   z-index:5;
 }
 .treasury-voucher-document .tv-brand img{
   display:block;
-  width:21.5mm;
-  height:21.5mm;
+  width:19.5mm;
+  height:19.5mm;
   object-fit:contain;
-  object-position:center bottom;
+  object-position:center top;
   transform:none;
   position:relative;
   z-index:5;
