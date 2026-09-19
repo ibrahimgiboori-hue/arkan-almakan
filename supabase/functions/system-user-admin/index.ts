@@ -436,6 +436,21 @@ Deno.serve(async (req: Request) => {
 
     if (appUser.archived_at) return json({ error: 'account_archived' }, 409);
 
+    if (action === 'set_login_email') {
+      if (isPrimaryTarget) return json({ error: 'primary_user_protected' }, 400);
+      const email=String(body.email||'').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error:'invalid_login_email' },400);
+
+      const authList=await admin.auth.admin.listUsers({ page:1, perPage:1000 });
+      const duplicate=(authList.data?.users||[]).find((item:any)=>item.id!==userId&&String(item.email||'').toLowerCase()===email);
+      if (duplicate) return json({ error:'login_email_exists' },409);
+
+      const { data:updated, error:updateError }=await admin.auth.admin.updateUserById(userId,{ email, email_confirm:true });
+      if (updateError) return json({ error:'login_email_update_failed', message:updateError.message },400);
+
+      return json({ ok:true, email:updated.user?.email||email });
+    }
+
     if (action === 'reset_password') {
       if (isPrimaryTarget) return json({ error: 'primary_user_protected' }, 400);
       const password = makeTemporaryPassword();
