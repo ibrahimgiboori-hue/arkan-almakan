@@ -6,8 +6,8 @@
   --tv-brand-dark:#7C2B28;
   --tv-brand-gray:#5F6468;
   --tv-ink:#242426;
-  --tv-rule:1px;
-  --tv-frame:2px;
+  --tv-rule:.30mm;
+  --tv-frame:.50mm;
   --tv-cut-side:10.910%;
   position:relative;
   width:100%;
@@ -336,6 +336,8 @@
    Print mode may remove only non-document chrome; it must not restyle the voucher. */
 @media print{
   .treasury-voucher-document{
+    --tv-rule:.30mm!important;
+    --tv-frame:.50mm!important;
     box-shadow:none;
     font-family:Tahoma,Arial,sans-serif!important;
     font-synthesis:none!important;
