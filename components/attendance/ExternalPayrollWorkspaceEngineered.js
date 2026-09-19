@@ -179,7 +179,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       wb.calcProperties.fullCalcOnLoad=true;
       wb.calcProperties.forceFullCalc=true;
 
-      const ws=wb.addWorksheet('مسير الرواتب',{views:[{rightToLeft:true,state:'frozen',ySplit:6}]});
+      const ws=wb.addWorksheet('مسير الرواتب',{views:[{rightToLeft:true,state:'frozen',ySplit:7}]});
       const cfg=wb.addWorksheet('الإعدادات',{views:[{rightToLeft:true}]});
 
       const divisorDays=batch?.divisor_policy==='calendar_days'
@@ -293,13 +293,16 @@ export default function ExternalPayrollWorkspaceEngineered(){
         };
       });
       ws.getRow(5).height=23;
+      // فاصل بصري مستقل بين صف التجميع والجدول الفعلي حتى تبقى الفلاتر بعيدة عن أي خلايا مدمجة.
+      ws.getRow(6).height=8;
+      ws.getRow(6).eachCell((cell)=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFFFF'}};});
 
       const headers=[
         'رقم الموظف','الموظف','الأساسي','السكن','النقل','بدلات أخرى','نسبة التأمينات %','خصم التأمينات (ر.س)','صافي الراتب المرجعي (ر.س)',
         'ساعات اليوم','الغياب (يوم)','خصم الغياب (ر.س)','البصمات المفقودة','خصم البصمات (ر.س)','فرق الساعات (ساعة)','أثر الساعات (ر.س)',
         'إضافات يدوية','خصومات يدوية','إجمالي الإضافات (ر.س)','إجمالي الخصومات (ر.س)','صافي المستحق (ر.س)','طريقة الدفع','ملاحظات'
       ];
-      const headerRow=ws.getRow(6);
+      const headerRow=ws.getRow(7);
       headerRow.values=headers;
       headerRow.height=34;
       headerRow.eachCell((cell)=>{
@@ -317,7 +320,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       const inputCols=[3,4,5,6,7,10,11,13,15,17,18,22,23];
       const formulaCols=[8,9,12,14,16,19,20,21];
-      let rowIndex=7;
+      let rowIndex=8;
 
       for(const person of people){
         const line=lineByKey.get(person.key);
@@ -387,13 +390,13 @@ export default function ExternalPayrollWorkspaceEngineered(){
         rowIndex+=1;
       }
 
-      const lastDataRow=Math.max(6,rowIndex-1);
+      const lastDataRow=Math.max(7,rowIndex-1);
       const totalRow=ws.getRow(rowIndex);
       ws.mergeCells(`A${rowIndex}:B${rowIndex}`);
       totalRow.getCell(1).value='الإجمالي';
       for(const col of [3,4,5,6,8,9,12,14,16,17,18,19,20,21]){
         const letter=ws.getColumn(col).letter;
-        totalRow.getCell(col).value={formula:`SUM(${letter}7:${letter}${lastDataRow})`};
+        totalRow.getCell(col).value={formula:`SUM(${letter}8:${letter}${lastDataRow})`};
         totalRow.getCell(col).numFmt=[8,9,12,14,16,19,20,21].includes(col)?'#,##0.00 "ر.س"':'#,##0.00';
       }
       totalRow.height=25;
@@ -405,19 +408,19 @@ export default function ExternalPayrollWorkspaceEngineered(){
       });
 
       ws.getCell('A4').value='عدد الموظفين';
-      ws.getCell('B4').value=Math.max(0,lastDataRow-6);
+      ws.getCell('B4').value=Math.max(0,lastDataRow-7);
       ws.getCell('C4').value='إجمالي صافي المستحق';
-      ws.getCell('D4').value={formula:`SUM(U7:U${lastDataRow})`,result:Number(totals.final||0)};
+      ws.getCell('D4').value={formula:`SUM(U8:U${lastDataRow})`,result:Number(totals.final||0)};
       ws.getCell('D4').numFmt='#,##0.00 "ر.س"';
       ['A4','C4'].forEach((cell)=>{ws.getCell(cell).font={bold:true,color:{argb:'FFFFFFFF'}};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};});
       ['B4','D4'].forEach((cell)=>{ws.getCell(cell).font={bold:true};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};ws.getCell(cell).alignment={horizontal:'center'};});
 
-      ws.autoFilter={from:{row:6,column:1},to:{row:lastDataRow,column:23}};
+      ws.autoFilter={from:{row:7,column:1},to:{row:lastDataRow,column:23}};
       ws.pageSetup.printArea=`A1:W${rowIndex}`;
       ws.headerFooter.oddFooter='&Cصفحة &P من &N';
 
-      if(lastDataRow>=7){
-        for(let r=7;r<=lastDataRow;r++){
+      if(lastDataRow>=8){
+        for(let r=8;r<=lastDataRow;r++){
           ws.getCell(`G${r}`).dataValidation={type:'decimal',operator:'between',allowBlank:false,formulae:[0,100],showErrorMessage:true,errorTitle:'نسبة غير صحيحة',error:'أدخل نسبة بين 0 و100.'};
           ws.getCell(`J${r}`).dataValidation={type:'decimal',operator:'greaterThan',allowBlank:false,formulae:[0],showErrorMessage:true,errorTitle:'ساعات اليوم',error:'ساعات اليوم يجب أن تكون أكبر من صفر.'};
           ws.getCell(`K${r}`).dataValidation={type:'decimal',operator:'greaterThanOrEqual',allowBlank:false,formulae:[0]};
