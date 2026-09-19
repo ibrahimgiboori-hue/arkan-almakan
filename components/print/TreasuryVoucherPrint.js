@@ -23,7 +23,7 @@ function Fill({children,className='',sealed=false}){
   </span>;
 }
 
-export default function TreasuryVoucherPrint({voucher,settings,stampUrl}){
+export default function TreasuryVoucherPrint({voucher,settings}){
   const company=settings?.company_name_ar||'أركان المكان للمقاولات';
   const companyEn=settings?.company_name_en||'Arkan Al Makan Contracting';
   const isReceipt=voucher.voucher_type==='receipt';
@@ -34,7 +34,6 @@ export default function TreasuryVoucherPrint({voucher,settings,stampUrl}){
   const amountRiyals=Math.floor(totalHalalas/100);
   const amountHalalas=String(totalHalalas%100).padStart(2,'0');
   const effectivePaymentDate=voucher.payment_date||voucher.voucher_date||'';
-  const isFinalApproved=voucher.status==='posted';
   const beneficiaryRole=isReceipt?'عميل':'موظف';
   const englishTitle=isReceipt?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
   const legalAcknowledgement='وأقر أنا المستفيد الموقع أدناه باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.';
@@ -140,7 +139,6 @@ export default function TreasuryVoucherPrint({voucher,settings,stampUrl}){
         <div className="tv-sign-row"><span>اعتماد الإدارة /</span><strong>{voucher.approved_by_name_snapshot||'—'}</strong></div>
         <div className="tv-sign-row"><span>المسمى /</span><strong>{voucher.approved_by_title_snapshot||'—'}</strong></div>
         <div className="tv-sign-row"><span>التوقيع /</span><i/></div>
-        {isFinalApproved&&stampUrl?<img className="tv-stamp" src={stampUrl} alt="ختم الشركة"/>:null}
       </div>
     </section>
 
