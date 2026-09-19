@@ -41,7 +41,7 @@ const snap = (value) => Math.round(Number(value) * 2) / 2;
 const finiteMm = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const MAX_MARGIN = 90;
 const CSS_PX_PER_MM = 96 / 25.4;
-const CAPTAIN_GEOMETRY_SCHEMA = 7;
+const CAPTAIN_GEOMETRY_SCHEMA = 6;
 
 function pxToMm(value) {
   return Number(value || 0) / CSS_PX_PER_MM;
