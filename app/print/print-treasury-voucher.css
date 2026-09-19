@@ -85,18 +85,26 @@
   position:absolute;
   left:50%;
   top:50%;
-  width:62%;
+  width:68%;
   transform:translate(-50%,-50%);
   text-align:center;
   direction:rtl;
-  line-height:1.03;
+  line-height:1;
   z-index:4;
 }
 .treasury-voucher-document .tv-brand-name strong{
-  display:block;color:var(--tv-brand-dark);font-size:12.2pt;font-weight:800;
+  display:block;
+  color:var(--tv-brand-dark);
+  font-size:14pt;
+  font-weight:800;
+  letter-spacing:-.08pt;
 }
 .treasury-voucher-document .tv-brand-name span{
-  display:block;margin-top:.55mm;color:#555;font-size:7.7pt;direction:ltr;
+  display:block;
+  margin-top:.35mm;
+  color:#555;
+  font-size:7.1pt;
+  direction:ltr;
 }
 
 .treasury-voucher-document .tv-company-strip{
