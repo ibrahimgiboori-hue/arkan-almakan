@@ -126,7 +126,14 @@
 }
 .treasury-voucher-document .tv-amount-title{grid-column:1;grid-row:1;font-size:7.8pt}
 .treasury-voucher-document .tv-amount-number{grid-column:1;grid-row:2;font-size:8.7pt}
-.treasury-voucher-document .tv-riyal{grid-column:2;grid-row:1/3;font-size:8.1pt;border-top:var(--tv-rule) solid #fff!important}
+.treasury-voucher-document .tv-riyal{
+  grid-column:2;
+  grid-row:1/3;
+  font-size:8.1pt;
+  border-top:var(--tv-rule) solid #fff!important;
+  align-items:flex-end;
+  padding-bottom:1.15mm;
+}
 .treasury-voucher-document .tv-halala-number{grid-column:1;grid-row:3;font-size:8.5pt}
 .treasury-voucher-document .tv-halala-label{grid-column:2;grid-row:3;font-size:7.8pt}
 .treasury-voucher-document .tv-amount-words{grid-column:1;grid-row:4;padding:0 .7mm;text-align:center;direction:rtl!important;font-size:7pt}
