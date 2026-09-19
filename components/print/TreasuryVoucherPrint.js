@@ -43,10 +43,10 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-receipt-party" data-print-resizable-block>
         <span className="tv-fixed">استلمنا نحن /</span><Fill sealed className="tv-grow">{company}</Fill>
         <span className="tv-fixed">سجل تجاري رقم /</span><Fill>{latinDigits(settings?.cr_number||'')}</Fill>
-        <span className="tv-fixed">بمدينة /</span><Fill>{settings?.city||'الرياض'}</Fill>
+        <span className="tv-fixed">بمدينة /</span><Fill className="tv-city">{settings?.city||'الرياض'}</Fill>
       </div>
       <div className="tv-flow-row" data-print-resizable-block><span className="tv-fixed">من المكرم /</span><Fill sealed className="tv-grow">{voucher.party_name}</Fill></div>
-      <div className="tv-flow-row" data-print-resizable-block><span className="tv-fixed">مبلغًا وقدره /</span><Fill sealed className="tv-grow">{voucher.amount_words} فقط لا غير</Fill></div>
+      <div className="tv-flow-row" data-print-resizable-block><span className="tv-fixed">مبلغًا وقدره /</span><Fill sealed className="tv-grow tv-amount-line">{voucher.amount_words} فقط لا غير</Fill></div>
       <div className="tv-flow-row" data-print-resizable-block><span className="tv-fixed">وذلك عن قيمة الاستحقاق /</span><Fill sealed className="tv-grow">{voucher.description}</Fill></div>
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-receipt-payment" data-print-resizable-block>
         <span className="tv-fixed">عبر /</span><Fill className="tv-method">{method}</Fill>
@@ -64,8 +64,8 @@ export default function TreasuryVoucherPrint({voucher,settings}){
         {voucher.party_mobile?<><span className="tv-fixed">الجوال /</span><Fill sealed>{latinDigits(voucher.party_mobile)}</Fill></>:null}
       </div>
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-settlement" data-print-resizable-block>
-        <span className="tv-fixed">بمدينة /</span><Fill sealed>{voucher.party_address||''}</Fill>
-        <span className="tv-fixed">مبلغًا وقدره /</span><Fill sealed className="tv-grow">{amountRiyals.toLocaleString('en-US')}.{amountHalalas} ريال سعودي ({voucher.amount_words} فقط لا غير)</Fill>
+        <span className="tv-fixed">بمدينة /</span><Fill sealed className="tv-city">{voucher.party_address||''}</Fill>
+        <span className="tv-fixed">مبلغًا وقدره /</span><Fill sealed className="tv-grow tv-amount-line">{amountRiyals.toLocaleString('en-US')}.{amountHalalas} ريال سعودي ({voucher.amount_words} فقط لا غير)</Fill>
         <span className="tv-fixed">عبر /</span><Fill className="tv-method">{method}</Fill>
       </div>
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-reference" data-print-resizable-block>
@@ -83,9 +83,13 @@ export default function TreasuryVoucherPrint({voucher,settings}){
     {voucher.status==='void'?<div className="tv-void">ملغى</div>:null}
 
     <header className="tv-brand" data-print-grid-row data-print-grid-name="treasury-brand" data-print-resizable-block>
-      <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
+      <div className="tv-brand-logo-box">
+        <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
+      </div>
       <div className="tv-brand-name"><strong>{company}</strong><span>{companyEn}</span></div>
-      <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
+      <div className="tv-brand-logo-box">
+        <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
+      </div>
     </header>
 
     <div className="tv-company-strip" data-print-resizable-block>
