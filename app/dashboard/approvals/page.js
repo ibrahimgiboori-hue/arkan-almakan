@@ -166,7 +166,9 @@ export default function ApprovalsPage(){
   },[routeDestination]);
 
   async function decide(decision,{route=false}={}){
-    if(!selectedId||selectedArchived||isClaim)return;const clean=note.trim();
+    if(!selectedId||isClaim)return;
+    if(selectedArchived)return;
+    const clean=note.trim();
     if(['return','reject'].includes(decision)&&!clean){setError('اكتب سبب الإرجاع أو الرفض قبل تنفيذ القرار.');return;}
     if(route&&(!routeDestination||!nextUser)){setError('اختر بوابة التعميد والشخص الذي ستُحال إليه المعاملة.');return;}
     if(route&&!nextReason.trim()){setError('اكتب سبب الإحالة للتعميد.');return;}
