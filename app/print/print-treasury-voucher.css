@@ -5,18 +5,26 @@
   --tv-brand:#8B3332;
   --tv-brand-dark:#7C2B28;
   --tv-ink:#242426;
+  --tv-rule:1px;
+  --tv-frame:2px;
   position:relative;
   width:100%;
   height:100%;
   min-height:100%;
   padding:3.2mm 4mm 2.5mm;
-  border:.45mm solid var(--tv-brand);
+  border:var(--tv-frame) solid var(--tv-brand);
   background:#fff;
   color:var(--tv-ink);
   direction:rtl;
   font-family:Tahoma,Arial,sans-serif;
   font-size:9.6pt;
   line-height:1.18;
+  font-synthesis:none;
+  text-rendering:geometricPrecision;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
   overflow:hidden;
 }
 
@@ -32,7 +40,7 @@
   display:grid;
   grid-template-columns:28mm minmax(0,1fr) 28mm;
   align-items:center;
-  border:.25mm solid var(--tv-brand);
+  border:var(--tv-rule) solid var(--tv-brand);
   border-bottom:0;
   direction:ltr;
   background:#fff;
@@ -54,7 +62,7 @@
   height:6.5mm;
   display:flex;align-items:center;justify-content:center;
   padding:0 1.5mm;
-  border:.25mm solid var(--tv-brand);
+  border:var(--tv-rule) solid var(--tv-brand);
   background:var(--tv-brand);color:#fff;
   font-size:7.4pt;font-weight:700;white-space:nowrap;overflow:hidden;
 }
@@ -68,7 +76,7 @@
 .treasury-voucher-document .tv-meta,
 .treasury-voucher-document .tv-title-box,
 .treasury-voucher-document .tv-amount{
-  height:23.8mm;border:.25mm solid var(--tv-brand);background:#fff;
+  height:23.8mm;border:var(--tv-rule) solid var(--tv-brand);background:#fff;
 }
 .treasury-voucher-document .tv-meta{
   display:grid;grid-template-rows:repeat(4,1fr);direction:ltr;
@@ -87,12 +95,12 @@
   background:#fff;color:#111;font-weight:800;direction:ltr;font-variant-numeric:tabular-nums;
 }
 .treasury-voucher-document .tv-meta-row .tv-red-cell{
-  border-bottom:.3mm solid #fff;border-right:.25mm solid #fff;font-size:7.8pt;
+  border-bottom:var(--tv-rule) solid #fff;border-right:var(--tv-rule) solid #fff;font-size:7.8pt;
 }
 .treasury-voucher-document .tv-meta-row .tv-white-cell{
-  border-bottom:.3mm solid var(--tv-brand);border-left:.25mm solid var(--tv-brand);font-size:7.7pt;
+  border-bottom:var(--tv-rule) solid var(--tv-brand);border-left:var(--tv-rule) solid var(--tv-brand);font-size:7.7pt;
 }
-.treasury-voucher-document .tv-meta-row:first-child .tv-red-cell{border-top:.3mm solid #fff}
+.treasury-voucher-document .tv-meta-row:first-child .tv-red-cell{border-top:var(--tv-rule) solid #fff}
 .treasury-voucher-document .tv-meta-row:last-child .tv-red-cell,
 .treasury-voucher-document .tv-meta-row:last-child .tv-white-cell{border-bottom:0}
 
@@ -102,7 +110,7 @@
 .treasury-voucher-document .tv-title-fill{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:var(--tv-brand);color:#fff;text-align:center;
-  border-top:.25mm solid var(--tv-brand);border-bottom:.25mm solid var(--tv-brand);
+  border-top:var(--tv-rule) solid var(--tv-brand);border-bottom:var(--tv-rule) solid var(--tv-brand);
 }
 .treasury-voucher-document .tv-title-fill strong{font-size:12.1pt;font-weight:800}
 .treasury-voucher-document .tv-title-fill span{font-size:6.8pt;margin-top:.35mm;direction:ltr;letter-spacing:.02em}
@@ -111,14 +119,14 @@
   display:grid;grid-template-columns:66% 34%;grid-template-rows:repeat(4,1fr);direction:ltr;
 }
 .treasury-voucher-document .tv-amount .tv-white-cell{
-  border-bottom:.3mm solid var(--tv-brand);border-right:.25mm solid var(--tv-brand);
+  border-bottom:var(--tv-rule) solid var(--tv-brand);border-right:var(--tv-rule) solid var(--tv-brand);
 }
 .treasury-voucher-document .tv-amount .tv-red-cell{
-  border-bottom:.3mm solid #fff;border-left:.25mm solid #fff;
+  border-bottom:var(--tv-rule) solid #fff;border-left:var(--tv-rule) solid #fff;
 }
 .treasury-voucher-document .tv-amount-title{grid-column:1;grid-row:1;font-size:7.8pt}
 .treasury-voucher-document .tv-amount-number{grid-column:1;grid-row:2;font-size:8.7pt}
-.treasury-voucher-document .tv-riyal{grid-column:2;grid-row:1/3;font-size:8.1pt;border-top:.3mm solid #fff!important}
+.treasury-voucher-document .tv-riyal{grid-column:2;grid-row:1/3;font-size:8.1pt;border-top:var(--tv-rule) solid #fff!important}
 .treasury-voucher-document .tv-halala-number{grid-column:1;grid-row:3;font-size:8.5pt}
 .treasury-voucher-document .tv-halala-label{grid-column:2;grid-row:3;font-size:7.8pt}
 .treasury-voucher-document .tv-amount-words{grid-column:1;grid-row:4;padding:0 .7mm;text-align:center;direction:rtl!important;font-size:7pt}
@@ -127,7 +135,7 @@
 .treasury-voucher-document .tv-words-label{border-bottom:0!important}
 
 .treasury-voucher-document .tv-body{
-  margin-top:1.8mm;padding-top:1.35mm;border-top:.25mm solid var(--tv-brand);
+  margin-top:1.8mm;padding-top:1.35mm;border-top:var(--tv-rule) solid var(--tv-brand);
 }
 .treasury-voucher-document .tv-flow-row{
   min-height:6.1mm;
@@ -140,7 +148,7 @@
 .treasury-voucher-document .tv-fill{
   min-width:8mm;height:4.7mm;min-height:4.7mm;
   flex:1 1 0;display:flex;align-items:flex-end;gap:.3mm;
-  border-bottom:.2mm dotted #555;overflow:hidden;white-space:nowrap;
+  border-bottom:var(--tv-rule) dotted #555;overflow:hidden;white-space:nowrap;
 }
 .treasury-voucher-document .tv-method{
   flex:0 1 23mm;
@@ -171,7 +179,7 @@
 .treasury-voucher-document .tv-ack{
   margin-top:1.6mm;
   padding:1.25mm 1.45mm;
-  border:.22mm solid #d8caca;
+  border:var(--tv-rule) solid #d8caca;
   background:#fffdfd;
   font-size:7.7pt;
   line-height:1.48;
@@ -190,7 +198,7 @@
   --tv-label:16mm;
   min-height:15.5mm;
   padding-top:.85mm;
-  border-top:.3mm solid var(--tv-brand);
+  border-top:var(--tv-rule) solid var(--tv-brand);
   position:relative;
   overflow:visible;
 }
@@ -220,7 +228,7 @@
   white-space:nowrap;
 }
 .treasury-voucher-document .tv-sign-row>i{
-  display:block;height:2.7mm;border-bottom:.18mm dotted #8e7b7b;
+  display:block;height:2.7mm;border-bottom:var(--tv-rule) dotted #8e7b7b;
 }
 .treasury-voucher-document .tv-stamp{
   position:absolute;left:5%;top:6.7mm;
@@ -233,12 +241,23 @@
   left:4mm;
   bottom:.45mm;
   padding-top:.45mm;
-  border-top:.18mm solid #d5caca;
+  border-top:var(--tv-rule) solid #d5caca;
   color:#666;
   font-size:6.8pt;
   text-align:right;
 }
 
+/* Preview and physical print intentionally share the exact same typography and rules.
+   Print mode may remove only non-document chrome; it must not restyle the voucher. */
 @media print{
-  .treasury-voucher-document{box-shadow:none}
+  .treasury-voucher-document{
+    box-shadow:none;
+    font-family:Tahoma,Arial,sans-serif!important;
+    font-synthesis:none!important;
+    text-rendering:geometricPrecision;
+    -webkit-text-size-adjust:100%!important;
+    text-size-adjust:100%!important;
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
 }
