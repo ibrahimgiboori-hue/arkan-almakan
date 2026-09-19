@@ -11,6 +11,7 @@ import { ConstitutionPage, Section, SummaryStrip, TableFrame, EmptyState, Notice
 import ApprovalGuidanceList from '@/components/approval/ApprovalGuidanceList';
 import ProcedureRouteMatrix from '@/components/admin/ProcedureRouteMatrix';
 import WorkforceOperationalSection from '@/components/workforce/WorkforceOperationalSection';
+import TreasuryVouchersPage from '@/components/finance/TreasuryVouchersPage';
 import PayrollOperationalPage from '@/app/dashboard/workspace/workforce/section/payroll/page';
 
 const WORKFORCE_OPERATIONAL_KINDS=new Set(['hr-payroll','hr-compliance','hr-end-service','hr-performance']);
@@ -49,6 +50,7 @@ async function loadSection(definition){
   if(definition?.dataKind==='admin-procedure-routes')return {custom:'procedure-routes'};
   if(definition?.dataKind==='admin-catalogs')return loadAdminCatalogs();
   if(WORKFORCE_OPERATIONAL_KINDS.has(definition?.dataKind))return {custom:'workforce-operational'};
+  if(definition?.dataKind==='finance-treasury')return {custom:'finance-treasury'};
   return loadPortalSectionData(definition.dataKind);
 }
 
@@ -82,6 +84,7 @@ export default function PortalSectionPage(){
   if(state.loading)return <ConstitutionPage><EmptyState title={`جارٍ تجهيز ${definition.label}`} description="نقرأ بيانات الأداة مباشرة؛ الصلاحيات محملة مسبقًا من لوحة التحكم."/></ConstitutionPage>;
 
   if(definition.dataKind==='hr-payroll')return <PayrollOperationalPage/>;
+  if(definition.dataKind==='finance-treasury')return <TreasuryVouchersPage/>;
 
   if(definition.dataKind==='admin-procedure-routes')return <ConstitutionPage>
     <Section title="دستور حركة المعاملات" description="كل سطر عملية فعلية في البرنامج. حدّد هل تحتاج إجراءً، هل تصعد داخل بوابتها، وما مجال الجهات التي تستطيع «سنارة الإجراء» عرضها للمستخدم أثناء المعاملة.">
