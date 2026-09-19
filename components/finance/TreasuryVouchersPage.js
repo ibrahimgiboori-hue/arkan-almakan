@@ -304,11 +304,12 @@ export default function TreasuryVouchersPage(){
           </span>
           ${showBank?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
           ${voucher.payment_reference?`<span class="settlement-segment settlement-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'settlement-fill')}</span>`:''}
-          ${voucher.payment_date?`<span class="settlement-segment settlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'settlement-fill')}</span>`:''}
         </div>
-        <div class="reason-heading">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه:</div>
-        <div class="sentence reason-line">
-          <span class="fixed">بيان الاستحقاق /</span>${sealedFill(voucher.description,'grow-fill')}
+        <div class="entitlement-flow-line">
+          ${voucher.payment_date?`<span class="entitlement-segment entitlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'entitlement-fill')}</span>`:''}
+          <span class="entitlement-segment entitlement-reason">
+            <span class="fixed">وذلك مقابل قيمة الاستحقاق /</span>${sealedFill(voucher.description,'entitlement-fill')}
+          </span>
         </div>
         <div class="legal-ack">وأقر أنا المستفيد باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.</div>
       `;
@@ -369,16 +370,22 @@ export default function TreasuryVouchersPage(){
       .party-inline-name{flex:3.5 1 60mm;min-width:56mm}.party-inline-id{flex:1 1 21mm;min-width:19mm}.party-inline-nationality{flex:.42 1 9mm;min-width:8mm}.party-inline-mobile{flex:.9 1 20mm;min-width:18mm}.party-inline-city{flex:.5 1 11mm;min-width:10mm}
       .party-inline-name .value{max-width:none;overflow:visible;text-overflow:clip}
       .settlement-flow-line{display:grid;align-items:end;gap:.28mm;min-height:6.15mm;margin-top:.35mm;white-space:nowrap;font-size:7.55px;direction:rtl}
-      .settlement-flow-line.no-bank{grid-template-columns:minmax(0,4.45fr) minmax(0,.78fr) minmax(0,2.05fr) minmax(0,1.28fr)}
-      .settlement-flow-line.has-bank{grid-template-columns:minmax(0,4fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.75fr) minmax(0,1.2fr)}
+      .settlement-flow-line.no-bank{grid-template-columns:minmax(0,5.2fr) minmax(0,.82fr) minmax(0,2.65fr)}
+      .settlement-flow-line.has-bank{grid-template-columns:minmax(0,4.7fr) minmax(0,.76fr) minmax(0,1.08fr) minmax(0,2.35fr)}
       .settlement-segment{display:flex;align-items:flex-end;gap:.2mm;min-width:0;overflow:hidden}
       .settlement-segment .fixed{font-size:7.45px;white-space:nowrap;flex:0 0 auto}
       .settlement-segment .fill{min-width:0;height:4.9mm;gap:.16mm;overflow:hidden}
       .settlement-segment .fill .value{font-size:7.55px;max-width:100%;overflow:visible;text-overflow:clip;word-spacing:.22em;white-space:nowrap}
       .settlement-amount .fill .value{font-size:7.35px}
       .settlement-reference .fill .value{font-size:7.5px}
-      .settlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal;font-size:7.5px}
       .settlement-bank .value,.settlement-method .value{font-size:7.5px}
+      .entitlement-flow-line{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,5.65fr);align-items:end;gap:.36mm;min-height:5.9mm;margin-top:.2mm;white-space:nowrap;direction:rtl}
+      .entitlement-segment{display:flex;align-items:flex-end;gap:.2mm;min-width:0;overflow:hidden}
+      .entitlement-segment .fixed{font-size:7.5px;white-space:nowrap;flex:0 0 auto;font-weight:700;color:var(--ink)}
+      .entitlement-segment .fill{min-width:0;height:4.9mm;gap:.16mm;overflow:hidden}
+      .entitlement-segment .fill .value{font-size:7.5px;max-width:100%;overflow:visible;text-overflow:clip;white-space:nowrap;word-spacing:.22em}
+      .entitlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal}
+      .entitlement-reason .fill{flex:1 1 0}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
