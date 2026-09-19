@@ -8,8 +8,7 @@
   --tv-ink:#242426;
   --tv-rule:1px;
   --tv-frame:2px;
-  --tv-cut-left:11.795%;
-  --tv-cut-right:10.026%;
+  --tv-cut-side:10.910%;
   position:relative;
   width:100%;
   height:100%;
@@ -64,11 +63,11 @@
 }
 .treasury-voucher-document .tv-brand-logo-box:first-child{
   left:-1px;
-  width:calc(var(--tv-cut-left) + 1px);
+  width:calc(var(--tv-cut-side) + 1px);
 }
 .treasury-voucher-document .tv-brand-logo-box:last-child{
   right:-1px;
-  width:calc(var(--tv-cut-right) + 1px);
+  width:calc(var(--tv-cut-side) + 1px);
 }
 .treasury-voucher-document .tv-brand img{
   display:block;
@@ -106,9 +105,10 @@
   /*
    * One continuous identity band: the side logo panels and the company
    * information strip share the official charcoal identity colour.
-   * The side widths remain locked to the coloured table columns below.
+   * Both side widths are deliberately symmetrical and remain locked to
+   * the matching 37% coloured columns below.
    */
-  grid-template-columns:var(--tv-cut-left) minmax(0,1fr) var(--tv-cut-right);
+  grid-template-columns:var(--tv-cut-side) minmax(0,1fr) var(--tv-cut-side);
   direction:ltr;
   position:relative;
   z-index:4;
@@ -150,7 +150,7 @@
   display:grid;grid-template-rows:repeat(4,1fr);direction:ltr;
 }
 .treasury-voucher-document .tv-meta-row{
-  display:grid;grid-template-columns:40% 60%;min-height:0;
+  display:grid;grid-template-columns:37% 63%;min-height:0;
 }
 .treasury-voucher-document .tv-red-cell,
 .treasury-voucher-document .tv-white-cell{
@@ -184,7 +184,7 @@
 .treasury-voucher-document .tv-title-fill span{font-size:6.8pt;margin-top:.35mm;direction:ltr;letter-spacing:.02em}
 
 .treasury-voucher-document .tv-amount{
-  display:grid;grid-template-columns:66% 34%;grid-template-rows:repeat(4,1fr);direction:ltr;
+  display:grid;grid-template-columns:63% 37%;grid-template-rows:repeat(4,1fr);direction:ltr;
 }
 .treasury-voucher-document .tv-amount .tv-white-cell{
   border-bottom:var(--tv-rule) solid var(--tv-brand);border-right:var(--tv-rule) solid var(--tv-brand);
