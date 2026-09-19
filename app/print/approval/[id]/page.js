@@ -10,6 +10,7 @@ export default function ApprovalRecordPrintPage(){
   const { id }=useParams();
   const search=useSearchParams();
   const mode=search.get('mode')==='decision'?'decision':'incoming';
+  const embed=search.get('embed')==='1';
   const [detail,setDetail]=useState(null);
   const [settings,setSettings]=useState(null);
   const [error,setError]=useState('');
@@ -36,14 +37,14 @@ export default function ApprovalRecordPrintPage(){
   if(!detail||!settings)return <div style={{padding:40,direction:'rtl'}}>جارٍ تجهيز نسخة المعاملة…</div>;
 
   return <>
-    <div className="print-toolbar no-print">
+    {!embed?<div className="print-toolbar no-print">
       <button type="button" onClick={()=>window.print()}>طباعة / حفظ PDF</button>
       <a href={`/print/approval/${id}?mode=incoming`}>النسخة الواردة</a>
       <a href={`/print/approval/${id}?mode=decision`}>نسخة القرار</a>
       <span>{mode==='decision'?'تتضمن هذه النسخة القرارات والتهميشات المسجلة.':'هذه هي اللقطة التي أُرسلت للاعتماد.'}</span>
-    </div>
+    </div>:null}
 
-    <ConstitutionPrintFrame documentKey="approval_record" cfg={settings} direction="rtl">
+    <ConstitutionPrintFrame documentKey="approval_record" cfg={settings} direction="rtl" previewOnly={embed}>
       <ApprovalRecordPrint detail={detail} mode={mode}/>
     </ConstitutionPrintFrame>
   </>;
