@@ -270,9 +270,10 @@ export default function TreasuryVouchersPage(){
     const issuerName=voucher.issuer_name_snapshot||actorMap.get(voucher.issuer_employee_id)?.full_name_ar||'—';
     const issuerTitle=voucher.issuer_title_snapshot||actorMap.get(voucher.issuer_employee_id)?.job_title||'';
     const accountantName=voucher.accountant_name_snapshot||actorMap.get(voucher.accountant_employee_id)?.full_name_ar||'—';
+    const accountantTitle=voucher.accountant_title_snapshot||actorMap.get(voucher.accountant_employee_id)?.job_title||'—';
     const isFinalApproved=voucher.status==='posted';
-    const approverName=isFinalApproved?(voucher.approved_by_name_snapshot||actorMap.get(voucher.approved_by_employee_id)?.full_name_ar||'—'):'';
-    const approverTitle=isFinalApproved?(voucher.approved_by_title_snapshot||actorMap.get(voucher.approved_by_employee_id)?.job_title||''):'';
+    const approverName=voucher.approved_by_name_snapshot||actorMap.get(voucher.approved_by_employee_id)?.full_name_ar||'—';
+    const approverTitle=voucher.approved_by_title_snapshot||actorMap.get(voucher.approved_by_employee_id)?.job_title||'—';
     const stampUrl=settings.stamp_image_path?supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl:'';
     const logoUrl='/brand/arkan-logo-official.svg';
     const stampSizeMm=Math.min(55,Math.max(15,Number(settings.stamp_size_mm||30)));
@@ -282,7 +283,8 @@ export default function TreasuryVouchersPage(){
     const partyCity=voucher.party_address||'';
     const partyNationality=voucher.party_nationality||'';
     const companyCity=settings.city||'الرياض';
-    const partySignature=isReceipt?'المستلم':'المستفيد';
+    const partySignature='المستفيد';
+    const beneficiaryRole=isReceipt?'عميل':'موظف';
     const englishTitle=isReceipt?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
     const method=METHOD_LABEL[voucher.payment_method]||voucher.payment_method||'';
     const showBank=Boolean(voucher.bank_name&&voucher.payment_method!=='cash');
@@ -461,9 +463,19 @@ export default function TreasuryVouchersPage(){
       .payment-segment-reference .value{max-width:none;overflow:visible;text-overflow:clip}
       .payment-segment-date .value{direction:ltr;font-variant-numeric:tabular-nums}
       .payment-line.no-bank .payment-segment-reference{flex:3.4 1 85mm}
-      .signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;margin-top:2.2mm}
-      .sign{min-height:16mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1mm;position:relative;overflow:visible}
-      .sign strong{display:block;color:var(--brand-dark);font-size:12.5px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:.8mm;font-size:11.8px;font-weight:700;word-spacing:.35em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.35mm;font-size:10.4px;color:#666;position:relative;z-index:2}.sign .signature-note{display:block;margin-top:.55mm;font-size:10.2px;font-weight:700;color:#444;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:8.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.84;z-index:4;pointer-events:none}
+      .signatures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4mm;margin-top:2mm;direction:rtl}
+      .sign{--label-w:18mm;min-height:15mm;border-top:1.4px solid var(--brand);padding-top:.75mm;position:relative;overflow:visible;direction:rtl}
+      .sign-admin{--label-w:25mm}
+      .sign-row{display:grid;grid-template-columns:var(--label-w) minmax(0,1fr);align-items:center;min-height:4.15mm;column-gap:.65mm;position:relative;z-index:2}
+      .sign-label{font-size:10.1px;font-weight:800;color:var(--brand-dark);white-space:nowrap;text-align:center}
+      .sign-value{font-size:10.1px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;line-height:1.05}
+      .sign-beneficiary .sign-row:first-child .sign-value{font-size:9.2px;letter-spacing:-.02em}
+      .sign-accountant .sign-row:first-child .sign-value{font-size:9.7px}
+      .sign-admin .sign-row:first-child .sign-value{font-size:9.7px}
+      .sign-row-role .sign-value{font-size:9.6px;color:#555;font-weight:700}
+      .sign-row-signature .sign-label{color:#444}
+      .signature-space{height:3.2mm;border-bottom:1px dotted #8E7B7B;min-width:0}
+      .approval-stamp{position:absolute;left:8%;top:7.9mm;width:${stampSizeMm}mm;height:auto;max-width:34mm;max-height:17mm;object-fit:contain;opacity:.84;z-index:4;pointer-events:none}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:.8mm;display:flex;justify-content:space-between;font-size:10.2px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
       @media screen{body{min-width:210mm;min-height:297mm;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
@@ -507,9 +519,22 @@ export default function TreasuryVouchersPage(){
         <div class="legal-ack">${esc(legalAcknowledgement)}</div>
       </div>
       <div class="signatures">
-        <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span><span class="signature-note">التوقيع:</span></div>
-        <div class="sign"><strong>المحاسب</strong><span class="person-name">${esc(accountantName)}</span><span class="signature-note">التوقيع:</span></div>
-        <div class="sign"><strong>اعتماد الإدارة</strong>${isFinalApproved?`<span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}`:'<span class="person-title">بانتظار التعميد النهائي</span>'}</div>
+        <div class="sign sign-beneficiary">
+          <div class="sign-row"><span class="sign-label">${esc(partySignature)} /</span><span class="sign-value">${esc(voucher.party_name)}</span></div>
+          <div class="sign-row sign-row-role"><span class="sign-label">الصفة /</span><span class="sign-value">${esc(beneficiaryRole)}</span></div>
+          <div class="sign-row sign-row-signature"><span class="sign-label">التوقيع /</span><span class="signature-space"></span></div>
+        </div>
+        <div class="sign sign-accountant">
+          <div class="sign-row"><span class="sign-label">المحاسب /</span><span class="sign-value">${esc(accountantName)}</span></div>
+          <div class="sign-row sign-row-role"><span class="sign-label">الصفة /</span><span class="sign-value">${esc(accountantTitle)}</span></div>
+          <div class="sign-row sign-row-signature"><span class="sign-label">التوقيع /</span><span class="signature-space"></span></div>
+        </div>
+        <div class="sign sign-admin">
+          <div class="sign-row"><span class="sign-label">اعتماد الإدارة /</span><span class="sign-value">${esc(approverName)}</span></div>
+          <div class="sign-row sign-row-role"><span class="sign-label">المسمى /</span><span class="sign-value">${esc(approverTitle)}</span></div>
+          <div class="sign-row sign-row-signature"><span class="sign-label">التوقيع /</span><span class="signature-space"></span></div>
+          ${isFinalApproved&&stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}
+        </div>
       </div>
       <div class="foot"><span>هذا السند ملزم في حدود مبلغه وبيانه وتوقيعاته.</span></div>
     </div><script>
