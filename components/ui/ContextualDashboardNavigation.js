@@ -80,7 +80,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [preferenceReady, setPreferenceReady] = useState(false);
 
-  const approverOnly = Boolean(me?.access?.approverOnly);
+  const approverOnly = Boolean(me?.access_profile==='approval_only');
 
   const accessibleAreas = useMemo(
     () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
