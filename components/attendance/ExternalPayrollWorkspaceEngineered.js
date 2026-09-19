@@ -274,9 +274,9 @@ export default function ExternalPayrollWorkspaceEngineered(){
       const groups=[
         ['A5:B5','بيانات الموظف','FF5F6468'],
         ['C5:J5','البيانات الأساسية للراتب','FF5F6468'],
-        ['K5:R5','متغيرات المسير','FF8B3332'],
-        ['S5:U5','نتائج الاحتساب','FF4F5558'],
-        ['V5:W5','بيانات الصرف','FF5F6468'],
+        ['K5:R5','المتغيرات المؤثرة على الأجر','FF8B3332'],
+        ['S5:U5','ناتج تطبيق المتغيرات','FF4F5558'],
+        ['V5:W5','وسائل الدفع','FF5F6468'],
       ];
       groups.forEach(([range,label,color])=>{
         ws.mergeCells(range);
