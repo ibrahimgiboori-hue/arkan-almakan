@@ -84,11 +84,11 @@ export default function TreasuryVoucherPrint({voucher,settings}){
 
     <header className="tv-brand" data-print-grid-row data-print-grid-name="treasury-brand" data-print-resizable-block>
       <div className="tv-brand-logo-box">
-        <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
+        <img src="/brand/arkan-logo-white.svg" alt="شعار أركان المكان"/>
       </div>
       <div className="tv-brand-name"><strong>{company}</strong><span>{companyEn}</span></div>
       <div className="tv-brand-logo-box">
-        <img src="/brand/arkan-logo-official.svg" alt="شعار أركان المكان"/>
+        <img src="/brand/arkan-logo-white.svg" alt="شعار أركان المكان"/>
       </div>
     </header>
 
