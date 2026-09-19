@@ -1,0 +1,203 @@
+/* Treasury voucher document profile — content only.
+   Physical A4 carrier geometry is owned by ConstitutionPagedFrame. */
+
+.treasury-voucher-document{
+  --tv-brand:#8B3332;
+  --tv-brand-dark:#7C2B28;
+  --tv-ink:#242426;
+  position:relative;
+  width:100%;
+  height:100%;
+  min-height:100%;
+  padding:3.2mm 4mm 2.5mm;
+  border:.45mm solid var(--tv-brand);
+  background:#fff;
+  color:var(--tv-ink);
+  direction:rtl;
+  font-family:Tahoma,Arial,sans-serif;
+  font-size:9.6pt;
+  line-height:1.18;
+  overflow:hidden;
+}
+
+.treasury-voucher-document .tv-void{
+  position:absolute;inset:44% 9% auto;z-index:8;
+  transform:rotate(-12deg);text-align:center;
+  font-size:30pt;font-weight:800;color:rgba(139,51,50,.16);
+  pointer-events:none;
+}
+
+.treasury-voucher-document .tv-brand{
+  height:13mm;
+  display:grid;
+  grid-template-columns:24mm minmax(0,1fr) 24mm;
+  align-items:center;
+  border:.25mm solid var(--tv-brand);
+  border-bottom:0;
+  direction:ltr;
+  background:#fff;
+}
+.treasury-voucher-document .tv-brand img{
+  width:15.5mm;height:15.5mm;object-fit:contain;justify-self:center;
+}
+.treasury-voucher-document .tv-brand-name{
+  text-align:center;direction:rtl;line-height:1.03;
+}
+.treasury-voucher-document .tv-brand-name strong{
+  display:block;color:var(--tv-brand-dark);font-size:11.4pt;font-weight:800;
+}
+.treasury-voucher-document .tv-brand-name span{
+  display:block;margin-top:.5mm;color:#555;font-size:7.2pt;direction:ltr;
+}
+
+.treasury-voucher-document .tv-legal-bar{
+  height:6.5mm;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 1.5mm;
+  border:.25mm solid var(--tv-brand);
+  background:var(--tv-brand);color:#fff;
+  font-size:7.4pt;font-weight:700;white-space:nowrap;overflow:hidden;
+}
+
+.treasury-voucher-document .tv-top{
+  height:23.8mm;
+  display:grid;
+  grid-template-columns:1.15fr 1.6fr 1.15fr;
+  direction:ltr;
+}
+.treasury-voucher-document .tv-meta,
+.treasury-voucher-document .tv-title-box,
+.treasury-voucher-document .tv-amount{
+  height:23.8mm;border:.25mm solid var(--tv-brand);background:#fff;
+}
+.treasury-voucher-document .tv-meta{
+  display:grid;grid-template-rows:repeat(4,1fr);direction:ltr;
+}
+.treasury-voucher-document .tv-meta-row{
+  display:grid;grid-template-columns:40% 60%;min-height:0;
+}
+.treasury-voucher-document .tv-red-cell,
+.treasury-voucher-document .tv-white-cell{
+  min-width:0;display:flex;align-items:center;justify-content:center;
+}
+.treasury-voucher-document .tv-red-cell{
+  background:var(--tv-brand);color:#fff;font-weight:700;direction:rtl;
+}
+.treasury-voucher-document .tv-white-cell{
+  background:#fff;color:#111;font-weight:800;direction:ltr;font-variant-numeric:tabular-nums;
+}
+.treasury-voucher-document .tv-meta-row .tv-red-cell{
+  border-bottom:.3mm solid #fff;border-right:.25mm solid #fff;font-size:7.8pt;
+}
+.treasury-voucher-document .tv-meta-row .tv-white-cell{
+  border-bottom:.3mm solid var(--tv-brand);border-left:.25mm solid var(--tv-brand);font-size:7.7pt;
+}
+.treasury-voucher-document .tv-meta-row:first-child .tv-red-cell{border-top:.3mm solid #fff}
+.treasury-voucher-document .tv-meta-row:last-child .tv-red-cell,
+.treasury-voucher-document .tv-meta-row:last-child .tv-white-cell{border-bottom:0}
+
+.treasury-voucher-document .tv-title-box{
+  display:grid;grid-template-rows:1fr 2fr 1fr;
+}
+.treasury-voucher-document .tv-title-fill{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--tv-brand);color:#fff;text-align:center;
+  border-top:.25mm solid var(--tv-brand);border-bottom:.25mm solid var(--tv-brand);
+}
+.treasury-voucher-document .tv-title-fill strong{font-size:12.1pt;font-weight:800}
+.treasury-voucher-document .tv-title-fill span{font-size:6.8pt;margin-top:.35mm;direction:ltr;letter-spacing:.02em}
+
+.treasury-voucher-document .tv-amount{
+  display:grid;grid-template-columns:66% 34%;grid-template-rows:repeat(4,1fr);direction:ltr;
+}
+.treasury-voucher-document .tv-amount .tv-white-cell{
+  border-bottom:.3mm solid var(--tv-brand);border-right:.25mm solid var(--tv-brand);
+}
+.treasury-voucher-document .tv-amount .tv-red-cell{
+  border-bottom:.3mm solid #fff;border-left:.25mm solid #fff;
+}
+.treasury-voucher-document .tv-amount-title{grid-column:1;grid-row:1;font-size:7.8pt}
+.treasury-voucher-document .tv-amount-number{grid-column:1;grid-row:2;font-size:8.7pt}
+.treasury-voucher-document .tv-riyal{grid-column:2;grid-row:1/3;font-size:8.1pt;border-top:.3mm solid #fff!important}
+.treasury-voucher-document .tv-halala-number{grid-column:1;grid-row:3;font-size:8.5pt}
+.treasury-voucher-document .tv-halala-label{grid-column:2;grid-row:3;font-size:7.8pt}
+.treasury-voucher-document .tv-amount-words{grid-column:1;grid-row:4;padding:0 .7mm;text-align:center;direction:rtl!important;font-size:7pt}
+.treasury-voucher-document .tv-words-label{grid-column:2;grid-row:4;font-size:7.8pt}
+.treasury-voucher-document .tv-amount-words,
+.treasury-voucher-document .tv-words-label{border-bottom:0!important}
+
+.treasury-voucher-document .tv-body{
+  margin-top:1.5mm;padding-top:1.2mm;border-top:.25mm solid var(--tv-brand);
+}
+.treasury-voucher-document .tv-flow-row{
+  min-height:5.45mm;
+  display:flex;align-items:flex-end;gap:.45mm;
+  white-space:nowrap;overflow:hidden;
+}
+.treasury-voucher-document .tv-fixed{
+  flex:0 0 auto;font-size:8.2pt;font-weight:700;white-space:nowrap;
+}
+.treasury-voucher-document .tv-fill{
+  min-width:10mm;height:4.4mm;min-height:4.4mm;
+  flex:1 1 0;display:flex;align-items:flex-end;gap:.3mm;
+  border-bottom:.2mm dotted #555;overflow:hidden;white-space:nowrap;
+}
+.treasury-voucher-document .tv-value{
+  position:relative;top:-.35mm;flex:0 0 auto;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  font-size:8.35pt;font-style:italic;font-weight:700;color:#111;
+}
+.treasury-voucher-document .tv-fill-sealed .tv-value{overflow:visible;text-overflow:clip}
+.treasury-voucher-document .tv-soft-fill{
+  flex:1 1 auto;align-self:flex-end;height:2.3mm;min-width:0;
+  background:rgba(139,51,50,.085);border-radius:.35mm;
+}
+.treasury-voucher-document .tv-grow{min-width:30mm}
+.treasury-voucher-document .tv-name{min-width:47mm}
+.treasury-voucher-document .tv-party-row .tv-value{font-size:8.1pt}
+.treasury-voucher-document .tv-ack{
+  margin-top:.55mm;padding:.85mm 1.1mm;
+  border:.22mm solid #d8caca;background:#fffdfd;
+  font-size:7.45pt;line-height:1.28;font-weight:600;text-align:justify;
+}
+
+.treasury-voucher-document .tv-signatures{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:3.2mm;margin-top:1.5mm;direction:rtl;
+}
+.treasury-voucher-document .tv-sign{
+  --tv-label:16mm;
+  min-height:13.5mm;padding-top:.55mm;
+  border-top:.3mm solid var(--tv-brand);
+  position:relative;overflow:visible;
+}
+.treasury-voucher-document .tv-admin-sign{--tv-label:22.5mm}
+.treasury-voucher-document .tv-sign-row{
+  min-height:3.65mm;
+  display:grid;grid-template-columns:var(--tv-label) minmax(0,1fr);
+  align-items:center;column-gap:.45mm;
+}
+.treasury-voucher-document .tv-sign-row>span{
+  color:var(--tv-brand-dark);font-size:7.25pt;font-weight:800;text-align:center;white-space:nowrap;
+}
+.treasury-voucher-document .tv-sign-row>strong{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;
+  color:#222;font-size:7.2pt;font-weight:700;text-align:right;white-space:nowrap;
+}
+.treasury-voucher-document .tv-sign-row>i{
+  display:block;height:2.7mm;border-bottom:.18mm dotted #8e7b7b;
+}
+.treasury-voucher-document .tv-stamp{
+  position:absolute;left:5%;top:6.7mm;
+  width:25mm;max-width:25mm;max-height:13mm;object-fit:contain;opacity:.84;z-index:3;
+}
+
+.treasury-voucher-document .tv-footer{
+  position:absolute;right:4mm;left:4mm;bottom:1.55mm;
+  padding-top:.6mm;border-top:.18mm solid #d5caca;
+  color:#666;font-size:6.8pt;text-align:right;
+}
+
+@media print{
+  .treasury-voucher-document{box-shadow:none}
+}
