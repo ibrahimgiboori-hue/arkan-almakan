@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -66,25 +66,23 @@ export async function POST(request){
       return new Response('invalid_xlsx_size',{status:400});
     }
 
-    const zip=await JSZip.loadAsync(input);
-    const workbookFile=zip.file('xl/workbook.xml');
+    const files=unzipSync(new Uint8Array(input));
+    const workbookFile=files['xl/workbook.xml'];
     if(!workbookFile)return new Response('invalid_xlsx_workbook',{status:400});
 
     const passwordHash=excelLegacyPasswordHash(PROTECTION_PASSWORD);
-    const workbookXml=await workbookFile.async('string');
-    zip.file('xl/workbook.xml',protectWorkbookXml(workbookXml,passwordHash));
+    const workbookXml=strFromU8(workbookFile);
+    files['xl/workbook.xml']=strToU8(protectWorkbookXml(workbookXml,passwordHash));
 
-    const sheetPaths=Object.keys(zip.files).filter((name)=>/^xl\/worksheets\/sheet\d+\.xml$/.test(name));
+    const sheetPaths=Object.keys(files).filter((name)=>/^xl\/worksheets\/sheet\d+\.xml$/.test(name));
     if(!sheetPaths.length)return new Response('invalid_xlsx_worksheets',{status:400});
 
     for(const sheetPath of sheetPaths){
-      const sheetFile=zip.file(sheetPath);
-      if(!sheetFile)continue;
-      const sheetXml=await sheetFile.async('string');
-      zip.file(sheetPath,protectWorksheetXml(sheetXml,passwordHash));
+      const sheetXml=strFromU8(files[sheetPath]);
+      files[sheetPath]=strToU8(protectWorksheetXml(sheetXml,passwordHash));
     }
 
-    const output=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+    const output=zipSync(files,{level:6});
     return new Response(output,{
       status:200,
       headers:{
