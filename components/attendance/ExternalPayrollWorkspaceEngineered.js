@@ -471,79 +471,18 @@ export default function ExternalPayrollWorkspaceEngineered(){
       cfg.getCell('B3').dataValidation={type:'decimal',operator:'between',allowBlank:false,formulae:[0,31],showErrorMessage:true,errorStyle:'stop',errorTitle:'خصم البصمة',error:'أدخل رقمًا بين 0 و31.'};
       cfg.getCell('B4').dataValidation={type:'decimal',operator:'greaterThan',allowBlank:false,formulae:[0],showErrorMessage:true,errorStyle:'stop',errorTitle:'حد التأمينات',error:'أدخل قيمة رقمية أكبر من صفر.'};
 
-      // حماية بنية الأوراق: لا إدراج/حذف أعمدة أو صفوف، لا تغيير تنسيق، مع إبقاء الفرز والفلاتر متاحين.
-      await ws.protect(protectionPassword,{
-        selectLockedCells:false,
-        selectUnlockedCells:true,
-        formatCells:false,
-        formatColumns:false,
-        formatRows:false,
-        insertColumns:false,
-        insertRows:false,
-        insertHyperlinks:false,
-        deleteColumns:false,
-        deleteRows:false,
-        sort:true,
-        autoFilter:true,
-        pivotTables:false,
-        objects:true,
-        scenarios:true,
-      });
-      await cfg.protect(protectionPassword,{
-        selectLockedCells:false,
-        selectUnlockedCells:true,
-        formatCells:false,
-        formatColumns:false,
-        formatRows:false,
-        insertColumns:false,
-        insertRows:false,
-        insertHyperlinks:false,
-        deleteColumns:false,
-        deleteRows:false,
-        sort:false,
-        autoFilter:true,
-        pivotTables:false,
-        objects:true,
-        scenarios:true,
-      });
-
       const filename=`مسير_الرواتب_التفاعلي_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
 
-      // ExcelJS يحمي الأوراق لكنه لا يحمي بنية المصنف من إضافة/حذف صفحات؛
-      // لذلك نثبت حماية بنية المصنف مباشرة داخل OOXML قبل التنزيل.
+      // الخلايا المقفلة/المفتوحة والتحقق من نوع البيانات تُكتب داخل الملف هنا،
+      // أما قفل إضافة/حذف الصفوف والأعمدة والصفحات فيُثبت على الخادم داخل OOXML.
       const rawBuffer=await wb.xlsx.writeBuffer();
-      const JSZipModule=await import('jszip');
-      const JSZip=JSZipModule.default||JSZipModule;
-      const zip=await JSZip.loadAsync(rawBuffer);
-      const workbookFile=zip.file('xl/workbook.xml');
-      if(!workbookFile)throw new Error('تعذر تثبيت حماية بنية ملف Excel.');
-      let workbookXml=await workbookFile.async('string');
-
-      const hashExcelPassword=(password)=>{
-        const chars=Array.from(String(password||'').slice(0,15));
-        let hash=0;
-        for(let i=chars.length-1;i>=0;i-=1){
-          hash^=(chars[i].charCodeAt(0)&0xFF);
-          hash=((hash<<1)&0x7FFF)|((hash>>14)&0x01);
-        }
-        hash^=chars.length;
-        hash^=0xCE4B;
-        return (hash&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
-      };
-
-      const structureProtection=`<workbookProtection workbookPassword="${hashExcelPassword(protectionPassword)}" lockStructure="1"/>`;
-      if(/<workbookProtection\b[^>]*\/>/.test(workbookXml)){
-        workbookXml=workbookXml.replace(/<workbookProtection\b[^>]*\/>/,structureProtection);
-      }else if(workbookXml.includes('<bookViews>')){
-        workbookXml=workbookXml.replace('<bookViews>',`${structureProtection}<bookViews>`);
-      }else if(workbookXml.includes('<sheets>')){
-        workbookXml=workbookXml.replace('<sheets>',`${structureProtection}<sheets>`);
-      }else{
-        throw new Error('تعذر العثور على موضع حماية بنية المصنف.');
-      }
-      zip.file('xl/workbook.xml',workbookXml);
-
-      const protectedBuffer=await zip.generateAsync({type:'arraybuffer',compression:'DEFLATE'});
+      const protectResponse=await fetch('/api/payroll/protect-xlsx',{
+        method:'POST',
+        headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},
+        body:rawBuffer,
+      });
+      if(!protectResponse.ok)throw new Error('تعذر تثبيت حماية بنية ملف Excel.');
+      const protectedBuffer=await protectResponse.arrayBuffer();
       downloadBuffer(protectedBuffer,filename);
       setMsg('تم تنزيل مسير Excel محمي البنية: التعديل مسموح فقط في الخلايا الصفراء وبنوع البيانات الصحيح.');
     }catch(error){
