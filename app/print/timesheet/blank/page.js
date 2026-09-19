@@ -6,7 +6,7 @@ import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import '../timesheet-report.css';
 import './blank-timesheet.css';
 
-const rows=Array.from({length:16},(_,index)=>index+1);
+const rows=Array.from({length:12},(_,index)=>index+1);
 const WEEK_DAYS=['السبت','الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس'];
 
 export default function BlankContractorTimesheet(){
