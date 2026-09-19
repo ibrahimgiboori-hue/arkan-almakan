@@ -370,7 +370,7 @@ export default function TreasuryVouchersPage(){
       .fixed{font-weight:700;flex:0 0 auto}
       .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.1mm;border-bottom:1px dotted #555;height:5.3mm;overflow:hidden;white-space:nowrap}
       .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
-      .soft-fill{flex:1 1 auto;align-self:flex-end;height:2.8mm;min-width:0;background:rgba(139,51,50,.045);border-radius:.5mm}
+      .soft-fill{flex:1 1 auto;align-self:flex-end;height:2.8mm;min-width:0;background:rgba(139,51,50,.075);border-radius:.5mm}
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
       .party-core-line{gap:.42mm;font-size:9.05px;min-height:6.3mm}
       .party-core-line .fixed{font-size:8.85px}
