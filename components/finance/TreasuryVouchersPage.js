@@ -201,8 +201,8 @@ export default function TreasuryVouchersPage(){
       voucher.payment_date?['تاريخ الدفع',voucher.payment_date]:null,
     ].filter(Boolean);
     const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(value||'')}</span></span>`;
-    const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(value||'')}</span><span class="hashes">### ### ### ### ### ### ### ### ### ###</span></span>`;
-    const sealLine=()=>`<div class="seal-line"><span>### ### ### ### ### ### ### ### ### ### ### ### ###</span></div>`;
+    const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(value||'')}</span><span class="hashes" data-seal-fill="true"></span></span>`;
+    const sealLine=()=>`<div class="seal-line"><span class="hashes" data-seal-fill="true"></span></div>`;
     const popup=window.open('','_blank','width=1100,height=760');
     if(!popup){setMessage('اسمح بالنوافذ المنبثقة لطباعة السند.');return;}
     popup.opener=null;
@@ -277,10 +277,10 @@ export default function TreasuryVouchersPage(){
       .fixed{font-weight:700;flex:0 0 auto}
       .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.2mm;border-bottom:1px dotted #555;height:6.2mm;overflow:hidden;white-space:nowrap}
       .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-      .fill .hashes{font-weight:700;letter-spacing:.03em;flex:1 1 auto;overflow:hidden;white-space:nowrap;direction:ltr;text-align:left;color:#555}
+      .fill .hashes{font-weight:700;letter-spacing:.03em;flex:1 1 auto;overflow:hidden;white-space:nowrap;direction:ltr;text-align:left;color:#555;min-width:0}
       .name-fill{min-width:34mm}.short-fill{min-width:25mm}.id-fill{min-width:27mm}.city-fill{min-width:18mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}
       .seal-line{height:5.8mm;border-bottom:1px dotted #555;display:flex;align-items:flex-end;overflow:hidden;margin-top:.2mm}
-      .seal-line span{font-weight:700;white-space:nowrap;color:#555;direction:ltr;width:100%;text-align:left}
+      .seal-line span{font-weight:700;white-space:nowrap;color:#555;direction:ltr;width:100%;text-align:left;overflow:hidden}
       .ack-line{margin-top:.5mm}.ack{font-size:11px}
       .payment-line{margin-top:2.2mm;padding-top:1.8mm;border-top:1px solid #D5CACA}
       .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;margin-top:5mm}
@@ -315,7 +315,41 @@ export default function TreasuryVouchersPage(){
         <div class="sign stamp"><strong>الختم</strong><div class="stamp-space"></div></div>
       </div>
       <div class="foot"><span>الأصل للطرف — نسخة للحسابات — نسخة بالدفتر</span><span>حالة السند: ${voucher.status==='void'?'ملغى':'ساري'}</span></div>
-    </div><script>window.onload=()=>{window.print();}</script></body></html>`);
+    </div><script>
+      function fitSealHashes(el){
+        el.textContent='';
+        const available=el.clientWidth;
+        if(!available)return;
+        const style=getComputedStyle(el);
+        const probe=document.createElement('span');
+        probe.style.position='absolute';
+        probe.style.visibility='hidden';
+        probe.style.whiteSpace='nowrap';
+        probe.style.fontFamily=style.fontFamily;
+        probe.style.fontSize=style.fontSize;
+        probe.style.fontWeight=style.fontWeight;
+        probe.style.letterSpacing=style.letterSpacing;
+        probe.textContent='###';
+        document.body.appendChild(probe);
+        const tokenWidth=probe.getBoundingClientRect().width;
+        probe.textContent='### ###';
+        const pairWidth=probe.getBoundingClientRect().width;
+        probe.remove();
+        const gapWidth=Math.max(0,pairWidth-(tokenWidth*2));
+        const comfort=4;
+        if(available < tokenWidth + comfort)return;
+        const count=Math.max(0,Math.floor((available + gapWidth - comfort)/(tokenWidth + gapWidth)));
+        el.textContent=count>0?Array(count).fill('###').join(' '):'';
+      }
+      async function finalizeVoucherPrint(){
+        if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
+        requestAnimationFrame(()=>{
+          document.querySelectorAll('[data-seal-fill="true"]').forEach(fitSealHashes);
+          requestAnimationFrame(()=>window.print());
+        });
+      }
+      window.onload=finalizeVoucherPrint;
+    </script></body></html>`);
     popup.document.close();
   }
 
