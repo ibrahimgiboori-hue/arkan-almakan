@@ -278,6 +278,7 @@ export default function ConstitutionPagedFrame({
   showPageNumbers = true,
   pageNumberFormatter,
   renderOverlay,
+  previewOnly = false,
   onPointerMove,
   onPointerUp,
   onPointerLeave,
@@ -802,10 +803,10 @@ export default function ConstitutionPagedFrame({
   return (
     <PrintPresentationProvider value={presentationContext}>
       <PrintLayoutProvider value={layoutContext}>
-        <PagedTableGridEditor editing={editing} gridLayouts={draft.grids || {}} rowHeights={draft.rows || {}}
-          setGridLayout={setGridLayout} setRowHeight={setRowHeight} documentKey={documentKey} pageCount={pageCount} />
+        {!previewOnly && <PagedTableGridEditor editing={editing} gridLayouts={draft.grids || {}} rowHeights={draft.rows || {}}
+          setGridLayout={setGridLayout} setRowHeight={setRowHeight} documentKey={documentKey} pageCount={pageCount} />}
 
-        <div className="constitution-paged-layoutbar no-print" role="region" aria-label="القبطان للطباعة">
+        {!previewOnly && <div className="constitution-paged-layoutbar no-print" role="region" aria-label="القبطان للطباعة">
           <button type="button" className={editing ? 'active' : ''} onClick={()=>setEditing((value)=>!value)}>
             {editing ? 'إنهاء ضبط القبطان' : 'القبطان للطباعة'}
           </button>
@@ -868,9 +869,9 @@ export default function ConstitutionPagedFrame({
             <span className="constitution-paper-standard">Word 25.4 مم · Header 12.7 · Footer 12.7 · Letterhead {letterheadTop.toFixed(2)}/{letterheadBottom.toFixed(2)}</span>
           </>}
           {message && <span>{message}</span>}
-        </div>
+        </div>}
 
-        {editing && reportColumns.length > 0 && (
+        {!previewOnly && editing && reportColumns.length > 0 && (
           <div className="constitution-presentation-editor no-print" role="region" aria-label="عناوين التقرير">
             <strong>عناوين الأعمدة</strong>
             {reportColumns.map((column)=>(
