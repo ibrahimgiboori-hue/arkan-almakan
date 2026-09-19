@@ -39,7 +39,7 @@
   height:15mm;
   display:grid;
   grid-template-columns:28mm minmax(0,1fr) 28mm;
-  align-items:center;
+  align-items:stretch;
   border:var(--tv-rule) solid var(--tv-brand);
   border-bottom:0;
   direction:ltr;
@@ -48,18 +48,31 @@
   position:relative;
   z-index:3;
 }
+.treasury-voucher-document .tv-brand-logo-box{
+  height:15mm;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding-bottom:.75mm;
+  overflow:visible;
+  position:relative;
+  z-index:5;
+}
 .treasury-voucher-document .tv-brand img{
-  width:23mm;
-  height:23mm;
+  display:block;
+  width:21.5mm;
+  height:21.5mm;
   object-fit:contain;
-  justify-self:center;
-  align-self:center;
-  transform:translateY(2.25mm);
+  object-position:center bottom;
+  transform:none;
   position:relative;
   z-index:5;
 }
 .treasury-voucher-document .tv-brand-name{
-  text-align:center;direction:rtl;line-height:1.03;
+  align-self:center;
+  text-align:center;
+  direction:rtl;
+  line-height:1.03;
 }
 .treasury-voucher-document .tv-brand-name strong{
   display:block;color:var(--tv-brand-dark);font-size:12.2pt;font-weight:800;
@@ -210,6 +223,16 @@
   font-variant-numeric:tabular-nums;
 }
 .treasury-voucher-document .tv-date .tv-value{word-spacing:normal}
+.treasury-voucher-document .tv-city{
+  flex:0 1 18mm;
+  min-width:14mm;
+  max-width:21mm;
+}
+.treasury-voucher-document .tv-amount-line{
+  flex:1 1 auto;
+  min-width:0;
+}
+
 .treasury-voucher-document .tv-value{
   position:relative;top:-.35mm;flex:0 0 auto;
   max-width:100%;overflow:hidden;text-overflow:ellipsis;
