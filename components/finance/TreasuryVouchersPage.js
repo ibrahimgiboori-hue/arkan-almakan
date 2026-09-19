@@ -237,6 +237,7 @@ export default function TreasuryVouchersPage(){
     const partySignature=isReceipt?'المستلم':'المستفيد';
     const englishTitle=isReceipt?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
     const method=METHOD_LABEL[voucher.payment_method]||voucher.payment_method||'';
+    const showBank=Boolean(voucher.bank_name&&voucher.payment_method!=='cash');
     const totalHalalas=Math.round(Number(voucher.amount||0)*100);
     const amountRiyals=Math.floor(totalHalalas/100);
     const amountHalalas=String(totalHalalas%100).padStart(2,'0');
@@ -293,7 +294,7 @@ export default function TreasuryVouchersPage(){
           ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${flowFill(voucher.party_mobile,'party-inline-mobile')}`:''}
           <span class="fixed">بمدينة /</span>${flowFill(partyCity,'party-inline-city')}
         </div>
-        <div class="settlement-flow-line ${voucher.bank_name?'has-bank':'no-bank'}">
+        <div class="settlement-flow-line ${showBank?'has-bank':'no-bank'}">
           <span class="settlement-segment settlement-amount">
             <span class="fixed">مبلغًا وقدره /</span>
             ${sealedFill(`${amountRiyals.toLocaleString('en-US')}.${amountHalalas} ريال سعودي (${voucher.amount_words} فقط لا غير)`,'settlement-fill')}
@@ -301,7 +302,7 @@ export default function TreasuryVouchersPage(){
           <span class="settlement-segment settlement-method">
             <span class="fixed">عبر /</span>${fill(method,'settlement-fill')}
           </span>
-          ${voucher.bank_name?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
+          ${showBank?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
           ${voucher.payment_reference?`<span class="settlement-segment settlement-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'settlement-fill')}</span>`:''}
           ${voucher.payment_date?`<span class="settlement-segment settlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'settlement-fill')}</span>`:''}
         </div>
@@ -313,11 +314,11 @@ export default function TreasuryVouchersPage(){
       `;
 
     const paymentDetails=isReceipt?`
-      <div class="payment-line ${voucher.bank_name?'has-bank':'no-bank'}">
+      <div class="payment-line ${showBank?'has-bank':'no-bank'}">
         <span class="payment-segment payment-segment-method">
           <span class="fixed">عبر /</span>${fill(method,'payment-segment-fill')}
         </span>
-        ${voucher.bank_name?`<span class="payment-segment payment-segment-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'payment-segment-fill')}</span>`:''}
+        ${showBank?`<span class="payment-segment payment-segment-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'payment-segment-fill')}</span>`:''}
         ${voucher.payment_reference?`<span class="payment-segment payment-segment-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'payment-segment-fill')}</span>`:''}
         ${voucher.payment_date?`<span class="payment-segment payment-segment-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'payment-segment-fill')}</span>`:''}
       </div>
@@ -367,19 +368,17 @@ export default function TreasuryVouchersPage(){
       .party-core-line .fill{height:5.2mm;gap:.3mm}
       .party-inline-name{flex:3.5 1 60mm;min-width:56mm}.party-inline-id{flex:1 1 21mm;min-width:19mm}.party-inline-nationality{flex:.42 1 9mm;min-width:8mm}.party-inline-mobile{flex:.9 1 20mm;min-width:18mm}.party-inline-city{flex:.5 1 11mm;min-width:10mm}
       .party-inline-name .value{max-width:none;overflow:visible;text-overflow:clip}
-      .settlement-flow-line{display:flex;align-items:flex-end;gap:.38mm;min-height:6.15mm;margin-top:.35mm;white-space:nowrap;font-size:8.15px}
-      .settlement-segment{display:flex;align-items:flex-end;gap:.28mm;min-width:0}
-      .settlement-segment .fixed{font-size:8.05px;white-space:nowrap}
-      .settlement-segment .fill{min-width:0;height:5.05mm;gap:.22mm}
-      .settlement-segment .fill .value{font-size:8.15px;max-width:none;overflow:visible;text-overflow:clip;word-spacing:.34em}
-      .settlement-amount{flex:3.65 1 76mm}
-      .settlement-method{flex:.72 1 19mm}
-      .settlement-bank{flex:.9 1 23mm}
-      .settlement-reference{flex:1.9 1 42mm}
-      .settlement-date{flex:1.05 1 28mm}
-      .settlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal}
-      .settlement-flow-line.no-bank .settlement-amount{flex:4.05 1 84mm}
-      .settlement-flow-line.no-bank .settlement-reference{flex:2.25 1 49mm}
+      .settlement-flow-line{display:grid;align-items:end;gap:.28mm;min-height:6.15mm;margin-top:.35mm;white-space:nowrap;font-size:7.55px;direction:rtl}
+      .settlement-flow-line.no-bank{grid-template-columns:minmax(0,4.45fr) minmax(0,.78fr) minmax(0,2.05fr) minmax(0,1.28fr)}
+      .settlement-flow-line.has-bank{grid-template-columns:minmax(0,4fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.75fr) minmax(0,1.2fr)}
+      .settlement-segment{display:flex;align-items:flex-end;gap:.2mm;min-width:0;overflow:hidden}
+      .settlement-segment .fixed{font-size:7.45px;white-space:nowrap;flex:0 0 auto}
+      .settlement-segment .fill{min-width:0;height:4.9mm;gap:.16mm;overflow:hidden}
+      .settlement-segment .fill .value{font-size:7.55px;max-width:100%;overflow:visible;text-overflow:clip;word-spacing:.22em;white-space:nowrap}
+      .settlement-amount .fill .value{font-size:7.35px}
+      .settlement-reference .fill .value{font-size:7.5px}
+      .settlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal;font-size:7.5px}
+      .settlement-bank .value,.settlement-method .value{font-size:7.5px}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
@@ -394,7 +393,7 @@ export default function TreasuryVouchersPage(){
       .payment-segment-reference .value{max-width:none;overflow:visible;text-overflow:clip}
       .payment-segment-date .value{direction:ltr;font-variant-numeric:tabular-nums}
       .payment-line.no-bank .payment-segment-reference{flex:3.4 1 85mm}
-      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:2.2mm}
+      .signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;margin-top:2.2mm}
       .sign{min-height:16mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1mm;position:relative;overflow:visible}
       .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:1.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.78;z-index:1;pointer-events:none}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
@@ -431,7 +430,6 @@ export default function TreasuryVouchersPage(){
         ${paymentDetails}
       </div>
       <div class="signatures">
-        <div class="sign"><strong>مصدر السند</strong><span class="person-name">${esc(issuerName)}</span><span class="person-title">${esc(issuerTitle)}</span></div>
         <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span></div>
         <div class="sign"><strong>المحاسب</strong><span class="person-name">................................</span></div>
         <div class="sign"><strong>اعتماد الإدارة</strong><span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}</div>
