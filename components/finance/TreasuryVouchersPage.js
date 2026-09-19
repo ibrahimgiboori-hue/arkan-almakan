@@ -256,8 +256,9 @@ export default function TreasuryVouchersPage(){
           <span class="fixed">مبلغًا وقدره /</span>${sealedFill(voucher.amount_words,'grow-fill')}
         </div>
         ${sealLine()}
-        <div class="sentence">
-          <span class="fixed">وذلك عن قيمة الاستحقاق الموضح في البيان أدناه /</span>${sealedFill(voucher.description,'grow-fill')}
+        <div class="reason-heading">وذلك عن قيمة الاستحقاق الموضح في البيان أدناه:</div>
+        <div class="sentence reason-line">
+          <span class="fixed">بيان الاستحقاق /</span>${sealedFill(voucher.description,'grow-fill')}
         </div>
         ${sealLine()}
       `
@@ -274,11 +275,12 @@ export default function TreasuryVouchersPage(){
           <span class="fixed">مبلغًا وقدره /</span>${sealedFill(voucher.amount_words,'grow-fill')}
         </div>
         ${sealLine()}
-        <div class="sentence ack-line">
-          <span class="fixed">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه /</span>${sealedFill(voucher.description,'grow-fill')}
-          <span class="fixed ack">، وأقر باستلام المبلغ كاملًا.</span>
+        <div class="reason-heading">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه:</div>
+        <div class="sentence reason-line">
+          <span class="fixed">بيان الاستحقاق /</span>${sealedFill(voucher.description,'grow-fill')}
         </div>
         ${sealLine()}
+        <div class="legal-ack">وأقر أنا المستفيد بأنني استلمت فعليًا وكاملًا المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد اطلاعي على جميع بيانات السند وفهمي لمضمونه وسبب الصرف وطريقة الوفاء به، وقد تبين لي مقدار المبلغ وسببه وطريقة سداده بيانًا نافيًا للجهالة والغموض، وأن توقيعي على هذا السند يعد إقرارًا مني بصحة واقعة الاستلام والبيانات المتعلقة بها، وأن الاستلام تم برضاي واختياري ودون إكراه أو تدليس أو غلط، ويكون هذا الإقرار حجة عليّ في حدود المبلغ وسبب الصرف المبينين صراحة في هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى غير منصوص عليها فيه.</div>
       `;
 
     const paymentDetails=`
@@ -320,10 +322,12 @@ export default function TreasuryVouchersPage(){
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
       .seal-line{height:5.8mm;border-bottom:1px dotted #555;display:flex;align-items:flex-end;overflow:hidden;margin-top:.2mm}
       .seal-line span{font-weight:700;white-space:nowrap;color:#555;direction:ltr;width:100%;text-align:left;overflow:hidden}
-      .ack-line{margin-top:.5mm}.ack{font-size:11px}
-      .payment-line{margin-top:2.2mm;padding-top:1.8mm;border-top:1px solid #D5CACA}
-      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:4.5mm}
-      .sign{min-height:20mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1.4mm;position:relative}
+      .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:1.3mm;margin-bottom:.4mm}
+      .reason-line{margin-bottom:.1mm}
+      .legal-ack{margin-top:1.3mm;padding:1.8mm 2mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:9.15px;line-height:1.72;text-align:justify;font-weight:600}
+      .payment-line{margin-top:1.8mm;padding-top:1.5mm;border-top:1px solid #D5CACA}
+      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:3.2mm}
+      .sign{min-height:17.5mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1.2mm;position:relative}
       .sign strong{display:block;color:var(--brand-dark);font-size:10.5px}.sign .person-name{display:block;margin-top:1.2mm;font-size:10px;font-weight:700;word-spacing:.5em}.sign .person-title{display:block;margin-top:.6mm;font-size:8.5px;color:#666}.sign .signature-label{display:block;margin-top:2.2mm;font-size:8.5px;color:#555}.approval-stamp{position:absolute;left:50%;bottom:-1mm;transform:translateX(-50%);max-width:22mm;max-height:13mm;object-fit:contain;opacity:.9}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
