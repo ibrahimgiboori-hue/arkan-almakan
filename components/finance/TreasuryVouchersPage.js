@@ -232,6 +232,7 @@ export default function TreasuryVouchersPage(){
     const isEntity=voucher.party_id_kind==='cr';
     const idNumberLabel=ID_NUMBER_LABEL[voucher.party_id_kind]||'رقم إثبات';
     const partyCity=voucher.party_address||'';
+    const partyNationality=voucher.party_nationality||'';
     const companyCity=settings.city||'الرياض';
     const partySignature=isReceipt?'المستلم':'المستفيد';
     const englishTitle=isReceipt?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
@@ -246,6 +247,7 @@ export default function TreasuryVouchersPage(){
       voucher.payment_date?['تاريخ الدفع',voucher.payment_date]:null,
     ].filter(Boolean);
     const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span></span>`;
+    const flowFill=(value,extraClass='')=>`<span class="fill flow-fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span><span class="soft-fill" aria-hidden="true"></span></span>`;
     const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span><span class="soft-fill" aria-hidden="true"></span></span>`;
     const popup=window.open('','_blank','width=1100,height=760');
     if(!popup){setMessage('اسمح بالنوافذ المنبثقة لطباعة السند.');return;}
@@ -271,16 +273,16 @@ export default function TreasuryVouchersPage(){
         </div>
       `
       : `
-        <div class="sentence party-name-line">
-          <span class="fixed">${paymentOpening} /</span>${fill(voucher.party_name,'full-name-fill')}
+        <div class="sentence party-core-line">
+          <span class="fixed">استلمنا نحن /</span>${flowFill(voucher.party_name,'party-inline-name')}
+          <span class="fixed">${esc(idNumberLabel)} /</span>${flowFill(voucher.party_id_number,'party-inline-id')}
+          ${partyNationality?`<span class="fixed">الجنسية /</span>${flowFill(partyNationality,'party-inline-nationality')}`:''}
+          ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${flowFill(voucher.party_mobile,'party-inline-mobile')}`:''}
+          <span class="fixed">بمدينة /</span>${flowFill(partyCity,'party-inline-city')}
         </div>
-        <div class="sentence identity-line">
-          <span class="fixed">${esc(idNumberLabel)} /</span>${fill(voucher.party_id_number,'id-fill')}
-          ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${fill(voucher.party_mobile,'mobile-fill')}`:''}
-          <span class="fixed">بمدينة /</span>${fill(partyCity,'city-fill')}
-        </div>
-        <div class="sentence">
-          <span class="fixed">مبلغًا وقدره /</span>${sealedFill(`${voucher.amount_words} فقط لا غير`,'grow-fill')}
+        <div class="sentence amount-statement-line">
+          <span class="fixed">مبلغًا وقدره /</span>
+          ${sealedFill(`${amountRiyals.toLocaleString('en-US')}.${amountHalalas} ريال سعودي (${voucher.amount_words} فقط لا غير)`,'amount-statement-fill')}
         </div>
         <div class="reason-heading">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه:</div>
         <div class="sentence reason-line">
@@ -335,6 +337,11 @@ export default function TreasuryVouchersPage(){
       .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
       .soft-fill{flex:1 1 auto;align-self:flex-end;height:2.8mm;min-width:0;background:rgba(139,51,50,.045);border-radius:.5mm}
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
+      .party-core-line{gap:.7mm;font-size:9.15px;min-height:6.3mm}
+      .party-core-line .fixed{font-size:9px}
+      .party-core-line .fill{height:5.2mm;gap:.55mm}
+      .party-inline-name{flex:1.8 1 38mm;min-width:34mm}.party-inline-id{flex:1 1 22mm;min-width:20mm}.party-inline-nationality{flex:.72 1 14mm;min-width:12mm}.party-inline-mobile{flex:1 1 23mm;min-width:20mm}.party-inline-city{flex:.8 1 17mm;min-width:14mm}
+      .amount-statement-line{margin-top:.4mm}.amount-statement-fill{min-width:125mm}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
