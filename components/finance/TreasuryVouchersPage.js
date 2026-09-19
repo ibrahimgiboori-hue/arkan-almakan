@@ -293,9 +293,17 @@ export default function TreasuryVouchersPage(){
           ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${flowFill(voucher.party_mobile,'party-inline-mobile')}`:''}
           <span class="fixed">بمدينة /</span>${flowFill(partyCity,'party-inline-city')}
         </div>
-        <div class="sentence amount-statement-line">
-          <span class="fixed">مبلغًا وقدره /</span>
-          ${sealedFill(`${amountRiyals.toLocaleString('en-US')}.${amountHalalas} ريال سعودي (${voucher.amount_words} فقط لا غير)`,'amount-statement-fill')}
+        <div class="settlement-flow-line ${voucher.bank_name?'has-bank':'no-bank'}">
+          <span class="settlement-segment settlement-amount">
+            <span class="fixed">مبلغًا وقدره /</span>
+            ${sealedFill(`${amountRiyals.toLocaleString('en-US')}.${amountHalalas} ريال سعودي (${voucher.amount_words} فقط لا غير)`,'settlement-fill')}
+          </span>
+          <span class="settlement-segment settlement-method">
+            <span class="fixed">عبر /</span>${fill(method,'settlement-fill')}
+          </span>
+          ${voucher.bank_name?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
+          ${voucher.payment_reference?`<span class="settlement-segment settlement-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'settlement-fill')}</span>`:''}
+          ${voucher.payment_date?`<span class="settlement-segment settlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'settlement-fill')}</span>`:''}
         </div>
         <div class="reason-heading">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه:</div>
         <div class="sentence reason-line">
@@ -304,7 +312,7 @@ export default function TreasuryVouchersPage(){
         <div class="legal-ack">وأقر أنا المستفيد باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.</div>
       `;
 
-    const paymentDetails=`
+    const paymentDetails=isReceipt?`
       <div class="payment-line ${voucher.bank_name?'has-bank':'no-bank'}">
         <span class="payment-segment payment-segment-method">
           <span class="fixed">عبر /</span>${fill(method,'payment-segment-fill')}
@@ -313,7 +321,7 @@ export default function TreasuryVouchersPage(){
         ${voucher.payment_reference?`<span class="payment-segment payment-segment-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'payment-segment-fill')}</span>`:''}
         ${voucher.payment_date?`<span class="payment-segment payment-segment-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'payment-segment-fill')}</span>`:''}
       </div>
-    `;
+    `:'';
 
     popup.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(TYPE_LABEL[voucher.voucher_type])} ${esc(voucher.voucher_no)}</title><style>
       @page{size:A4 portrait;margin:0}
@@ -359,7 +367,19 @@ export default function TreasuryVouchersPage(){
       .party-core-line .fill{height:5.2mm;gap:.3mm}
       .party-inline-name{flex:3.5 1 60mm;min-width:56mm}.party-inline-id{flex:1 1 21mm;min-width:19mm}.party-inline-nationality{flex:.42 1 9mm;min-width:8mm}.party-inline-mobile{flex:.9 1 20mm;min-width:18mm}.party-inline-city{flex:.5 1 11mm;min-width:10mm}
       .party-inline-name .value{max-width:none;overflow:visible;text-overflow:clip}
-      .amount-statement-line{margin-top:.4mm}.amount-statement-fill{min-width:125mm}
+      .settlement-flow-line{display:flex;align-items:flex-end;gap:.38mm;min-height:6.15mm;margin-top:.35mm;white-space:nowrap;font-size:8.15px}
+      .settlement-segment{display:flex;align-items:flex-end;gap:.28mm;min-width:0}
+      .settlement-segment .fixed{font-size:8.05px;white-space:nowrap}
+      .settlement-segment .fill{min-width:0;height:5.05mm;gap:.22mm}
+      .settlement-segment .fill .value{font-size:8.15px;max-width:none;overflow:visible;text-overflow:clip;word-spacing:.34em}
+      .settlement-amount{flex:3.65 1 76mm}
+      .settlement-method{flex:.72 1 19mm}
+      .settlement-bank{flex:.9 1 23mm}
+      .settlement-reference{flex:1.9 1 42mm}
+      .settlement-date{flex:1.05 1 28mm}
+      .settlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal}
+      .settlement-flow-line.no-bank .settlement-amount{flex:4.05 1 84mm}
+      .settlement-flow-line.no-bank .settlement-reference{flex:2.25 1 49mm}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
