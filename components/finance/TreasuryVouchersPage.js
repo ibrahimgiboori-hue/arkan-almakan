@@ -24,6 +24,7 @@ const TYPE_LABEL={receipt:'سند قبض',payment:'سند صرف'};
 const METHOD_LABEL={cash:'نقدًا',bank_transfer:'تحويل بنكي',cheque:'شيك',card:'بطاقة',other:'أخرى'};
 const ID_LABEL={national_id:'هوية وطنية',iqama:'إقامة',cr:'سجل تجاري',passport:'جواز سفر',other:'أخرى'};
 const ID_NUMBER_LABEL={national_id:'هوية وطنية رقم',iqama:'إقامة رقم',cr:'سجل تجاري رقم',passport:'جواز سفر رقم',other:'رقم إثبات'};
+const AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
 function joinArabic(parts){return parts.filter(Boolean).join(' و');}
 function underHundred(value){
@@ -83,14 +84,20 @@ function money(value){return `${Number(value||0).toLocaleString('ar-SA',{minimum
 function esc(value){return String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
 function pageNo(value){return String(value||0).padStart(3,'0');}
 function errorMessage(error){return error?.message||'تعذر تنفيذ العملية.';}
+function salaryPeriodLabel(dateValue){
+  const match=String(dateValue||'').match(/^(\d{4})-(\d{2})-/);
+  if(!match)return '';
+  const month=AR_MONTHS[Number(match[2])-1];
+  return month?`${month} ${match[1]}`:'';
+}
 
 const EMPTY_VOUCHER={
-  voucher_type:'receipt',voucher_date:'',account_id:'',party_name:'',party_id_kind:'',party_id_number:'',party_mobile:'',party_address:'',amount:'',payment_method:'cash',bank_name:'',payment_reference:'',payment_date:'',description:''
+  voucher_type:'receipt',voucher_date:'',account_id:'',party_name:'',party_id_kind:'',party_id_number:'',party_mobile:'',party_address:'',amount:'',payment_method:'cash',bank_name:'',payment_reference:'',payment_date:'',description:'',issuer_employee_id:'',approved_by_employee_id:''
 };
 
 export default function TreasuryVouchersPage(){
   const me=useDashboardSession();
-  const [state,setState]=useState({loading:true,accounts:[],books:[],vouchers:[],settings:null,error:''});
+  const [state,setState]=useState({loading:true,accounts:[],books:[],vouchers:[],actors:[],settings:null,error:''});
   const [form,setForm]=useState({...EMPTY_VOUCHER,voucher_date:today()});
   const [accountForm,setAccountForm]=useState({name_ar:'الصندوق الرئيسي',account_type:'cash',opening_balance:'0',bank_name:'',iban:'',allow_negative:false});
   const [showEntry,setShowEntry]=useState(false);
@@ -110,22 +117,26 @@ export default function TreasuryVouchersPage(){
 
   async function load(){
     setState((current)=>({...current,loading:true,error:''}));
-    const [accountsQ,booksQ,vouchersQ,settingsQ]=await Promise.all([
+    const [accountsQ,booksQ,vouchersQ,actorsQ,settingsQ]=await Promise.all([
       supabase.from('v_treasury_balances').select('id,account_code,name_ar,account_type,bank_name,currency,current_balance,total_inflow,total_outflow,is_active').eq('is_active',true).order('account_code'),
       supabase.from('cash_voucher_books').select('id,voucher_type,book_no,next_page,status,opened_at,closed_at').order('book_no',{ascending:false}),
       supabase.from('cash_vouchers').select('*').order('created_at',{ascending:false}).limit(300),
-      supabase.from('app_settings').select('company_name_ar,company_name_en,cr_number,vat_number,national_address,city,phone_1,email').eq('id',1).maybeSingle(),
+      supabase.from('employees').select('id,full_name_ar,job_title,department,status').eq('status','active').order('full_name_ar'),
+      supabase.from('app_settings').select('company_name_ar,company_name_en,cr_number,vat_number,national_address,city,phone_1,email,stamp_image_path,signature_image_path,show_stamp_by_default,stamp_size_mm,signature_size_mm').eq('id',1).maybeSingle(),
     ]);
-    const failed=[accountsQ,booksQ,vouchersQ].find((item)=>item.error);
+    const failed=[accountsQ,booksQ,vouchersQ,actorsQ].find((item)=>item.error);
     if(failed?.error){setState((current)=>({...current,loading:false,error:errorMessage(failed.error)}));return;}
     const accounts=accountsQ.data||[];
-    setState({loading:false,accounts,books:booksQ.data||[],vouchers:vouchersQ.data||[],settings:settingsQ.error?null:(settingsQ.data||null),error:''});
-    setForm((current)=>({...current,account_id:current.account_id||accounts[0]?.id||''}));
+    const actors=actorsQ.data||[];
+    const defaultManager=actors.find((item)=>item.full_name_ar==='محمد انتصار تركي')||actors.find((item)=>item.job_title==='المدير التنفيذي')||actors[0]||null;
+    setState({loading:false,accounts,books:booksQ.data||[],vouchers:vouchersQ.data||[],actors,settings:settingsQ.error?null:(settingsQ.data||null),error:''});
+    setForm((current)=>({...current,account_id:current.account_id||accounts[0]?.id||'',issuer_employee_id:current.issuer_employee_id||defaultManager?.id||'',approved_by_employee_id:current.approved_by_employee_id||defaultManager?.id||''}));
   }
 
   useEffect(()=>{load();},[]);
 
   const accountMap=useMemo(()=>new Map(state.accounts.map((item)=>[item.id,item])),[state.accounts]);
+  const actorMap=useMemo(()=>new Map(state.actors.map((item)=>[item.id,item])),[state.actors]);
   const visible=useMemo(()=>state.vouchers.filter((voucher)=>{
     if(filter!=='all'&&voucher.voucher_type!==filter)return false;
     const needle=query.trim().toLowerCase();
@@ -134,6 +145,23 @@ export default function TreasuryVouchersPage(){
   }),[state.vouchers,filter,query]);
   const posted=state.vouchers.filter((voucher)=>voucher.status==='posted');
   const totalBalance=state.accounts.reduce((sum,item)=>sum+Number(item.current_balance||0),0);
+
+  useEffect(()=>{
+    const account=accountMap.get(form.account_id);
+    if(form.voucher_type!=='payment'||!/رواتب/.test(account?.name_ar||''))return;
+    const period=salaryPeriodLabel(form.voucher_date);
+    if(!period)return;
+    setForm((current)=>{
+      const next={...current};
+      if(!current.payment_reference||/^مسير رواتب شهر /.test(current.payment_reference)||/^راتب شهر /.test(current.payment_reference)){
+        next.payment_reference=`مسير رواتب شهر ${period}`;
+      }
+      if(!current.description||/^صرف راتب شهر /.test(current.description)||/^مسير الرواتب/.test(current.description)||/^راتب شهر /.test(current.description)){
+        next.description=`صرف راتب شهر ${period}`;
+      }
+      return next.payment_reference===current.payment_reference&&next.description===current.description?current:next;
+    });
+  },[form.account_id,form.voucher_date,form.voucher_type,accountMap]);
 
   function nextBook(type){
     const latest=state.books.filter((book)=>book.voucher_type===type).sort((a,b)=>Number(b.book_no)-Number(a.book_no))[0];
@@ -144,17 +172,18 @@ export default function TreasuryVouchersPage(){
   const nextReceipt=nextBook('receipt');const nextPayment=nextBook('payment');
 
   function openEntry(type){
-    setForm({...EMPTY_VOUCHER,voucher_type:type,voucher_date:today(),account_id:state.accounts[0]?.id||''});
+    const defaultManager=state.actors.find((item)=>item.full_name_ar==='محمد انتصار تركي')||state.actors.find((item)=>item.job_title==='المدير التنفيذي')||state.actors[0]||null;
+    setForm({...EMPTY_VOUCHER,voucher_type:type,voucher_date:today(),account_id:state.accounts[0]?.id||'',issuer_employee_id:defaultManager?.id||'',approved_by_employee_id:defaultManager?.id||''});
     setMessage('');setShowAccountEntry(false);setShowEntry(true);
   }
   function field(name,value){setForm((current)=>({...current,[name]:value}));}
 
   async function issueVoucher(event){
     event.preventDefault();setMessage('');
-    if(!form.account_id||!form.party_name.trim()||!form.description.trim()||!amountWords){setMessage('أكمل الحساب والطرف والمبلغ وسبب السند.');return;}
+    if(!form.account_id||!form.party_name.trim()||!form.description.trim()||!amountWords||!form.issuer_employee_id||!form.approved_by_employee_id){setMessage('أكمل الحساب والطرف والمبلغ وسبب السند ومصدر السند واعتماد الإدارة.');return;}
     setBusy(true);
-    const {data,error}=await supabase.rpc('fn_cash_voucher_issue',{
-      p_voucher_type:form.voucher_type,p_account_id:form.account_id,p_amount:Number(form.amount),p_amount_words:amountWords,p_voucher_date:form.voucher_date||today(),p_party_name:form.party_name.trim(),p_party_id_kind:form.party_id_kind||null,p_party_id_number:form.party_id_number||null,p_party_mobile:form.party_mobile||null,p_party_address:form.party_address||null,p_payment_method:form.payment_method,p_bank_name:form.bank_name||null,p_payment_reference:form.payment_reference||null,p_payment_date:form.payment_date||null,p_description:form.description.trim()
+    const {data,error}=await supabase.rpc('fn_cash_voucher_issue_v2',{
+      p_voucher_type:form.voucher_type,p_account_id:form.account_id,p_amount:Number(form.amount),p_amount_words:amountWords,p_voucher_date:form.voucher_date||today(),p_party_name:form.party_name.trim(),p_party_id_kind:form.party_id_kind||null,p_party_id_number:form.party_id_number||null,p_party_mobile:form.party_mobile||null,p_party_address:form.party_address||null,p_payment_method:form.payment_method,p_bank_name:form.bank_name||null,p_payment_reference:form.payment_reference||null,p_payment_date:form.payment_date||null,p_description:form.description.trim(),p_supporting_reference:null,p_project_id:null,p_issuer_employee_id:form.issuer_employee_id,p_approved_by_employee_id:form.approved_by_employee_id
     });
     setBusy(false);
     if(error){setMessage(errorMessage(error));return;}
@@ -184,6 +213,11 @@ export default function TreasuryVouchersPage(){
     const settings=state.settings||{};
     const company=settings.company_name_ar||'أركان المكان للمقاولات';
     const companyEn=settings.company_name_en||'Arkan Al Makan Contracting';
+    const issuerName=voucher.issuer_name_snapshot||actorMap.get(voucher.issuer_employee_id)?.full_name_ar||'—';
+    const issuerTitle=voucher.issuer_title_snapshot||actorMap.get(voucher.issuer_employee_id)?.job_title||'';
+    const approverName=voucher.approved_by_name_snapshot||actorMap.get(voucher.approved_by_employee_id)?.full_name_ar||'—';
+    const approverTitle=voucher.approved_by_title_snapshot||actorMap.get(voucher.approved_by_employee_id)?.job_title||'';
+    const stampUrl=settings.stamp_image_path?supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl:'';
     const isReceipt=voucher.voucher_type==='receipt';
     const isEntity=voucher.party_id_kind==='cr';
     const idNumberLabel=ID_NUMBER_LABEL[voucher.party_id_kind]||'رقم إثبات';
@@ -215,8 +249,8 @@ export default function TreasuryVouchersPage(){
           <span class="fixed">سجل تجاري رقم /</span>${fill(settings.cr_number||'','short-fill')}
           <span class="fixed">بمدينة /</span>${fill(companyCity,'city-fill')}
         </div>
-        <div class="sentence">
-          <span class="fixed">من المكرم /</span>${fill(voucher.party_name,'name-fill')}
+        <div class="sentence party-name-line">
+          <span class="fixed">من المكرم /</span>${fill(voucher.party_name,'full-name-fill')}
         </div>
         <div class="sentence">
           <span class="fixed">مبلغًا وقدره /</span>${sealedFill(voucher.amount_words,'grow-fill')}
@@ -228,10 +262,13 @@ export default function TreasuryVouchersPage(){
         ${sealLine()}
       `
       : `
-        <div class="sentence">
-          <span class="fixed">${paymentOpening} /</span>${fill(voucher.party_name,'name-fill')}
+        <div class="sentence party-name-line">
+          <span class="fixed">${paymentOpening} /</span>${fill(voucher.party_name,'full-name-fill')}
+        </div>
+        <div class="sentence identity-line">
           <span class="fixed">${esc(idNumberLabel)} /</span>${fill(voucher.party_id_number,'id-fill')}
           <span class="fixed">بمدينة /</span>${fill(partyCity,'city-fill')}
+          ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${fill(voucher.party_mobile,'mobile-fill')}`:''}
         </div>
         <div class="sentence">
           <span class="fixed">مبلغًا وقدره /</span>${sealedFill(voucher.amount_words,'grow-fill')}
@@ -278,17 +315,16 @@ export default function TreasuryVouchersPage(){
       .sentence,.payment-line{display:flex;align-items:flex-end;gap:1.4mm;min-height:7.2mm;white-space:nowrap}
       .fixed{font-weight:700;flex:0 0 auto}
       .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.2mm;border-bottom:1px dotted #555;height:6.2mm;overflow:hidden;white-space:nowrap}
-      .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+      .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
       .fill .hashes{font-weight:700;letter-spacing:.03em;flex:1 1 auto;overflow:hidden;white-space:nowrap;direction:ltr;text-align:left;color:#555;min-width:0}
-      .name-fill{min-width:34mm}.short-fill{min-width:25mm}.id-fill{min-width:27mm}.city-fill{min-width:18mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}
+      .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
       .seal-line{height:5.8mm;border-bottom:1px dotted #555;display:flex;align-items:flex-end;overflow:hidden;margin-top:.2mm}
       .seal-line span{font-weight:700;white-space:nowrap;color:#555;direction:ltr;width:100%;text-align:left;overflow:hidden}
       .ack-line{margin-top:.5mm}.ack{font-size:11px}
       .payment-line{margin-top:2.2mm;padding-top:1.8mm;border-top:1px solid #D5CACA}
-      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;margin-top:5mm}
-      .sign{min-height:18mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1.6mm}
-      .sign strong{display:block;color:var(--brand-dark);font-size:11px}.sign span{display:block;margin-top:4mm;font-size:9.5px}
-      .stamp{display:flex;flex-direction:column;align-items:center;justify-content:flex-start}.stamp .stamp-space{height:10mm;width:24mm;border:1px dashed var(--line);margin-top:2mm}
+      .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:4.5mm}
+      .sign{min-height:20mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1.4mm;position:relative}
+      .sign strong{display:block;color:var(--brand-dark);font-size:10.5px}.sign .person-name{display:block;margin-top:1.2mm;font-size:10px;font-weight:700;word-spacing:.5em}.sign .person-title{display:block;margin-top:.6mm;font-size:8.5px;color:#666}.sign .signature-label{display:block;margin-top:2.2mm;font-size:8.5px;color:#555}.approval-stamp{position:absolute;left:50%;bottom:-1mm;transform:translateX(-50%);max-width:22mm;max-height:13mm;object-fit:contain;opacity:.9}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
       @media screen{body{display:grid;place-items:start center;padding:12px;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
@@ -315,10 +351,10 @@ export default function TreasuryVouchersPage(){
         ${paymentDetails}
       </div>
       <div class="signatures">
-        <div class="sign"><strong>${esc(partySignature)}</strong><span>الاسم / التوقيع</span></div>
-        <div class="sign"><strong>المحاسب</strong><span>الاسم / التوقيع</span></div>
-        <div class="sign"><strong>اعتماد الإدارة</strong><span>الاسم / التوقيع</span></div>
-        <div class="sign stamp"><strong>الختم</strong><div class="stamp-space"></div></div>
+        <div class="sign"><strong>مصدر السند</strong><span class="person-name">${esc(issuerName)}</span><span class="person-title">${esc(issuerTitle)}</span><span class="signature-label">التوقيع</span></div>
+        <div class="sign"><strong>${esc(partySignature)}</strong><span class="person-name">${esc(voucher.party_name)}</span><span class="signature-label">التوقيع</span></div>
+        <div class="sign"><strong>المحاسب</strong><span class="person-name">................................</span><span class="signature-label">الاسم / التوقيع</span></div>
+        <div class="sign"><strong>اعتماد الإدارة</strong><span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span><span class="signature-label">التوقيع</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}</div>
       </div>
       <div class="foot"><span>الأصل للطرف — نسخة للحسابات — نسخة بالدفتر</span><span>حالة السند: ${voucher.status==='void'?'ملغى':'ساري'}</span></div>
     </div><script>
@@ -377,7 +413,7 @@ export default function TreasuryVouchersPage(){
 
     {showAccountEntry?<EntrySurface title="إضافة حساب صندوق أو بنك" description="يلزم وجود حساب خزينة واحد على الأقل لإصدار السندات." actions={<button className="btn ghost" type="button" onClick={()=>setShowAccountEntry(false)}>إغلاق</button>}><form onSubmit={createAccount}><div className="form-grid"><div className="field"><label>اسم الحساب *</label><input value={accountForm.name_ar} onChange={(e)=>setAccountForm((v)=>({...v,name_ar:e.target.value}))} required/></div><div className="field"><label>نوع الحساب *</label><select value={accountForm.account_type} onChange={(e)=>setAccountForm((v)=>({...v,account_type:e.target.value}))}><option value="cash">صندوق نقدي</option><option value="bank">حساب بنكي</option><option value="wallet">محفظة</option><option value="other">أخرى</option></select></div><div className="field"><label>الرصيد الافتتاحي</label><input type="number" step="0.01" value={accountForm.opening_balance} onChange={(e)=>setAccountForm((v)=>({...v,opening_balance:e.target.value}))}/></div><div className="field"><label>اسم البنك</label><input value={accountForm.bank_name} onChange={(e)=>setAccountForm((v)=>({...v,bank_name:e.target.value}))}/></div><div className="field"><label>IBAN</label><input value={accountForm.iban} onChange={(e)=>setAccountForm((v)=>({...v,iban:e.target.value}))}/></div><label style={{display:'flex',gap:8,alignItems:'center'}}><input type="checkbox" checked={accountForm.allow_negative} onChange={(e)=>setAccountForm((v)=>({...v,allow_negative:e.target.checked}))}/> السماح برصيد سالب</label></div><div style={{display:'flex',justifyContent:'flex-end',marginTop:14}}><button className="btn" disabled={busy}>{busy?'جارٍ الحفظ…':'حفظ الحساب'}</button></div></form></EntrySurface>:null}
 
-    {showEntry?<EntrySurface title={form.voucher_type==='receipt'?'إصدار سند قبض':'إصدار سند صرف'} description={`سيصدر تلقائيًا برقم دفتر ${form.voucher_type==='receipt'?nextReceipt.book:nextPayment.book} وصفحة ${pageNo(form.voucher_type==='receipt'?nextReceipt.page:nextPayment.page)}.`} actions={<button className="btn ghost" type="button" onClick={()=>setShowEntry(false)}>إغلاق</button>}><form onSubmit={issueVoucher}><div className="form-grid"><div className="field"><label>التاريخ *</label><input type="date" value={form.voucher_date} onChange={(e)=>field('voucher_date',e.target.value)} required/></div><div className="field"><label>حساب الصندوق / البنك *</label><select value={form.account_id} onChange={(e)=>field('account_id',e.target.value)} required><option value="">اختر</option>{state.accounts.map((item)=><option key={item.id} value={item.id}>{item.name_ar} — {money(item.current_balance)}</option>)}</select></div><div className="field"><label>{form.voucher_type==='receipt'?'من المكرم *':'اسم المستفيد *'}</label><input value={form.party_name} onChange={(e)=>field('party_name',e.target.value)} required/></div><div className="field"><label>المبلغ رقمًا *</label><input type="number" min="0.01" step="0.01" value={form.amount} onChange={(e)=>field('amount',e.target.value)} required/></div><div className="field" style={{gridColumn:'1/-1'}}><label>المبلغ تفقيطًا</label><textarea rows={2} value={amountWords?`${amountWords} فقط لا غير`:''} readOnly/></div><div className="field"><label>نوع هوية الطرف</label><select value={form.party_id_kind} onChange={(e)=>field('party_id_kind',e.target.value)}><option value="">اختر</option>{Object.entries(ID_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><div className="field"><label>رقم الهوية / السجل</label><input value={form.party_id_number} onChange={(e)=>field('party_id_number',e.target.value)}/></div><div className="field"><label>رقم الجوال</label><input value={form.party_mobile} onChange={(e)=>field('party_mobile',e.target.value)}/></div><div className="field"><label>المدينة / العنوان المختصر</label><input value={form.party_address} onChange={(e)=>field('party_address',e.target.value)} placeholder="مثال: الرياض"/></div><div className="field"><label>طريقة الدفع *</label><select value={form.payment_method} onChange={(e)=>field('payment_method',e.target.value)}>{Object.entries(METHOD_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><div className="field"><label>البنك</label><input value={form.bank_name} onChange={(e)=>field('bank_name',e.target.value)}/></div><div className="field"><label>مرجع الدفع</label><input value={form.payment_reference} onChange={(e)=>field('payment_reference',e.target.value)} placeholder="رقم تحويل، شيك، أو مرجع داخلي/مشروع عند الحاجة"/></div><div className="field"><label>تاريخ الدفع / الشيك</label><input type="date" value={form.payment_date} onChange={(e)=>field('payment_date',e.target.value)}/></div><div className="field" style={{gridColumn:'1/-1'}}><label>{form.voucher_type==='receipt'?'سبب القبض *':'سبب الصرف *'}</label><textarea rows={3} value={form.description} onChange={(e)=>field('description',e.target.value)} required/></div></div><Notice tone="neutral"><strong>معاينة النص:</strong> {form.voucher_type==='receipt'?`استلمنا نحن / ${state.settings?.company_name_ar||'أركان المكان للمقاولات'} سجل تجاري رقم / ${state.settings?.cr_number||'…'} من المكرم / ${form.party_name||'…'} مبلغًا وقدره / ${amountWords||'…'}، وذلك مقابل / ${form.description||'…'}.`:`${form.party_id_kind==='cr'?'استلمنا نحن':'استلمت أنا'} / ${form.party_name||'…'} ${ID_NUMBER_LABEL[form.party_id_kind]||'رقم إثبات'} / ${form.party_id_number||'…'} بمدينة / ${form.party_address||'…'} مبلغًا وقدره / ${amountWords||'…'}، وذلك مقابل / ${form.description||'…'}، وأقر باستلام المبلغ كاملًا.`}</Notice><div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}><button type="button" className="btn ghost" onClick={()=>setShowEntry(false)}>إلغاء</button><button className="btn" disabled={busy||!state.accounts.length}>{busy?'جارٍ الإصدار…':'إصدار السند وتثبيت رقمه'}</button></div></form></EntrySurface>:null}
+    {showEntry?<EntrySurface title={form.voucher_type==='receipt'?'إصدار سند قبض':'إصدار سند صرف'} description={`سيصدر تلقائيًا برقم دفتر ${form.voucher_type==='receipt'?nextReceipt.book:nextPayment.book} وصفحة ${pageNo(form.voucher_type==='receipt'?nextReceipt.page:nextPayment.page)}.`} actions={<button className="btn ghost" type="button" onClick={()=>setShowEntry(false)}>إغلاق</button>}><form onSubmit={issueVoucher}><div className="form-grid"><div className="field"><label>التاريخ *</label><input type="date" value={form.voucher_date} onChange={(e)=>field('voucher_date',e.target.value)} required/></div><div className="field"><label>حساب الصندوق / البنك *</label><select value={form.account_id} onChange={(e)=>field('account_id',e.target.value)} required><option value="">اختر</option>{state.accounts.map((item)=><option key={item.id} value={item.id}>{item.name_ar} — {money(item.current_balance)}</option>)}</select></div><div className="field"><label>{form.voucher_type==='receipt'?'من المكرم *':'اسم المستفيد *'}</label><input value={form.party_name} onChange={(e)=>field('party_name',e.target.value)} required/></div><div className="field"><label>المبلغ رقمًا *</label><input type="number" min="0.01" step="0.01" value={form.amount} onChange={(e)=>field('amount',e.target.value)} required/></div><div className="field" style={{gridColumn:'1/-1'}}><label>المبلغ تفقيطًا</label><textarea rows={2} value={amountWords?`${amountWords} فقط لا غير`:''} readOnly/></div><div className="field"><label>نوع هوية الطرف</label><select value={form.party_id_kind} onChange={(e)=>field('party_id_kind',e.target.value)}><option value="">اختر</option>{Object.entries(ID_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><div className="field"><label>رقم الهوية / السجل</label><input value={form.party_id_number} onChange={(e)=>field('party_id_number',e.target.value)}/></div><div className="field"><label>رقم الجوال</label><input value={form.party_mobile} onChange={(e)=>field('party_mobile',e.target.value)}/></div><div className="field"><label>المدينة / العنوان المختصر</label><input value={form.party_address} onChange={(e)=>field('party_address',e.target.value)} placeholder="مثال: الرياض"/></div><div className="field"><label>طريقة الدفع *</label><select value={form.payment_method} onChange={(e)=>field('payment_method',e.target.value)}>{Object.entries(METHOD_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><div className="field"><label>البنك</label><input value={form.bank_name} onChange={(e)=>field('bank_name',e.target.value)}/></div><div className="field"><label>مرجع الدفع</label><input value={form.payment_reference} onChange={(e)=>field('payment_reference',e.target.value)} placeholder="مثال للرواتب: مسير رواتب شهر أغسطس 2026"/></div><div className="field"><label>تاريخ الدفع / الشيك</label><input type="date" value={form.payment_date} onChange={(e)=>field('payment_date',e.target.value)}/></div><div className="field"><label>مصدر السند *</label><select value={form.issuer_employee_id} onChange={(e)=>field('issuer_employee_id',e.target.value)} required><option value="">اختر</option>{state.actors.map((item)=><option key={item.id} value={item.id}>{item.full_name_ar}{item.job_title?` — ${item.job_title}`:''}</option>)}</select></div><div className="field"><label>اعتماد الإدارة *</label><select value={form.approved_by_employee_id} onChange={(e)=>field('approved_by_employee_id',e.target.value)} required><option value="">اختر</option>{state.actors.map((item)=><option key={item.id} value={item.id}>{item.full_name_ar}{item.job_title?` — ${item.job_title}`:''}</option>)}</select></div><div className="field" style={{gridColumn:'1/-1'}}><label>{form.voucher_type==='receipt'?'سبب القبض *':'سبب الصرف *'}</label><textarea rows={3} value={form.description} onChange={(e)=>field('description',e.target.value)} required/></div></div><Notice tone="neutral"><strong>معاينة النص:</strong> {form.voucher_type==='receipt'?`استلمنا نحن / ${state.settings?.company_name_ar||'أركان المكان للمقاولات'} سجل تجاري رقم / ${state.settings?.cr_number||'…'} من المكرم / ${form.party_name||'…'} مبلغًا وقدره / ${amountWords||'…'}، وذلك مقابل / ${form.description||'…'}.`:`${form.party_id_kind==='cr'?'استلمنا نحن':'استلمت أنا'} / ${form.party_name||'…'} ${ID_NUMBER_LABEL[form.party_id_kind]||'رقم إثبات'} / ${form.party_id_number||'…'} بمدينة / ${form.party_address||'…'} مبلغًا وقدره / ${amountWords||'…'}، وذلك مقابل / ${form.description||'…'}، وأقر باستلام المبلغ كاملًا.`}</Notice><div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:14}}><button type="button" className="btn ghost" onClick={()=>setShowEntry(false)}>إلغاء</button><button className="btn" disabled={busy||!state.accounts.length}>{busy?'جارٍ الإصدار…':'إصدار السند وتثبيت رقمه'}</button></div></form></EntrySurface>:null}
 
     {!state.accounts.length&&!showAccountEntry?<Notice tone="warning" actions={canCreateAccount?<button className="btn" onClick={()=>setShowAccountEntry(true)}>إنشاء حساب خزينة</button>:null}>لا يوجد حساب صندوق أو بنك نشط؛ لا يمكن إصدار سند قبل إنشاء الحساب.</Notice>:null}
 
