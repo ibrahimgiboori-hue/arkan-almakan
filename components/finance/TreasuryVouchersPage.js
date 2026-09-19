@@ -227,6 +227,8 @@ export default function TreasuryVouchersPage(){
     const approverName=voucher.approved_by_name_snapshot||actorMap.get(voucher.approved_by_employee_id)?.full_name_ar||'—';
     const approverTitle=voucher.approved_by_title_snapshot||actorMap.get(voucher.approved_by_employee_id)?.job_title||'';
     const stampUrl=settings.stamp_image_path?supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl:'';
+    const logoAssetPath=settings.watermark_image_path||settings.header_image_path||'';
+    const logoUrl=logoAssetPath?supabase.storage.from('brand').getPublicUrl(logoAssetPath).data.publicUrl:'';
     const stampSizeMm=Math.min(55,Math.max(15,Number(settings.stamp_size_mm||30)));
     const isReceipt=voucher.voucher_type==='receipt';
     const isEntity=voucher.party_id_kind==='cr';
@@ -334,6 +336,11 @@ export default function TreasuryVouchersPage(){
       html,body{margin:0;padding:0;background:#fff;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
       body{font-size:11.5px;width:210mm;height:297mm;display:flex;align-items:center;justify-content:center}
       .sheet{width:198mm;height:136mm;min-height:136mm;max-height:136mm;border:1.6px solid var(--brand);padding:4mm 6mm 3mm;position:relative;overflow:hidden;background:#fff;break-inside:avoid;page-break-inside:avoid}
+      .brand-banner{height:12mm;border:1px solid var(--brand);border-bottom:0;background:#fff;display:grid;grid-template-columns:18mm 1fr 18mm;align-items:center;padding:0 2.2mm;direction:ltr}
+      .brand-banner .brand-logo{width:10mm;height:10mm;object-fit:contain;justify-self:center}
+      .brand-banner .brand-center{text-align:center;direction:rtl;line-height:1.05}
+      .brand-banner .brand-ar{font-size:12px;font-weight:800;color:var(--brand-dark)}
+      .brand-banner .brand-en{font-size:7px;color:#666;margin-top:.5mm;letter-spacing:.02em}
       .legal-bar{height:8mm;border:1px solid var(--brand);background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2mm;font-size:7.5px;font-weight:700;white-space:nowrap;overflow:hidden}
       .top{display:grid;grid-template-columns:1.15fr 1.6fr 1.15fr;gap:0;align-items:stretch;direction:ltr}
       .meta,.amount-box,.voucher-box{border:1px solid var(--brand);height:27mm}
@@ -414,6 +421,11 @@ export default function TreasuryVouchersPage(){
       @media print{body{background:#fff}.sheet{box-shadow:none}}
     </style></head><body><div class="sheet">
       ${voucher.status==='void'?'<div class="void">ملغى</div>':''}
+      <div class="brand-banner">
+        ${logoUrl?`<img class="brand-logo" src="${esc(logoUrl)}" alt="شعار أركان المكان"/>`:'<span></span>'}
+        <div class="brand-center"><div class="brand-ar">${esc(company)}</div><div class="brand-en">${esc(companyEn)}</div></div>
+        ${logoUrl?`<img class="brand-logo" src="${esc(logoUrl)}" alt="شعار أركان المكان"/>`:'<span></span>'}
+      </div>
       <div class="legal-bar">العنوان: ${esc(latinDigits(settings.national_address||`${companyCity} – المملكة العربية السعودية`))} &nbsp; | &nbsp; س:ت: ${esc(latinDigits(settings.cr_number||'—'))} &nbsp; | &nbsp; الرقم الضريبي: ${esc(latinDigits(settings.vat_number||'—'))}</div>
       <div class="top">
         <div class="meta">
