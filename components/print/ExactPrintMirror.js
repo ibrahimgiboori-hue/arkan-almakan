@@ -56,7 +56,7 @@ function cloneVisualTree(source){
   return clone;
 }
 
-export default function ExactPrintMirror({documentKey,pageCount}){
+export default function ExactPrintMirror({documentKey,pageCount,orientation='portrait'}){
   useEffect(()=>{
     let disposed=false;
     let timer=null;
@@ -126,12 +126,13 @@ export default function ExactPrintMirror({documentKey,pageCount}){
       window.removeEventListener('resize',schedule);
       mirror?.remove();
     };
-  },[documentKey,pageCount]);
+  },[documentKey,pageCount,orientation]);
 
   return <style jsx global>{`
     @media screen{
       body > .${MIRROR_CLASS}{display:none!important}
     }
+    @page{size:A4 ${orientation};margin:0}
     @media print{
       html,body{
         margin:0!important;
@@ -143,6 +144,8 @@ export default function ExactPrintMirror({documentKey,pageCount}){
       }
       body > .${MIRROR_CLASS}{
         display:block!important;
+        -webkit-print-color-adjust:exact!important;
+        print-color-adjust:exact!important;
         visibility:visible!important;
         position:static!important;
         inset:auto!important;
