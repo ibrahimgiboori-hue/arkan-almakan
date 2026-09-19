@@ -242,10 +242,12 @@ export default function TreasuryVouchersPage(){
     const amountRiyals=Math.floor(totalHalalas/100);
     const amountHalalas=String(totalHalalas%100).padStart(2,'0');
     const latinDigits=(value)=>String(value??'').replace(/[٠-٩]/g,(d)=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,(d)=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
+    const formatVoucherDate=(value)=>{const raw=latinDigits(value||'');const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?`${m[3]}/${m[2]}/${m[1]}`:raw;};
+    const effectivePaymentDate=voucher.payment_date||voucher.voucher_date||'';
     const paymentMeta=[
       voucher.bank_name?['البنك',voucher.bank_name]:null,
       voucher.payment_reference?['مرجع الدفع',voucher.payment_reference]:null,
-      voucher.payment_date?['تاريخ الدفع',voucher.payment_date]:null,
+      effectivePaymentDate?['تاريخ الدفع',formatVoucherDate(effectivePaymentDate)]:null,
     ].filter(Boolean);
     const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span></span>`;
     const flowFill=(value,extraClass='')=>`<span class="fill flow-fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span><span class="soft-fill" aria-hidden="true"></span></span>`;
@@ -305,8 +307,8 @@ export default function TreasuryVouchersPage(){
           ${showBank?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
           ${voucher.payment_reference?`<span class="settlement-segment settlement-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'settlement-fill')}</span>`:''}
         </div>
-        <div class="entitlement-flow-line ${voucher.payment_date?'has-date':'no-date'}">
-          ${voucher.payment_date?`<span class="entitlement-segment entitlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'entitlement-fill')}</span>`:''}
+        <div class="entitlement-flow-line ${effectivePaymentDate?'has-date':'no-date'}">
+          ${effectivePaymentDate?`<span class="entitlement-segment entitlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(formatVoucherDate(effectivePaymentDate),'entitlement-fill')}</span>`:''}
           <span class="entitlement-segment entitlement-reason">
             <span class="fixed">وذلك مقابل قيمة الاستحقاق /</span>${sealedFill(voucher.description,'entitlement-fill')}
           </span>
@@ -321,7 +323,7 @@ export default function TreasuryVouchersPage(){
         </span>
         ${showBank?`<span class="payment-segment payment-segment-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'payment-segment-fill')}</span>`:''}
         ${voucher.payment_reference?`<span class="payment-segment payment-segment-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'payment-segment-fill')}</span>`:''}
-        ${voucher.payment_date?`<span class="payment-segment payment-segment-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'payment-segment-fill')}</span>`:''}
+        ${effectivePaymentDate?`<span class="payment-segment payment-segment-date"><span class="fixed">تاريخ الدفع /</span>${fill(formatVoucherDate(effectivePaymentDate),'payment-segment-fill')}</span>`:''}
       </div>
     `:'';
 
