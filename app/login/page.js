@@ -1,14 +1,24 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [nextPath,setNextPath]=useState('/dashboard');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+
+  useEffect(()=>{
+    if(typeof window==='undefined')return;
+    const params=new URLSearchParams(window.location.search);
+    const preset=String(params.get('email')||'').trim();
+    const requested=String(params.get('next')||'/dashboard');
+    if(preset)setEmail(preset);
+    setNextPath(requested.startsWith('/')&&!requested.startsWith('//')?requested:'/dashboard');
+  },[]);
 
   async function signIn(e) {
     e.preventDefault();
@@ -19,7 +29,7 @@ export default function Login() {
       setBusy(false);
       return;
     }
-    router.replace('/dashboard');
+    router.replace(nextPath);
   }
 
   return (
