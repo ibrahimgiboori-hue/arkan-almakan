@@ -223,7 +223,7 @@ export default function TreasuryVouchersPage(){
         </div>
         ${sealLine()}
         <div class="sentence">
-          <span class="fixed">وذلك مقابل /</span>${sealedFill(voucher.description,'grow-fill')}
+          <span class="fixed">وذلك عن قيمة الاستحقاق الموضح في البيان أدناه /</span>${sealedFill(voucher.description,'grow-fill')}
         </div>
         ${sealLine()}
       `
@@ -238,7 +238,7 @@ export default function TreasuryVouchersPage(){
         </div>
         ${sealLine()}
         <div class="sentence ack-line">
-          <span class="fixed">وذلك مقابل /</span>${sealedFill(voucher.description,'grow-fill')}
+          <span class="fixed">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه /</span>${sealedFill(voucher.description,'grow-fill')}
           <span class="fixed ack">، وأقر باستلام المبلغ كاملًا.</span>
         </div>
         ${sealLine()}
@@ -258,21 +258,23 @@ export default function TreasuryVouchersPage(){
       html,body{margin:0;padding:0;background:#fff;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
       body{font-size:11.5px}
       .sheet{width:198mm;min-height:136mm;border:1.6px solid var(--brand);padding:5mm 6mm 4mm;position:relative;overflow:hidden;background:#fff}
-      .top{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:4mm;align-items:stretch}
-      .meta,.amount-box,.brand-box{border:1px solid var(--brand)}
-      .brand-box{background:var(--brand);color:#fff;text-align:center;padding:3mm 2mm;display:flex;flex-direction:column;justify-content:center}
-      .brand-box .company{font-size:17px;font-weight:700;line-height:1.2}.brand-box .en{font-size:9px;margin-top:1mm;opacity:.92}
-      .meta{padding:2.6mm 3mm;display:grid;grid-template-columns:auto 1fr;gap:1.2mm 2mm;align-content:center}
-      .meta b{color:var(--brand-dark)}.meta .ref{direction:ltr;text-align:left;font-weight:700}
+      .company-card{border:1px solid var(--brand);background:#fff;text-align:center;padding:2.4mm 3mm;margin-bottom:3mm}
+      .company-card .company{font-size:15px;font-weight:800;color:var(--brand-dark);line-height:1.15}
+      .company-card .en{font-size:8.5px;margin-top:.7mm;color:#555}
+      .company-card .legal-meta{font-size:8.5px;margin-top:1mm;color:#555}
+      .top{display:grid;grid-template-columns:1fr 1.05fr 1fr;gap:4mm;align-items:stretch}
+      .meta,.amount-box,.voucher-box{border:1px solid var(--brand)}
+      .voucher-box{background:var(--brand);color:#fff;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5mm}
+      .voucher-box .ar{font-size:18px;font-weight:800;line-height:1.1}
+      .voucher-box .en{font-size:8.5px;letter-spacing:.06em;margin-top:1mm;opacity:.92}
+      .meta{padding:2.3mm 3mm;display:grid;grid-template-columns:max-content max-content;column-gap:1.4mm;row-gap:1.1mm;align-content:center;justify-content:start;direction:rtl}
+      .meta b{color:var(--brand-dark);white-space:nowrap}.meta span{white-space:nowrap}.meta .ref{direction:ltr;text-align:right;font-weight:700}
       .amount-box{display:grid;grid-template-rows:auto 1fr}
       .amount-box .label{background:var(--brand);color:#fff;text-align:center;font-weight:700;padding:1.5mm}
       .amount-parts{display:grid;grid-template-columns:2fr 1fr;min-height:15mm}
       .amount-part{display:grid;grid-template-rows:auto 1fr;text-align:center;border-left:1px solid var(--line)}
       .amount-part:last-child{border-left:0}.amount-part b{font-size:9.5px;color:var(--brand-dark);padding:1mm 0;border-bottom:1px solid #E0D6D6}.amount-part span{font-size:18px;font-weight:800;display:grid;place-items:center;direction:ltr;font-variant-numeric:tabular-nums}
-      .title{text-align:center;margin:3mm 0 2.6mm}
-      .title .ar{display:inline-block;background:var(--brand);color:#fff;font-size:18px;font-weight:700;padding:1.5mm 11mm}
-      .title .en{font-size:9px;letter-spacing:.06em;margin-top:.8mm;color:#555}
-      .body{border-top:1px solid var(--brand);padding-top:2.5mm}
+      .body{border-top:1px solid var(--brand);padding-top:2.5mm;margin-top:3mm}
       .sentence,.payment-line{display:flex;align-items:flex-end;gap:1.4mm;min-height:7.2mm;white-space:nowrap}
       .fixed{font-weight:700;flex:0 0 auto}
       .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.2mm;border-bottom:1px dotted #555;height:6.2mm;overflow:hidden;white-space:nowrap}
@@ -293,17 +295,21 @@ export default function TreasuryVouchersPage(){
       @media print{body{background:#fff}.sheet{box-shadow:none}}
     </style></head><body><div class="sheet">
       ${voucher.status==='void'?'<div class="void">ملغى</div>':''}
+      <div class="company-card">
+        <div class="company">${esc(company)}</div>
+        <div class="en">${esc(companyEn)}</div>
+        <div class="legal-meta">س.ت: ${esc(settings.cr_number||'—')} | الرقم الضريبي: ${esc(settings.vat_number||'—')}</div>
+      </div>
       <div class="top">
+        <div class="amount-box"><div class="label">المبلغ رقمًا</div><div class="amount-parts"><div class="amount-part"><b>ريال</b><span>${esc(amountRiyals.toLocaleString('ar-SA'))}</span></div><div class="amount-part"><b>هللة</b><span>${esc(amountHalalas)}</span></div></div></div>
+        <div class="voucher-box"><div class="ar">${esc(TYPE_LABEL[voucher.voucher_type])}</div><div class="en">${esc(englishTitle)}</div></div>
         <div class="meta">
           <b>رقم الدفتر</b><span>${esc(voucher.book_no)}</span>
           <b>رقم السند</b><span>${esc(pageNo(voucher.page_no))}</span>
           <b>التاريخ</b><span>${esc(voucher.voucher_date)}</span>
           <b>المرجع</b><span class="ref">${esc(voucher.voucher_no)}</span>
         </div>
-        <div class="brand-box"><div class="company">${esc(company)}</div><div class="en">${esc(companyEn)}</div></div>
-        <div class="amount-box"><div class="label">المبلغ رقمًا</div><div class="amount-parts"><div class="amount-part"><b>ريال</b><span>${esc(amountRiyals.toLocaleString('ar-SA'))}</span></div><div class="amount-part"><b>هللة</b><span>${esc(amountHalalas)}</span></div></div></div>
       </div>
-      <div class="title"><div class="ar">${esc(TYPE_LABEL[voucher.voucher_type])}</div><div class="en">${esc(englishTitle)}</div></div>
       <div class="body">
         ${bodyHtml}
         ${paymentDetails}
