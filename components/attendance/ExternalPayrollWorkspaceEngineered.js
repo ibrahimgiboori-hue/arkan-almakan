@@ -421,6 +421,19 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       const protectionPassword=`ArkanPayroll-${String(batch.id||'sheet').replace(/[^a-zA-Z0-9]/g,'').slice(-10)}`;
 
+      // حماية معتدلة: العناوين والتسميات قابلة للتعديل، والصفوف يمكن حذفها/إضافتها.
+      // الذي يبقى محميًا هو بنية الأعمدة والمعادلات ونوع البيانات في الخلايا المقيدة.
+      for(const rowNo of [1,2,3,5,7]){
+        for(let colNo=1;colNo<=23;colNo+=1){
+          ws.getCell(rowNo,colNo).protection={locked:false,hidden:false};
+        }
+      }
+      for(let rowNo=1;rowNo<=7;rowNo+=1){
+        for(let colNo=1;colNo<=3;colNo+=1){
+          cfg.getCell(rowNo,colNo).protection={locked:false,hidden:false};
+        }
+      }
+
       if(lastDataRow>=8){
         for(let r=8;r<=lastDataRow;r++){
           // لا يفتح للمستخدم إلا خلايا الإدخال الصفراء المحددة؛ بقية الملف مقفول.
@@ -473,8 +486,8 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       const filename=`مسير_الرواتب_التفاعلي_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
 
-      // الخلايا المقفلة/المفتوحة والتحقق من نوع البيانات تُكتب داخل الملف هنا،
-      // أما قفل إضافة/حذف الصفوف والأعمدة والصفحات فيُثبت على الخادم داخل OOXML.
+      // التحقق من نوع البيانات والمعادلات المحمية يُكتب داخل الملف هنا؛
+      // الخادم يمنع التغييرات الهيكلية الجائرة على الأعمدة فقط، ويترك الصفوف والعناوين قابلة للتعديل.
       const rawBuffer=await wb.xlsx.writeBuffer();
       const protectResponse=await fetch('/api/payroll/protect-xlsx',{
         method:'POST',
@@ -484,7 +497,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       if(!protectResponse.ok)throw new Error('تعذر تثبيت حماية بنية ملف Excel.');
       const protectedBuffer=await protectResponse.arrayBuffer();
       downloadBuffer(protectedBuffer,filename);
-      setMsg('تم تنزيل مسير Excel محمي البنية: التعديل مسموح فقط في الخلايا الصفراء وبنوع البيانات الصحيح.');
+      setMsg('تم تنزيل مسير Excel بحماية معتدلة: يمكن تعديل العناوين والصفوف، مع منع العبث بالأعمدة والمعادلات ونوع البيانات.');
     }catch(error){
       setErr(error.message||String(error));
     }finally{
