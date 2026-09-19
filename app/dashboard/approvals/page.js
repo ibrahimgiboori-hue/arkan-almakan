@@ -82,15 +82,48 @@ export default function ApprovalsPage(){
   const me=useDashboardSession();
   const approverOnly=Boolean(me?.access_profile==='approval_only');
   const detailRef=useRef(null);
-  const [rows,setRows]=useState(null),[selectedId,setSelectedId]=useState(''),[detail,setDetail]=useState(null),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const [rows,setRows]=useState(null),[archiveRows,setArchiveRows]=useState(null),[view,setView]=useState('pending'),[selectedId,setSelectedId]=useState(''),[detail,setDetail]=useState(null),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const [archiveQuery,setArchiveQuery]=useState(''),[archiveType,setArchiveType]=useState(''),[archiveAction,setArchiveAction]=useState(''),[archiveFrom,setArchiveFrom]=useState(''),[archiveTo,setArchiveTo]=useState('');
   const [routeDestinations,setRouteDestinations]=useState([]),[routeDestination,setRouteDestination]=useState(''),[routeUsers,setRouteUsers]=useState([]),[nextUser,setNextUser]=useState(''),[nextReason,setNextReason]=useState('');
 
   const load=useCallback(async()=>{
-    setError('');const{data,error:rpcError}=await supabase.rpc('fn_my_approval_inbox');
-    if(rpcError){setRows([]);setError(rpcError.message||'تعذر تحميل الاعتمادات.');return;}
-    const list=data||[];setRows(list);setSelectedId(current=>current&&list.some(row=>row.workflow_id===current)?current:(list[0]?.workflow_id||''));
+    setError('');
+    const [inboxQ,archiveQ]=await Promise.all([
+      supabase.rpc('fn_my_approval_inbox'),
+      supabase.rpc('fn_my_approval_archive'),
+    ]);
+    if(inboxQ.error){setRows([]);setError(inboxQ.error.message||'تعذر تحميل الاعتمادات.');}
+    else setRows(inboxQ.data||[]);
+    if(archiveQ.error){setArchiveRows([]);setError(current=>current||archiveQ.error.message||'تعذر تحميل أرشيف الاعتمادات.');}
+    else setArchiveRows(archiveQ.data||[]);
   },[]);
   useEffect(()=>{load();},[load]);
+
+  const archiveTypes=useMemo(()=>{
+    const map=new Map();
+    for(const row of archiveRows||[]){
+      if(row.transaction_type&&!map.has(row.transaction_type))map.set(row.transaction_type,row.label_ar||row.transaction_type);
+    }
+    return [...map.entries()];
+  },[archiveRows]);
+
+  const filteredArchive=useMemo(()=>{
+    const q=archiveQuery.trim().toLowerCase();
+    return (archiveRows||[]).filter(row=>{
+      if(archiveType&&row.transaction_type!==archiveType)return false;
+      if(archiveAction&&row.action_status!==archiveAction)return false;
+      if(q){
+        const hay=[row.source_label,row.workflow_no,row.label_ar,row.decision_comment,row.real_actor_name_snapshot].filter(Boolean).join(' ').toLowerCase();
+        if(!hay.includes(q))return false;
+      }
+      const actedDate=row.acted_at?new Date(row.acted_at).toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}):'';
+      if(archiveFrom&&actedDate<archiveFrom)return false;
+      if(archiveTo&&actedDate>archiveTo)return false;
+      return true;
+    });
+  },[archiveRows,archiveQuery,archiveType,archiveAction,archiveFrom,archiveTo]);
+
+  const visibleRows=view==='archive'?filteredArchive:(rows||[]);
 
   useEffect(()=>{
     if(!selectedId){setDetail(null);return;}
@@ -108,17 +141,20 @@ export default function ApprovalsPage(){
     return()=>window.cancelAnimationFrame(frame);
   },[selectedId]);
 
-  const selected=useMemo(()=>rows?.find(row=>row.workflow_id===selectedId)||null,[rows,selectedId]);
+  useEffect(()=>{setSelectedId(current=>current&&visibleRows.some(row=>row.workflow_id===current)?current:(visibleRows[0]?.workflow_id||''));},[view,visibleRows]);
+
+  const selected=useMemo(()=>visibleRows.find(row=>row.workflow_id===selectedId)||null,[visibleRows,selectedId]);
+  const selectedArchived=view==='archive';
   const isClaim=selected?.transaction_type==='progress_claim';
 
   useEffect(()=>{
-    if(isClaim||!detail?.can_route){setRouteDestinations([]);return;}
+    if(selectedArchived||isClaim||!detail?.can_route){setRouteDestinations([]);return;}
     let alive=true;
     supabase.rpc('fn_approval_route_destinations').then(({data,error:rpcError})=>{
       if(!alive)return;if(rpcError)setError(rpcError.message||'تعذر تحميل جهات التعميد.');else setRouteDestinations(data||[]);
     });
     return()=>{alive=false;};
-  },[detail?.can_route,selectedId,isClaim]);
+  },[detail?.can_route,selectedId,isClaim,selectedArchived]);
 
   useEffect(()=>{
     if(!routeDestination){setRouteUsers([]);setNextUser('');return;}
@@ -130,7 +166,7 @@ export default function ApprovalsPage(){
   },[routeDestination]);
 
   async function decide(decision,{route=false}={}){
-    if(!selectedId||isClaim)return;const clean=note.trim();
+    if(!selectedId||selectedArchived||isClaim)return;const clean=note.trim();
     if(['return','reject'].includes(decision)&&!clean){setError('اكتب سبب الإرجاع أو الرفض قبل تنفيذ القرار.');return;}
     if(route&&(!routeDestination||!nextUser)){setError('اختر بوابة التعميد والشخص الذي ستُحال إليه المعاملة.');return;}
     if(route&&!nextReason.trim()){setError('اكتب سبب الإحالة للتعميد.');return;}
@@ -147,7 +183,7 @@ export default function ApprovalsPage(){
     setBusy('');
   }
 
-  if(rows===null)return <ConstitutionPage><EmptyState title="جارٍ تحميل الاعتمادات" description="يتم جمع المعاملات التي تحتاج قرارك الآن."/></ConstitutionPage>;
+  if(rows===null||archiveRows===null)return <ConstitutionPage><EmptyState title="جارٍ تحميل مكتب الاعتمادات" description="يتم جمع المعاملات التي تحتاج قرارك وأرشيف إجراءاتك."/></ConstitutionPage>;
   const workflow=detail?.workflow||null,steps=detail?.steps||[],events=detail?.events||[],decisions=detail?.decisions||[];
   const stageLabel=detail?.current_stage_label||'القرار';
   const currentPrintHref=workflow?.transaction_type==='cash_voucher'&&workflow?.source_id?`/print/treasury-voucher/${workflow.source_id}`:(workflow?.id?`/print/approval/${workflow.id}?mode=incoming`:'#');
