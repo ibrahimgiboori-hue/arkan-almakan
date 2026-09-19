@@ -19,7 +19,7 @@ function pageNo(value){return String(Number(value||0)).padStart(2,'0');}
 function Fill({children,className='',sealed=false}){
   return <span className={`tv-fill ${sealed?'tv-fill-sealed':''} ${className}`.trim()}>
     <span className="tv-value">{children||'—'}</span>
-    {sealed?<span className="tv-soft-fill" aria-hidden="true"/>:null}
+    <span className="tv-soft-fill" aria-hidden="true"/>
   </span>;
 }
 
@@ -49,10 +49,10 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <div className="tv-flow-row" data-print-resizable-block><span className="tv-fixed">مبلغًا وقدره /</span><Fill sealed className="tv-grow">{voucher.amount_words} فقط لا غير</Fill></div>
       <div className="tv-flow-row" data-print-resizable-block><span className="tv-fixed">وذلك عن قيمة الاستحقاق /</span><Fill sealed className="tv-grow">{voucher.description}</Fill></div>
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-receipt-payment" data-print-resizable-block>
-        <span className="tv-fixed">عبر /</span><Fill>{method}</Fill>
+        <span className="tv-fixed">عبر /</span><Fill className="tv-method">{method}</Fill>
         {showBank?<><span className="tv-fixed">البنك /</span><Fill>{voucher.bank_name}</Fill></>:null}
         {voucher.payment_reference?<><span className="tv-fixed">مرجع الدفع /</span><Fill className="tv-grow">{voucher.payment_reference}</Fill></>:null}
-        <span className="tv-fixed">تاريخ الدفع /</span><Fill>{formatDate(effectivePaymentDate)}</Fill>
+        <span className="tv-fixed">تاريخ الدفع /</span><Fill className="tv-date">{formatDate(effectivePaymentDate)}</Fill>
       </div>
     </>
   ):(
@@ -66,12 +66,12 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-settlement" data-print-resizable-block>
         <span className="tv-fixed">بمدينة /</span><Fill sealed>{voucher.party_address||''}</Fill>
         <span className="tv-fixed">مبلغًا وقدره /</span><Fill sealed className="tv-grow">{amountRiyals.toLocaleString('en-US')}.{amountHalalas} ريال سعودي ({voucher.amount_words} فقط لا غير)</Fill>
-        <span className="tv-fixed">عبر /</span><Fill>{method}</Fill>
+        <span className="tv-fixed">عبر /</span><Fill className="tv-method">{method}</Fill>
       </div>
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-reference" data-print-resizable-block>
         {voucher.payment_reference?<><span className="tv-fixed">مرجع الدفع /</span><Fill className="tv-grow">{voucher.payment_reference}</Fill></>:null}
         {showBank?<><span className="tv-fixed">البنك /</span><Fill>{voucher.bank_name}</Fill></>:null}
-        <span className="tv-fixed">تاريخ الدفع /</span><Fill>{formatDate(effectivePaymentDate)}</Fill>
+        <span className="tv-fixed">تاريخ الدفع /</span><Fill className="tv-date">{formatDate(effectivePaymentDate)}</Fill>
       </div>
       <div className="tv-flow-row" data-print-resizable-block>
         <span className="tv-fixed">وذلك مقابل قيمة الاستحقاق /</span><Fill sealed className="tv-grow">{voucher.description}</Fill>
