@@ -239,14 +239,14 @@ export default function TreasuryVouchersPage(){
     const totalHalalas=Math.round(Number(voucher.amount||0)*100);
     const amountRiyals=Math.floor(totalHalalas/100);
     const amountHalalas=String(totalHalalas%100).padStart(2,'0');
+    const latinDigits=(value)=>String(value??'').replace(/[٠-٩]/g,(d)=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,(d)=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)));
     const paymentMeta=[
       voucher.bank_name?['البنك',voucher.bank_name]:null,
       voucher.payment_reference?['مرجع الدفع',voucher.payment_reference]:null,
       voucher.payment_date?['تاريخ الدفع',voucher.payment_date]:null,
     ].filter(Boolean);
-    const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(value||'')}</span></span>`;
-    const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(value||'')}</span><span class="hashes" data-seal-fill="true"></span></span>`;
-    const sealLine=()=>`<div class="seal-line"><span class="hashes" data-seal-fill="true"></span></div>`;
+    const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span></span>`;
+    const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(latinDigits(value||''))}</span><span class="soft-fill" aria-hidden="true"></span></span>`;
     const popup=window.open('','_blank','width=1100,height=760');
     if(!popup){setMessage('اسمح بالنوافذ المنبثقة لطباعة السند.');return;}
     popup.opener=null;
@@ -265,12 +265,10 @@ export default function TreasuryVouchersPage(){
         <div class="sentence">
           <span class="fixed">مبلغًا وقدره /</span>${sealedFill(`${voucher.amount_words} فقط لا غير`,'grow-fill')}
         </div>
-        ${sealLine()}
         <div class="reason-heading">وذلك عن قيمة الاستحقاق الموضح في البيان أدناه:</div>
         <div class="sentence reason-line">
           <span class="fixed">بيان الاستحقاق /</span>${sealedFill(voucher.description,'grow-fill')}
         </div>
-        ${sealLine()}
       `
       : `
         <div class="sentence party-name-line">
@@ -278,18 +276,16 @@ export default function TreasuryVouchersPage(){
         </div>
         <div class="sentence identity-line">
           <span class="fixed">${esc(idNumberLabel)} /</span>${fill(voucher.party_id_number,'id-fill')}
-          <span class="fixed">بمدينة /</span>${fill(partyCity,'city-fill')}
           ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${fill(voucher.party_mobile,'mobile-fill')}`:''}
+          <span class="fixed">بمدينة /</span>${fill(partyCity,'city-fill')}
         </div>
         <div class="sentence">
           <span class="fixed">مبلغًا وقدره /</span>${sealedFill(`${voucher.amount_words} فقط لا غير`,'grow-fill')}
         </div>
-        ${sealLine()}
         <div class="reason-heading">وذلك مقابل قيمة الاستحقاق الموضح في البيان أدناه:</div>
         <div class="sentence reason-line">
           <span class="fixed">بيان الاستحقاق /</span>${sealedFill(voucher.description,'grow-fill')}
         </div>
-        ${sealLine()}
         <div class="legal-ack">وأقر أنا المستفيد باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.</div>
       `;
 
@@ -301,37 +297,44 @@ export default function TreasuryVouchersPage(){
     `;
 
     popup.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(TYPE_LABEL[voucher.voucher_type])} ${esc(voucher.voucher_no)}</title><style>
-      @page{size:A5 landscape;margin:6mm}
+      @page{size:A4 portrait;margin:0}
       *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       :root{--brand:#8B3332;--brand-dark:#7C2B28;--brand-soft:#F6EEEE;--line:#9C8E8E;--ink:#242426}
       html,body{margin:0;padding:0;background:#fff;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
-      body{font-size:11.5px}
+      body{font-size:11.5px;width:210mm;height:297mm;display:flex;align-items:center;justify-content:center}
       .sheet{width:198mm;height:136mm;min-height:136mm;max-height:136mm;border:1.6px solid var(--brand);padding:4mm 6mm 3mm;position:relative;overflow:hidden;background:#fff;break-inside:avoid;page-break-inside:avoid}
-      .company-card{border:1px solid var(--brand);background:#fff;text-align:center;padding:1.6mm 3mm;margin-bottom:2mm}
-      .company-card .company{font-size:14px;font-weight:800;color:var(--brand-dark);line-height:1.08}
-      .company-card .en{font-size:8px;margin-top:.45mm;color:#555}
-      .company-card .legal-meta{font-size:8px;margin-top:.55mm;color:#555}
-      .top{display:grid;grid-template-columns:1fr 1.05fr 1fr;gap:3mm;align-items:stretch}
-      .meta,.amount-box,.voucher-box{border:1px solid var(--brand)}
-      .voucher-box{background:var(--brand);color:#fff;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.8mm}
-      .voucher-box .ar{font-size:17px;font-weight:800;line-height:1.05}
-      .voucher-box .en{font-size:8px;letter-spacing:.06em;margin-top:.6mm;opacity:.92}
-      .meta{padding:1.6mm 2.4mm;display:grid;grid-template-columns:max-content max-content;column-gap:1.2mm;row-gap:.7mm;align-content:center;justify-content:start;direction:rtl}
-      .meta b{color:var(--brand-dark);white-space:nowrap}.meta span{white-space:nowrap}.meta .ref{direction:ltr;text-align:right;font-weight:700}
-      .amount-box{display:grid;grid-template-rows:auto 1fr}
-      .amount-box .label{background:var(--brand);color:#fff;text-align:center;font-weight:700;padding:1.1mm}
-      .amount-parts{display:grid;grid-template-columns:2fr 1fr;min-height:13mm}
-      .amount-part{display:grid;grid-template-rows:auto 1fr;text-align:center;border-left:1px solid var(--line)}
-      .amount-part:last-child{border-left:0}.amount-part b{font-size:9px;color:var(--brand-dark);padding:.65mm 0;border-bottom:1px solid #E0D6D6}.amount-part span{font-size:17px;font-weight:800;display:grid;place-items:center;direction:ltr;font-variant-numeric:tabular-nums}
+      .legal-bar{height:8mm;border:1px solid var(--brand);background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2mm;font-size:7.5px;font-weight:700;white-space:nowrap;overflow:hidden}
+      .top{display:grid;grid-template-columns:1.15fr 1.6fr 1.15fr;gap:0;align-items:stretch;direction:ltr}
+      .meta,.amount-box,.voucher-box{border:1px solid var(--brand);height:27mm}
+      .meta{display:grid;grid-template-rows:repeat(4,1fr);direction:ltr}
+      .meta-row{display:grid;grid-template-columns:40% 60%;min-height:0}
+      .meta-label{background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8.7px;border-bottom:1px solid var(--brand);direction:rtl}
+      .meta-value{background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:8.7px;border-bottom:1px solid var(--brand);direction:ltr;font-variant-numeric:tabular-nums}
+      .meta-row:last-child .meta-label,.meta-row:last-child .meta-value{border-bottom:0}
+      .voucher-box{display:grid;grid-template-rows:1fr 2fr 1fr;background:#fff}
+      .voucher-blank{background:#fff}
+      .voucher-title{background:var(--brand);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+      .voucher-title .ar{font-size:14px;font-weight:800;line-height:1.05}
+      .voucher-title .en{font-size:7.1px;letter-spacing:.035em;margin-top:.5mm}
+      .amount-box{display:grid;grid-template-columns:66% 34%;grid-template-rows:repeat(4,1fr);direction:ltr}
+      .amount-white,.amount-red{display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--brand);min-height:0}
+      .amount-white{background:#fff;color:#111;font-weight:800;direction:rtl}
+      .amount-red{background:var(--brand);color:#fff;font-weight:700;direction:rtl}
+      .amount-title{grid-column:1;grid-row:1;font-size:8.7px}
+      .amount-number{grid-column:1;grid-row:2;font-size:9.4px;direction:ltr;font-variant-numeric:tabular-nums}
+      .amount-riyal{grid-column:2;grid-row:1/3;font-size:9px}
+      .amount-halala-value{grid-column:1;grid-row:3;font-size:9.4px;direction:ltr;font-variant-numeric:tabular-nums}
+      .amount-halala-label{grid-column:2;grid-row:3;font-size:8.7px}
+      .amount-words{grid-column:1;grid-row:4;font-size:7.6px;padding:0 1mm;text-align:center}
+      .amount-words-label{grid-column:2;grid-row:4;font-size:8.7px}
+      .amount-box>*:nth-last-child(-n+2){border-bottom:0}
       .body{border-top:1px solid var(--brand);padding-top:1.7mm;margin-top:2mm}
       .sentence,.payment-line{display:flex;align-items:flex-end;gap:1.2mm;min-height:6.1mm;white-space:nowrap}
       .fixed{font-weight:700;flex:0 0 auto}
       .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.1mm;border-bottom:1px dotted #555;height:5.3mm;overflow:hidden;white-space:nowrap}
       .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
-      .fill .hashes{font-weight:700;letter-spacing:.03em;flex:1 1 auto;overflow:hidden;white-space:nowrap;direction:ltr;text-align:left;color:#555;min-width:0}
+      .soft-fill{flex:1 1 auto;align-self:flex-end;height:2.8mm;min-width:0;background:rgba(139,51,50,.045);border-radius:.5mm}
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
-      .seal-line{height:4.6mm;border-bottom:1px dotted #555;display:flex;align-items:flex-end;overflow:hidden;margin-top:.1mm}
-      .seal-line span{font-weight:700;white-space:nowrap;color:#555;direction:ltr;width:100%;text-align:left;overflow:hidden}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
@@ -341,23 +344,31 @@ export default function TreasuryVouchersPage(){
       .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:1.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.78;z-index:1;pointer-events:none}
       .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
-      @media screen{body{display:grid;place-items:start center;padding:12px;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
+      @media screen{body{min-width:210mm;min-height:297mm;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
       @media print{body{background:#fff}.sheet{box-shadow:none}}
     </style></head><body><div class="sheet">
       ${voucher.status==='void'?'<div class="void">ملغى</div>':''}
-      <div class="company-card">
-        <div class="company">${esc(company)}</div>
-        <div class="en">${esc(companyEn)}</div>
-        <div class="legal-meta">س.ت: ${esc(settings.cr_number||'—')} | الرقم الضريبي: ${esc(settings.vat_number||'—')}</div>
-      </div>
+      <div class="legal-bar">العنوان: ${esc(latinDigits(settings.national_address||`${companyCity} – المملكة العربية السعودية`))} &nbsp; | &nbsp; س:ت: ${esc(latinDigits(settings.cr_number||'—'))} &nbsp; | &nbsp; الرقم الضريبي: ${esc(latinDigits(settings.vat_number||'—'))}</div>
       <div class="top">
-        <div class="amount-box"><div class="label">المبلغ رقمًا</div><div class="amount-parts"><div class="amount-part"><b>ريال</b><span>${esc(amountRiyals.toLocaleString('ar-SA'))}</span></div><div class="amount-part"><b>هللة</b><span>${esc(amountHalalas)}</span></div></div></div>
-        <div class="voucher-box"><div class="ar">${esc(TYPE_LABEL[voucher.voucher_type])}</div><div class="en">${esc(englishTitle)}</div></div>
         <div class="meta">
-          <b>رقم الدفتر</b><span>${esc(voucher.book_no)}</span>
-          <b>رقم السند</b><span>${esc(pageNo(voucher.page_no))}</span>
-          <b>التاريخ</b><span>${esc(voucher.voucher_date)}</span>
-          <b>المرجع</b><span class="ref">${esc(voucher.voucher_no)}</span>
+          <div class="meta-row"><div class="meta-label">رقم الدفتر</div><div class="meta-value">${esc(latinDigits(voucher.book_no))}</div></div>
+          <div class="meta-row"><div class="meta-label">رقم السند</div><div class="meta-value">${esc(latinDigits(pageNo(voucher.page_no)))}</div></div>
+          <div class="meta-row"><div class="meta-label">التاريخ</div><div class="meta-value">${esc(latinDigits(voucher.voucher_date))}</div></div>
+          <div class="meta-row"><div class="meta-label">المرجع</div><div class="meta-value">${esc(latinDigits(voucher.voucher_no))}</div></div>
+        </div>
+        <div class="voucher-box">
+          <div class="voucher-blank"></div>
+          <div class="voucher-title"><div class="ar">${esc(TYPE_LABEL[voucher.voucher_type])}</div><div class="en">${esc(englishTitle)}</div></div>
+          <div class="voucher-blank"></div>
+        </div>
+        <div class="amount-box">
+          <div class="amount-white amount-title">المبلغ</div>
+          <div class="amount-white amount-number">${esc(amountRiyals.toLocaleString('en-US'))}</div>
+          <div class="amount-red amount-riyal">ريال</div>
+          <div class="amount-white amount-halala-value">${esc(amountHalalas)}</div>
+          <div class="amount-red amount-halala-label">هلله</div>
+          <div class="amount-white amount-words">${esc(voucher.amount_words.replace(/\s+فقط\s+لا\s+غير\s*$/,'').trim())}</div>
+          <div class="amount-red amount-words-label">لفظا</div>
         </div>
       </div>
       <div class="body">
@@ -370,33 +381,8 @@ export default function TreasuryVouchersPage(){
         <div class="sign"><strong>المحاسب</strong><span class="person-name">................................</span></div>
         <div class="sign"><strong>اعتماد الإدارة</strong><span class="person-name">${esc(approverName)}</span><span class="person-title">${esc(approverTitle)}</span>${stampUrl&&settings.show_stamp_by_default!==false?`<img class="approval-stamp" src="${esc(stampUrl)}" alt="ختم الشركة"/>`:''}</div>
       </div>
-      <div class="foot"><span>الأصل للطرف — نسخة للحسابات — نسخة بالدفتر</span><span>حالة السند: ${voucher.status==='void'?'ملغى':'ساري'}</span></div>
+      <div class="foot"><span>هذا السند ملزم في حدود مبلغه وبيانه وتوقيعاته.</span></div>
     </div><script>
-      function fitSealHashes(el){
-        el.textContent='';
-        const available=el.clientWidth;
-        if(!available)return;
-        const style=getComputedStyle(el);
-        const probe=document.createElement('span');
-        probe.style.position='absolute';
-        probe.style.visibility='hidden';
-        probe.style.whiteSpace='nowrap';
-        probe.style.fontFamily=style.fontFamily;
-        probe.style.fontSize=style.fontSize;
-        probe.style.fontWeight=style.fontWeight;
-        probe.style.letterSpacing=style.letterSpacing;
-        probe.textContent='###';
-        document.body.appendChild(probe);
-        const tokenWidth=probe.getBoundingClientRect().width;
-        probe.textContent='### ###';
-        const pairWidth=probe.getBoundingClientRect().width;
-        probe.remove();
-        const gapWidth=Math.max(0,pairWidth-(tokenWidth*2));
-        const comfort=4;
-        if(available < tokenWidth + comfort)return;
-        const count=Math.max(0,Math.floor((available + gapWidth - comfort)/(tokenWidth + gapWidth)));
-        el.textContent=count>0?Array(count).fill('###').join(' '):'';
-      }
       function ensureSinglePage(){
         const sheet=document.querySelector('.sheet');
         if(!sheet)return;
@@ -409,11 +395,7 @@ export default function TreasuryVouchersPage(){
       }
       async function finalizeVoucherPrint(){
         if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
-        requestAnimationFrame(()=>{
-          document.querySelectorAll('[data-seal-fill="true"]').forEach(fitSealHashes);
-          ensureSinglePage();
-          requestAnimationFrame(()=>window.print());
-        });
+        requestAnimationFrame(()=>{ensureSinglePage();requestAnimationFrame(()=>window.print());});
       }
       window.onload=finalizeVoucherPrint;
     </script></body></html>`);
