@@ -424,7 +424,8 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ws.pageSetup.printArea=`A1:W${rowIndex}`;
       ws.headerFooter.oddFooter='&Cصفحة &P من &N';
 
-      const protectionPassword=`ArkanPayroll-${String(batch.id||'sheet').replace(/[^a-zA-Z0-9]/g,'').slice(-10)}`;
+      // كلمة مرور مالك الملف ثابتة حتى يستطيع صاحب الخدمة فك الحماية وإعادتها عند الحاجة.
+      const protectionPassword='arkan2026';
 
       // حماية معتدلة: العناوين والتسميات قابلة للتعديل، والصفوف يمكن حذفها/إضافتها.
       // الذي يبقى محميًا هو بنية الأعمدة والمعادلات ونوع البيانات في الخلايا المقيدة.
@@ -502,18 +503,47 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       const filename=`مسير_الرواتب_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
 
-      // التحقق من نوع البيانات والمعادلات المحمية يُكتب داخل الملف هنا؛
-      // الخادم يمنع التغييرات الهيكلية الجائرة على الأعمدة فقط، ويترك الصفوف والعناوين قابلة للتعديل.
-      const rawBuffer=await wb.xlsx.writeBuffer();
-      const protectResponse=await fetch('/api/payroll/protect-xlsx',{
-        method:'POST',
-        headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},
-        body:rawBuffer,
+      // ExcelJS يكتب حماية Excel الأصلية بكلمة مرور فعلية قابلة لفك الحماية من Review > Unprotect Sheet.
+      await ws.protect(protectionPassword,{
+        selectLockedCells:true,
+        selectUnlockedCells:true,
+        formatCells:true,
+        formatColumns:true,
+        formatRows:true,
+        insertColumns:false,
+        insertRows:true,
+        insertHyperlinks:true,
+        deleteColumns:false,
+        deleteRows:true,
+        sort:true,
+        autoFilter:true,
+        pivotTables:false,
+        objects:false,
+        scenarios:false,
+        spinCount:10000,
       });
-      if(!protectResponse.ok)throw new Error('تعذر تثبيت حماية بنية ملف Excel.');
-      const protectedBuffer=await protectResponse.arrayBuffer();
+      await cfg.protect(protectionPassword,{
+        selectLockedCells:true,
+        selectUnlockedCells:true,
+        formatCells:true,
+        formatColumns:true,
+        formatRows:true,
+        insertColumns:false,
+        insertRows:true,
+        insertHyperlinks:true,
+        deleteColumns:false,
+        deleteRows:true,
+        sort:true,
+        autoFilter:true,
+        pivotTables:false,
+        objects:false,
+        scenarios:false,
+        spinCount:10000,
+      });
+
+      const protectedBuffer=await wb.xlsx.writeBuffer();
       downloadBuffer(protectedBuffer,filename);
-      setMsg('تم تنزيل مسير Excel قابل للتحديث الشهري: يمكن تعديل العناوين وبيانات الموظفين وإضافة/حذف الصفوف، مع حماية الأعمدة والمعادلات ونوع البيانات.');
+      setMsg('تم تنزيل مسير Excel بحماية قابلة للفك وإعادة التفعيل. كلمة مرور المالك: arkan2026');
     }catch(error){
       setErr(error.message||String(error));
     }finally{
