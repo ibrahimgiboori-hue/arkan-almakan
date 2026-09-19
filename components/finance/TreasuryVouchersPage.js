@@ -305,7 +305,7 @@ export default function TreasuryVouchersPage(){
           ${showBank?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
           ${voucher.payment_reference?`<span class="settlement-segment settlement-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'settlement-fill')}</span>`:''}
         </div>
-        <div class="entitlement-flow-line">
+        <div class="entitlement-flow-line ${voucher.payment_date?'has-date':'no-date'}">
           ${voucher.payment_date?`<span class="entitlement-segment entitlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'entitlement-fill')}</span>`:''}
           <span class="entitlement-segment entitlement-reason">
             <span class="fixed">وذلك مقابل قيمة الاستحقاق /</span>${sealedFill(voucher.description,'entitlement-fill')}
@@ -379,13 +379,16 @@ export default function TreasuryVouchersPage(){
       .settlement-amount .fill .value{font-size:7.35px}
       .settlement-reference .fill .value{font-size:7.5px}
       .settlement-bank .value,.settlement-method .value{font-size:7.5px}
-      .entitlement-flow-line{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,5.65fr);align-items:end;gap:.36mm;min-height:5.9mm;margin-top:.2mm;white-space:nowrap;direction:rtl}
+      .entitlement-flow-line{display:grid;align-items:end;gap:.36mm;min-height:5.9mm;margin-top:.2mm;white-space:nowrap;direction:rtl}
+      .entitlement-flow-line.has-date{grid-template-columns:minmax(0,1.35fr) minmax(0,5.65fr)}
+      .entitlement-flow-line.no-date{grid-template-columns:minmax(0,1fr)}
       .entitlement-segment{display:flex;align-items:flex-end;gap:.2mm;min-width:0;overflow:hidden}
       .entitlement-segment .fixed{font-size:7.5px;white-space:nowrap;flex:0 0 auto;font-weight:700;color:var(--ink)}
       .entitlement-segment .fill{min-width:0;height:4.9mm;gap:.16mm;overflow:hidden}
       .entitlement-segment .fill .value{font-size:7.5px;max-width:100%;overflow:visible;text-overflow:clip;white-space:nowrap;word-spacing:.22em}
       .entitlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal}
       .entitlement-reason .fill{flex:1 1 0}
+      .entitlement-flow-line.no-date .entitlement-reason{grid-column:1/-1}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
