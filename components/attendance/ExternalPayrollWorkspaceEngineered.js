@@ -412,6 +412,11 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ws.getCell('C4').value='إجمالي صافي المستحق';
       ws.getCell('D4').value={formula:`SUM(U8:U${lastDataRow})`,result:Number(totals.final||0)};
       ws.getCell('D4').numFmt='#,##0.00 "ر.س"';
+      ws.mergeCells('E4:W4');
+      ws.getCell('E4').value='للتحديث الشهري: يمكنك تعديل العنوان والبيانات وحذف الموظفين. لإضافة موظف جديد انسخ صف موظف كاملًا ثم عدّل بياناته حتى تنتقل المعادلات والتحقق معه.';
+      ws.getCell('E4').alignment={horizontal:'right',vertical:'middle',wrapText:true};
+      ws.getCell('E4').font={italic:true,size:9,color:{argb:'FF6A625E'}};
+      ws.getCell('E4').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF8F6F4'}};
       ['A4','C4'].forEach((cell)=>{ws.getCell(cell).font={bold:true,color:{argb:'FFFFFFFF'}};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};});
       ['B4','D4'].forEach((cell)=>{ws.getCell(cell).font={bold:true};ws.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};ws.getCell(cell).alignment={horizontal:'center'};});
 
@@ -423,7 +428,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       // حماية معتدلة: العناوين والتسميات قابلة للتعديل، والصفوف يمكن حذفها/إضافتها.
       // الذي يبقى محميًا هو بنية الأعمدة والمعادلات ونوع البيانات في الخلايا المقيدة.
-      for(const rowNo of [1,2,3,5,7]){
+      for(const rowNo of [1,2,3,4,5,7]){
         for(let colNo=1;colNo<=23;colNo+=1){
           ws.getCell(rowNo,colNo).protection={locked:false,hidden:false};
         }
@@ -495,7 +500,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       cfg.getCell('B3').dataValidation={type:'decimal',operator:'between',allowBlank:false,formulae:[0,31],showErrorMessage:true,errorStyle:'stop',errorTitle:'خصم البصمة',error:'أدخل رقمًا بين 0 و31.'};
       cfg.getCell('B4').dataValidation={type:'decimal',operator:'greaterThan',allowBlank:false,formulae:[0],showErrorMessage:true,errorStyle:'stop',errorTitle:'حد التأمينات',error:'أدخل قيمة رقمية أكبر من صفر.'};
 
-      const filename=`مسير_الرواتب_التفاعلي_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
+      const filename=`مسير_الرواتب_${activeImport.client_name_snapshot||'العميل'}_${dateOnly(activeImport.period_from)}.xlsx`;
 
       // التحقق من نوع البيانات والمعادلات المحمية يُكتب داخل الملف هنا؛
       // الخادم يمنع التغييرات الهيكلية الجائرة على الأعمدة فقط، ويترك الصفوف والعناوين قابلة للتعديل.
