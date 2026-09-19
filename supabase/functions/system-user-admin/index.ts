@@ -163,7 +163,7 @@ async function replaceApprovalAccess(admin: any, actorId: string, userId: string
   if (!ACCESS_PROFILES.has(accessProfile)) return { error:'invalid_access_profile' };
   const policyResult = await approvalPolicies(admin);
   if ('error' in policyResult) return policyResult;
-  const validKeys = new Set((policyResult.rows || []).map((row: any) => String(row.capability_key || '')).filter(Boolean));
+  const validKeys = new Set((policyResult.rows || []).filter((row: any) => accessProfile !== 'approval_only' || row.transaction_type !== 'progress_claim').map((row: any) => String(row.capability_key || '')).filter(Boolean));
   const selected = [...new Set((requestedCapabilities || []).map(String).filter((key) => validKeys.has(key)))];
   if (accessProfile === 'approval_only' && !selected.length) return { error:'approval_route_required' };
 
