@@ -148,29 +148,45 @@ export default function ApprovalsPage(){
   const isClaim=selected?.transaction_type==='progress_claim';
 
   useEffect(()=>{
-    if(selectedArchived||isClaim||!detail?.can_route){setRouteDestinations([]);return;}
+    if(selectedArchived||isClaim||!detail?.can_route){setRouteDestinations([]);setRouteUsers([]);return;}
     let alive=true;
-    supabase.rpc('fn_approval_route_destinations').then(({data,error:rpcError})=>{
-      if(!alive)return;if(rpcError)setError(rpcError.message||'تعذر تحميل جهات التعميد.');else setRouteDestinations(data||[]);
-    });
+    if(approverOnly){
+      setRouteDestinations([]);
+      supabase.rpc('fn_approval_route_people').then(({data,error:rpcError})=>{
+        if(!alive)return;
+        if(rpcError){setRouteUsers([]);setError(rpcError.message||'تعذر تحميل الأشخاص المتاح توجيه المعاملة إليهم.');}
+        else setRouteUsers(data||[]);
+      });
+    }else{
+      setRouteUsers([]);
+      supabase.rpc('fn_approval_route_destinations').then(({data,error:rpcError})=>{
+        if(!alive)return;
+        if(rpcError)setError(rpcError.message||'تعذر تحميل بوابات البرنامج.');
+        else setRouteDestinations(data||[]);
+      });
+    }
     return()=>{alive=false;};
-  },[detail?.can_route,selectedId,isClaim,selectedArchived]);
+  },[detail?.can_route,selectedId,isClaim,selectedArchived,approverOnly]);
 
   useEffect(()=>{
+    if(approverOnly)return;
     if(!routeDestination){setRouteUsers([]);setNextUser('');return;}
     let alive=true;setNextUser('');
     supabase.rpc('fn_admin_procedure_target_users',{p_destination_key:routeDestination}).then(({data,error:rpcError})=>{
-      if(!alive)return;if(rpcError){setRouteUsers([]);setError(rpcError.message||'تعذر تحميل مستخدمي جهة التعميد.');}else setRouteUsers(data||[]);
+      if(!alive)return;
+      if(rpcError){setRouteUsers([]);setError(rpcError.message||'تعذر تحميل موظفي البوابة.');}
+      else setRouteUsers(data||[]);
     });
     return()=>{alive=false;};
-  },[routeDestination]);
+  },[routeDestination,approverOnly]);
 
   async function decide(decision,{route=false}={}){
     if(!selectedId||isClaim)return;
     if(selectedArchived)return;
     const clean=note.trim();
     if(['return','reject'].includes(decision)&&!clean){setError('اكتب سبب الإرجاع أو الرفض قبل تنفيذ القرار.');return;}
-    if(route&&(!routeDestination||!nextUser)){setError('اختر بوابة التعميد والشخص الذي ستُحال إليه المعاملة.');return;}
+    if(route&&approverOnly&&!nextUser){setError('اختر الشخص الذي ستُحال إليه المعاملة.');return;}
+    if(route&&!approverOnly&&(!routeDestination||!nextUser)){setError('اختر بوابة البرنامج ثم الشخص الذي ستُحال إليه المعاملة.');return;}
     if(route&&!nextReason.trim()){setError('اكتب سبب الإحالة للتعميد.');return;}
     const action=route?'route':decision;setBusy(action);setError('');setMessage('');
     const{data:decisionStatus,error:rpcError}=await supabase.rpc('fn_approval_decide',{
@@ -313,16 +329,16 @@ export default function ApprovalsPage(){
                           </div>
 
                           {detail?.can_route?<details className={styles.routeDetails}>
-                            <summary>توجيه المعاملة إلى معتمد آخر</summary>
+                            <summary>{approverOnly?'توجيه المعاملة إلى شخص':'توجيه المعاملة إلى بوابة / شخص'}</summary>
                             <div className={styles.routeBox}>
-                              <label className={styles.field}>الجهة
+                              {!approverOnly?<label className={styles.field}>بوابة البرنامج
                                 <select value={routeDestination} onChange={e=>setRouteDestination(e.target.value)}>
-                                  <option value="">اختر الجهة</option>
+                                  <option value="">اختر البوابة</option>
                                   {routeDestinations.map(d=><option key={d.destination_key} value={d.destination_key}>{d.label_ar}</option>)}
                                 </select>
-                              </label>
-                              <label className={styles.field}>المعتمد التالي
-                                <select value={nextUser} onChange={e=>setNextUser(e.target.value)} disabled={!routeDestination}>
+                              </label>:null}
+                              <label className={styles.field}>{approverOnly?'الشخص':'الموظف داخل البوابة'}
+                                <select value={nextUser} onChange={e=>setNextUser(e.target.value)} disabled={!approverOnly&&!routeDestination}>
                                   <option value="">اختر الشخص</option>
                                   {routeUsers.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name_ar}{u.is_system_admin?' — مدير النظام':''}</option>)}
                                 </select>
