@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AREAS } from '@/lib/app-constitution';
 import { filterAreasForAccess } from '@/lib/access-ui';
@@ -31,6 +33,12 @@ const PORTAL_META = Object.freeze({
 
 export default function Dashboard() {
   const me = useDashboardSession();
+  const router = useRouter();
+  useEffect(() => {
+    if (me?.access?.approverOnly) router.replace('/dashboard/approvals');
+  }, [me?.access?.approverOnly, router]);
+  if (me?.access?.approverOnly) return <section className={styles.hall}><p className={styles.empty}>جارٍ فتح مكتب الاعتمادات…</p></section>;
+
   const portals = filterAreasForAccess(AREAS, me?.access || {})
     .filter((area) => area.key !== 'home')
     .map((area) => ({
