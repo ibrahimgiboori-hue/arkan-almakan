@@ -35,9 +35,9 @@ export default function Dashboard() {
   const me = useDashboardSession();
   const router = useRouter();
   useEffect(() => {
-    if (me?.access?.approverOnly) router.replace('/dashboard/approvals');
-  }, [me?.access?.approverOnly, router]);
-  if (me?.access?.approverOnly) return <section className={styles.hall}><p className={styles.empty}>جارٍ فتح مكتب الاعتمادات…</p></section>;
+    if (me?.access_profile==='approval_only') router.replace('/dashboard/approvals');
+  }, [me?.access_profile==='approval_only', router]);
+  if (me?.access_profile==='approval_only') return <section className={styles.hall}><p className={styles.empty}>جارٍ فتح مكتب الاعتمادات…</p></section>;
 
   const portals = filterAreasForAccess(AREAS, me?.access || {})
     .filter((area) => area.key !== 'home')
