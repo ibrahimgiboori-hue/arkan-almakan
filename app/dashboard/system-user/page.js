@@ -16,6 +16,8 @@ const ERROR_AR = {
   project_required: 'اختر مشروعًا واحدًا على الأقل لهذا المستوى.',
   project_not_found: 'أحد المشاريع المحددة غير موجود أو لم يعد متاحًا.',
   invalid_access_level: 'مستوى الصلاحية غير صحيح.',
+  invalid_access_profile: 'نوع المستخدم غير صحيح.',
+  approval_route_required: 'اختر مسار اعتماد واحدًا على الأقل للمستخدم الإداري.',
   password_reset_failed: 'تعذر تعيين كلمة المرور المؤقتة.',
   cannot_disable_self: 'لا يمكنك تعطيل حسابك الحالي من هذه الشاشة.',
   cannot_delete_self: 'لا يمكنك حذف حسابك الحالي من هذه الشاشة.',
