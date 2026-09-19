@@ -26,6 +26,27 @@
 }
 
 /*
+ * Preview ↔ physical-print parity
+ * --------------------------------
+ * The Captain preview and the browser print pipeline must use the same text
+ * metrics and color treatment. These laws intentionally live outside
+ * @media print so neither medium gets a private typography model.
+ */
+.constitution-paged-content,
+.constitution-flow-measure{
+  font-synthesis:none;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+.constitution-paged-content *,
+.constitution-flow-measure *{
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+
+/*
  * Readable fill/text fallback
  * ---------------------------
  * This contract is retained only for non-semantic legacy elements. Elements
