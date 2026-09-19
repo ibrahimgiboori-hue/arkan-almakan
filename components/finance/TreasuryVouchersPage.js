@@ -192,12 +192,16 @@ export default function TreasuryVouchersPage(){
     const partySignature=isReceipt?'المستلم':'المستفيد';
     const englishTitle=isReceipt?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
     const method=METHOD_LABEL[voucher.payment_method]||voucher.payment_method||'';
+    const totalHalalas=Math.round(Number(voucher.amount||0)*100);
+    const amountRiyals=Math.floor(totalHalalas/100);
+    const amountHalalas=String(totalHalalas%100).padStart(2,'0');
     const paymentMeta=[
       voucher.bank_name?['البنك',voucher.bank_name]:null,
       voucher.payment_reference?['مرجع الدفع',voucher.payment_reference]:null,
       voucher.payment_date?['تاريخ الدفع',voucher.payment_date]:null,
     ].filter(Boolean);
-    const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(value||'')}</span><span class="hashes">### ### ### ### ### ### ### ### ### ###</span></span>`;
+    const fill=(value,extraClass='')=>`<span class="fill ${extraClass}"><span class="value">${esc(value||'')}</span></span>`;
+    const sealedFill=(value,extraClass='')=>`<span class="fill sealed-fill ${extraClass}"><span class="value">${esc(value||'')}</span><span class="hashes">### ### ### ### ### ### ### ### ### ###</span></span>`;
     const sealLine=()=>`<div class="seal-line"><span>### ### ### ### ### ### ### ### ### ### ### ### ###</span></div>`;
     const popup=window.open('','_blank','width=1100,height=760');
     if(!popup){setMessage('اسمح بالنوافذ المنبثقة لطباعة السند.');return;}
@@ -215,12 +219,13 @@ export default function TreasuryVouchersPage(){
           <span class="fixed">من المكرم /</span>${fill(voucher.party_name,'name-fill')}
         </div>
         <div class="sentence">
-          <span class="fixed">مبلغًا وقدره /</span>${fill(voucher.amount_words,'grow-fill')}
+          <span class="fixed">مبلغًا وقدره /</span>${sealedFill(voucher.amount_words,'grow-fill')}
         </div>
         ${sealLine()}
         <div class="sentence">
-          <span class="fixed">وذلك مقابل /</span>${fill(voucher.description,'grow-fill')}
+          <span class="fixed">وذلك مقابل /</span>${sealedFill(voucher.description,'grow-fill')}
         </div>
+        ${sealLine()}
       `
       : `
         <div class="sentence">
@@ -229,13 +234,14 @@ export default function TreasuryVouchersPage(){
           <span class="fixed">بمدينة /</span>${fill(partyCity,'city-fill')}
         </div>
         <div class="sentence">
-          <span class="fixed">مبلغًا وقدره /</span>${fill(voucher.amount_words,'grow-fill')}
+          <span class="fixed">مبلغًا وقدره /</span>${sealedFill(voucher.amount_words,'grow-fill')}
         </div>
         ${sealLine()}
         <div class="sentence ack-line">
-          <span class="fixed">وذلك مقابل /</span>${fill(voucher.description,'grow-fill')}
+          <span class="fixed">وذلك مقابل /</span>${sealedFill(voucher.description,'grow-fill')}
           <span class="fixed ack">، وأقر باستلام المبلغ كاملًا.</span>
         </div>
+        ${sealLine()}
       `;
 
     const paymentDetails=`
@@ -260,7 +266,9 @@ export default function TreasuryVouchersPage(){
       .meta b{color:var(--brand-dark)}.meta .ref{direction:ltr;text-align:left;font-weight:700}
       .amount-box{display:grid;grid-template-rows:auto 1fr}
       .amount-box .label{background:var(--brand);color:#fff;text-align:center;font-weight:700;padding:1.5mm}
-      .amount-box .money{font-size:19px;font-weight:800;color:var(--brand-dark);display:grid;place-items:center;direction:rtl}
+      .amount-parts{display:grid;grid-template-columns:2fr 1fr;min-height:15mm}
+      .amount-part{display:grid;grid-template-rows:auto 1fr;text-align:center;border-left:1px solid var(--line)}
+      .amount-part:last-child{border-left:0}.amount-part b{font-size:9.5px;color:var(--brand-dark);padding:1mm 0;border-bottom:1px solid #E0D6D6}.amount-part span{font-size:18px;font-weight:800;display:grid;place-items:center;direction:ltr;font-variant-numeric:tabular-nums}
       .title{text-align:center;margin:3mm 0 2.6mm}
       .title .ar{display:inline-block;background:var(--brand);color:#fff;font-size:18px;font-weight:700;padding:1.5mm 11mm}
       .title .en{font-size:9px;letter-spacing:.06em;margin-top:.8mm;color:#555}
@@ -293,7 +301,7 @@ export default function TreasuryVouchersPage(){
           <b>المرجع</b><span class="ref">${esc(voucher.voucher_no)}</span>
         </div>
         <div class="brand-box"><div class="company">${esc(company)}</div><div class="en">${esc(companyEn)}</div></div>
-        <div class="amount-box"><div class="label">المبلغ رقمًا</div><div class="money">${esc(money(voucher.amount))}</div></div>
+        <div class="amount-box"><div class="label">المبلغ رقمًا</div><div class="amount-parts"><div class="amount-part"><b>ريال</b><span>${esc(amountRiyals.toLocaleString('ar-SA'))}</span></div><div class="amount-part"><b>هللة</b><span>${esc(amountHalalas)}</span></div></div></div>
       </div>
       <div class="title"><div class="ar">${esc(TYPE_LABEL[voucher.voucher_type])}</div><div class="en">${esc(englishTitle)}</div></div>
       <div class="body">
