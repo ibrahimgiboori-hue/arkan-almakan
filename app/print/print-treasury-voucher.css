@@ -46,7 +46,7 @@
   background:#fff;
   overflow:visible;
   position:relative;
-  z-index:3;
+  z-index:6;
   isolation:isolate;
 }
 .treasury-voucher-document .tv-brand-logo-box{
@@ -58,8 +58,8 @@
   justify-content:center;
   padding:1mm .75mm .8mm;
   background:var(--tv-brand-gray);
-  overflow:hidden;
-  z-index:6;
+  overflow:visible;
+  z-index:8;
 }
 .treasury-voucher-document .tv-brand-logo-box:first-child{
   left:-1px;
@@ -111,7 +111,7 @@
   grid-template-columns:var(--tv-cut-side) minmax(0,1fr) var(--tv-cut-side);
   direction:ltr;
   position:relative;
-  z-index:4;
+  z-index:2;
   background:var(--tv-brand-gray);
 }
 .treasury-voucher-document .tv-company-cut{
