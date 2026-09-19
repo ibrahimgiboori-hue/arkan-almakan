@@ -305,9 +305,13 @@ export default function TreasuryVouchersPage(){
       `;
 
     const paymentDetails=`
-      <div class="payment-line">
-        <span class="fixed">عبر /</span>${fill(method,'method-fill')}
-        ${paymentMeta.map(([label,value])=>`<span class="fixed">${esc(label)} /</span>${fill(value,'meta-fill')}`).join('')}
+      <div class="payment-line ${voucher.bank_name?'has-bank':'no-bank'}">
+        <span class="payment-segment payment-segment-method">
+          <span class="fixed">عبر /</span>${fill(method,'payment-segment-fill')}
+        </span>
+        ${voucher.bank_name?`<span class="payment-segment payment-segment-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'payment-segment-fill')}</span>`:''}
+        ${voucher.payment_reference?`<span class="payment-segment payment-segment-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'payment-segment-fill')}</span>`:''}
+        ${voucher.payment_date?`<span class="payment-segment payment-segment-date"><span class="fixed">تاريخ الدفع /</span>${fill(voucher.payment_date,'payment-segment-fill')}</span>`:''}
       </div>
     `;
 
@@ -359,7 +363,17 @@ export default function TreasuryVouchersPage(){
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
       .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
-      .payment-line{margin-top:1.1mm;padding-top:1mm;border-top:1px solid #D5CACA}
+      .payment-line{margin-top:1.1mm;padding-top:1mm;border-top:1px solid #D5CACA;display:flex;align-items:flex-end;gap:.55mm;white-space:nowrap}
+      .payment-segment{display:flex;align-items:flex-end;gap:.42mm;min-width:0}
+      .payment-segment .fixed{font-size:8.85px;white-space:nowrap}
+      .payment-segment .fill{min-width:0;height:5.1mm;gap:.3mm}
+      .payment-segment-method{flex:.8 1 24mm}
+      .payment-segment-bank{flex:1 1 30mm}
+      .payment-segment-reference{flex:2.7 1 66mm}
+      .payment-segment-date{flex:1.05 1 34mm}
+      .payment-segment-reference .value{max-width:none;overflow:visible;text-overflow:clip}
+      .payment-segment-date .value{direction:ltr;font-variant-numeric:tabular-nums}
+      .payment-line.no-bank .payment-segment-reference{flex:3.4 1 85mm}
       .signatures{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:2.2mm}
       .sign{min-height:16mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1mm;position:relative;overflow:visible}
       .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:1.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.78;z-index:1;pointer-events:none}
