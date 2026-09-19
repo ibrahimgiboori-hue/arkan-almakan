@@ -80,6 +80,8 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [preferenceReady, setPreferenceReady] = useState(false);
 
+  const approverOnly = Boolean(me?.access?.approverOnly);
+
   const accessibleAreas = useMemo(
     () => filterAreasForAccess(AREAS, me?.access || {}).filter((area) => area.key !== 'home'),
     [me],
@@ -242,7 +244,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
   return <>
     <nav className="appNavRail" aria-label="بوابات البرنامج" data-navigation-layer="primary-rail">
       <div className="appRailTop">
-        <RailButton label="الرئيسية" kind="home" active={pathname === '/dashboard'} onClick={() => go('/dashboard')} />
+        {!approverOnly ? <RailButton label="الرئيسية" kind="home" active={pathname === '/dashboard'} onClick={() => go('/dashboard')} /> : null}
         {accessibleAreas.map((area) => (
           <RailButton
             key={area.key}
@@ -255,7 +257,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       </div>
 
       <div className="appRailBottom">
-        <RailButton label="أعمالي" kind="my-work" active={pathname === '/dashboard/my-work'} onClick={() => go('/dashboard/my-work')} />
+        {!approverOnly ? <RailButton label="أعمالي" kind="my-work" active={pathname === '/dashboard/my-work'} onClick={() => go('/dashboard/my-work')} /> : null}
         {me?.access?.approvals ? (
           <RailButton label="اعتماداتي" kind="approvals" badge={approvalsBadge} active={pathname.startsWith('/dashboard/approvals') || pathname.startsWith('/dashboard/my-work/approvals')} onClick={() => go('/dashboard/approvals')} />
         ) : null}
@@ -378,7 +380,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       </div>
 
       <footer className="appNavContextFooter">
-        <button type="button" onClick={() => go('/dashboard/my-work')}>أعمالي</button>
+        {!approverOnly ? <button type="button" onClick={() => go('/dashboard/my-work')}>أعمالي</button> : null}
         {me?.access?.approvals ? <button type="button" onClick={() => go('/dashboard/approvals')}>اعتماداتي</button> : null}
         <span className="appNavFooterSpacer" />
         <button type="button" onClick={onSignOut}>خروج</button>
