@@ -252,7 +252,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       ];
 
       ws.mergeCells('A1:W1');
-      ws.getCell('A1').value='مسير الرواتب — نموذج احتساب تفاعلي';
+      ws.getCell('A1').value='مسير الرواتب الشهري';
       ws.getCell('A1').font={bold:true,size:16,color:{argb:'FF8B3332'}};
       ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
       ws.getRow(1).height=28;
@@ -437,6 +437,8 @@ export default function ExternalPayrollWorkspaceEngineered(){
       if(lastDataRow>=8){
         for(let r=8;r<=lastDataRow;r++){
           // لا يفتح للمستخدم إلا خلايا الإدخال الصفراء المحددة؛ بقية الملف مقفول.
+          // بيانات هوية الموظف قابلة للتحديث بين شهر وآخر (إضافة/تصحيح اسم أو رقم).
+          [1,2].forEach((col)=>{ws.getCell(r,col).protection={locked:false,hidden:false};});
           inputCols.forEach((col)=>{ws.getCell(r,col).protection={locked:false,hidden:false};});
           formulaCols.forEach((col)=>{ws.getCell(r,col).protection={locked:true,hidden:true};});
 
@@ -448,6 +450,15 @@ export default function ExternalPayrollWorkspaceEngineered(){
             ...config,
           });
 
+          ws.getCell(`B${r}`).dataValidation={
+            type:'custom',
+            allowBlank:false,
+            formulae:[`ISTEXT(B${r})`],
+            showErrorMessage:true,
+            errorStyle:'stop',
+            errorTitle:'اسم الموظف',
+            error:'اسم الموظف يجب أن يكون نصًا.',
+          };
           ws.getCell(`C${r}`).dataValidation=numericStop({type:'decimal',operator:'greaterThan',formulae:[0],error:'الراتب الأساسي يجب أن يكون رقمًا أكبر من صفر.'});
           ['D','E','F','Q','R'].forEach((col)=>{
             ws.getCell(`${col}${r}`).dataValidation=numericStop({type:'decimal',operator:'greaterThanOrEqual',formulae:[0],error:'هذه الخانة تقبل أرقامًا فقط بقيمة صفر أو أكبر.'});
@@ -497,7 +508,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       if(!protectResponse.ok)throw new Error('تعذر تثبيت حماية بنية ملف Excel.');
       const protectedBuffer=await protectResponse.arrayBuffer();
       downloadBuffer(protectedBuffer,filename);
-      setMsg('تم تنزيل مسير Excel بحماية معتدلة: يمكن تعديل العناوين والصفوف، مع منع العبث بالأعمدة والمعادلات ونوع البيانات.');
+      setMsg('تم تنزيل مسير Excel قابل للتحديث الشهري: يمكن تعديل العناوين وبيانات الموظفين وإضافة/حذف الصفوف، مع حماية الأعمدة والمعادلات ونوع البيانات.');
     }catch(error){
       setErr(error.message||String(error));
     }finally{
