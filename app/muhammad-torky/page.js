@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const LOGIN='/login?email=muhammad.ij.torky%40gmail.com&next=%2Fdashboard%2Fapprovals';
+const LOGIN='/login';
 
 export default function MuhammadTorkyEntry(){
   const router=useRouter();
