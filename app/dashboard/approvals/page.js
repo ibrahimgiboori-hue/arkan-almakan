@@ -53,7 +53,7 @@ function ApprovalSnapshot({snapshot}){
 
 export default function ApprovalsPage(){
   const me=useDashboardSession();
-  const approverOnly=Boolean(me?.access?.approverOnly);
+  const approverOnly=Boolean(me?.access_profile==='approval_only');
   const detailRef=useRef(null);
   const [rows,setRows]=useState(null),[selectedId,setSelectedId]=useState(''),[detail,setDetail]=useState(null),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [routeDestinations,setRouteDestinations]=useState([]),[routeDestination,setRouteDestination]=useState(''),[routeUsers,setRouteUsers]=useState([]),[nextUser,setNextUser]=useState(''),[nextReason,setNextReason]=useState('');
