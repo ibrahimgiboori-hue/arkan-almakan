@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { dateTimeAr, moneyOrDash } from '@/lib/format';
-import { ConstitutionPage, PageHeader, Section, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
+import { ConstitutionPage, Notice, EmptyState } from '@/components/ui/ConstitutionUI';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import styles from '../my-work/approvals/approvals.module.css';
 
@@ -32,6 +32,33 @@ function snapshotValue(value){
   if(typeof value==='number')return new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(value);
   return String(value);
 }
+const ESSENTIAL_SNAPSHOT_KEYS=[
+  'voucher_no','voucher_date','party_name','amount','description','payment_method','payment_reference','payment_date',
+  'project_no','name_ar','project_name','client_name','contractor_name','claim_no','period_from','period_to',
+  'gross_amount','net_payable','total_amount','quote_no','quote_date','grand_total','run_month','total_net'
+];
+
+function ApprovalEssentials({snapshot}){
+  if(!snapshot||typeof snapshot!=='object')return <div className={styles.muted}>لا توجد بيانات مختصرة لهذه المعاملة.</div>;
+  const picked=[];
+  for(const key of ESSENTIAL_SNAPSHOT_KEYS){
+    if(Object.prototype.hasOwnProperty.call(snapshot,key)&&snapshot[key]!==null&&snapshot[key]!==''&&!Array.isArray(snapshot[key])&&typeof snapshot[key]!=='object'){
+      picked.push([key,snapshot[key]]);
+    }
+    if(picked.length>=8)break;
+  }
+  if(!picked.length){
+    for(const [key,value] of Object.entries(snapshot)){
+      if(picked.length>=6)break;
+      if(SNAPSHOT_LABELS[key]&&!SNAPSHOT_HIDDEN.has(key)&&value!==null&&value!==''&&!Array.isArray(value)&&typeof value!=='object'){
+        picked.push([key,value]);
+      }
+    }
+  }
+  return <div className={styles.essentialsGrid}>
+    {picked.map(([key,value])=><div className={styles.essential} key={key}><span>{snapshotLabel(key)}</span><strong>{snapshotValue(value)}</strong></div>)}
+  </div>;
+}
 function ApprovalSnapshot({snapshot}){
   if(!snapshot||typeof snapshot!=='object')return <div className={styles.muted}>لا توجد نسخة بيانات مرفقة بهذه المعاملة.</div>;
   const scalarEntries=Object.entries(snapshot).filter(([key,value])=>!SNAPSHOT_HIDDEN.has(key)&&!Array.isArray(value)&&(value===null||typeof value!=='object'));
@@ -43,10 +70,10 @@ function ApprovalSnapshot({snapshot}){
         const rows=value.filter(item=>item&&typeof item==='object').slice(0,100);
         if(!rows.length)return null;
         const cols=[...new Set(rows.flatMap(row=>Object.keys(row).filter(k=>!SNAPSHOT_HIDDEN.has(k))))].slice(0,8);
-        return <details key={key} open><summary style={{fontWeight:800,cursor:'pointer'}}>{snapshotLabel(key)} · {rows.length}</summary><div style={{overflowX:'auto',marginTop:8}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:Math.max(520,cols.length*120)}}><thead><tr>{cols.map(col=><th key={col} style={{textAlign:'right',padding:7,borderBottom:'1px solid #ddd'}}>{snapshotLabel(col)}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr key={index}>{cols.map(col=><td key={col} style={{padding:7,borderBottom:'1px solid #eee',verticalAlign:'top'}}>{row[col]&&typeof row[col]==='object'?'—':snapshotValue(row[col])}</td>)}</tr>)}</tbody></table></div></details>;
+        return <details key={key}><summary style={{fontWeight:800,cursor:'pointer'}}>{snapshotLabel(key)} · {rows.length}</summary><div style={{overflowX:'auto',marginTop:8}}><table style={{width:'100%',borderCollapse:'collapse',minWidth:Math.max(520,cols.length*120)}}><thead><tr>{cols.map(col=><th key={col} style={{textAlign:'right',padding:7,borderBottom:'1px solid #ddd'}}>{snapshotLabel(col)}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr key={index}>{cols.map(col=><td key={col} style={{padding:7,borderBottom:'1px solid #eee',verticalAlign:'top'}}>{row[col]&&typeof row[col]==='object'?'—':snapshotValue(row[col])}</td>)}</tr>)}</tbody></table></div></details>;
       }
       const entries=Object.entries(value).filter(([k,v])=>!SNAPSHOT_HIDDEN.has(k)&&(v===null||typeof v!=='object'));
-      return <details key={key} open><summary style={{fontWeight:800,cursor:'pointer'}}>{snapshotLabel(key)}</summary><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8,marginTop:8}}>{entries.map(([k,v])=><div key={k} style={{border:'1px solid rgba(111,37,43,.12)',borderRadius:10,padding:'8px 9px'}}><small style={{display:'block',color:'#776d69'}}>{snapshotLabel(k)}</small><strong>{snapshotValue(v)}</strong></div>)}</div></details>;
+      return <details key={key}><summary style={{fontWeight:800,cursor:'pointer'}}>{snapshotLabel(key)}</summary><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:8,marginTop:8}}>{entries.map(([k,v])=><div key={k} style={{border:'1px solid rgba(111,37,43,.12)',borderRadius:10,padding:'8px 9px'}}><small style={{display:'block',color:'#776d69'}}>{snapshotLabel(k)}</small><strong>{snapshotValue(v)}</strong></div>)}</div></details>;
     })}
   </div>;
 }
@@ -127,38 +154,146 @@ export default function ApprovalsPage(){
   const decisionPrintHref=workflow?.id?`/print/approval/${workflow.id}?mode=decision`:'#';
   const approveLabel=detail?.is_final_stage===false?'اعتماد المرحلة':'اعتماد نهائي';
 
+  const embeddedPrintHref=currentPrintHref==='#'?'#':`${currentPrintHref}${currentPrintHref.includes('?')?'&':'?'}embed=1`;
+
   return <ConstitutionPage>
-    <PageHeader eyebrow={approverOnly?'الإدارة':'العمل'} title={approverOnly?'مكتب الاعتمادات':'الاعتمادات'} description={approverOnly?'واجهة إدارية لمراجعة المستندات والمعاملات الموجهة إليك واتخاذ القرار دون الدخول إلى البوابات التنفيذية.':'صندوق وصول للمعاملات التي تحتاجك. إذا كانت المعاملة لها رحلة أصلية، يتم القرار داخل رحلتها نفسها ولا نفتح لها سطح عمل ثانياً.'}/>
-    {error?<Notice tone="warning">{error}</Notice>:null}{message?<Notice tone="success">{message}</Notice>:null}
-    <div className={styles.shell}>
-      <Section title="بانتظار قراري" description={`${rows.length} معاملة تحتاج إجراء`}>
-        {rows.length===0?<EmptyState title="لا توجد اعتمادات بانتظارك" description="ستظهر هنا أي معاملة فور وصول مرحلة اعتماد إليك أو إلى صلاحية تملكها."/>:<div className={styles.list}>{rows.map(row=><button type="button" key={row.workflow_id} className={`${styles.item} ${row.workflow_id===selectedId?styles.active:''}`} aria-controls="approval-detail" aria-expanded={row.workflow_id===selectedId} onClick={()=>setSelectedId(row.workflow_id)}><div className={styles.itemHead}><strong>{row.label_ar||row.transaction_type}</strong><span>{row.workflow_no||'—'}</span></div><div className={styles.title}>{row.source_label||'معاملة'}</div><div className={styles.meta}><span>{row.origin_group_label||'—'}</span><span>{row.target_group_label||'—'}</span><span>{moneyOrDash(row.amount)}</span></div><small>{dateTimeAr(row.submitted_at)}</small></button>)}</div>}
-      </Section>
+    <div className={styles.workspace}>
+      <header className={styles.deskHeader}>
+        <div>
+          <span className={styles.eyebrow}>{approverOnly?'الإدارة':'العمل'}</span>
+          <h1>مكتب الاعتمادات</h1>
+          <p>راجع المستند، اكتب ملاحظتك عند الحاجة، ثم اتخذ القرار. التفاصيل الفنية تبقى مخفية ما لم تطلبها.</p>
+        </div>
+        <div className={styles.queueCount}><strong>{rows.length}</strong><span>بانتظار قرارك</span></div>
+      </header>
 
-      <div id="approval-detail" ref={detailRef} className={styles.detail} style={{scrollMarginTop:112}}>
-        {!selected?<EmptyState title="اختر معاملة" description="اختر معاملة من القائمة."/>:!workflow?<EmptyState title="جارٍ قراءة المعاملة" description="يتم تحميل تفاصيل النسخة الحالية."/>:<Section title={workflow.source_label||selected.label_ar||'معاملة اعتماد'} description={`${workflow.workflow_no||'—'} · النسخة ${workflow.version_no||1}`}>
-          <div className={styles.summary}><div><span>الحالة</span><strong>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</strong></div><div><span>المرحلة الحالية</span><strong>{stageLabel}</strong></div><div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div></div>
-          <div className={styles.actions} style={{margin:'12px 0 4px'}}>
-            <a className="btn ghost" href={currentPrintHref} target="_blank" rel="noreferrer">طباعة المستند الحالي</a>
-            {decisions.length?<a className="btn ghost" href={decisionPrintHref} target="_blank" rel="noreferrer">طباعة نسخة القرار</a>:null}
+      {error?<Notice tone="warning">{error}</Notice>:null}
+      {message?<Notice tone="success">{message}</Notice>:null}
+
+      <div className={styles.shell}>
+        <aside className={styles.queuePanel}>
+          <div className={styles.queueHeader}>
+            <div><strong>المعاملات الواردة</strong><span>اختر معاملة للمراجعة</span></div>
+            <b>{rows.length}</b>
           </div>
-          <div className={styles.block}><h3>نسخة المعاملة المرسلة للاعتماد</h3><ApprovalSnapshot snapshot={detail?.snapshot}/></div>
+          {rows.length===0
+            ? <EmptyState title="لا توجد اعتمادات بانتظارك" description="ستظهر هنا المعاملة فور وصول دورك في الاعتماد."/>
+            : <div className={styles.list}>{rows.map(row=><button
+                type="button"
+                key={row.workflow_id}
+                className={`${styles.item} ${row.workflow_id===selectedId?styles.active:''}`}
+                aria-controls="approval-detail"
+                aria-expanded={row.workflow_id===selectedId}
+                onClick={()=>setSelectedId(row.workflow_id)}
+              >
+                <div className={styles.itemHead}><strong>{row.label_ar||'معاملة اعتماد'}</strong><span>{moneyOrDash(row.amount)}</span></div>
+                <div className={styles.title}>{row.source_label||'معاملة'}</div>
+                <div className={styles.itemFoot}><span>{row.target_group_label||'اعتماد'}</span><small>{dateTimeAr(row.submitted_at)}</small></div>
+              </button>)}</div>}
+        </aside>
 
-          {isClaim?<div className={styles.block}>
-            <h3>المستخلص له رحلة واحدة</h3>
-            <div className={styles.muted} style={{marginBottom:12}}>لن تتخذ القرار هنا ثم تعود للمشروع. افتح المستخلص نفسه، وستجد قرار الاعتماد والخطوة التالية في نفس المسار حتى التحصيل والفاتورة.</div>
-            <Link className="btn" href={`/dashboard/projects/${workflow.project_id}?view=claims&claim=${workflow.source_id}`}>فتح رحلة المستخلص</Link>
-          </div>:<>
-            <div className={styles.block}><h3>مسار الاعتماد</h3>{steps.length===0?<div className={styles.muted}>لا توجد خطوات مسجلة.</div>:<div className={styles.timeline}>{steps.map(step=><div className={styles.event} key={step.id}><div className={styles.eventHead}><strong>الخطوة {step.step_order} · {step.target_group_label||(step.target_type==='user'?'شخص محدد':'الجهة المختصة')}</strong><span>{STEP_STATUS[step.status]||step.status}</span></div>{step.request_reason?<div>{step.request_reason}</div>:null}{step.decision_comment?<div>{step.decision_comment}</div>:null}{step.acted_at?<small>{dateTimeAr(step.acted_at)}</small>:null}</div>)}</div>}</div>
-            {events.length?<div className={styles.block}><h3>سجل الحركة</h3><div className={styles.timeline}>{events.map((event,index)=><div className={styles.event} key={`${event.created_at}-${index}`}><div className={styles.eventHead}><strong>{event.event_type}</strong><span>{dateTimeAr(event.created_at)}</span></div>{event.note?<div>{event.note}</div>:null}</div>)}</div></div>:null}
-            {detail?.can_act&&workflow.status==='pending'?<div className={styles.block}>
-              <h3>{stageLabel}</h3>
-              <label className={styles.field}>تهميش القرار<textarea value={note} onChange={event=>setNote(event.target.value)} rows={4} maxLength={2000} placeholder="اختياري عند الاعتماد، وإلزامي عند الإرجاع أو الرفض"/></label>
-              <div className={styles.actions}><button className="btn" type="button" disabled={Boolean(busy)} onClick={()=>decide('approve')}>{busy==='approve'?'جارٍ الاعتماد…':approveLabel}</button><button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('return')}>إرجاع للتعديل</button><button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('reject')}>رفض</button></div>
-              {detail?.can_route?<div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--raw-line, #ddd)',display:'grid',gap:10}}><h3 style={{margin:0}}>توجيه المعاملة</h3><div className="form-grid"><div className="field"><label>بوابة التعميد</label><select value={routeDestination} onChange={e=>setRouteDestination(e.target.value)}><option value="">اختر البوابة</option>{routeDestinations.map(d=><option key={d.destination_key} value={d.destination_key}>{d.label_ar}</option>)}</select></div><div className="field"><label>المعتمد التالي</label><select value={nextUser} onChange={e=>setNextUser(e.target.value)} disabled={!routeDestination}><option value="">اختر الشخص</option>{routeUsers.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name_ar}{u.is_system_admin?' — مدير النظام':''}</option>)}</select></div><div className="field span2"><label>تهميش التوجيه / سبب الإحالة</label><input value={nextReason} onChange={e=>setNextReason(e.target.value)} maxLength={1000}/></div></div><div><button className="btn" type="button" disabled={Boolean(busy)||!nextUser||!nextReason.trim()} onClick={()=>decide('route',{route:true})}>توجيه المعاملة</button></div></div>:null}
-            </div>:<div className={styles.block}><div className={styles.muted}>هذه المعاملة للمتابعة فقط أو لم تعد بانتظار قرارك.</div></div>}
-          </>}
-        </Section>}
+        <main id="approval-detail" ref={detailRef} className={styles.detail} style={{scrollMarginTop:112}}>
+          {!selected
+            ? <div className={styles.detailCard}><EmptyState title="اختر معاملة" description="اختر معاملة من القائمة لمراجعة المستند واتخاذ القرار."/></div>
+            : !workflow
+              ? <div className={styles.detailCard}><EmptyState title="جارٍ قراءة المعاملة" description="يتم تحميل المستند والقرار المطلوب."/></div>
+              : <div className={styles.detailCard}>
+                  <header className={styles.detailHeader}>
+                    <div>
+                      <span className={styles.transactionKind}>{selected.label_ar||workflow.transaction_type||'معاملة اعتماد'}</span>
+                      <h2>{workflow.source_label||'معاملة اعتماد'}</h2>
+                      <p>{workflow.workflow_no||'—'} · أرسلت {dateTimeAr(selected.submitted_at)}</p>
+                    </div>
+                    <span className={styles.statusPill}>{WORKFLOW_STATUS[workflow.status]||workflow.status||'—'}</span>
+                  </header>
+
+                  <div className={styles.facts}>
+                    <div><span>المبلغ</span><strong>{moneyOrDash(workflow.amount)}</strong></div>
+                    <div><span>المرحلة المطلوبة</span><strong>{stageLabel}</strong></div>
+                    <div><span>جهة الإرسال</span><strong>{selected.origin_group_label||'—'}</strong></div>
+                  </div>
+
+                  <section className={styles.documentPanel}>
+                    <div className={styles.panelHeader}>
+                      <div><strong>المستند المرسل للاعتماد</strong><span>هذه هي النسخة التي تبني عليها قرارك.</span></div>
+                      <a className="btn ghost" href={currentPrintHref} target="_blank" rel="noreferrer">فتح بالحجم الكامل</a>
+                    </div>
+                    {embeddedPrintHref!=='#'
+                      ? <iframe className={styles.documentFrame} src={embeddedPrintHref} title="المستند المرسل للاعتماد"/>
+                      : <ApprovalEssentials snapshot={detail?.snapshot}/>}
+                  </section>
+
+                  {isClaim
+                    ? <section className={styles.decisionCard}>
+                        <div><h3>المستخلص له رحلة واحدة</h3><p>افتح المستخلص نفسه لاتخاذ القرار داخل مساره التشغيلي.</p></div>
+                        <Link className="btn" href={`/dashboard/projects/${workflow.project_id}?view=claims&claim=${workflow.source_id}`}>فتح رحلة المستخلص</Link>
+                      </section>
+                    : detail?.can_act&&workflow.status==='pending'
+                      ? <section className={styles.decisionCard}>
+                          <div className={styles.decisionHeading}>
+                            <div><span>قرارك الآن</span><h3>{stageLabel}</h3></div>
+                            <small>التهميش اختياري عند الاعتماد، وإلزامي عند الإرجاع أو الرفض.</small>
+                          </div>
+                          <label className={styles.field}>ملاحظة / تهميش
+                            <textarea value={note} onChange={event=>setNote(event.target.value)} rows={3} maxLength={2000} placeholder="اكتب ملاحظتك إذا كانت هناك نقطة يجب تسجيلها على المعاملة"/>
+                          </label>
+                          <div className={styles.decisionActions}>
+                            <button className="btn" type="button" disabled={Boolean(busy)} onClick={()=>decide('approve')}>{busy==='approve'?'جارٍ الاعتماد…':approveLabel}</button>
+                            <button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('return')}>إرجاع للتعديل</button>
+                            <button className={styles.rejectButton} type="button" disabled={Boolean(busy)} onClick={()=>decide('reject')}>رفض</button>
+                          </div>
+
+                          {detail?.can_route?<details className={styles.routeDetails}>
+                            <summary>توجيه المعاملة إلى معتمد آخر</summary>
+                            <div className={styles.routeBox}>
+                              <label className={styles.field}>الجهة
+                                <select value={routeDestination} onChange={e=>setRouteDestination(e.target.value)}>
+                                  <option value="">اختر الجهة</option>
+                                  {routeDestinations.map(d=><option key={d.destination_key} value={d.destination_key}>{d.label_ar}</option>)}
+                                </select>
+                              </label>
+                              <label className={styles.field}>المعتمد التالي
+                                <select value={nextUser} onChange={e=>setNextUser(e.target.value)} disabled={!routeDestination}>
+                                  <option value="">اختر الشخص</option>
+                                  {routeUsers.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name_ar}{u.is_system_admin?' — مدير النظام':''}</option>)}
+                                </select>
+                              </label>
+                              <label className={styles.field}>سبب التوجيه
+                                <input value={nextReason} onChange={e=>setNextReason(e.target.value)} maxLength={1000}/>
+                              </label>
+                              <button className="btn" type="button" disabled={Boolean(busy)||!nextUser||!nextReason.trim()} onClick={()=>decide('route',{route:true})}>توجيه المعاملة</button>
+                            </div>
+                          </details>:null}
+                        </section>
+                      : <section className={styles.readOnlyNotice}>هذه المعاملة للمتابعة فقط أو لم تعد بانتظار قرارك.</section>}
+
+                  <section className={styles.supporting}>
+                    <details>
+                      <summary>بيانات المعاملة المختصرة</summary>
+                      <ApprovalEssentials snapshot={detail?.snapshot}/>
+                    </details>
+                    <details>
+                      <summary>مسار الاعتماد وسجل الحركة</summary>
+                      <div className={styles.timeline}>
+                        {steps.map(step=><div className={styles.event} key={step.id}>
+                          <div className={styles.eventHead}><strong>الخطوة {step.step_order} · {step.target_group_label||(step.target_type==='user'?'شخص محدد':'الجهة المختصة')}</strong><span>{STEP_STATUS[step.status]||step.status}</span></div>
+                          {step.request_reason?<div>{step.request_reason}</div>:null}
+                          {step.decision_comment?<div>{step.decision_comment}</div>:null}
+                          {step.acted_at?<small>{dateTimeAr(step.acted_at)}</small>:null}
+                        </div>)}
+                        {events.map((event,index)=><div className={styles.event} key={`${event.created_at}-${index}`}>
+                          <div className={styles.eventHead}><strong>{event.note||event.event_type}</strong><span>{dateTimeAr(event.created_at)}</span></div>
+                        </div>)}
+                      </div>
+                    </details>
+                    <details>
+                      <summary>كل البيانات الفنية</summary>
+                      <ApprovalSnapshot snapshot={detail?.snapshot}/>
+                    </details>
+                    {decisions.length?<a className={styles.decisionPrintLink} href={decisionPrintHref} target="_blank" rel="noreferrer">طباعة نسخة القرار السابقة</a>:null}
+                  </section>
+                </div>}
+        </main>
       </div>
     </div>
   </ConstitutionPage>;
