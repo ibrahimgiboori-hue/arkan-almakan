@@ -343,21 +343,24 @@ export default function TreasuryVouchersPage(){
           <span class="fixed">${esc(idNumberLabel)} /</span>${flowFill(voucher.party_id_number,'party-inline-id')}
           ${partyNationality?`<span class="fixed">الجنسية /</span>${flowFill(partyNationality,'party-inline-nationality')}`:''}
           ${voucher.party_mobile?`<span class="fixed">الجوال /</span>${flowFill(voucher.party_mobile,'party-inline-mobile')}`:''}
-          <span class="fixed">بمدينة /</span>${flowFill(partyCity,'party-inline-city')}
         </div>
-        <div class="settlement-flow-line ${showBank?'has-bank':'no-bank'}">
-          <span class="settlement-segment settlement-amount">
-            <span class="fixed">مبلغًا وقدره /</span>
-            ${sealedFill(`${amountRiyals.toLocaleString('en-US')}.${amountHalalas} ريال سعودي (${voucher.amount_words} فقط لا غير)`,'settlement-fill')}
+        <div class="payment-flow-line payment-flow-second">
+          <span class="payment-flow-segment payment-flow-city">
+            <span class="fixed">بمدينة /</span>${flowFill(partyCity,'payment-flow-fill')}
           </span>
-          <span class="settlement-segment settlement-method">
-            <span class="fixed">عبر /</span>${fill(method,'settlement-fill')}
+          <span class="payment-flow-segment payment-flow-amount">
+            <span class="fixed">مبلغًا وقدره /</span>${sealedFill(`${amountRiyals.toLocaleString('en-US')}.${amountHalalas} ريال سعودي (${voucher.amount_words} فقط لا غير)`,'payment-flow-fill')}
           </span>
-          ${showBank?`<span class="settlement-segment settlement-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'settlement-fill')}</span>`:''}
-          ${voucher.payment_reference?`<span class="settlement-segment settlement-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'settlement-fill')}</span>`:''}
+          <span class="payment-flow-segment payment-flow-method">
+            <span class="fixed">عبر /</span>${fill(method,'payment-flow-fill')}
+          </span>
         </div>
-        <div class="entitlement-flow-line ${effectivePaymentDate?'has-date':'no-date'}">
-          ${effectivePaymentDate?`<span class="entitlement-segment entitlement-date"><span class="fixed">تاريخ الدفع /</span>${fill(formatVoucherDate(effectivePaymentDate),'entitlement-fill')}</span>`:''}
+        <div class="payment-flow-line payment-flow-third ${showBank?'has-bank':'no-bank'}">
+          ${voucher.payment_reference?`<span class="payment-flow-segment payment-flow-reference"><span class="fixed">مرجع الدفع /</span>${fill(voucher.payment_reference,'payment-flow-fill')}</span>`:''}
+          ${showBank?`<span class="payment-flow-segment payment-flow-bank"><span class="fixed">البنك /</span>${fill(voucher.bank_name,'payment-flow-fill')}</span>`:''}
+          ${effectivePaymentDate?`<span class="payment-flow-segment payment-flow-date"><span class="fixed">تاريخ الدفع /</span>${fill(formatVoucherDate(effectivePaymentDate),'payment-flow-fill')}</span>`:''}
+        </div>
+        <div class="entitlement-flow-line">
           <span class="entitlement-segment entitlement-reason">
             <span class="fixed">وذلك مقابل قيمة الاستحقاق /</span>${sealedFill(voucher.description,'entitlement-fill')}
           </span>
@@ -380,73 +383,72 @@ export default function TreasuryVouchersPage(){
       *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       :root{--brand:#8B3332;--brand-dark:#7C2B28;--brand-soft:#F6EEEE;--line:#9C8E8E;--ink:#242426}
       html,body{margin:0;padding:0;background:#fff;color:var(--ink);font-family:Tahoma,Arial,sans-serif}
-      body{font-size:11.5px;width:210mm;height:297mm;display:flex;align-items:center;justify-content:center}
+      body{font-size:13px;width:210mm;height:297mm;display:flex;align-items:center;justify-content:center}
       .sheet{width:197.333mm;height:140mm;min-height:140mm;max-height:140mm;border:1.6px solid var(--brand);padding:4mm 6mm 3mm;position:relative;overflow:hidden;background:#fff;break-inside:avoid;page-break-inside:avoid;transform:scale(.75);transform-origin:center center}
       .brand-banner{height:12mm;border:1px solid var(--brand);border-bottom:0;background:#fff;display:grid;grid-template-columns:18mm 1fr 18mm;align-items:center;padding:0 2mm;direction:ltr}
       .brand-banner .brand-logo{width:11mm;height:11mm;object-fit:contain;justify-self:center}
       .brand-banner .brand-center{text-align:center;direction:rtl;line-height:1.08}
-      .brand-banner .brand-ar{font-size:12.2px;font-weight:800;color:var(--brand-dark)}
-      .brand-banner .brand-en{font-size:7.1px;color:#666;margin-top:.55mm;letter-spacing:.025em}
-      .legal-bar{height:8mm;border:1px solid var(--brand);background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2mm;font-size:7.5px;font-weight:700;white-space:nowrap;overflow:hidden}
+      .brand-banner .brand-ar{font-size:15px;font-weight:800;color:var(--brand-dark)}
+      .brand-banner .brand-en{font-size:10px;color:#555;margin-top:.4mm;letter-spacing:.02em}
+      .legal-bar{height:8mm;border:1px solid var(--brand);background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2mm;font-size:10.8px;font-weight:700;white-space:nowrap;overflow:hidden}
       .top{display:grid;grid-template-columns:1.15fr 1.6fr 1.15fr;gap:0;align-items:stretch;direction:ltr}
       .meta,.amount-box,.voucher-box{border:1px solid var(--brand);height:27mm}
       .meta{display:grid;grid-template-rows:repeat(4,1fr);direction:ltr}
       .meta-row{display:grid;grid-template-columns:40% 60%;min-height:0}
-      .meta-label{background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8.7px;border-bottom:1px solid var(--brand);direction:rtl}
-      .meta-value{background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:8.7px;border-bottom:1px solid var(--brand);direction:ltr;font-variant-numeric:tabular-nums}
+      .meta-label{background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11.2px;border-bottom:1px solid #fff;border-right:1px solid #fff;direction:rtl}
+      .meta-value{background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;border-bottom:1px solid #fff;direction:ltr;font-variant-numeric:tabular-nums}
       .meta-row:last-child .meta-label,.meta-row:last-child .meta-value{border-bottom:0}
       .voucher-box{display:grid;grid-template-rows:1fr 2fr 1fr;background:#fff}
       .voucher-blank{background:#fff}
       .voucher-title{background:var(--brand);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-      .voucher-title .ar{font-size:14px;font-weight:800;line-height:1.05}
-      .voucher-title .en{font-size:7.1px;letter-spacing:.035em;margin-top:.5mm}
+      .voucher-title .ar{font-size:17px;font-weight:800;line-height:1.05}
+      .voucher-title .en{font-size:9.5px;letter-spacing:.03em;margin-top:.4mm}
       .amount-box{display:grid;grid-template-columns:66% 34%;grid-template-rows:repeat(4,1fr);direction:ltr}
-      .amount-white,.amount-red{display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--brand);min-height:0}
+      .amount-white,.amount-red{display:flex;align-items:center;justify-content:center;border-bottom:1px solid #fff;min-height:0}
       .amount-white{background:#fff;color:#111;font-weight:800;direction:rtl}
-      .amount-red{background:var(--brand);color:#fff;font-weight:700;direction:rtl}
-      .amount-title{grid-column:1;grid-row:1;font-size:8.7px}
-      .amount-number{grid-column:1;grid-row:2;font-size:9.4px;direction:ltr;font-variant-numeric:tabular-nums}
-      .amount-riyal{grid-column:2;grid-row:1/3;font-size:9px}
-      .amount-halala-value{grid-column:1;grid-row:3;font-size:9.4px;direction:ltr;font-variant-numeric:tabular-nums}
-      .amount-halala-label{grid-column:2;grid-row:3;font-size:8.7px}
-      .amount-words{grid-column:1;grid-row:4;font-size:7.6px;padding:0 1mm;text-align:center}
-      .amount-words-label{grid-column:2;grid-row:4;font-size:8.7px}
+      .amount-red{background:var(--brand);color:#fff;font-weight:700;direction:rtl;border-left:1px solid #fff}
+      .amount-title{grid-column:1;grid-row:1;font-size:11px}
+      .amount-number{grid-column:1;grid-row:2;font-size:12.2px;direction:ltr;font-variant-numeric:tabular-nums}
+      .amount-riyal{grid-column:2;grid-row:1/3;font-size:11.5px}
+      .amount-halala-value{grid-column:1;grid-row:3;font-size:12px;direction:ltr;font-variant-numeric:tabular-nums}
+      .amount-halala-label{grid-column:2;grid-row:3;font-size:11px}
+      .amount-words{grid-column:1;grid-row:4;font-size:10px;padding:0 1mm;text-align:center}
+      .amount-words-label{grid-column:2;grid-row:4;font-size:11px}
       .amount-box>*:nth-last-child(-n+2){border-bottom:0}
       .body{border-top:1px solid var(--brand);padding-top:1.7mm;margin-top:2mm}
-      .sentence,.payment-line{display:flex;align-items:flex-end;gap:1.2mm;min-height:6.1mm;white-space:nowrap}
-      .fixed{font-weight:700;flex:0 0 auto}
+      .sentence,.payment-line{display:flex;align-items:flex-end;gap:1mm;min-height:6.5mm;white-space:nowrap}
+      .fixed{font-weight:700;flex:0 0 auto;font-size:12.2px}
       .fill{min-width:19mm;flex:1 1 0;display:flex;align-items:flex-end;gap:1.1mm;border-bottom:1px dotted #555;height:5.3mm;overflow:hidden;white-space:nowrap}
-      .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
+      .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.55mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.4em;font-size:12.4px}
       .soft-fill{flex:1 1 auto;align-self:flex-end;height:2.8mm;min-width:0;background:rgba(139,51,50,.075);border-radius:.5mm}
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
-      .party-core-line{gap:.42mm;font-size:9.05px;min-height:6.3mm}
-      .party-core-line .fixed{font-size:8.85px}
+      .party-core-line{gap:.55mm;font-size:12.4px;min-height:6.8mm}
+      .party-core-line .fixed{font-size:12.1px}
       .party-core-line .fill{height:5.2mm;gap:.3mm}
-      .party-inline-name{flex:3.5 1 60mm;min-width:56mm}.party-inline-id{flex:1 1 21mm;min-width:19mm}.party-inline-nationality{flex:.42 1 9mm;min-width:8mm}.party-inline-mobile{flex:.9 1 20mm;min-width:18mm}.party-inline-city{flex:.5 1 11mm;min-width:10mm}
+      .party-inline-name{flex:3.8 1 66mm;min-width:61mm}.party-inline-id{flex:1.1 1 23mm;min-width:21mm}.party-inline-nationality{flex:.55 1 11mm;min-width:9mm}.party-inline-mobile{flex:1 1 23mm;min-width:21mm}.party-inline-city{flex:.65 1 14mm;min-width:12mm}
       .party-inline-name .value{max-width:none;overflow:visible;text-overflow:clip}
-      .settlement-flow-line{display:grid;align-items:end;gap:.28mm;min-height:6.15mm;margin-top:.35mm;white-space:nowrap;font-size:7.55px;direction:rtl}
-      .settlement-flow-line.no-bank{grid-template-columns:minmax(0,5.2fr) minmax(0,.82fr) minmax(0,2.65fr)}
-      .settlement-flow-line.has-bank{grid-template-columns:minmax(0,4.7fr) minmax(0,.76fr) minmax(0,1.08fr) minmax(0,2.35fr)}
-      .settlement-segment{display:flex;align-items:flex-end;gap:.2mm;min-width:0;overflow:hidden}
-      .settlement-segment .fixed{font-size:7.45px;white-space:nowrap;flex:0 0 auto}
-      .settlement-segment .fill{min-width:0;height:4.9mm;gap:.16mm;overflow:hidden}
-      .settlement-segment .fill .value{font-size:7.55px;max-width:100%;overflow:visible;text-overflow:clip;word-spacing:.22em;white-space:nowrap}
-      .settlement-amount .fill .value{font-size:7.35px}
-      .settlement-reference .fill .value{font-size:7.5px}
-      .settlement-bank .value,.settlement-method .value{font-size:7.5px}
-      .entitlement-flow-line{display:grid;align-items:end;gap:.36mm;min-height:5.9mm;margin-top:.2mm;white-space:nowrap;direction:rtl}
-      .entitlement-flow-line.has-date{grid-template-columns:minmax(0,1.35fr) minmax(0,5.65fr)}
-      .entitlement-flow-line.no-date{grid-template-columns:minmax(0,1fr)}
-      .entitlement-segment{display:flex;align-items:flex-end;gap:.2mm;min-width:0;overflow:hidden}
-      .entitlement-segment .fixed{font-size:7.5px;white-space:nowrap;flex:0 0 auto;font-weight:700;color:var(--ink)}
-      .entitlement-segment .fill{min-width:0;height:4.9mm;gap:.16mm;overflow:hidden}
-      .entitlement-segment .fill .value{font-size:7.5px;max-width:100%;overflow:visible;text-overflow:clip;white-space:nowrap;word-spacing:.22em}
-      .entitlement-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal}
-      .entitlement-reason .fill{flex:1 1 0}
-      .entitlement-flow-line.no-date .entitlement-reason{grid-column:1/-1}
+      .payment-flow-line{display:flex;align-items:flex-end;gap:.7mm;min-height:6.6mm;margin-top:.25mm;white-space:nowrap;direction:rtl}
+      .payment-flow-segment{display:flex;align-items:flex-end;gap:.35mm;min-width:0;overflow:hidden}
+      .payment-flow-segment .fixed{font-size:11.8px;white-space:nowrap}
+      .payment-flow-segment .fill{min-width:0;height:5.35mm;gap:.25mm;overflow:hidden}
+      .payment-flow-segment .fill .value{font-size:12px;max-width:100%;overflow:visible;text-overflow:clip;white-space:nowrap;word-spacing:.22em}
+      .payment-flow-second .payment-flow-city{flex:1.05 1 29mm}
+      .payment-flow-second .payment-flow-amount{flex:4.8 1 104mm}
+      .payment-flow-second .payment-flow-method{flex:.95 1 25mm}
+      .payment-flow-amount .fill .value{font-size:11.4px}
+      .payment-flow-third .payment-flow-reference{flex:3.2 1 80mm}
+      .payment-flow-third .payment-flow-bank{flex:1.2 1 31mm}
+      .payment-flow-third .payment-flow-date{flex:1.35 1 35mm}
+      .payment-flow-reference .fill .value{font-size:11.9px}
+      .payment-flow-date .value{direction:ltr;font-variant-numeric:tabular-nums;word-spacing:normal}
+      .entitlement-flow-line{display:flex;align-items:flex-end;gap:.45mm;min-height:6.4mm;margin-top:.2mm;white-space:nowrap;direction:rtl}
+      .entitlement-segment{display:flex;align-items:flex-end;gap:.35mm;min-width:0;overflow:hidden;flex:1 1 auto}
+      .entitlement-segment .fixed{font-size:11.8px;white-space:nowrap;flex:0 0 auto;font-weight:700;color:var(--ink)}
+      .entitlement-segment .fill{min-width:0;height:5.35mm;gap:.25mm;overflow:hidden;flex:1 1 0}
+      .entitlement-segment .fill .value{font-size:12px;max-width:100%;overflow:visible;text-overflow:clip;white-space:nowrap;word-spacing:.22em}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
-      .legal-ack{margin-top:.8mm;padding:1.2mm 1.6mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:8.65px;line-height:1.48;text-align:justify;font-weight:600}
+      .legal-ack{margin-top:.75mm;padding:1.05mm 1.4mm;border:1px solid #D8CACA;background:#FFFDFD;font-size:11px;line-height:1.35;text-align:justify;font-weight:600}
       .payment-line{margin-top:1.1mm;padding-top:1mm;border-top:1px solid #D5CACA;display:flex;align-items:flex-end;gap:.55mm;white-space:nowrap}
       .payment-segment{display:flex;align-items:flex-end;gap:.42mm;min-width:0}
       .payment-segment .fixed{font-size:8.85px;white-space:nowrap}
@@ -460,8 +462,8 @@ export default function TreasuryVouchersPage(){
       .payment-line.no-bank .payment-segment-reference{flex:3.4 1 85mm}
       .signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;margin-top:2.2mm}
       .sign{min-height:16mm;text-align:center;border-top:1.4px solid var(--brand);padding-top:1mm;position:relative;overflow:visible}
-      .sign strong{display:block;color:var(--brand-dark);font-size:10.2px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:1mm;font-size:9.7px;font-weight:700;word-spacing:.5em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.45mm;font-size:8.2px;color:#666;position:relative;z-index:2}.sign .signature-note{display:block;margin-top:.7mm;font-size:8.1px;font-weight:700;color:#444;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:8.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.84;z-index:4;pointer-events:none}
-      .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:1mm;display:flex;justify-content:space-between;font-size:8.5px;color:#666}
+      .sign strong{display:block;color:var(--brand-dark);font-size:12.5px;position:relative;z-index:2}.sign .person-name{display:block;margin-top:.8mm;font-size:11.8px;font-weight:700;word-spacing:.35em;position:relative;z-index:2}.sign .person-title{display:block;margin-top:.35mm;font-size:10.4px;color:#666;position:relative;z-index:2}.sign .signature-note{display:block;margin-top:.55mm;font-size:10.2px;font-weight:700;color:#444;position:relative;z-index:2}.approval-stamp{position:absolute;left:50%;top:8.5mm;transform:translateX(-50%);width:${stampSizeMm}mm;height:auto;max-width:none;max-height:none;object-fit:contain;opacity:.84;z-index:4;pointer-events:none}
+      .foot{position:absolute;right:6mm;left:6mm;bottom:2.2mm;border-top:1px solid #D5CACA;padding-top:.8mm;display:flex;justify-content:space-between;font-size:10.2px;color:#666}
       .void{position:absolute;inset:42% 10% auto;transform:rotate(-12deg);font-size:44px;font-weight:bold;color:rgba(139,51,50,.17);text-align:center;z-index:3;pointer-events:none}
       @media screen{body{min-width:210mm;min-height:297mm;background:#eee}.sheet{box-shadow:0 2px 18px rgba(0,0,0,.12)}}
       @media print{body{background:#fff}.sheet{box-shadow:none}}
@@ -475,7 +477,7 @@ export default function TreasuryVouchersPage(){
         </div>
         <img class="brand-logo" src="${esc(logoUrl)}" alt="شعار أركان المكان"/>
       </div>
-      <div class="legal-bar">العنوان: ${esc(latinDigits(settings.national_address||`${companyCity} – المملكة العربية السعودية`))} &nbsp; | &nbsp; س:ت: ${esc(latinDigits(settings.cr_number||'—'))} &nbsp; | &nbsp; الرقم الضريبي: ${esc(latinDigits(settings.vat_number||'—'))}</div>
+      <div class="legal-bar">حي الملك فهد، الرياض &nbsp; | &nbsp; الرمز البريدي 12274 &nbsp; | &nbsp; س:ت: ${esc(latinDigits(settings.cr_number||'—'))} &nbsp; | &nbsp; الرقم الضريبي: ${esc(latinDigits(settings.vat_number||'—'))}</div>
       <div class="top">
         <div class="meta">
           <div class="meta-row"><div class="meta-label">رقم الدفتر</div><div class="meta-value">${esc(latinDigits(voucher.book_no))}</div></div>
