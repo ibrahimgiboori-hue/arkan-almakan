@@ -350,10 +350,11 @@ export default function TreasuryVouchersPage(){
       .fill .value{font-style:italic;font-weight:700;color:#111;position:relative;top:-.6mm;flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;word-spacing:.55em}
       .soft-fill{flex:1 1 auto;align-self:flex-end;height:2.8mm;min-width:0;background:rgba(139,51,50,.045);border-radius:.5mm}
       .name-fill{min-width:34mm}.full-name-fill{min-width:145mm}.short-fill{min-width:25mm}.id-fill{flex:0 1 36mm;min-width:29mm}.city-fill{flex:0 1 28mm;min-width:18mm}.mobile-fill{flex:0 1 34mm;min-width:29mm}.grow-fill{min-width:80mm}.method-fill{min-width:24mm}.meta-fill{min-width:24mm}.party-name-line{margin-bottom:.4mm}.identity-line{gap:1.1mm}
-      .party-core-line{gap:.7mm;font-size:9.15px;min-height:6.3mm}
-      .party-core-line .fixed{font-size:9px}
-      .party-core-line .fill{height:5.2mm;gap:.55mm}
-      .party-inline-name{flex:1.8 1 38mm;min-width:34mm}.party-inline-id{flex:1 1 22mm;min-width:20mm}.party-inline-nationality{flex:.72 1 14mm;min-width:12mm}.party-inline-mobile{flex:1 1 23mm;min-width:20mm}.party-inline-city{flex:.8 1 17mm;min-width:14mm}
+      .party-core-line{gap:.42mm;font-size:9.05px;min-height:6.3mm}
+      .party-core-line .fixed{font-size:8.85px}
+      .party-core-line .fill{height:5.2mm;gap:.3mm}
+      .party-inline-name{flex:3.5 1 60mm;min-width:56mm}.party-inline-id{flex:1 1 21mm;min-width:19mm}.party-inline-nationality{flex:.42 1 9mm;min-width:8mm}.party-inline-mobile{flex:.9 1 20mm;min-width:18mm}.party-inline-city{flex:.5 1 11mm;min-width:10mm}
+      .party-inline-name .value{max-width:none;overflow:visible;text-overflow:clip}
       .amount-statement-line{margin-top:.4mm}.amount-statement-fill{min-width:125mm}
       .reason-heading{font-weight:800;color:var(--brand-dark);margin-top:.8mm;margin-bottom:.2mm}
       .reason-line{margin-bottom:0}
