@@ -9,7 +9,7 @@ import { useDashboardSession } from '@/lib/dashboard-session-context';
 import styles from '../my-work/approvals/approvals.module.css';
 
 const WORKFLOW_STATUS={pending:'قيد الاعتماد',returned:'مُعاد للتعديل',approved:'معتمد',rejected:'مرفوض',cancelled:'ملغى'};
-const STEP_STATUS={pending:'قيد الانتظار',approved:'معتمدة',returned:'أُعيدت للتعديل',rejected:'مرفوضة',cancelled:'ملغاة'};
+const STEP_STATUS={pending:'قيد الانتظار',approved:'معتمدة',routed:'موجّهة',returned:'أُعيدت للتعديل',rejected:'مرفوضة',cancelled:'ملغاة'};
 
 const SNAPSHOT_LABELS=Object.freeze({
   voucher_no:'رقم السند',voucher_date:'تاريخ السند',voucher_type:'نوع السند',amount:'المبلغ',amount_words:'المبلغ كتابة',
@@ -104,17 +104,17 @@ export default function ApprovalsPage(){
 
   async function decide(decision,{route=false}={}){
     if(!selectedId||isClaim)return;const clean=note.trim();
-    if(decision!=='approve'&&!clean){setError('اكتب سبب الإرجاع أو الرفض قبل تنفيذ القرار.');return;}
+    if(['return','reject'].includes(decision)&&!clean){setError('اكتب سبب الإرجاع أو الرفض قبل تنفيذ القرار.');return;}
     if(route&&(!routeDestination||!nextUser)){setError('اختر بوابة التعميد والشخص الذي ستُحال إليه المعاملة.');return;}
     if(route&&!nextReason.trim()){setError('اكتب سبب الإحالة للتعميد.');return;}
     const action=route?'route':decision;setBusy(action);setError('');setMessage('');
     const{data:decisionStatus,error:rpcError}=await supabase.rpc('fn_approval_decide',{
-      p_workflow_id:selectedId,p_decision:decision,p_comment:clean||null,p_next_user_id:route?nextUser:null,p_next_capability:null,p_next_reason:route?nextReason.trim():null,
+      p_workflow_id:selectedId,p_decision:route?'route':decision,p_comment:clean||null,p_next_user_id:route?nextUser:null,p_next_capability:null,p_next_reason:route?nextReason.trim():null,
     });
     if(rpcError)setError(rpcError.message||'تعذر تنفيذ القرار.');
     else{
       const approveMessage=decisionStatus==='pending'?'تم اعتماد هذه المرحلة وانتقلت المعاملة تلقائيًا إلى المرحلة التالية.':'تم اعتماد المعاملة نهائيًا.';
-      setMessage(route?'تم اعتماد المرحلة الحالية وإحالة المعاملة للتعميد التالي.':decision==='approve'?approveMessage:decision==='return'?'تم إرجاع المعاملة للتعديل.':'تم رفض المعاملة.');
+      setMessage(route?'تم توجيه المعاملة إلى الشخص المحدد دون احتساب ذلك اعتمادًا.':decision==='approve'?approveMessage:decision==='return'?'تم إرجاع المعاملة للتعديل.':'تم رفض المعاملة.');
       setNote('');setRouteDestination('');setRouteUsers([]);setNextUser('');setNextReason('');await load();
     }
     setBusy('');
@@ -149,7 +149,7 @@ export default function ApprovalsPage(){
               <h3>{stageLabel}</h3>
               <label className={styles.field}>تهميش القرار<textarea value={note} onChange={event=>setNote(event.target.value)} rows={4} maxLength={2000} placeholder="اختياري عند الاعتماد، وإلزامي عند الإرجاع أو الرفض"/></label>
               <div className={styles.actions}><button className="btn" type="button" disabled={Boolean(busy)} onClick={()=>decide('approve')}>{busy==='approve'?'جارٍ الاعتماد…':approveLabel}</button><button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('return')}>إرجاع للتعديل</button><button className="btn ghost" type="button" disabled={Boolean(busy)} onClick={()=>decide('reject')}>رفض</button></div>
-              {detail?.can_route?<div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--raw-line, #ddd)',display:'grid',gap:10}}><h3 style={{margin:0}}>اعتماد وإحالة للتعميد</h3><div className="form-grid"><div className="field"><label>بوابة التعميد</label><select value={routeDestination} onChange={e=>setRouteDestination(e.target.value)}><option value="">اختر البوابة</option>{routeDestinations.map(d=><option key={d.destination_key} value={d.destination_key}>{d.label_ar}</option>)}</select></div><div className="field"><label>المعتمد التالي</label><select value={nextUser} onChange={e=>setNextUser(e.target.value)} disabled={!routeDestination}><option value="">اختر الشخص</option>{routeUsers.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name_ar}{u.is_system_admin?' — مدير النظام':''}</option>)}</select></div><div className="field span2"><label>تهميش التوجيه / سبب الإحالة</label><input value={nextReason} onChange={e=>setNextReason(e.target.value)} maxLength={1000}/></div></div><div><button className="btn" type="button" disabled={Boolean(busy)||!nextUser||!nextReason.trim()} onClick={()=>decide('approve',{route:true})}>اعتماد المرحلة وإرسالها للتعميد</button></div></div>:null}
+              {detail?.can_route?<div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--raw-line, #ddd)',display:'grid',gap:10}}><h3 style={{margin:0}}>توجيه المعاملة</h3><div className="form-grid"><div className="field"><label>بوابة التعميد</label><select value={routeDestination} onChange={e=>setRouteDestination(e.target.value)}><option value="">اختر البوابة</option>{routeDestinations.map(d=><option key={d.destination_key} value={d.destination_key}>{d.label_ar}</option>)}</select></div><div className="field"><label>المعتمد التالي</label><select value={nextUser} onChange={e=>setNextUser(e.target.value)} disabled={!routeDestination}><option value="">اختر الشخص</option>{routeUsers.map(u=><option key={u.user_id} value={u.user_id}>{u.full_name_ar}{u.is_system_admin?' — مدير النظام':''}</option>)}</select></div><div className="field span2"><label>تهميش التوجيه / سبب الإحالة</label><input value={nextReason} onChange={e=>setNextReason(e.target.value)} maxLength={1000}/></div></div><div><button className="btn" type="button" disabled={Boolean(busy)||!nextUser||!nextReason.trim()} onClick={()=>decide('route',{route:true})}>توجيه المعاملة</button></div></div>:null}
             </div>:<div className={styles.block}><div className={styles.muted}>هذه المعاملة للمتابعة فقط أو لم تعد بانتظار قرارك.</div></div>}
           </>}
         </Section>}
