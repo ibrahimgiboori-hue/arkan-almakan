@@ -179,8 +179,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
       wb.calcProperties.fullCalcOnLoad=true;
       wb.calcProperties.forceFullCalc=true;
 
-      const summary=wb.addWorksheet('ملخص المسير',{views:[{rightToLeft:true}]});
-      const ws=wb.addWorksheet('مسير الرواتب',{views:[{rightToLeft:true,state:'frozen',ySplit:1}]});
+      const ws=wb.addWorksheet('مسير الرواتب',{views:[{rightToLeft:true,state:'frozen',ySplit:7}]});
       const cfg=wb.addWorksheet('الإعدادات',{views:[{rightToLeft:true}]});
 
       const divisorDays=batch?.divisor_policy==='calendar_days'
@@ -252,56 +251,77 @@ export default function ExternalPayrollWorkspaceEngineered(){
         {key:'notes',width:24},
       ];
 
-      // الملخص والتوضيحات في صفحة مستقلة تمامًا حتى لا تدخل أي خلايا مدمجة
-      // في نطاق الفرز/الفلترة الخاص بجدول مسير الرواتب.
-      summary.columns=[{width:26},{width:24},{width:26},{width:26},{width:70}];
-      summary.mergeCells('A1:E1');
-      summary.getCell('A1').value='مسير الرواتب الشهري';
-      summary.getCell('A1').font={bold:true,size:16,color:{argb:'FF8B3332'}};
-      summary.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
-      summary.getRow(1).height=30;
+      // لا توجد أي خلايا مدمجة في صفحة المسير. العنوان نص عادي قابل للتعديل،
+      // أما التوضيحات والتجميعات فتُرسم كعنصر عائم ثابت فوق الخلايا ولا تدخل في نطاق الفلترة.
+      for(let r=1;r<=6;r+=1)ws.getRow(r).height=(r===6?8:24);
+      ws.getCell('L1').value='مسير الرواتب الشهري';
+      ws.getCell('L1').font={bold:true,size:16,color:{argb:'FF8B3332'}};
+      ws.getCell('L1').alignment={horizontal:'center',vertical:'middle'};
+      ws.getCell('L2').value=`${activeImport.client_name_snapshot||'عميل خارجي'} — ${payrollMonthLabel(activeImport.period_from)} — ${dateOnly(activeImport.period_from)} إلى ${dateOnly(activeImport.period_to)}`;
+      ws.getCell('L2').font={bold:true,size:10,color:{argb:'FF4F5558'}};
+      ws.getCell('L2').alignment={horizontal:'center',vertical:'middle'};
+      ['L1','L2'].forEach((address)=>{ws.getCell(address).protection={locked:false,hidden:false};});
 
-      summary.mergeCells('A2:E2');
-      summary.getCell('A2').value=`${activeImport.client_name_snapshot||'عميل خارجي'} — ${payrollMonthLabel(activeImport.period_from)} — ${dateOnly(activeImport.period_from)} إلى ${dateOnly(activeImport.period_to)}`;
-      summary.getCell('A2').font={bold:true,size:11};
-      summary.getCell('A2').alignment={horizontal:'center',vertical:'middle'};
+      const makePayrollGuidePng=({employeeCount,totalNet})=>{
+        const canvas=document.createElement('canvas');
+        canvas.width=2400;
+        canvas.height=330;
+        const ctx=canvas.getContext('2d');
+        if(!ctx)throw new Error('تعذر إنشاء توضيحات ملف Excel.');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.direction='rtl';
+        ctx.textBaseline='middle';
 
-      summary.getCell('A4').value='الخلايا الصفراء';
-      summary.getCell('B4').value='مدخلات قابلة للتعديل';
-      summary.getCell('C4').value='الخلايا الرمادية';
-      summary.getCell('D4').value='معادلات تلقائية';
-      ['A4','B4'].forEach((cell)=>summary.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF2CC'}});
-      ['C4','D4'].forEach((cell)=>summary.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}});
-      ['A4','B4','C4','D4'].forEach((cell)=>{summary.getCell(cell).font={bold:true};summary.getCell(cell).alignment={horizontal:'center',vertical:'middle'};});
+        const box=(x,y,w,h,fill,stroke,text,font='bold 30px Arial',textColor='#2f2f2f')=>{
+          ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);
+          ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+          ctx.fillStyle=textColor;ctx.font=font;ctx.textAlign='center';
+          ctx.fillText(text,x+w/2,y+h/2);
+        };
 
-      const summaryGroups=[
-        ['A6','بيانات الموظف'],
-        ['A7','البيانات الأساسية للراتب'],
-        ['A8','المتغيرات المؤثرة على الأجر'],
-        ['A9','ناتج تطبيق المتغيرات'],
-        ['A10','وسائل الدفع'],
-      ];
-      summaryGroups.forEach(([cell,label])=>{summary.getCell(cell).value=label;summary.getCell(cell).font={bold:true,color:{argb:'FFFFFFFF'}};summary.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};});
-      summary.getCell('B6').value='رقم الموظف، الموظف';
-      summary.getCell('B7').value='الأساسي، السكن، النقل، البدلات، التأمينات، صافي الراتب المرجعي، ساعات اليوم';
-      summary.getCell('B8').value='الغياب، البصمات، فرق الساعات، الإضافات والخصومات اليدوية';
-      summary.getCell('B9').value='إجمالي الإضافات، إجمالي الخصومات، صافي المستحق';
-      summary.getCell('B10').value='طريقة الدفع، الملاحظات';
-      for(let r=6;r<=10;r+=1){summary.mergeCells(`B${r}:E${r}`);summary.getCell(`B${r}`).alignment={horizontal:'right',vertical:'middle',wrapText:true};}
+        const margin=20;
+        const gap=16;
+        const topY=8;
+        const topH=68;
+        const topW=(canvas.width-margin*2-gap*2)/3;
+        box(canvas.width-margin-topW,topY,topW,topH,'#FFF2CC','#D8C46E','الخلايا الصفراء = مدخلات قابلة للتعديل');
+        box(canvas.width-margin-topW*2-gap,topY,topW,topH,'#E7E6E6','#A6A6A6','الخلايا الرمادية = معادلات تلقائية');
+        box(margin,topY,topW,topH,'#F4F1EF','#B7ADA7',`عدد الموظفين: ${employeeCount}   |   إجمالي صافي المستحق: ${Number(totalNet||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س`,'bold 28px Arial');
 
-      summary.mergeCells('A12:E12');
-      summary.getCell('A12').value='للتحديث الشهري: يمكن تعديل العنوان والبيانات وحذف الموظفين. لإضافة موظف جديد انسخ صف موظف كاملًا ثم عدّل بياناته حتى تنتقل المعادلات والتحقق معه.';
-      summary.getCell('A12').alignment={horizontal:'right',vertical:'middle',wrapText:true};
-      summary.getCell('A12').font={italic:true,color:{argb:'FF6A625E'}};
-      summary.getCell('A12').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF8F6F4'}};
-      summary.getRow(12).height=38;
+        ctx.fillStyle='#6A625E';
+        ctx.font='24px Arial';
+        ctx.textAlign='right';
+        ctx.fillText('يمكن تعديل الرواتب والمتغيرات وبيانات الموظفين؛ المعادلات تعيد الاحتساب تلقائيًا. لإضافة موظف جديد انسخ صف موظف كاملًا ثم عدّل بياناته.',canvas.width-margin,112);
+
+        const widths=ws.columns.map((col)=>Number(col.width||10));
+        const totalWidth=widths.reduce((a,b)=>a+b,0);
+        const groups=[
+          {from:0,to:1,label:'بيانات الموظف',fill:'#5F6468'},
+          {from:2,to:9,label:'البيانات الأساسية للراتب',fill:'#5F6468'},
+          {from:10,to:17,label:'المتغيرات المؤثرة على الأجر',fill:'#8B3332'},
+          {from:18,to:20,label:'ناتج تطبيق المتغيرات',fill:'#4F5558'},
+          {from:21,to:22,label:'وسائل الدفع',fill:'#5F6468'},
+        ];
+
+        let right=canvas.width-margin;
+        const groupY=170;
+        const groupH=110;
+        for(const group of groups){
+          const groupWeight=widths.slice(group.from,group.to+1).reduce((a,b)=>a+b,0);
+          const w=(canvas.width-margin*2)*(groupWeight/totalWidth);
+          const x=right-w;
+          box(x,groupY,w,groupH,group.fill,'#FFFFFF',group.label,'bold 30px Arial','#FFFFFF');
+          right=x;
+        }
+        return canvas.toDataURL('image/png');
+      };
 
       const headers=[
         'رقم الموظف','الموظف','الأساسي','السكن','النقل','بدلات أخرى','نسبة التأمينات %','خصم التأمينات (ر.س)','صافي الراتب المرجعي (ر.س)',
         'ساعات اليوم','الغياب (يوم)','خصم الغياب (ر.س)','البصمات المفقودة','خصم البصمات (ر.س)','فرق الساعات (ساعة)','أثر الساعات (ر.س)',
         'إضافات يدوية','خصومات يدوية','إجمالي الإضافات (ر.س)','إجمالي الخصومات (ر.س)','صافي المستحق (ر.س)','طريقة الدفع','ملاحظات'
       ];
-      const headerRow=ws.getRow(1);
+      const headerRow=ws.getRow(7);
       headerRow.values=headers;
       headerRow.height=34;
       headerRow.eachCell((cell,colNumber)=>{
@@ -321,7 +341,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       const inputCols=[3,4,5,6,7,10,11,13,15,17,18,22,23];
       const formulaCols=[8,9,12,14,16,19,20,21];
-      let rowIndex=2;
+      let rowIndex=8;
 
       for(const person of people){
         const line=lineByKey.get(person.key);
@@ -391,13 +411,13 @@ export default function ExternalPayrollWorkspaceEngineered(){
         rowIndex+=1;
       }
 
-      const lastDataRow=Math.max(1,rowIndex-1);
+      const lastDataRow=Math.max(7,rowIndex-1);
       const totalRow=ws.getRow(rowIndex);
       totalRow.getCell(1).value='الإجمالي';
       totalRow.getCell(2).value='';
       for(const col of [3,4,5,6,8,9,12,14,16,17,18,19,20,21]){
         const letter=ws.getColumn(col).letter;
-        totalRow.getCell(col).value={formula:`SUM(${letter}2:${letter}${lastDataRow})`};
+        totalRow.getCell(col).value={formula:`SUM(${letter}8:${letter}${lastDataRow})`};
         totalRow.getCell(col).numFmt=[8,9,12,14,16,19,20,21].includes(col)?'#,##0.00 "ر.س"':'#,##0.00';
       }
       totalRow.height=25;
@@ -408,33 +428,34 @@ export default function ExternalPayrollWorkspaceEngineered(){
         cell.border={top:{style:'thin',color:{argb:'FF8B3332'}},bottom:{style:'thin',color:{argb:'FF8B3332'}},left:{style:'thin',color:{argb:'FFFFFFFF'}},right:{style:'thin',color:{argb:'FFFFFFFF'}}};
       });
 
-      summary.getCell('A14').value='عدد الموظفين';
-      summary.getCell('B14').value=Math.max(0,lastDataRow-1);
-      summary.getCell('C14').value='إجمالي صافي المستحق';
-      summary.getCell('D14').value={formula:`'مسير الرواتب'!U${rowIndex}`,result:Number(totals.final||0)};
-      summary.getCell('D14').numFmt='#,##0.00 "ر.س"';
-      ['A14','C14'].forEach((cell)=>{summary.getCell(cell).font={bold:true,color:{argb:'FFFFFFFF'}};summary.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5F6468'}};});
-      ['B14','D14'].forEach((cell)=>{summary.getCell(cell).font={bold:true};summary.getCell(cell).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F1EF'}};summary.getCell(cell).alignment={horizontal:'center'};});
+      const guidePng=makePayrollGuidePng({
+        employeeCount:Math.max(0,lastDataRow-7),
+        totalNet:Number(totals.final||0),
+      });
+      const guideImageId=wb.addImage({base64:guidePng,extension:'png'});
+      ws.addImage(guideImageId,{
+        tl:{col:0,row:2.05},
+        br:{col:23,row:5.85},
+        editAs:'absolute',
+      });
 
-      ws.autoFilter={from:{row:1,column:1},to:{row:lastDataRow,column:23}};
+      ws.autoFilter={from:{row:7,column:1},to:{row:lastDataRow,column:23}};
       ws.pageSetup.printArea=`A1:W${rowIndex}`;
-      ws.headerFooter.oddHeader=`&C&14&Bمسير الرواتب الشهري - ${activeImport.client_name_snapshot||'العميل'} - ${payrollMonthLabel(activeImport.period_from)}`;
       ws.headerFooter.oddFooter='&Cصفحة &P من &N';
 
       // كلمة مرور مالك الملف ثابتة حتى يستطيع صاحب الخدمة فك الحماية وإعادتها عند الحاجة.
       const protectionPassword='arkan2026';
 
-      // صفحة "مسير الرواتب" خالية تمامًا من الخلايا المدمجة؛ الفلترة تبدأ من الصف الأول فقط.
-      // صفحة الملخص منفصلة ويمكن تعديل عناوينها وتوضيحاتها بصورة طبيعية.
-      summary.eachRow((row)=>row.eachCell((cell)=>{cell.protection={locked:false,hidden:false};}));
+      // العنوان أعلى الجدول قابل للتعديل، أما عنصر التوضيحات العائم فمثبت وغير مرتبط بالخلايا.
+      ['L1','L2'].forEach((address)=>{ws.getCell(address).protection={locked:false,hidden:false};});
       for(let rowNo=1;rowNo<=7;rowNo+=1){
         for(let colNo=1;colNo<=3;colNo+=1){
           cfg.getCell(rowNo,colNo).protection={locked:false,hidden:false};
         }
       }
 
-      if(lastDataRow>=2){
-        for(let r=2;r<=lastDataRow;r++){
+      if(lastDataRow>=8){
+        for(let r=8;r<=lastDataRow;r++){
           // لا يفتح للمستخدم إلا خلايا الإدخال الصفراء المحددة؛ بقية الملف مقفول.
           // بيانات هوية الموظف قابلة للتحديث بين شهر وآخر (إضافة/تصحيح اسم أو رقم).
           [1,2].forEach((col)=>{ws.getCell(r,col).protection={locked:false,hidden:false};});
@@ -511,11 +532,10 @@ export default function ExternalPayrollWorkspaceEngineered(){
         sort:true,
         autoFilter:true,
         pivotTables:false,
-        objects:false,
+        objects:true,
         scenarios:false,
         spinCount:10000,
       });
-      // لا حماية على صفحة الملخص لأنها مخصصة للتعديل الحر على العناوين والتوضيحات.
       await cfg.protect(protectionPassword,{
         selectLockedCells:true,
         selectUnlockedCells:true,
@@ -537,7 +557,7 @@ export default function ExternalPayrollWorkspaceEngineered(){
 
       const protectedBuffer=await wb.xlsx.writeBuffer();
       downloadBuffer(protectedBuffer,filename);
-      setMsg('تم تنزيل المسير: جدول الرواتب منفصل تمامًا عن التوضيحات وقابل للفرز والفلترة، وكلمة مرور المالك للحماية arkan2026.');
+      setMsg('تم تنزيل المسير: التوضيحات أصبحت عنصرًا عائمًا ثابتًا فوق الجدول ولا تدخل في الخلايا أو نطاق الفلترة. كلمة مرور المالك arkan2026.');
     }catch(error){
       setErr(error.message||String(error));
     }finally{
