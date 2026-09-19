@@ -33,6 +33,7 @@ import {
 import { PrintLayoutProvider } from '@/components/print/PrintLayoutContext';
 import { PrintPresentationProvider } from '@/components/print/PrintPresentationContext';
 import PagedTableGridEditor from '@/components/print/PagedTableGridEditor';
+import ExactPrintMirror from '@/components/print/ExactPrintMirror';
 import PrintMarks from '@/components/print/PrintMarks';
 
 const assetUrl = (path) => path ? supabase.storage.from('brand').getPublicUrl(path).data.publicUrl : null;
@@ -975,6 +976,7 @@ export default function ConstitutionPagedFrame({
               {renderOverlay?.({pageIndex,pageCount})}
             </section>
           ))}
+          <ExactPrintMirror documentKey={documentKey} pageCount={pageCount}/>
           <style jsx global>{`
             .constitution-paged-layoutbar{position:sticky;top:0;z-index:28;max-width:297mm;margin:8px auto 0;padding:8px 10px;background:#fff;border:1px solid #c7c7c7;display:flex;gap:7px;align-items:center;flex-wrap:wrap;direction:rtl;box-shadow:0 1px 6px rgba(0,0,0,.08)}
             .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:62px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}.constitution-paper-standard{color:#6b6b6d!important}.constitution-captain-approvals{display:flex;align-items:center;gap:8px;margin:0;padding:5px 8px;border:1px solid #d8b8b6;border-radius:8px;background:#fff8f7}.constitution-captain-approvals legend{padding:0 5px;font-size:11px;font-weight:800;color:#7c2b28}.constitution-captain-toggle{cursor:pointer;font-weight:700}.constitution-captain-toggle input{width:16px;height:16px;margin:0;accent-color:#8b3332}.constitution-captain-toggle input:disabled{cursor:wait;opacity:.55}.constitution-captain-toggle span{color:#332f2f!important;white-space:nowrap}
