@@ -16,6 +16,7 @@ import {
 import { composeDashboardSession } from '@/lib/core/dashboard-session';
 import { dashboardDeniedMessage } from '@/lib/presentation/dashboard-messages';
 import ContextualDashboardNavigation from '@/components/ui/ContextualDashboardNavigation';
+import OrganizationSwitcher from '@/components/account/OrganizationSwitcher';
 import WorkSurfaceRuntime from '@/components/ui/WorkSurfaceRuntime';
 import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRuntime';
 import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime';
@@ -168,6 +169,7 @@ export default function DashboardLayout({ children }) {
                 data-application-body="work-first-v3"
                 data-ui-slot={uiSlot('applicationStage')}
               >
+                <OrganizationSwitcher tenant={state.me?.tenant} />
                 <WorkSessionRuntime>
                   <ActionNervousSystemRuntime>
                     {showExceptionalIdentity ? (
