@@ -46,7 +46,9 @@ for(const table of ['permission_actions','permission_capabilities','workflow_act
 
 const migrationDir = path.join(root,'supabase','migrations');
 if(fs.existsSync(migrationDir)){
-  const migrationFiles = fs.readdirSync(migrationDir).filter((name)=>name.endsWith('.sql'));
+  const migrationFiles = fs.readdirSync(migrationDir)
+    .filter((name)=>name.endsWith('.sql'))
+    .filter((name)=>name >= '20260920152000_multi_tenant_foundation_phase1.sql');
   const createTableRegex = /create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-zA-Z0-9_]+)/gi;
   for(const name of migrationFiles){
     const source = fs.readFileSync(path.join(migrationDir,name),'utf8');
