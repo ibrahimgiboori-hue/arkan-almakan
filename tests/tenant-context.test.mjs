@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeTenantMemberships, resolveTenantContext } from '../lib/core/tenant-context.js';
+import { applyTenantModuleEntitlements, normalizeTenantMemberships, resolveTenantContext, tenantWithModules } from '../lib/core/tenant-context.js';
 
 const orgs = [
   { id:'org-a', slug:'a', name_ar:'أ', name_en:'A', status:'active' },
@@ -49,4 +49,40 @@ test('a user without an active organization is explicitly unassigned', () => {
   const result = resolveTenantContext({ memberships:[], organizations:orgs });
   assert.equal(result.mode,'unassigned');
   assert.equal(result.activeOrganization,null);
+});
+
+test('tenant modules expose only active and trial entitlements', () => {
+  const base = resolveTenantContext({ memberships, organizations:orgs });
+  const tenant = tenantWithModules(base,[
+    { module_key:'core', status:'active', settings:{} },
+    { module_key:'hr', status:'trial', settings:{} },
+    { module_key:'projects', status:'disabled', settings:{} },
+  ]);
+  assert.deepEqual([...tenant.moduleKeys].sort(),['core','hr']);
+});
+
+test('module entitlements intersect with user capabilities', () => {
+  const base = resolveTenantContext({ memberships, organizations:orgs });
+  const tenant = tenantWithModules(base,[
+    { module_key:'core', status:'active', settings:{} },
+    { module_key:'hr', status:'active', settings:{} },
+    { module_key:'finance_ops', status:'disabled', settings:{} },
+  ]);
+  const gated = applyTenantModuleEntitlements({
+    projects:true,
+    projectsScreen:true,
+    projectScoped:true,
+    hr:true,
+    finance:true,
+    documents:true,
+    admin:true,
+    manageAccess:true,
+    approvals:true,
+  },tenant);
+  assert.equal(gated.hr,true);
+  assert.equal(gated.finance,false);
+  assert.equal(gated.projects,false);
+  assert.equal(gated.documents,false);
+  assert.equal(gated.admin,true);
+  assert.equal(gated.approvals,true);
 });
