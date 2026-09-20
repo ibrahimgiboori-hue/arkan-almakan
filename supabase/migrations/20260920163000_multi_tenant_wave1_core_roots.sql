@@ -12,7 +12,8 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $$
-  select private.has_active_org_membership(p_organization_id)
+  select p_organization_id=public.current_organization_id()
+    and private.has_active_org_membership(p_organization_id)
     and exists (
       select 1
       from public.organization_modules core
