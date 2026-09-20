@@ -1,0 +1,61 @@
+.bar {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-block-end: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  background: color-mix(in srgb, Canvas 96%, currentColor 4%);
+  color: CanvasText;
+  direction: rtl;
+}
+
+.label {
+  font-size: 12px;
+  opacity: .68;
+  white-space: nowrap;
+}
+
+.name,
+.select {
+  min-width: 0;
+  font: inherit;
+  font-weight: 650;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select {
+  max-width: min(360px, 55vw);
+  min-height: 30px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 8px;
+  padding-inline: 9px 28px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.role {
+  margin-inline-start: auto;
+  font-size: 11px;
+  opacity: .72;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .bar {
+    padding-inline: 10px;
+  }
+
+  .role {
+    display: none;
+  }
+
+  .select {
+    max-width: 64vw;
+  }
+}
