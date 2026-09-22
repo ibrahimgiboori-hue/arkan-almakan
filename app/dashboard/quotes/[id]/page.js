@@ -2,7 +2,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals, VAT_AR, QSTATUS_AR } from '@/lib/quote-calc';
 import { useLiveRefresh } from '@/lib/live';
@@ -49,17 +48,14 @@ export default function QuoteEditor() {
     try {
       const [workspace, familyResult] = await Promise.all([
         quoteEditorService.loadWorkspace({ quoteId:id }),
-        supabase.from('print_family_workbooks')
-          .select('ui_schema,model_sheets,version')
-          .eq('family_id','quotations')
-          .maybeSingle(),
+        quoteEditorService.loadPrintFamilySchema({ familyId:'quotations' }),
       ]);
       setQ(workspace.quote);
       setLines(workspace.lines);
       setPays(workspace.payments);
       setItems(workspace.workItems);
       setPresets(workspace.presets);
-      if (!familyResult.error) setPrintSchema(familyResult.data?.ui_schema || null);
+      setPrintSchema(familyResult?.ui_schema || null);
     } catch (error) {
       setErr(error?.message || 'تعذّر تحميل عرض السعر.');
     }
