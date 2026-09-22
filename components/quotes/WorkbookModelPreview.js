@@ -17,6 +17,11 @@ const NUMERIC_TOKENS = new Set([
   'subtotal','vat_amount','grand_total','plain_total',
 ]);
 
+const NO_WRAP_TOKENS = new Set([
+  ...NUMERIC_TOKENS,
+  'quote_no','bank_account_no','bank_iban',
+]);
+
 const COMPACT_TOKENS = new Set([
   'payment_terms','terms','closing_text',
   'representative_name','representative_title',
@@ -156,6 +161,10 @@ function groupForCell(cell) {
 
 function isNumericCell(cell) {
   return Array.isArray(cell?.tokens) && cell.tokens.some((token) => NUMERIC_TOKENS.has(token));
+}
+
+function isNoWrapCell(cell) {
+  return Array.isArray(cell?.tokens) && cell.tokens.some((token) => NO_WRAP_TOKENS.has(token));
 }
 
 function repeatRecords(groupId, repeatData) {
@@ -325,7 +334,8 @@ export default function WorkbookModelPreview({
       if (!Array.isArray(cell.tokens) || !cell.tokens.some((token) => COMPACT_TOKENS.has(token))) continue;
 
       const display = tokenValue(cell.text, cell.renderValues);
-      const widthCssPx = cellWidthPx(cell, bounds, columnMap) * colScaleMm * PX_PER_MM;
+      if (isNoWrapCell(cell)) continue;
+      const widthCssPx = cellWidthPx(cell, bounds, columnsPx) * colScaleMm * PX_PER_MM;
       const visualLines = measureWrappedLines(display, widthCssPx);
       const rowIndex = cell.renderRow - 1;
       if (rowIndex >= 0 && rowIndex < expandedRowsPx.length) {
@@ -399,6 +409,31 @@ export default function WorkbookModelPreview({
     const startRow = (cell.renderRow - 1) - headerTrackCount;
     const span = Math.max(1, Number(cell.renderRowSpan || 1));
     for (let boundary = startRow + 1; boundary < startRow + span; boundary += 1) {
+      if (boundary > 0 && boundary < flowRowSizesMm.length) forbiddenBreaks.add(boundary);
+    }
+  }
+
+  // The final acceptance / representative / bank block is one logical footer
+  // element. It may move to the next page as a whole, but it must never be split
+  // row-by-row across several pages.
+  const footerTokens = new Set([
+    'representative_name','representative_title',
+    'bank_name','bank_account_no','bank_iban',
+  ]);
+  const footerGroupCells = flowCells.filter((cell) => {
+    const tokens = Array.isArray(cell.tokens) ? cell.tokens : [];
+    const text = String(cell.text || '');
+    return tokens.some((token) => footerTokens.has(token))
+      || /قبول العميل|ممثل أركان المكان|تفاصيل الحساب البنكي|الاسم:|التوقيع:|التاريخ:/.test(text);
+  });
+  if (footerGroupCells.length) {
+    const footerStart = Math.min(...footerGroupCells.map(
+      (cell) => (cell.renderRow - 1) - headerTrackCount
+    ));
+    const footerEnd = Math.max(...footerGroupCells.map(
+      (cell) => (cell.renderRow - 1) - headerTrackCount + Math.max(1, Number(cell.renderRowSpan || 1))
+    ));
+    for (let boundary = footerStart + 1; boundary < footerEnd; boundary += 1) {
       if (boundary > 0 && boundary < flowRowSizesMm.length) forbiddenBreaks.add(boundary);
     }
   }
@@ -567,6 +602,7 @@ export default function WorkbookModelPreview({
             const cellStart = (cell.renderRow - 1) - headerTrackCount;
             const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
             const numeric = isNumericCell(cell);
+            const noWrap = isNoWrapCell(cell);
             const text = tokenValue(cell.text, cell.renderValues);
 
             return <div key={cell.renderKey} title={cell.address} style={{
@@ -585,11 +621,11 @@ export default function WorkbookModelPreview({
               minWidth:0,
               minHeight:0,
               overflow:'hidden',
-              whiteSpace:numeric ? 'nowrap' : 'pre-wrap',
-              overflowWrap:numeric ? 'normal' : 'break-word',
-              wordBreak:numeric ? 'keep-all' : 'normal',
+              whiteSpace:noWrap ? 'nowrap' : 'pre-wrap',
+              overflowWrap:noWrap ? 'normal' : 'break-word',
+              wordBreak:noWrap ? 'keep-all' : 'normal',
               textAlign:'center',
-              direction:numeric ? 'ltr' : (/[؀-ۿ]/.test(text) ? 'rtl' : 'ltr'),
+              direction:noWrap ? 'ltr' : (/[؀-ۿ]/.test(text) ? 'rtl' : 'ltr'),
               lineHeight:1.2,
               boxSizing:'border-box',
             }}>
