@@ -162,6 +162,13 @@ export default function WorkbookModelPreview({
   values = {},
   repeatData = {},
   repeatGroups = {},
+  visibility = [],
+  toggles = {},
+  overlays = [],
+  overlayImages = {},
+  overlayPositions = {},
+  editableOverlays = false,
+  onOverlayMove,
   printMode = false,
 }) {
   const effectiveRepeatData = Object.keys(repeatData || {}).length ? repeatData : (repeatGroups || {});
@@ -321,6 +328,66 @@ export default function WorkbookModelPreview({
 
   const { bounds, columns, rows, totalHeightMm, renderCells } = layout;
 
+  const visibleOverlays = (overlays || [])
+    .filter((overlay) => overlay.modelSheet === model?.name)
+    .filter((overlay) => {
+      if (!overlay.showToggle) return true;
+      const explicit = toggles?.[overlay.showToggle];
+      if (explicit !== undefined && explicit !== null) return Boolean(explicit);
+      const rule = (visibility || []).find((item) => item.toggle === overlay.showToggle);
+      return rule ? Boolean(rule.defaultValue) : false;
+    });
+
+  function overlayAnchor(overlay) {
+    return renderCells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(overlay.anchorToken)) || null;
+  }
+
+  function columnOffsetMm(col) {
+    const columnMap = new Map((model.columns || []).map((item) => [item.col, item]));
+    let px = 0;
+    for (let current = bounds.startCol; current < col; current += 1) px += pxWidth(columnMap.get(current));
+    const totalPx = Array.from({length:bounds.endCol - bounds.startCol + 1}, (_, index) =>
+      pxWidth(columnMap.get(bounds.startCol + index))
+    ).reduce((sum, value) => sum + value, 0) || 1;
+    return px * (A4_WIDTH_MM / totalPx);
+  }
+
+  function rowOffsetMm(renderRow) {
+    const parts = String(rows || '').split(' ').filter(Boolean).map((value) => Number(String(value).replace('mm','')) || 0);
+    return parts.slice(0, Math.max(0, renderRow - 1)).reduce((sum, value) => sum + value, 0);
+  }
+
+  function beginOverlayDrag(event, overlay) {
+    if (!editableOverlays || overlay.movable === false) return;
+    event.preventDefault();
+    const pointerId = event.pointerId;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const current = overlayPositions?.[overlay.id] || {};
+    const baseX = Number(current.xMm ?? overlay.offsetXmm ?? 0);
+    const baseY = Number(current.yMm ?? overlay.offsetYmm ?? 0);
+    const target = event.currentTarget;
+    target.setPointerCapture?.(pointerId);
+
+    const move = (moveEvent) => {
+      onOverlayMove?.(overlay.id, {
+        xMm:Math.round((baseX + (moveEvent.clientX - startX) / PX_PER_MM) * 10) / 10,
+        yMm:Math.round((baseY + (moveEvent.clientY - startY) / PX_PER_MM) * 10) / 10,
+      }, false);
+    };
+    const up = (upEvent) => {
+      target.releasePointerCapture?.(pointerId);
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', up);
+      onOverlayMove?.(overlay.id, {
+        xMm:Math.round((baseX + (upEvent.clientX - startX) / PX_PER_MM) * 10) / 10,
+        yMm:Math.round((baseY + (upEvent.clientY - startY) / PX_PER_MM) * 10) / 10,
+      }, true);
+    };
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+  }
+
   return <div style={{
     overflow:printMode ? 'visible' : 'auto',
     padding:printMode ? 0 : 12,
@@ -373,6 +440,52 @@ export default function WorkbookModelPreview({
           boxSizing:'border-box',
         }}>
           {text}
+        </div>;
+      })}
+
+      {visibleOverlays.map((overlay) => {
+        const anchorCell = overlayAnchor(overlay);
+        if (!anchorCell) return null;
+
+        const savedPosition = overlayPositions?.[overlay.id] || {};
+        const xMm = Number(savedPosition.xMm ?? overlay.offsetXmm ?? 0);
+        const yMm = Number(savedPosition.yMm ?? overlay.offsetYmm ?? 0);
+        const src = overlayImages?.[overlay.variableCode] || overlayImages?.[overlay.id] || '';
+
+        const leftMm = columnOffsetMm(anchorCell.col) + xMm;
+        const topMm = rowOffsetMm(anchorCell.renderRow) + yMm;
+
+        return <div
+          key={`overlay::${overlay.id}`}
+          onPointerDown={(event) => beginOverlayDrag(event, overlay)}
+          title={editableOverlays ? 'اسحب لتحريك الطبقة' : overlay.id}
+          style={{
+            position:'absolute',
+            left:`${leftMm}mm`,
+            top:`${topMm}mm`,
+            width:`${Math.max(1, Number(overlay.widthMm || 20))}mm`,
+            height:`${Math.max(1, Number(overlay.heightMm || 20))}mm`,
+            zIndex:Number(overlay.zIndex || 20),
+            cursor:editableOverlays ? 'move' : 'default',
+            touchAction:'none',
+            pointerEvents:editableOverlays ? 'auto' : 'none',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+          }}
+        >
+          {src
+            ? <img src={src} alt="" style={{width:'100%',height:'100%',objectFit:'contain',display:'block'}} />
+            : <div style={{
+                width:'100%',height:'100%',
+                border:'1px dashed #7A1832',
+                color:'#7A1832',
+                background:'rgba(255,255,255,.6)',
+                fontSize:'10px',
+                display:'flex',
+                alignItems:'center',
+                justifyContent:'center',
+              }}>{overlay.id === 'stamp' ? 'الختم' : overlay.id === 'signature' ? 'التوقيع' : overlay.id}</div>}
         </div>;
       })}
     </div>
