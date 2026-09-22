@@ -40,6 +40,7 @@ export default function QuoteEditor() {
   const [items, setItems] = useState([]);
   const [presets, setPresets] = useState([]);
   const [printSchema, setPrintSchema] = useState(null);
+  const [printAssets, setPrintAssets] = useState({});
   const [tab, setTab] = useState('model');
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState('');
@@ -47,9 +48,10 @@ export default function QuoteEditor() {
   const load = useCallback(async () => {
     setErr('');
     try {
-      const [workspace, familyResult] = await Promise.all([
+      const [workspace, familyResult, assets] = await Promise.all([
         quoteEditorService.loadWorkspace({ quoteId:id }),
         quoteEditorService.loadPrintFamilySchema({ familyId:'quotations' }),
+        quoteEditorService.loadPrintAssets(),
       ]);
       setQ(workspace.quote);
       setLines(workspace.lines);
@@ -57,6 +59,7 @@ export default function QuoteEditor() {
       setItems(workspace.workItems);
       setPresets(workspace.presets);
       setPrintSchema(familyResult?.ui_schema || null);
+      setPrintAssets(assets || {});
     } catch (error) {
       setErr(error?.message || 'تعذّر تحميل عرض السعر.');
     }
@@ -348,6 +351,8 @@ export default function QuoteEditor() {
             toggles={previewToggles}
             repeatGroups={previewRepeatGroups}
             overlays={printSchema?.overlays || []}
+            overlayImages={printAssets}
+            overlayPositions={q.print_overlay_positions || {}}
           />
         </div>
       )}
