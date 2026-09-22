@@ -278,7 +278,7 @@ export default function QuoteEditor() {
           </div> : null}
         </div>
         <div className="rowsplit">
-          <Link className="btn" href={`/print/quote/${id}`} target="_blank">معاينة وطباعة</Link>
+          <Link className="btn" href={`/dashboard/quotes/${id}/workbook-print`} target="_blank">معاينة وطباعة Excel</Link>
           <Link className="btn ghost" href="/dashboard/quotes">السجل</Link>
         </div>
       </div>
@@ -418,22 +418,41 @@ export default function QuoteEditor() {
 
       {tab === 'switches' && <>
         <div className="section" style={{marginTop:0,marginBottom:16}}>
-          <header><h2>قوالب جاهزة</h2></header>
-          <div style={{padding:16,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(215px,1fr))',gap:10}}>
-            {presets.map((p)=><button key={p.id} onClick={()=>applyPreset(p)} style={{textAlign:'right',background:'#fff',border:'1px solid var(--hair-strong)',padding:'11px 13px',cursor:'pointer',fontFamily:'inherit'}}>
-              <div style={{fontSize:14.5,color:'var(--maroon-dark)',fontWeight:600}}>{p.name_ar}</div><div style={{fontSize:12,color:'var(--ink-soft)',marginTop:3,lineHeight:1.5}}>{p.description}</div>
-            </button>)}
+          <header>
+            <h2>نماذج Excel المعتمدة</h2>
+            <div className="hint">هذه القائمة تأتي مباشرة من أسماء الـSheets داخل ملف عائلة عروض الأسعار المرفوع.</div>
+          </header>
+          <div style={{padding:16,display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>
+            {workbookModels.map((model)=>{
+              const active = activeModel?.name === model.name;
+              return <button key={model.name} onClick={()=>selectWorkbookModel(model.name)} style={{
+                textAlign:'right',
+                background:active?'var(--rose-wash)':'#fff',
+                border:active?'2px solid var(--maroon)':'1px solid var(--hair-strong)',
+                padding:'12px 14px',
+                cursor:'pointer',
+                fontFamily:'inherit',
+                borderRadius:8,
+              }}>
+                <div style={{fontSize:14.5,color:'var(--maroon-dark)',fontWeight:700}}>{model.name}</div>
+                <div style={{fontSize:12,color:'var(--ink-soft)',marginTop:4,lineHeight:1.6}}>
+                  {model.hasQty?'جدول كميات':'مقطوعية'} · {model.hasVat?'بضريبة':'بدون ضريبة'} · {model.cells?.length || 0} عنصر مقروء
+                </div>
+                {active ? <div style={{marginTop:8,fontSize:12,fontWeight:700,color:'var(--maroon)'}}>النموذج الحالي ✓</div> : null}
+              </button>;
+            })}
           </div>
-          <div className="hint" style={{padding:'0 16px 14px'}}>القالب يضبط مفاتيح المحتوى دفعة واحدة — هندسة الورقة لا تأتي من قالب عرض السعر</div>
+          {!workbookModels.length ? <div className="empty" style={{margin:16}}><h3>لا توجد نماذج Excel مقروءة</h3><p>أعد رفع ملف عائلة عروض الأسعار من الإعدادات.</p></div> : null}
         </div>
+
         <div className="grid k2">
-          <div className="section" style={{marginTop:0}}><header><h2>أعمدة الجدول</h2></header><div style={{padding:'12px 18px'}}>
+          <div className="section" style={{marginTop:0}}><header><h2>مفاتيح البيانات</h2></header><div style={{padding:'12px 18px'}}>
             {TOGGLES.map(([k,label])=><label key={k} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 0',cursor:'pointer'}}><input type="checkbox" checked={!!q[k]} onChange={(e)=>patch({[k]:e.target.checked})} /><span style={{fontSize:14}}>{label}</span></label>)}
-            <div className="hint" style={{marginTop:8}}>أخفِ الكمية والإجمالي فيخرج العرض مقطوعيات — وأظهرهما فيخرج جدول كميات</div>
+            <div className="hint" style={{marginTop:8}}>هذه المفاتيح تؤثر في البيانات فقط. هندسة الورقة وأعمدتها تأتي من نموذج Excel المختار.</div>
           </div></div>
-          <div className="section" style={{marginTop:0}}><header><h2>أقسام المستند</h2></header><div style={{padding:'12px 18px'}}>
+          <div className="section" style={{marginTop:0}}><header><h2>أقسام البيانات</h2></header><div style={{padding:'12px 18px'}}>
             {SECTIONS.map(([k,label])=><label key={k} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 0',cursor:'pointer'}}><input type="checkbox" checked={!!q[k]} onChange={(e)=>patch({[k]:e.target.checked})} /><span style={{fontSize:14}}>{label}</span></label>)}
-            <div className="hint" style={{marginTop:8}}>اتجاه الورقة، الليترهيد، الهوامش، أحجام الأعمدة والصفوف تُضبط من القبطان في المعاينة.</div>
+            <div className="hint" style={{marginTop:8}}>مواضع الأقسام والمسافات والارتفاعات تأتي من ملف Excel، وليست من قالب HTML مستقل.</div>
           </div></div>
         </div>
       </>}
