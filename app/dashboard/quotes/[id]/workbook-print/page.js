@@ -93,8 +93,8 @@ export default function WorkbookQuotePrintPage() {
           description_en:line.description_en || '',
           unit:line.unit || '',
           qty:line.qty ?? '',
-          unit_price:line.unit_price ?? '',
-          line_total:lineTotal(line, quote?.show_qty),
+          unit_price:money(Number(line.unit_price || 0)),
+          line_total:money(lineTotal(line, quote?.show_qty)),
         })),
       payment_terms:payments.map((payment, index) => ({
         payment_terms:`${payment.label || `الدفعة ${index + 1}`}: ${Number(payment.percent || 0)}%${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
