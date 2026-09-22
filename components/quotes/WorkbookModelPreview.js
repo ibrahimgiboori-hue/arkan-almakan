@@ -482,49 +482,15 @@ export default function WorkbookModelPreview({
   }
 
   function renderStationery() {
-    if (stationeryImages?.letterhead) {
-      return <img
-        src={stationeryImages.letterhead}
-        alt=""
-        style={{
-          position:'absolute',inset:0,width:'100%',height:'100%',
-          objectFit:'fill',zIndex:0,pointerEvents:'none',
-        }}
-      />;
-    }
-
-    return <>
-      {stationeryImages?.header ? <img
-        src={stationeryImages.header}
-        alt=""
-        style={{
-          position:'absolute',left:0,top:0,width:'100%',
-          height:`${Math.max(0, Number(headerHeightMm || contentTopMm))}mm`,
-          objectFit:'fill',zIndex:0,pointerEvents:'none',
-        }}
-      /> : null}
-      {stationeryImages?.watermark ? <img
-        src={stationeryImages.watermark}
-        alt=""
-        style={{
-          position:'absolute',
-          left:0,
-          top:`${contentTopMm}mm`,
-          width:'100%',
-          height:`${contentHeightMm}mm`,
-          objectFit:'contain',zIndex:0,pointerEvents:'none',
-        }}
-      /> : null}
-      {stationeryImages?.footer ? <img
-        src={stationeryImages.footer}
-        alt=""
-        style={{
-          position:'absolute',left:0,bottom:0,width:'100%',
-          height:`${Math.max(0, Number(footerHeightMm || (A4_HEIGHT_MM - contentTopMm - contentHeightMm)))}mm`,
-          objectFit:'fill',zIndex:0,pointerEvents:'none',
-        }}
-      /> : null}
-    </>;
+    if (!stationeryImages?.letterhead) return null;
+    return <img
+      src={stationeryImages.letterhead}
+      alt=""
+      style={{
+        position:'absolute',inset:0,width:'100%',height:'100%',
+        objectFit:'fill',zIndex:0,pointerEvents:'none',
+      }}
+    />;
   }
 
   return <div style={{
