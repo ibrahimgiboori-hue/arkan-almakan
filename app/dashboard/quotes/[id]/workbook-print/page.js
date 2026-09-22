@@ -38,6 +38,7 @@ export default function WorkbookQuotePrintPage() {
   const [familyRecord, setFamilyRecord] = useState(null);
   const [settings, setSettings] = useState(null);
   const [overlayPositions, setOverlayPositions] = useState({});
+  const [veilOpacity, setVeilOpacity] = useState(0.82);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState('');
 
@@ -68,6 +69,7 @@ export default function WorkbookQuotePrintPage() {
     setFamilyRecord(family.data || null);
     setSettings(cfg.data || {});
     setOverlayPositions(q.data?.print_overlay_positions || {});
+    setVeilOpacity(Number(cfg.data?.print_white_veil_opacity ?? 0.82));
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -116,6 +118,19 @@ export default function WorkbookQuotePrintPage() {
       ? supabase.storage.from('brand').getPublicUrl(settings.signature_image_path).data.publicUrl
       : '';
     return { stamp, signature };
+  }, [settings]);
+
+  const stationeryImages = useMemo(() => {
+    if (!settings) return {};
+    const publicUrl = (path) => path
+      ? supabase.storage.from('brand').getPublicUrl(path).data.publicUrl
+      : '';
+    return {
+      letterhead:publicUrl(settings.letterhead_image_path),
+      header:publicUrl(settings.header_image_path),
+      watermark:publicUrl(settings.watermark_image_path),
+      footer:publicUrl(settings.footer_image_path),
+    };
   }, [settings]);
 
   async function moveOverlay(overlayId, position, persist) {
@@ -245,6 +260,18 @@ export default function WorkbookQuotePrintPage() {
       </div>
       <div style={{display:'flex',gap:8}}>
         {saved ? <span style={{fontSize:12,color:'#147a37'}}>{saved}</span> : null}
+        <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:'#555'}}>
+          <span>عتامة الطبقة البيضاء {Math.round(veilOpacity * 100)}%</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={veilOpacity}
+            onChange={(event)=>setVeilOpacity(Number(event.target.value))}
+            style={{width:110}}
+          />
+        </label>
         <button onClick={load} style={{padding:'7px 12px'}}>تحديث البيانات</button>
         <button onClick={downloadFilledWorkbook} style={{padding:'7px 12px'}}>تنزيل Excel المعبأ</button>
         <button onClick={()=>window.print()} style={{padding:'7px 12px',fontWeight:700}}>طباعة / حفظ PDF</button>
@@ -265,6 +292,10 @@ export default function WorkbookQuotePrintPage() {
         overlays={schema?.overlays || []}
         overlayImages={overlayImages}
         overlayPositions={overlayPositions}
+        stationeryImages={stationeryImages}
+        whiteVeilOpacity={veilOpacity}
+        headerHeightMm={Number(settings?.header_height_mm || 0)}
+        footerHeightMm={Number(settings?.footer_height_mm || 0)}
         editableOverlays
         onOverlayMove={moveOverlay}
         printMode
