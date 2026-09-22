@@ -9,6 +9,8 @@ const DEFAULT_PAGE_BOUNDS = Object.freeze({ startRow:3, endRow:61, startCol:2, e
 const CONTENT_START_ROW = 10;
 const CONTENT_END_ROW = 57;
 const FOOTER_START_ROW = 58;
+const BASE_SIDE_MARGIN_UNITS = 3;
+const SIDE_MARGIN_UNITS = Object.freeze({ small:2, medium:3, large:4 });
 
 const NUMERIC_TOKENS = new Set([
   'item_no','qty','unit_price','line_total',
@@ -137,11 +139,13 @@ function boundsOf(model) {
   };
 }
 
-function cellWidthPx(cell, bounds, columnMap) {
+function cellWidthPx(cell, bounds, columnsPx) {
   const start = Math.max(cell.col, bounds.startCol);
   const end = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
   let width = 0;
-  for (let col = start; col <= end; col += 1) width += pxWidth(columnMap.get(col));
+  for (let col = start; col <= end; col += 1) {
+    width += Number(columnsPx[col - bounds.startCol] || 0);
+  }
   return width;
 }
 
@@ -174,6 +178,7 @@ export default function WorkbookModelPreview({
   whiteVeilOpacity = 0.82,
   headerHeightMm = 0,
   footerHeightMm = 0,
+  sideMarginPreset = 'small',
   editableOverlays = false,
   onOverlayMove,
   printMode = false,
@@ -187,10 +192,21 @@ export default function WorkbookModelPreview({
     const columnMap = new Map((model.columns || []).map((item) => [item.col, item]));
     const rowMap = new Map((model.rows || []).map((item) => [item.row, item]));
 
-    const columnsPx = [];
+    const rawColumnsPx = [];
     for (let col = bounds.startCol; col <= bounds.endCol; col += 1) {
-      columnsPx.push(pxWidth(columnMap.get(col)));
+      rawColumnsPx.push(pxWidth(columnMap.get(col)));
     }
+
+    // The workbook was authored with three micro-cells of side protection.
+    // Margin presets keep the Excel geometry but compress/expand only those guard
+    // tracks: small=2, medium=3, large=4. Content proportions stay unchanged.
+    const sideUnits = SIDE_MARGIN_UNITS[sideMarginPreset] || SIDE_MARGIN_UNITS.small;
+    const guardFactor = sideUnits / BASE_SIDE_MARGIN_UNITS;
+    const columnsPx = rawColumnsPx.map((value, index) => {
+      const leftGuard = index < BASE_SIDE_MARGIN_UNITS;
+      const rightGuard = index >= rawColumnsPx.length - BASE_SIDE_MARGIN_UNITS;
+      return (leftGuard || rightGuard) ? value * guardFactor : value;
+    });
 
     const baseRowsPx = [];
     for (let row = bounds.startRow; row <= bounds.endRow; row += 1) {
@@ -220,7 +236,7 @@ export default function WorkbookModelPreview({
 
       const wrapCell = cells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(definition.wrapToken))
         || cells[0];
-      const widthCssPx = cellWidthPx(wrapCell, bounds, columnMap) * colScaleMm * PX_PER_MM;
+      const widthCssPx = cellWidthPx(wrapCell, bounds, columnsPx) * colScaleMm * PX_PER_MM;
 
       const instanceSpans = instances.map((record) => {
         const merged = record ? { ...values, ...record } : values;
@@ -331,7 +347,7 @@ export default function WorkbookModelPreview({
       totalExtraRows,
       renderCells,
     };
-  }, [model, values, effectiveRepeatData]);
+  }, [model, values, effectiveRepeatData, sideMarginPreset]);
 
   if (!layout) {
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
