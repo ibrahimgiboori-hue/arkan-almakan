@@ -14,10 +14,14 @@ import {
   validatePrintFamilyCatalog,
 } from '../lib/print-family-catalog.mjs';
 
-test('system sheets never become printable model sheets', () => {
+test('system sheets never become printable model sheets and new sheets are discovered automatically', () => {
   assert.deepEqual(
-    getModelSheetNames([...PRINT_FAMILY_SYSTEM_SHEETS, 'عرض سعر كميات - بضريبة']),
-    ['عرض سعر كميات - بضريبة']
+    getModelSheetNames([
+      ...PRINT_FAMILY_SYSTEM_SHEETS,
+      'عرض سعر كميات - بضريبة',
+      'عرض سعر خاص - نموذج جديد',
+    ]),
+    ['عرض سعر كميات - بضريبة', 'عرض سعر خاص - نموذج جديد']
   );
 });
 
