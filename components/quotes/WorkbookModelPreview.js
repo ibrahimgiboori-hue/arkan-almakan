@@ -152,8 +152,11 @@ export default function WorkbookModelPreview({
   model,
   values = {},
   repeatData = {},
+  repeatGroups = {},
   printMode = false,
 }) {
+  const effectiveRepeatData = Object.keys(repeatData || {}).length ? repeatData : (repeatGroups || {});
+
   const layout = useMemo(() => {
     if (!model?.cells?.length) return null;
 
@@ -189,7 +192,7 @@ export default function WorkbookModelPreview({
       const startRow = Math.min(...cells.map((cell) => cell.row));
       const endRow = Math.max(...cells.map((cell) => cell.row + (cell.rowSpan || 1) - 1));
       const baseSpan = endRow - startRow + 1;
-      const records = repeatRecords(definition.id, repeatData);
+      const records = repeatRecords(definition.id, effectiveRepeatData);
       const instances = records.length ? records : [null];
 
       const wrapCell = cells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(definition.wrapToken))
@@ -301,7 +304,7 @@ export default function WorkbookModelPreview({
       totalHeightMm,
       renderCells,
     };
-  }, [model, values, repeatData]);
+  }, [model, values, effectiveRepeatData]);
 
   if (!layout) {
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
