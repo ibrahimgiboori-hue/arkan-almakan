@@ -190,7 +190,7 @@ export default function PrintFamiliesSettingsPage() {
     >
       <div style={{padding:16,display:'grid',gap:8,fontSize:13}}>
         <div>• <strong>Excel هو مصدر التصميم:</strong> الدمج، الخط، الحدود، الألوان، المحاذاة، المقاسات وإعدادات الصفحة تبقى ملك المصنف.</div>
-        <div>• <strong>صفحات النظام:</strong> _VARIABLES و _DRESS_CODE و _BASE_A4_PORTRAIT_SAFE لا تظهر كنماذج.</div>
+        <div>• <strong>صفحات النظام:</strong> _VARIABLES و _DRESS_CODE و _VISIBILITY و _OVERLAYS و _FLOW_RULES و _BASE_A4_PORTRAIT_SAFE لا تظهر كنماذج.</div>
         <div>• <strong>الحماية من الحذف:</strong> الملف المرفوع يجب أن يحتفظ بكل النماذج الموجودة في الإصدار السابق، بينما يمكنه إضافة نماذج جديدة بحرية.</div>
       </div>
     </Section>
