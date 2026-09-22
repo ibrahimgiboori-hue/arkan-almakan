@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
+import { SYSTEM } from '@/lib/system-constitution';
 import { numberLines, lineTotal, totals } from '@/lib/quote-calc';
 import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
 
@@ -93,7 +94,7 @@ export default function WorkbookQuotePrintPage() {
       valid_days:quote.valid_days ?? '',
       intro_text:quote.intro_text || '',
       subtotal:money(computed.subtotal),
-      vat_rate:`${Number(quote.vat_rate ?? 0.15) * 100}%`,
+      vat_rate:`${Number(quote.vat_rate ?? SYSTEM.vatRate) * 100}%`,
       vat_amount:money(computed.vat),
       grand_total:money(computed.grand),
       plain_total:money(computed.grand),
