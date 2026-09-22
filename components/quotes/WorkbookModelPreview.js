@@ -6,10 +6,37 @@ const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 const PX_PER_MM = 96 / 25.4;
 const DEFAULT_PAGE_BOUNDS = Object.freeze({ startRow:3, endRow:61, startCol:2, endCol:41 });
+
+const NUMERIC_TOKENS = new Set([
+  'item_no','qty','unit_price','line_total',
+  'subtotal','vat_amount','grand_total','plain_total',
+]);
+
 const COMPACT_TOKENS = new Set([
   'payment_terms','terms','closing_text',
   'representative_name','representative_title',
   'bank_name','bank_account_no','bank_iban',
+]);
+
+const REPEAT_GROUPS = Object.freeze([
+  {
+    id:'line_items',
+    tokens:new Set(['item_no','description_ar','description_en','unit','qty','unit_price','line_total']),
+    baseUnitsPerVisualLine:2,
+    wrapToken:'description_ar',
+  },
+  {
+    id:'payment_terms',
+    tokens:new Set(['payment_terms']),
+    baseUnitsPerVisualLine:1,
+    wrapToken:'payment_terms',
+  },
+  {
+    id:'terms',
+    tokens:new Set(['terms']),
+    baseUnitsPerVisualLine:1,
+    wrapToken:'terms',
+  },
 ]);
 
 function pxWidth(item) {
@@ -52,7 +79,6 @@ function measureWrappedLines(text, widthPx, font = '11px Arial') {
       count += 1;
       continue;
     }
-
     const words = paragraph.split(/\s+/).filter(Boolean);
     if (!words.length) {
       count += 1;
@@ -66,7 +92,6 @@ function measureWrappedLines(text, widthPx, font = '11px Arial') {
         line = candidate;
         continue;
       }
-
       count += 1;
       line = word;
 
@@ -100,7 +125,35 @@ function boundsOf(model) {
   };
 }
 
-export default function WorkbookModelPreview({ model, values = {}, printMode = false }) {
+function cellWidthPx(cell, bounds, columnMap) {
+  const start = Math.max(cell.col, bounds.startCol);
+  const end = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
+  let width = 0;
+  for (let col = start; col <= end; col += 1) width += pxWidth(columnMap.get(col));
+  return width;
+}
+
+function groupForCell(cell) {
+  const tokens = Array.isArray(cell?.tokens) ? cell.tokens : [];
+  return REPEAT_GROUPS.find((group) => tokens.some((token) => group.tokens.has(token))) || null;
+}
+
+function isNumericCell(cell) {
+  return Array.isArray(cell?.tokens) && cell.tokens.some((token) => NUMERIC_TOKENS.has(token));
+}
+
+function repeatRecords(groupId, repeatData) {
+  const rows = repeatData?.[groupId];
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(Boolean);
+}
+
+export default function WorkbookModelPreview({
+  model,
+  values = {},
+  repeatData = {},
+  printMode = false,
+}) {
   const layout = useMemo(() => {
     if (!model?.cells?.length) return null;
 
@@ -112,62 +165,149 @@ export default function WorkbookModelPreview({ model, values = {}, printMode = f
     for (let col = bounds.startCol; col <= bounds.endCol; col += 1) {
       columnsPx.push(pxWidth(columnMap.get(col)));
     }
-    const rowsPx = [];
+
+    const baseRowsPx = [];
     for (let row = bounds.startRow; row <= bounds.endRow; row += 1) {
-      rowsPx.push(pxHeight(rowMap.get(row)));
+      baseRowsPx.push(pxHeight(rowMap.get(row)));
     }
 
     const baseWidthPx = columnsPx.reduce((sum, value) => sum + value, 0) || 1;
-    const baseHeightPx = rowsPx.reduce((sum, value) => sum + value, 0) || 1;
+    const baseHeightPx = baseRowsPx.reduce((sum, value) => sum + value, 0) || 1;
     const colScaleMm = A4_WIDTH_MM / baseWidthPx;
     const rowScaleMm = A4_HEIGHT_MM / baseHeightPx;
 
-    const visibleCells = model.cells.filter((cell) => {
+    const sourceCells = model.cells.filter((cell) => {
       const endRow = cell.row + (cell.rowSpan || 1) - 1;
       const endCol = cell.col + (cell.colSpan || 1) - 1;
       return endRow >= bounds.startRow && cell.row <= bounds.endRow
         && endCol >= bounds.startCol && cell.col <= bounds.endCol;
     });
 
-    // Compact exception rows grow one micro-row per visual line. The changed row
-    // height automatically pushes every grid item below it while preserving all
-    // other workbook gaps.
-    for (const cell of visibleCells) {
-      if ((cell.rowSpan || 1) !== 1) continue;
+    const groups = REPEAT_GROUPS.map((definition) => {
+      const cells = sourceCells.filter((cell) => groupForCell(cell)?.id === definition.id);
+      if (!cells.length) return null;
+      const startRow = Math.min(...cells.map((cell) => cell.row));
+      const endRow = Math.max(...cells.map((cell) => cell.row + (cell.rowSpan || 1) - 1));
+      const baseSpan = endRow - startRow + 1;
+      const records = repeatRecords(definition.id, repeatData);
+      const instances = records.length ? records : [null];
+
+      const wrapCell = cells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(definition.wrapToken))
+        || cells[0];
+      const widthCssPx = cellWidthPx(wrapCell, bounds, columnMap) * colScaleMm * PX_PER_MM;
+
+      const instanceSpans = instances.map((record) => {
+        const merged = record ? { ...values, ...record } : values;
+        const display = tokenValue(wrapCell.text, merged);
+        const visualLines = measureWrappedLines(display, widthCssPx);
+        return Math.max(baseSpan, definition.baseUnitsPerVisualLine * visualLines);
+      });
+
+      const totalSpan = instanceSpans.reduce((sum, span) => sum + span, 0);
+      return {
+        ...definition,
+        cells,
+        startRow,
+        endRow,
+        baseSpan,
+        instances,
+        instanceSpans,
+        totalSpan,
+        extraRows:Math.max(0, totalSpan - baseSpan),
+      };
+    }).filter(Boolean).sort((a,b) => a.startRow - b.startRow);
+
+    const extraBefore = (row) => groups
+      .filter((group) => group.endRow < row)
+      .reduce((sum, group) => sum + group.extraRows, 0);
+
+    const expandedRowsPx = [];
+    for (let row = bounds.startRow; row <= bounds.endRow; row += 1) {
+      const group = groups.find((item) => item.startRow === row);
+      if (group) {
+        const pattern = [];
+        for (let r = group.startRow; r <= group.endRow; r += 1) {
+          pattern.push(pxHeight(rowMap.get(r)));
+        }
+        const unitHeight = pattern.length
+          ? pattern.reduce((sum, value) => sum + value, 0) / pattern.length
+          : pxHeight(rowMap.get(row));
+
+        for (const span of group.instanceSpans) {
+          for (let index = 0; index < span; index += 1) expandedRowsPx.push(unitHeight);
+        }
+        row = group.endRow;
+        continue;
+      }
+      if (groups.some((item) => row > item.startRow && row <= item.endRow)) continue;
+      expandedRowsPx.push(pxHeight(rowMap.get(row)));
+    }
+
+    const renderCells = [];
+    const groupedAddresses = new Set(groups.flatMap((group) => group.cells.map((cell) => cell.address)));
+
+    for (const cell of sourceCells) {
+      if (groupedAddresses.has(cell.address)) continue;
+      renderCells.push({
+        ...cell,
+        renderKey:cell.address,
+        renderRow:(cell.row - bounds.startRow + 1) + extraBefore(cell.row),
+        renderRowSpan:cell.rowSpan || 1,
+        renderValues:values,
+      });
+    }
+
+    for (const group of groups) {
+      const baseRenderRow = (group.startRow - bounds.startRow + 1) + extraBefore(group.startRow);
+      let offset = 0;
+      group.instances.forEach((record, index) => {
+        const span = group.instanceSpans[index];
+        const recordValues = record ? { ...values, ...record } : values;
+        for (const cell of group.cells) {
+          renderCells.push({
+            ...cell,
+            renderKey:`${cell.address}::${group.id}::${index}`,
+            renderRow:baseRenderRow + offset + (cell.row - group.startRow),
+            renderRowSpan:span,
+            renderValues:recordValues,
+          });
+        }
+        offset += span;
+      });
+    }
+
+    // Compact non-repeat rows grow one micro-row per visual line.
+    for (const cell of renderCells) {
+      if ((cell.renderRowSpan || 1) !== 1) continue;
+      if (groupForCell(cell)) continue;
       if (!Array.isArray(cell.tokens) || !cell.tokens.some((token) => COMPACT_TOKENS.has(token))) continue;
 
-      const localCol = Math.max(cell.col, bounds.startCol);
-      const localEndCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
-      let cellWidthPx = 0;
-      for (let col = localCol; col <= localEndCol; col += 1) {
-        cellWidthPx += pxWidth(columnMap.get(col));
-      }
-      const display = tokenValue(cell.text, values);
-      const widthCssPx = cellWidthPx * colScaleMm * PX_PER_MM;
+      const display = tokenValue(cell.text, cell.renderValues);
+      const widthCssPx = cellWidthPx(cell, bounds, columnMap) * colScaleMm * PX_PER_MM;
       const visualLines = measureWrappedLines(display, widthCssPx);
-      const rowIndex = cell.row - bounds.startRow;
-      if (rowIndex >= 0 && rowIndex < rowsPx.length) {
-        const base = pxHeight(rowMap.get(cell.row));
-        rowsPx[rowIndex] = Math.max(rowsPx[rowIndex], base * visualLines);
+      const rowIndex = cell.renderRow - 1;
+      if (rowIndex >= 0 && rowIndex < expandedRowsPx.length) {
+        const base = expandedRowsPx[rowIndex];
+        expandedRowsPx[rowIndex] = Math.max(base, base * visualLines);
       }
     }
 
-    const totalHeightMm = rowsPx.reduce((sum, value) => sum + value, 0) * rowScaleMm;
+    const totalHeightMm = expandedRowsPx.reduce((sum, value) => sum + value, 0) * rowScaleMm;
 
     return {
       bounds,
       columns:columnsPx.map((value) => `${value * colScaleMm}mm`).join(' '),
-      rows:rowsPx.map((value) => `${value * rowScaleMm}mm`).join(' '),
+      rows:expandedRowsPx.map((value) => `${value * rowScaleMm}mm`).join(' '),
       totalHeightMm,
-      visibleCells,
+      renderCells,
     };
-  }, [model, values]);
+  }, [model, values, repeatData]);
 
   if (!layout) {
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
   }
 
-  const { bounds, columns, rows, totalHeightMm, visibleCells } = layout;
+  const { bounds, columns, rows, totalHeightMm, renderCells } = layout;
 
   return <div style={{
     overflow:printMode ? 'visible' : 'auto',
@@ -189,35 +329,35 @@ export default function WorkbookModelPreview({ model, values = {}, printMode = f
       boxSizing:'border-box',
       overflow:'visible',
     }}>
-      {visibleCells.map((cell) => {
+      {renderCells.map((cell) => {
         const startCol = Math.max(cell.col, bounds.startCol);
         const endCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
-        const startRow = Math.max(cell.row, bounds.startRow);
-        const endRow = Math.min(cell.row + (cell.rowSpan || 1) - 1, bounds.endRow);
         const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
         const numeric = isNumericCell(cell);
-        const text = tokenValue(cell.text, values);
+        const text = tokenValue(cell.text, cell.renderValues);
 
-        return <div key={cell.address} title={cell.address} style={{
+        return <div key={cell.renderKey} title={cell.address} style={{
           gridColumn:`${startCol - bounds.startCol + 1} / span ${Math.max(1, endCol - startCol + 1)}`,
-          gridRow:`${startRow - bounds.startRow + 1} / span ${Math.max(1, endRow - startRow + 1)}`,
+          gridRow:`${cell.renderRow} / span ${Math.max(1, cell.renderRowSpan || 1)}`,
           border:dynamic ? '1px solid #8fbad9' : '1px solid rgba(205,186,186,.55)',
           background:dynamic ? 'rgba(221,235,247,.82)' : '#fff',
           color:dynamic ? '#17365D' : '#2E2E30',
-          fontSize:'11px',
+          fontSize:numeric ? '10px' : '11px',
           fontWeight:dynamic ? 650 : 500,
+          fontVariantNumeric:numeric ? 'tabular-nums' : undefined,
           display:'flex',
           alignItems:'center',
           justifyContent:'center',
-          padding:'2px 5px',
+          padding:numeric ? '1px 2px' : '2px 5px',
           minWidth:0,
           minHeight:0,
           overflow:'hidden',
-          whiteSpace:'pre-wrap',
-          overflowWrap:'anywhere',
+          whiteSpace:numeric ? 'nowrap' : 'pre-wrap',
+          overflowWrap:numeric ? 'normal' : 'break-word',
+          wordBreak:numeric ? 'keep-all' : 'normal',
           textAlign:'center',
-          direction:/[\u0600-\u06FF]/.test(text) ? 'rtl' : 'ltr',
-          lineHeight:1.25,
+          direction:numeric ? 'ltr' : (/[؀-ۿ]/.test(text) ? 'rtl' : 'ltr'),
+          lineHeight:1.2,
           boxSizing:'border-box',
         }}>
           {text}
