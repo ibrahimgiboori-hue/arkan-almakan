@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/ConstitutionUI';
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const BOOTSTRAP_FAMILY_UPLOADS = new Set(['quotations', 'treasury_vouchers']);
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -200,6 +201,7 @@ export default function PrintFamiliesSettingsPage() {
         const current = records[family.id];
         const uploading = busy === 'upload:' + family.id;
         const downloading = busy === 'download:' + family.id;
+        const canBootstrapUpload = BOOTSTRAP_FAMILY_UPLOADS.has(family.id);
         const models = Array.isArray(current?.model_sheets) && current.model_sheets.length
           ? current.model_sheets
           : family.models;
@@ -227,12 +229,12 @@ export default function PrintFamiliesSettingsPage() {
                 {downloading ? 'جارٍ التحميل…' : 'تحميل ملف العائلة الحالي'}
               </button>
 
-              {(current || family.id === 'quotations') ? <label className="btn ghost" style={{cursor:uploading?'wait':'pointer'}}>
+              {(current || canBootstrapUpload) ? <label className="btn ghost" style={{cursor:uploading?'wait':'pointer'}}>
                 {uploading
                   ? 'جارٍ قراءة الملف واعتماده…'
                   : current
                     ? 'رفع نسخة معدلة'
-                    : 'رفع ملف عروض الأسعار واعتماده'}
+                    : `رفع ملف ${family.labelAr} واعتماده`}
                 <input
                   type="file"
                   accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -252,8 +254,8 @@ export default function PrintFamiliesSettingsPage() {
             <div className="hint">
               {current
                 ? `آخر ملف: ${current.original_name || 'بدون اسم'} · الإصدار ${current.version}. النسخ السابقة تبقى محفوظة في التخزين.`
-                : family.id === 'quotations'
-                  ? 'ارفع ملف عائلة عروض الأسعار الذي جهزناه. سيقرأ البرنامج صفحات النظام والنماذج ويعتمده كالإصدار الأول، وبعدها يصبح التحميل والتعديل والرفع دورة ثابتة.'
+                : canBootstrapUpload
+                  ? `ارفع ملف عائلة ${family.labelAr} الذي جهزناه. سيقرأ البرنامج صفحات النظام والنماذج ويعتمده كالإصدار الأول، وبعدها يصبح التحميل والتعديل والرفع دورة ثابتة.`
                   : 'سيجهز النظام ملف العائلة الأساسي أولًا بكل النماذج الحالية. بعد تحميله وتعديله فقط يظهر خيار رفع نسخة معدلة.'}
             </div>
           </div>
