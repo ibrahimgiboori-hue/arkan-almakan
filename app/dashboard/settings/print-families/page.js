@@ -59,7 +59,7 @@ export default function PrintFamiliesSettingsPage() {
     setErr('');
     const result = await supabase
       .from('print_family_workbooks')
-      .select('family_id,storage_path,original_name,version,model_sheets,uploaded_at,updated_at')
+      .select('family_id,storage_path,original_name,version,model_sheets,ui_schema,schema_version,uploaded_at,updated_at')
       .order('family_id');
 
     if (result.error) {
@@ -146,6 +146,8 @@ export default function PrintFamiliesSettingsPage() {
         original_name:file.name,
         version:nextVersion,
         model_sheets:inspection.modelSheets,
+        ui_schema:inspection.uiSchema || {},
+        schema_version:1,
         uploaded_by:userResult.data?.user?.id || null,
         uploaded_at:new Date().toISOString(),
         updated_at:new Date().toISOString(),
@@ -161,7 +163,7 @@ export default function PrintFamiliesSettingsPage() {
     setBusy('');
     setWarnings(inspection.warnings);
     setMsg(
-      `تم اعتماد الإصدار ${nextVersion} من «${family.labelAr}» وقراءة ${inspection.modelSheets.length} نموذج من أسماء الـSheets.`
+      `تم اعتماد الإصدار ${nextVersion} من «${family.labelAr}» وقراءة ${inspection.modelSheets.length} نموذج و${inspection.uiSchema?.variables?.length || 0} متغيرًا لتغذية الواجهة.`
     );
     await load();
   }
@@ -211,6 +213,7 @@ export default function PrintFamiliesSettingsPage() {
           <div style={{padding:16,display:'grid',gap:12}}>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
               <span className="pill">الإصدار {current?.version || '—'}</span>
+              {current?.ui_schema?.variables?.length ? <span className="pill">{current.ui_schema.variables.length} متغير واجهة</span> : null}
               {models.map((name) => <span key={name} className="pill">{name}</span>)}
             </div>
 
