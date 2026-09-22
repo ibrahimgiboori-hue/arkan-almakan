@@ -39,6 +39,7 @@ export default function WorkbookQuotePrintPage() {
   const [settings, setSettings] = useState(null);
   const [overlayPositions, setOverlayPositions] = useState({});
   const [veilOpacity, setVeilOpacity] = useState(0.82);
+  const [sideMarginPreset, setSideMarginPreset] = useState('small');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState('');
 
@@ -70,6 +71,9 @@ export default function WorkbookQuotePrintPage() {
     setSettings(cfg.data || {});
     setOverlayPositions(q.data?.print_overlay_positions || {});
     setVeilOpacity(Number(cfg.data?.print_white_veil_opacity ?? 0.82));
+    setSideMarginPreset(['small','medium','large'].includes(cfg.data?.print_side_margin_preset)
+      ? cfg.data.print_side_margin_preset
+      : 'small');
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -132,6 +136,19 @@ export default function WorkbookQuotePrintPage() {
       footer:publicUrl(settings.footer_image_path),
     };
   }, [settings]);
+
+  async function saveSideMarginPreset(value) {
+    const next = ['small','medium','large'].includes(value) ? value : 'small';
+    setSideMarginPreset(next);
+    const { error:saveError } = await supabase.from('app_settings')
+      .update({ print_side_margin_preset:next })
+      .eq('id', 1);
+    if (saveError) setError('تعذّر حفظ الهامش الجانبي: ' + saveError.message);
+    else {
+      setSaved('تم حفظ الهامش الجانبي');
+      window.setTimeout(()=>setSaved(''),1200);
+    }
+  }
 
   async function saveVeilOpacity(value) {
     const next = Math.min(1, Math.max(0, Number(value ?? 0.82)));
@@ -273,6 +290,18 @@ export default function WorkbookQuotePrintPage() {
       <div style={{display:'flex',gap:8}}>
         {saved ? <span style={{fontSize:12,color:'#147a37'}}>{saved}</span> : null}
         <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:'#555'}}>
+          <span>الهامش الجانبي</span>
+          <select
+            value={sideMarginPreset}
+            onChange={(event)=>saveSideMarginPreset(event.target.value)}
+            style={{fontSize:12,padding:'5px 7px'}}
+          >
+            <option value="small">صغير — خليتان</option>
+            <option value="medium">متوسط — 3 خلايا</option>
+            <option value="large">كبير — 4 خلايا</option>
+          </select>
+        </label>
+        <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:'#555'}}>
           <span>عتامة الطبقة البيضاء {Math.round(veilOpacity * 100)}%</span>
           <input
             type="range"
@@ -310,6 +339,7 @@ export default function WorkbookQuotePrintPage() {
         whiteVeilOpacity={veilOpacity}
         headerHeightMm={Number(settings?.header_height_mm || 0)}
         footerHeightMm={Number(settings?.footer_height_mm || 0)}
+        sideMarginPreset={sideMarginPreset}
         editableOverlays
         onOverlayMove={moveOverlay}
         printMode
