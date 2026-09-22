@@ -464,6 +464,42 @@ export default function WorkbookModelPreview({
     }
   }
 
+  // Section-start orphan rule:
+  // A titled flow section may split across pages, but it must not START at the
+  // bottom of a page if the page can hold only the title plus three micro-rows
+  // of real section data. In that case the whole section start moves to the
+  // next page. A split is allowed only after at least four data micro-rows have
+  // appeared under the title.
+  const sectionStartGuards = [
+    { token:'payment_terms', title:/^شروط الدفع$/, minDataRows:4 },
+    { token:'terms', title:/^الشروط والأحكام العامة$/, minDataRows:4 },
+  ];
+
+  for (const rule of sectionStartGuards) {
+    const titleCell = flowCells.find((cell) => rule.title.test(String(cell.text || '').trim()));
+    const dataCells = flowCells.filter((cell) =>
+      Array.isArray(cell.tokens) && cell.tokens.includes(rule.token)
+    );
+    if (!titleCell || !dataCells.length) continue;
+
+    const titleStart = (titleCell.renderRow - 1) - headerTrackCount;
+    const dataStart = Math.min(...dataCells.map(
+      (cell) => (cell.renderRow - 1) - headerTrackCount
+    ));
+    const sectionEnd = Math.max(...dataCells.map(
+      (cell) => (cell.renderRow - 1) - headerTrackCount + Math.max(1, Number(cell.renderRowSpan || 1))
+    ));
+
+    const lastProtectedBoundary = Math.min(
+      sectionEnd - 1,
+      dataStart + Math.max(1, Number(rule.minDataRows || 4)) - 1,
+    );
+
+    for (let boundary = titleStart + 1; boundary <= lastProtectedBoundary; boundary += 1) {
+      if (boundary > 0 && boundary < flowRowSizesMm.length) forbiddenBreaks.add(boundary);
+    }
+  }
+
   const pages = [];
   let pageStart = 0;
   const capacity = Math.max(1, contentHeightMm);
