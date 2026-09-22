@@ -253,7 +253,7 @@ export default function WorkbookQuotePrintPage() {
 
     <main style={{
       width:'210mm',minHeight:'297mm',margin:'18px auto',background:'#fff',
-      boxShadow:'0 6px 28px rgba(0,0,0,.18)',overflow:'hidden',
+      boxShadow:'0 6px 28px rgba(0,0,0,.18)',overflow:'visible',boxSizing:'border-box',
     }}>
       <WorkbookModelPreview
         model={model}
@@ -272,8 +272,9 @@ export default function WorkbookQuotePrintPage() {
     </main>
 
     <style jsx global>{`
+      @page { size:A4 portrait; margin:0; }
       @media print {
-        html, body { background:#fff !important; }
+        html, body { background:#fff !important; margin:0 !important; padding:0 !important; width:210mm !important; }
         body * { visibility:hidden; }
         main, main * { visibility:visible; }
         main {
@@ -282,7 +283,10 @@ export default function WorkbookQuotePrintPage() {
           top:0 !important;
           width:210mm !important;
           min-height:297mm !important;
+          height:auto !important;
           margin:0 !important;
+          padding:0 !important;
+          box-sizing:border-box !important;
           box-shadow:none !important;
           overflow:visible !important;
         }
