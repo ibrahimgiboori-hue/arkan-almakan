@@ -233,6 +233,28 @@ export default function QuoteEditor() {
   const activeModel = pickWorkbookModel(printSchema, q);
   const label = (code, fallback) => workbookLabel(printSchema, activeModel, code, fallback);
   const workbookModels = Array.isArray(printSchema?.models) ? printSchema.models : [];
+  const workbookVisibility = Array.isArray(printSchema?.visibility) ? printSchema.visibility : [];
+  const previewToggles = Object.fromEntries(workbookVisibility.map((rule) => [
+    rule.toggle,
+    q?.[rule.toggle] ?? rule.defaultValue,
+  ]));
+  const previewRepeatGroups = {
+    line_items:numbered
+      .filter((line) => line.kind !== 'title')
+      .map((line) => ({
+        item_no:line.number,
+        description_ar:line.description_ar || '',
+        description_en:line.description_en || '',
+        unit:line.unit || '',
+        qty:line.qty ?? '',
+        unit_price:line.unit_price ?? '',
+        line_total:lineTotal(line, q.show_qty),
+      })),
+    payment_terms:pays.map((payment, index) => ({
+      payment_terms:`${payment.label || `الدفعة ${index + 1}`}: ${Number(payment.percent || 0)}%${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
+    })),
+    terms:String(q.terms_text || '').split(/\r?\n/).map((text) => text.trim()).filter(Boolean).map((text) => ({ terms:text })),
+  };
   const previewValues = {
     quote_no:q.quote_no,
     quote_date:q.quote_date,
@@ -300,7 +322,15 @@ export default function QuoteEditor() {
             </div>
             <span className="pill">{activeModel?.cells?.length || 0} عنصر مقروء</span>
           </header>
-          <WorkbookModelPreview model={activeModel} values={previewValues} />
+          <WorkbookModelPreview
+            model={activeModel}
+            values={previewValues}
+            variables={printSchema?.variables || []}
+            visibility={workbookVisibility}
+            toggles={previewToggles}
+            repeatGroups={previewRepeatGroups}
+            overlays={printSchema?.overlays || []}
+          />
         </div>
       )}
 
@@ -450,9 +480,9 @@ export default function QuoteEditor() {
             {TOGGLES.map(([k,label])=><label key={k} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 0',cursor:'pointer'}}><input type="checkbox" checked={!!q[k]} onChange={(e)=>patch({[k]:e.target.checked})} /><span style={{fontSize:14}}>{label}</span></label>)}
             <div className="hint" style={{marginTop:8}}>هذه المفاتيح تؤثر في البيانات فقط. هندسة الورقة وأعمدتها تأتي من نموذج Excel المختار.</div>
           </div></div>
-          <div className="section" style={{marginTop:0}}><header><h2>أقسام البيانات</h2></header><div style={{padding:'12px 18px'}}>
-            {SECTIONS.map(([k,label])=><label key={k} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 0',cursor:'pointer'}}><input type="checkbox" checked={!!q[k]} onChange={(e)=>patch({[k]:e.target.checked})} /><span style={{fontSize:14}}>{label}</span></label>)}
-            <div className="hint" style={{marginTop:8}}>مواضع الأقسام والمسافات والارتفاعات تأتي من ملف Excel، وليست من قالب HTML مستقل.</div>
+          <div className="section" style={{marginTop:0}}><header><h2>العناصر الاختيارية من Excel</h2></header><div style={{padding:'12px 18px'}}>
+            {(workbookVisibility.length ? workbookVisibility : SECTIONS.map(([toggle,label],index)=>({toggle,label,priority:index}))).map((rule)=><label key={rule.toggle} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 0',cursor:'pointer'}}><input type="checkbox" checked={Boolean(q?.[rule.toggle] ?? rule.defaultValue)} onChange={(e)=>patch({[rule.toggle]:e.target.checked})} /><span style={{fontSize:14}}>{rule.label || rule.toggle}</span><span style={{fontSize:11.5,color:'var(--ink-soft)'}}>{rule.elementType === 'OVERLAY_ASSET' ? 'طبقة حرة' : ''}</span></label>)}
+            <div className="hint" style={{marginTop:8}}>هذه القائمة تُقرأ من ورقة _VISIBILITY داخل ملف العائلة. إخفاء عنصر تدفقي يسحب كل ما تحته للأعلى؛ الختم والتوقيع لا يؤثران على التدفق.</div>
           </div></div>
         </div>
       </>}
