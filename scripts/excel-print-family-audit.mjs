@@ -79,9 +79,8 @@ async function inspectWorkbook(relative, { expectedModels = null } = {}) {
     for (const model of expectedModels) {
       if (!actualModels.includes(model)) violations.push(`${relative}: missing model sheet "${model}"`);
     }
-    for (const model of actualModels) {
-      if (!expectedModels.includes(model)) violations.push(`${relative}: unregistered model sheet "${model}"`);
-    }
+    // Extra model sheets are intentionally allowed. Runtime discovers every non-system
+    // sheet as a printable model, so adding a worksheet does not require a code change.
   }
 }
 
