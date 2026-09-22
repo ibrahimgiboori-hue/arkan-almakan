@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { SYSTEM } from '@/lib/system-constitution';
 import {
@@ -88,6 +89,17 @@ export default function Settings() {
 
     {err ? <Notice tone="error">{err}</Notice> : null}
     {msg ? <Notice tone="success">{msg}</Notice> : null}
+
+    <Section
+      title="عائلات المطبوعات"
+      description="ملفات Excel التي تملك تصميم المطبوعات: تحميل، تعديل، رفع واعتماد نسخة جديدة."
+      boundary
+    >
+      <div style={{padding:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+        <div className="hint">كل عائلة مصنف واحد، وكل Sheet غير نظامية نموذج فعلي داخل البرنامج.</div>
+        <Link className="btn" href="/dashboard/settings/print-families">فتح عائلات المطبوعات</Link>
+      </div>
+    </Section>
 
     <Section
       title="هوية واجهة البرنامج"
