@@ -35,6 +35,7 @@ export default function WorkbookQuotePrintPage() {
   const [lines, setLines] = useState([]);
   const [payments, setPayments] = useState([]);
   const [schema, setSchema] = useState(null);
+  const [familyRecord, setFamilyRecord] = useState(null);
   const [settings, setSettings] = useState(null);
   const [overlayPositions, setOverlayPositions] = useState({});
   const [error, setError] = useState('');
@@ -46,7 +47,7 @@ export default function WorkbookQuotePrintPage() {
       supabase.from('quotations').select('*').eq('id', id).maybeSingle(),
       supabase.from('quotation_lines').select('*').eq('quotation_id', id).order('sort_order'),
       supabase.from('quotation_payments').select('*').eq('quotation_id', id).order('sort_order'),
-      supabase.from('print_family_workbooks').select('ui_schema,version,original_name').eq('family_id','quotations').maybeSingle(),
+      supabase.from('print_family_workbooks').select('ui_schema,version,original_name,storage_path').eq('family_id','quotations').maybeSingle(),
       supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),
     ]);
 
@@ -64,6 +65,7 @@ export default function WorkbookQuotePrintPage() {
     setLines(l.data || []);
     setPayments(p.data || []);
     setSchema(family.data?.ui_schema || null);
+    setFamilyRecord(family.data || null);
     setSettings(cfg.data || {});
     setOverlayPositions(q.data?.print_overlay_positions || {});
   }, [id]);
@@ -183,6 +185,50 @@ export default function WorkbookQuotePrintPage() {
     };
   }, [quote, lines, payments, settings]);
 
+
+  async function downloadFilledWorkbook() {
+    if (!familyRecord?.storage_path || !model) return;
+    setSaved('جارٍ تجهيز Excel من القالب المرفوع…');
+    const download = await supabase.storage.from('print-families').download(familyRecord.storage_path);
+    if (download.error) {
+      setError('تعذّر تحميل ملف العائلة الأصلي: ' + download.error.message);
+      setSaved('');
+      return;
+    }
+
+    const form = new FormData();
+    form.append('workbook', new File([download.data], familyRecord.original_name || 'quotation-family.xlsx', {
+      type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }));
+    form.append('payload', JSON.stringify({
+      model,
+      variables:schema?.variables || [],
+      visibility:schema?.visibility || [],
+      toggles,
+      repeatGroups,
+      values,
+      fileName:(quote?.quote_no || 'quotation') + '-' + model.name + '.xlsx',
+    }));
+
+    const response = await fetch('/api/print-families/fill-xlsx', { method:'POST', body:form });
+    if (!response.ok) {
+      setError('تعذّر إنشاء نسخة Excel المعبأة من القالب.');
+      setSaved('');
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = (quote?.quote_no || 'quotation') + '-' + model.name + '.xlsx';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setSaved('تم إنشاء Excel من نفس القالب دون إعادة تصميم');
+    window.setTimeout(()=>setSaved(''),1600);
+  }
+
   if (error) return <div style={{padding:32,color:'#b42318'}}>{error}</div>;
   if (!quote || !schema) return <div style={{padding:32}}>جارٍ تجهيز تصميم Excel…</div>;
   if (!model) return <div style={{padding:32}}>لا يوجد نموذج Excel معتمد لهذا العرض.</div>;
@@ -200,6 +246,7 @@ export default function WorkbookQuotePrintPage() {
       <div style={{display:'flex',gap:8}}>
         {saved ? <span style={{fontSize:12,color:'#147a37'}}>{saved}</span> : null}
         <button onClick={load} style={{padding:'7px 12px'}}>تحديث البيانات</button>
+        <button onClick={downloadFilledWorkbook} style={{padding:'7px 12px'}}>تنزيل Excel المعبأ</button>
         <button onClick={()=>window.print()} style={{padding:'7px 12px',fontWeight:700}}>طباعة / حفظ PDF</button>
       </div>
     </div>
