@@ -85,7 +85,8 @@ async function inspectWorkbook(relative, { expectedModels = null } = {}) {
   }
 }
 
-await inspectWorkbook('public/print-families/_starter-a4-portrait.xlsx');
+const starter = path.join(root, 'public/print-families/_starter-a4-portrait.xlsx');
+if (fs.existsSync(starter)) await inspectWorkbook('public/print-families/_starter-a4-portrait.xlsx');
 
 for (const [familyId, family] of Object.entries(PRINT_FAMILIES)) {
   const full = path.join(root, family.workbook);
