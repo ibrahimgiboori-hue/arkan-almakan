@@ -1,334 +1,225 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
-const MM_TO_PX = 96 / 25.4;
+const A4_WIDTH_MM = 210;
+const A4_HEIGHT_MM = 297;
+const PX_PER_MM = 96 / 25.4;
+const DEFAULT_PAGE_BOUNDS = Object.freeze({ startRow:3, endRow:61, startCol:2, endCol:41 });
+const COMPACT_TOKENS = new Set([
+  'payment_terms','terms','closing_text',
+  'representative_name','representative_title',
+  'bank_name','bank_account_no','bank_iban',
+]);
 
 function pxWidth(item) {
-  if (Number.isFinite(Number(item?.widthPx))) return Math.max(8, Number(item.widthPx));
-  if (Number.isFinite(Number(item?.width))) return Math.max(8, Number(item.width) * 7);
+  if (Number.isFinite(Number(item?.widthPx))) return Math.max(1, Number(item.widthPx));
+  if (Number.isFinite(Number(item?.width))) return Math.max(1, Number(item.width) * 7);
   return 18;
 }
 
 function pxHeight(item) {
-  if (Number.isFinite(Number(item?.heightPx))) return Math.max(8, Number(item.heightPx));
-  if (Number.isFinite(Number(item?.height))) return Math.max(8, Number(item.height) * 1.33);
+  if (Number.isFinite(Number(item?.heightPx))) return Math.max(1, Number(item.heightPx));
+  if (Number.isFinite(Number(item?.height))) return Math.max(1, Number(item.height) * 1.33);
   return 18;
 }
 
-function isEnabled(rule, toggles) {
-  const value = toggles?.[rule.toggle];
-  if (value === undefined || value === null) return Boolean(rule.defaultValue);
-  return Boolean(value);
-}
-
-function cleanTokenText(text, values, hiddenTokens) {
-  const next = String(text || '').replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (_match, code) => {
-    if (hiddenTokens.has(code)) return '';
+function tokenValue(text, values) {
+  return String(text || '').replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (_match, code) => {
     const value = values?.[code];
     if (value == null || value === '') return '';
     return String(value);
   });
-  return next
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .filter((line, index, list) => line !== '' || (index > 0 && index < list.length - 1))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
-function overlap(aStart, aEnd, bStart, bEnd) {
-  return aStart <= bEnd && bStart <= aEnd;
-}
+function measureWrappedLines(text, widthPx, font = '11px Arial') {
+  const source = String(text ?? '');
+  if (!source) return 1;
 
-function countCollapsedBefore(row, intervals) {
-  let total = 0;
-  for (const item of intervals) {
-    if (item.end < row) total += item.end - item.start + 1;
-  }
-  return total;
-}
+  const explicit = source.split(/\r?\n/);
+  if (typeof document === 'undefined') return Math.max(1, explicit.length);
 
-function findGroupTitle(model, tokenCell, target) {
-  const label = model?.tokenLabels?.[target];
-  if (!label) return null;
-  return (model.cells || [])
-    .filter((cell) => !cell.tokens?.length)
-    .filter((cell) => cell.text === label && cell.row < tokenCell.row && tokenCell.row - cell.row <= 4)
-    .sort((a,b) => b.row - a.row)[0] || null;
-}
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return Math.max(1, explicit.length);
+  ctx.font = font;
 
-function buildLayout({ model, variables, visibility, toggles, repeatGroups, values }) {
-  const cells = Array.isArray(model?.cells) ? model.cells : [];
-  const variableByCode = new Map((variables || []).map((item) => [item.code, item]));
-  const hiddenTokens = new Set();
-  const collapsed = [];
+  const available = Math.max(8, Number(widthPx || 0) - 10);
+  let count = 0;
 
-  for (const rule of visibility || []) {
-    if (rule.appliesTo && rule.appliesTo !== 'ALL' && rule.appliesTo !== model?.name) continue;
-    if (isEnabled(rule, toggles)) continue;
-
-    const targets = String(rule.target || '').split(',').map((item) => item.trim()).filter(Boolean);
-    if (rule.elementType === 'INLINE_TOKEN' || rule.offBehavior === 'HIDE_CONTENT') {
-      targets.forEach((target) => hiddenTokens.add(target));
+  for (const paragraph of explicit) {
+    if (!paragraph) {
+      count += 1;
       continue;
     }
 
-    if (rule.elementType === 'FLOW_BLOCK') {
-      for (const target of targets) {
-        const tokenCell = cells.find((cell) => cell.tokens?.includes(target));
-        if (tokenCell) collapsed.push({ start:tokenCell.row, end:tokenCell.row + (tokenCell.rowSpan || 1) - 1 });
-      }
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      count += 1;
       continue;
     }
 
-    if (rule.elementType === 'FLOW_GROUP') {
-      for (const target of targets) {
-        const tokenCell = cells.find((cell) => cell.tokens?.includes(target));
-        if (!tokenCell) continue;
-        const title = findGroupTitle(model, tokenCell, target);
-        collapsed.push({
-          start:title?.row || tokenCell.row,
-          end:tokenCell.row + (tokenCell.rowSpan || 1) - 1,
-        });
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (!line || ctx.measureText(candidate).width <= available) {
+        line = candidate;
+        continue;
+      }
+
+      count += 1;
+      line = word;
+
+      if (ctx.measureText(line).width > available) {
+        let piece = '';
+        for (const char of line) {
+          const next = piece + char;
+          if (piece && ctx.measureText(next).width > available) {
+            count += 1;
+            piece = char;
+          } else {
+            piece = next;
+          }
+        }
+        line = piece;
       }
     }
+    if (line) count += 1;
   }
 
-  collapsed.sort((a,b) => a.start - b.start);
-  const mergedCollapsed = [];
-  for (const item of collapsed) {
-    const prev = mergedCollapsed[mergedCollapsed.length - 1];
-    if (prev && item.start <= prev.end + 1) prev.end = Math.max(prev.end, item.end);
-    else mergedCollapsed.push({ ...item });
-  }
-
-  const groupNames = Array.from(new Set((variables || []).map((item) => item.repeatGroup).filter(Boolean)));
-  const repeatOps = [];
-  for (const group of groupNames) {
-    const codes = new Set((variables || []).filter((item) => item.repeatGroup === group).map((item) => item.code));
-    const groupCells = cells.filter((cell) => (cell.tokens || []).some((token) => codes.has(token)));
-    if (!groupCells.length) continue;
-    const start = Math.min(...groupCells.map((cell) => cell.row));
-    const end = Math.max(...groupCells.map((cell) => cell.row + (cell.rowSpan || 1) - 1));
-    if (mergedCollapsed.some((item) => overlap(start, end, item.start, item.end))) continue;
-    const records = Array.isArray(repeatGroups?.[group]) && repeatGroups[group].length
-      ? repeatGroups[group]
-      : [values || {}];
-    repeatOps.push({ group, codes, start, end, height:end-start+1, records });
-  }
-  repeatOps.sort((a,b) => a.start - b.start);
-
-  const extraBefore = (row) => repeatOps
-    .filter((op) => op.end < row)
-    .reduce((sum, op) => sum + Math.max(0, op.records.length - 1) * op.height, 0);
-
-  const mapRow = (row) => row - countCollapsedBefore(row, mergedCollapsed) + extraBefore(row);
-  const rendered = [];
-
-  for (const cell of cells) {
-    const start = cell.row;
-    const end = cell.row + (cell.rowSpan || 1) - 1;
-    if (mergedCollapsed.some((item) => overlap(start, end, item.start, item.end))) continue;
-
-    const repeat = repeatOps.find((op) => overlap(start, end, op.start, op.end));
-    if (repeat) {
-      for (let index = 0; index < repeat.records.length; index += 1) {
-        rendered.push({
-          ...cell,
-          row:mapRow(repeat.start) + (cell.row - repeat.start) + index * repeat.height,
-          values:{ ...(values || {}), ...(repeat.records[index] || {}) },
-          repeatGroup:repeat.group,
-          repeatIndex:index,
-        });
-      }
-    } else {
-      rendered.push({
-        ...cell,
-        row:mapRow(cell.row),
-        values:values || {},
-      });
-    }
-  }
-
-  const maxOriginalRow = Math.max(...cells.map((cell) => cell.row + (cell.rowSpan || 1) - 1), 1);
-  const visibleOriginalRows = [];
-  for (let row = 1; row <= maxOriginalRow; row += 1) {
-    if (!mergedCollapsed.some((item) => row >= item.start && row <= item.end)) visibleOriginalRows.push(row);
-    const op = repeatOps.find((item) => item.end === row);
-    if (op && op.records.length > 1) {
-      for (let copy = 1; copy < op.records.length; copy += 1) {
-        for (let source = op.start; source <= op.end; source += 1) visibleOriginalRows.push(source);
-      }
-    }
-  }
-
-  return { rendered, hiddenTokens, visibleOriginalRows };
+  return Math.max(1, count);
 }
 
-export default function WorkbookModelPreview({
-  model,
-  values = {},
-  variables = [],
-  visibility = [],
-  toggles = {},
-  repeatGroups = {},
-  overlays = [],
-  overlayImages = {},
-  overlayPositions = {},
-  editableOverlays = false,
-  onOverlayMove,
-  printMode = false,
-}) {
-  const shellRef = useRef(null);
+function boundsOf(model) {
+  const raw = model?.pageBounds || DEFAULT_PAGE_BOUNDS;
+  return {
+    startRow:Number(raw.startRow || DEFAULT_PAGE_BOUNDS.startRow),
+    endRow:Number(raw.endRow || DEFAULT_PAGE_BOUNDS.endRow),
+    startCol:Number(raw.startCol || DEFAULT_PAGE_BOUNDS.startCol),
+    endCol:Number(raw.endCol || DEFAULT_PAGE_BOUNDS.endCol),
+  };
+}
 
-  const layout = useMemo(() => buildLayout({
-    model, variables, visibility, toggles, repeatGroups, values,
-  }), [model, variables, visibility, toggles, repeatGroups, values]);
+export default function WorkbookModelPreview({ model, values = {}, printMode = false }) {
+  const layout = useMemo(() => {
+    if (!model?.cells?.length) return null;
 
-  if (!model?.cells?.length) {
+    const bounds = boundsOf(model);
+    const columnMap = new Map((model.columns || []).map((item) => [item.col, item]));
+    const rowMap = new Map((model.rows || []).map((item) => [item.row, item]));
+
+    const columnsPx = [];
+    for (let col = bounds.startCol; col <= bounds.endCol; col += 1) {
+      columnsPx.push(pxWidth(columnMap.get(col)));
+    }
+    const rowsPx = [];
+    for (let row = bounds.startRow; row <= bounds.endRow; row += 1) {
+      rowsPx.push(pxHeight(rowMap.get(row)));
+    }
+
+    const baseWidthPx = columnsPx.reduce((sum, value) => sum + value, 0) || 1;
+    const baseHeightPx = rowsPx.reduce((sum, value) => sum + value, 0) || 1;
+    const colScaleMm = A4_WIDTH_MM / baseWidthPx;
+    const rowScaleMm = A4_HEIGHT_MM / baseHeightPx;
+
+    const visibleCells = model.cells.filter((cell) => {
+      const endRow = cell.row + (cell.rowSpan || 1) - 1;
+      const endCol = cell.col + (cell.colSpan || 1) - 1;
+      return endRow >= bounds.startRow && cell.row <= bounds.endRow
+        && endCol >= bounds.startCol && cell.col <= bounds.endCol;
+    });
+
+    // Compact exception rows grow one micro-row per visual line. The changed row
+    // height automatically pushes every grid item below it while preserving all
+    // other workbook gaps.
+    for (const cell of visibleCells) {
+      if ((cell.rowSpan || 1) !== 1) continue;
+      if (!Array.isArray(cell.tokens) || !cell.tokens.some((token) => COMPACT_TOKENS.has(token))) continue;
+
+      const localCol = Math.max(cell.col, bounds.startCol);
+      const localEndCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
+      let cellWidthPx = 0;
+      for (let col = localCol; col <= localEndCol; col += 1) {
+        cellWidthPx += pxWidth(columnMap.get(col));
+      }
+      const display = tokenValue(cell.text, values);
+      const widthCssPx = cellWidthPx * colScaleMm * PX_PER_MM;
+      const visualLines = measureWrappedLines(display, widthCssPx);
+      const rowIndex = cell.row - bounds.startRow;
+      if (rowIndex >= 0 && rowIndex < rowsPx.length) {
+        const base = pxHeight(rowMap.get(cell.row));
+        rowsPx[rowIndex] = Math.max(rowsPx[rowIndex], base * visualLines);
+      }
+    }
+
+    const totalHeightMm = rowsPx.reduce((sum, value) => sum + value, 0) * rowScaleMm;
+
+    return {
+      bounds,
+      columns:columnsPx.map((value) => `${value * colScaleMm}mm`).join(' '),
+      rows:rowsPx.map((value) => `${value * rowScaleMm}mm`).join(' '),
+      totalHeightMm,
+      visibleCells,
+    };
+  }, [model, values]);
+
+  if (!layout) {
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
   }
 
-  const maxCol = Math.max(...model.cells.map((cell) => cell.col + (cell.colSpan || 1) - 1), 1);
-  const columnMap = new Map((model.columns || []).map((item) => [item.col, item]));
-  const rowMap = new Map((model.rows || []).map((item) => [item.row, item]));
-
-  const widths = Array.from({ length:maxCol }, (_, index) => pxWidth(columnMap.get(index + 1)));
-  const heights = layout.visibleOriginalRows.map((sourceRow) => pxHeight(rowMap.get(sourceRow)));
-  const columns = widths.map((value) => `${value}px`).join(' ');
-  const rows = heights.map((value) => `${value}px`).join(' ');
-
-  const activeOverlays = (overlays || [])
-    .filter((item) => item.modelSheet === model.name)
-    .filter((item) => !item.showToggle || toggles?.[item.showToggle] !== false);
-
-  function tokenAnchor(token) {
-    return layout.rendered.find((cell) => cell.tokens?.includes(token)) || null;
-  }
-
-  function colOffset(col) {
-    return widths.slice(0, Math.max(0, col - 1)).reduce((sum, value) => sum + value, 0);
-  }
-
-  function rowOffset(row) {
-    return heights.slice(0, Math.max(0, row - 1)).reduce((sum, value) => sum + value, 0);
-  }
-
-  function beginDrag(event, overlay, defaultX, defaultY) {
-    if (!editableOverlays || overlay.movable === false) return;
-    event.preventDefault();
-    const pointerId = event.pointerId;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const current = overlayPositions?.[overlay.id] || {};
-    const baseX = Number(current.xMm ?? overlay.offsetXmm ?? 0);
-    const baseY = Number(current.yMm ?? overlay.offsetYmm ?? 0);
-    const target = event.currentTarget;
-    target.setPointerCapture?.(pointerId);
-
-    const move = (moveEvent) => {
-      const dxMm = (moveEvent.clientX - startX) / MM_TO_PX;
-      const dyMm = (moveEvent.clientY - startY) / MM_TO_PX;
-      onOverlayMove?.(overlay.id, {
-        xMm:Math.round((baseX + dxMm) * 10) / 10,
-        yMm:Math.round((baseY + dyMm) * 10) / 10,
-      }, false);
-    };
-    const up = (upEvent) => {
-      target.releasePointerCapture?.(pointerId);
-      target.removeEventListener('pointermove', move);
-      target.removeEventListener('pointerup', up);
-      const dxMm = (upEvent.clientX - startX) / MM_TO_PX;
-      const dyMm = (upEvent.clientY - startY) / MM_TO_PX;
-      onOverlayMove?.(overlay.id, {
-        xMm:Math.round((baseX + dxMm) * 10) / 10,
-        yMm:Math.round((baseY + dyMm) * 10) / 10,
-      }, true);
-    };
-    target.addEventListener('pointermove', move);
-    target.addEventListener('pointerup', up);
-  }
+  const { bounds, columns, rows, totalHeightMm, visibleCells } = layout;
 
   return <div style={{
     overflow:printMode ? 'visible' : 'auto',
     padding:printMode ? 0 : 12,
     background:printMode ? '#fff' : 'var(--paper,#fff)',
   }}>
-    <div ref={shellRef} style={{
+    <div style={{
       display:'grid',
       gridTemplateColumns:columns,
       gridTemplateRows:rows,
+      width:`${A4_WIDTH_MM}mm`,
+      minHeight:`${A4_HEIGHT_MM}mm`,
+      height:`${Math.max(A4_HEIGHT_MM, totalHeightMm)}mm`,
       position:'relative',
-      minWidth:'max-content',
-      width:'max-content',
       direction:'ltr',
       background:'#fff',
       border:printMode ? 'none' : '1px solid var(--hair)',
       boxShadow:printMode ? 'none' : '0 8px 24px rgba(0,0,0,.08)',
+      boxSizing:'border-box',
+      overflow:'visible',
     }}>
-      {layout.rendered.map((cell, index) => {
+      {visibleCells.map((cell) => {
+        const startCol = Math.max(cell.col, bounds.startCol);
+        const endCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
+        const startRow = Math.max(cell.row, bounds.startRow);
+        const endRow = Math.min(cell.row + (cell.rowSpan || 1) - 1, bounds.endRow);
         const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
-        const text = cleanTokenText(cell.text, cell.values, layout.hiddenTokens);
-        if (!text && dynamic) return null;
-        return <div key={`${cell.address}-${cell.repeatGroup || 'base'}-${cell.repeatIndex ?? 0}-${index}`} title={cell.address} style={{
-          gridColumn:`${cell.col} / span ${cell.colSpan || 1}`,
-          gridRow:`${cell.row} / span ${cell.rowSpan || 1}`,
+        const text = tokenValue(cell.text, values);
+
+        return <div key={cell.address} title={cell.address} style={{
+          gridColumn:`${startCol - bounds.startCol + 1} / span ${Math.max(1, endCol - startCol + 1)}`,
+          gridRow:`${startRow - bounds.startRow + 1} / span ${Math.max(1, endRow - startRow + 1)}`,
           border:dynamic ? '1px solid #8fbad9' : '1px solid rgba(205,186,186,.55)',
           background:dynamic ? 'rgba(221,235,247,.82)' : '#fff',
           color:dynamic ? '#17365D' : '#2E2E30',
-          fontSize:11,
+          fontSize:'11px',
           fontWeight:dynamic ? 650 : 500,
           display:'flex',
           alignItems:'center',
           justifyContent:'center',
           padding:'2px 5px',
+          minWidth:0,
+          minHeight:0,
           overflow:'hidden',
           whiteSpace:'pre-wrap',
+          overflowWrap:'anywhere',
           textAlign:'center',
           direction:/[\u0600-\u06FF]/.test(text) ? 'rtl' : 'ltr',
           lineHeight:1.25,
+          boxSizing:'border-box',
         }}>
           {text}
-        </div>;
-      })}
-
-      {activeOverlays.map((overlay) => {
-        const anchor = tokenAnchor(overlay.anchorToken);
-        if (!anchor) return null;
-        const position = overlayPositions?.[overlay.id] || {};
-        const xMm = Number(position.xMm ?? overlay.offsetXmm ?? 0);
-        const yMm = Number(position.yMm ?? overlay.offsetYmm ?? 0);
-        const left = colOffset(anchor.col) + xMm * MM_TO_PX;
-        const top = rowOffset(anchor.row) + yMm * MM_TO_PX;
-        const src = overlayImages?.[overlay.variableCode] || overlayImages?.[overlay.id] || '';
-        return <div
-          key={overlay.id}
-          onPointerDown={(event)=>beginDrag(event, overlay, left, top)}
-          title={editableOverlays ? 'اسحب لتحريك الطبقة' : overlay.id}
-          style={{
-            position:'absolute',
-            left,
-            top,
-            width:Math.max(8, Number(overlay.widthMm || 20) * MM_TO_PX),
-            height:Math.max(8, Number(overlay.heightMm || 20) * MM_TO_PX),
-            zIndex:Number(overlay.zIndex || 20),
-            cursor:editableOverlays ? 'move' : 'default',
-            touchAction:'none',
-            display:'flex',
-            alignItems:'center',
-            justifyContent:'center',
-            pointerEvents:editableOverlays ? 'auto' : 'none',
-          }}
-        >
-          {src
-            ? <img src={src} alt="" style={{width:'100%',height:'100%',objectFit:'contain',display:'block'}} />
-            : <div style={{
-                width:'100%',height:'100%',border:'1px dashed #7A1832',
-                color:'#7A1832',background:'rgba(255,255,255,.55)',fontSize:10,
-                display:'flex',alignItems:'center',justifyContent:'center',
-              }}>{overlay.id}</div>}
         </div>;
       })}
     </div>
