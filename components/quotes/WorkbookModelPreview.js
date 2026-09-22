@@ -6,6 +6,9 @@ const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 const PX_PER_MM = 96 / 25.4;
 const DEFAULT_PAGE_BOUNDS = Object.freeze({ startRow:3, endRow:61, startCol:2, endCol:41 });
+const CONTENT_START_ROW = 10;
+const CONTENT_END_ROW = 57;
+const FOOTER_START_ROW = 58;
 
 const NUMERIC_TOKENS = new Set([
   'item_no','qty','unit_price','line_total',
@@ -317,11 +320,15 @@ export default function WorkbookModelPreview({
 
     const totalHeightMm = expandedRowsPx.reduce((sum, value) => sum + value, 0) * rowScaleMm;
 
+    const totalExtraRows = groups.reduce((sum, group) => sum + group.extraRows, 0);
     return {
       bounds,
       columns:columnsPx.map((value) => `${value * colScaleMm}mm`).join(' '),
       rows:expandedRowsPx.map((value) => `${value * rowScaleMm}mm`).join(' '),
+      rowSizesMm:expandedRowsPx.map((value) => value * rowScaleMm),
+      baseRowSizesMm:baseRowsPx.map((value) => value * rowScaleMm),
       totalHeightMm,
+      totalExtraRows,
       renderCells,
     };
   }, [model, values, effectiveRepeatData]);
