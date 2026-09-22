@@ -125,15 +125,9 @@ export default function WorkbookQuotePrintPage() {
   }, [settings]);
 
   const stationeryImages = useMemo(() => {
-    if (!settings) return {};
-    const publicUrl = (path) => path
-      ? supabase.storage.from('brand').getPublicUrl(path).data.publicUrl
-      : '';
+    if (!settings?.letterhead_image_path) return {};
     return {
-      letterhead:publicUrl(settings.letterhead_image_path),
-      header:publicUrl(settings.header_image_path),
-      watermark:publicUrl(settings.watermark_image_path),
-      footer:publicUrl(settings.footer_image_path),
+      letterhead:supabase.storage.from('brand').getPublicUrl(settings.letterhead_image_path).data.publicUrl,
     };
   }, [settings]);
 
@@ -337,8 +331,8 @@ export default function WorkbookQuotePrintPage() {
         overlayPositions={overlayPositions}
         stationeryImages={stationeryImages}
         whiteVeilOpacity={veilOpacity}
-        headerHeightMm={Number(settings?.header_height_mm || 0)}
-        footerHeightMm={Number(settings?.footer_height_mm || 0)}
+        headerHeightMm={Number(settings?.stationery_analysis?.headerHeightMm || 0)}
+        footerHeightMm={Number(settings?.stationery_analysis?.footerHeightMm || 0)}
         sideMarginPreset={sideMarginPreset}
         editableOverlays
         onOverlayMove={moveOverlay}
