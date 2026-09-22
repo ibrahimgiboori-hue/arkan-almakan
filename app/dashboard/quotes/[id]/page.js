@@ -353,6 +353,15 @@ export default function QuoteEditor() {
             overlays={printSchema?.overlays || []}
             overlayImages={printAssets}
             overlayPositions={q.print_overlay_positions || {}}
+            stationeryImages={{
+              letterhead:printAssets?.letterhead || '',
+              header:printAssets?.header || '',
+              watermark:printAssets?.watermark || '',
+              footer:printAssets?.footer || '',
+            }}
+            whiteVeilOpacity={Number(printAssets?.whiteVeilOpacity ?? 0.82)}
+            headerHeightMm={Number(printAssets?.headerHeightMm || 0)}
+            footerHeightMm={Number(printAssets?.footerHeightMm || 0)}
           />
         </div>
       )}
