@@ -167,6 +167,10 @@ export default function WorkbookModelPreview({
   overlays = [],
   overlayImages = {},
   overlayPositions = {},
+  stationeryImages = {},
+  whiteVeilOpacity = 0.82,
+  headerHeightMm = 0,
+  footerHeightMm = 0,
   editableOverlays = false,
   onOverlayMove,
   printMode = false,
@@ -402,12 +406,70 @@ export default function WorkbookModelPreview({
       height:`${Math.max(A4_HEIGHT_MM, totalHeightMm)}mm`,
       position:'relative',
       direction:'ltr',
-      background:'#fff',
+      background:'transparent',
       border:printMode ? 'none' : '1px solid var(--hair)',
       boxShadow:printMode ? 'none' : '0 8px 24px rgba(0,0,0,.08)',
       boxSizing:'border-box',
       overflow:'visible',
+      WebkitPrintColorAdjust:'exact',
+      printColorAdjust:'exact',
     }}>
+      {stationeryImages?.letterhead ? <img
+        src={stationeryImages.letterhead}
+        alt=""
+        style={{
+          position:'absolute',inset:0,width:'100%',height:'100%',
+          objectFit:'fill',zIndex:0,pointerEvents:'none',
+        }}
+      /> : <>
+        {stationeryImages?.header ? <img
+          src={stationeryImages.header}
+          alt=""
+          style={{
+            position:'absolute',left:0,top:0,width:'100%',
+            height:`${Math.max(0, Number(headerHeightMm || 0))}mm`,
+            objectFit:'fill',zIndex:0,pointerEvents:'none',
+          }}
+        /> : null}
+        {stationeryImages?.watermark ? <img
+          src={stationeryImages.watermark}
+          alt=""
+          style={{
+            position:'absolute',
+            left:0,
+            right:0,
+            top:`${Math.max(0, Number(headerHeightMm || 0))}mm`,
+            bottom:`${Math.max(0, Number(footerHeightMm || 0))}mm`,
+            width:'100%',
+            height:`calc(100% - ${Math.max(0, Number(headerHeightMm || 0)) + Math.max(0, Number(footerHeightMm || 0))}mm)`,
+            objectFit:'contain',zIndex:0,pointerEvents:'none',
+          }}
+        /> : null}
+        {stationeryImages?.footer ? <img
+          src={stationeryImages.footer}
+          alt=""
+          style={{
+            position:'absolute',left:0,bottom:0,width:'100%',
+            height:`${Math.max(0, Number(footerHeightMm || 0))}mm`,
+            objectFit:'fill',zIndex:0,pointerEvents:'none',
+          }}
+        /> : null}
+      </>}
+
+      <div
+        aria-hidden="true"
+        style={{
+          position:'absolute',
+          left:0,
+          right:0,
+          top:`${Math.max(0, Number(headerHeightMm || 0))}mm`,
+          bottom:`${Math.max(0, Number(footerHeightMm || 0))}mm`,
+          background:`rgba(255,255,255,${Math.min(1, Math.max(0, Number(whiteVeilOpacity ?? 0.82)))})`,
+          zIndex:10,
+          pointerEvents:'none',
+        }}
+      />
+
       {renderCells.map((cell) => {
         const startCol = Math.max(cell.col, bounds.startCol);
         const endCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
@@ -438,6 +500,8 @@ export default function WorkbookModelPreview({
           direction:numeric ? 'ltr' : (/[؀-ۿ]/.test(text) ? 'rtl' : 'ltr'),
           lineHeight:1.2,
           boxSizing:'border-box',
+          position:'relative',
+          zIndex:20,
         }}>
           {text}
         </div>;
@@ -465,7 +529,7 @@ export default function WorkbookModelPreview({
             top:`${topMm}mm`,
             width:`${Math.max(1, Number(overlay.widthMm || 20))}mm`,
             height:`${Math.max(1, Number(overlay.heightMm || 20))}mm`,
-            zIndex:Number(overlay.zIndex || 20),
+            zIndex:Math.max(30, Number(overlay.zIndex || 30)),
             cursor:editableOverlays ? 'move' : 'default',
             touchAction:'none',
             pointerEvents:editableOverlays ? 'auto' : 'none',
