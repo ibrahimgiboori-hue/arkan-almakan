@@ -11,6 +11,7 @@ import {
 } from '@/lib/quote-editor.mjs';
 import { quoteEditorService } from '@/lib/application/quote-editor-service';
 import QuotePartyGovernancePanel from '@/components/quotes/QuotePartyGovernancePanel';
+import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
 
 function pickWorkbookModel(schema, quote) {
   const models = Array.isArray(schema?.models) ? schema.models : [];
@@ -39,7 +40,7 @@ export default function QuoteEditor() {
   const [items, setItems] = useState([]);
   const [presets, setPresets] = useState([]);
   const [printSchema, setPrintSchema] = useState(null);
-  const [tab, setTab] = useState('lines');
+  const [tab, setTab] = useState('model');
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState('');
 
@@ -232,6 +233,35 @@ export default function QuoteEditor() {
   const activeModel = pickWorkbookModel(printSchema, q);
   const label = (code, fallback) => workbookLabel(printSchema, activeModel, code, fallback);
   const workbookModels = Array.isArray(printSchema?.models) ? printSchema.models : [];
+  const previewValues = {
+    quote_no:q.quote_no,
+    quote_date:q.quote_date,
+    client_name:q.client_name,
+    client_contact:q.client_contact,
+    project_ref:q.project_ref,
+    site_location:q.site_location,
+    valid_days:q.valid_days,
+    intro_text:q.intro_text,
+    subtotal:t.subtotal,
+    vat_rate:Number(q.vat_rate || 0) * 100 + '%',
+    vat_amount:t.vat,
+    grand_total:t.grand,
+    plain_total:t.grand,
+    item_no:numbered[0]?.number || 1,
+    description_ar:numbered[0]?.description_ar || label('description_ar','بيان الأعمال'),
+    description_en:numbered[0]?.description_en || '',
+    unit:numbered[0]?.unit || '',
+    qty:numbered[0]?.qty ?? '',
+    unit_price:numbered[0]?.unit_price ?? '',
+    line_total:numbered[0] ? lineTotal(numbered[0], q.show_qty) : '',
+    representative_name:q.arkan_signatory_name || '',
+    representative_title:q.arkan_signatory_title || '',
+    bank_name:'مصرف الراجحي',
+    bank_account_no:'',
+    bank_iban:'',
+    payment_terms:pays.length ? `${pays.length} دفعات` : label('payment_terms','شروط الدفع'),
+    terms:q.terms_text || label('terms','الشروط والأحكام'),
+  };
 
   return (
     <>
@@ -257,9 +287,22 @@ export default function QuoteEditor() {
       {saved && <div className="msg ok" style={{marginBottom:12}}>{saved}</div>}
 
       <div className="tabs">
-        {[['lines',label('line_items','البنود')],['setup','بيانات العرض'],['switches','المفاتيح'],['pay',label('payment_terms','الدفعات')],['texts',label('terms','النصوص')]]
+        {[['model','تصميم Excel'],['lines',label('line_items','البنود')],['setup','بيانات العرض'],['switches','المفاتيح'],['pay',label('payment_terms','الدفعات')],['texts',label('terms','النصوص')]]
           .map(([k,l]) => <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
+
+      {tab === 'model' && (
+        <div className="section" style={{marginTop:0}}>
+          <header style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <div>
+              <h2 style={{margin:0}}>{activeModel?.name || 'تصميم Excel'}</h2>
+              <div className="hint">هذا العرض يُبنى من هندسة الـSheet المرفوع: مواقع العناصر والدمج وأسماء الحقول تتغير عند إعادة رفع ملف Excel.</div>
+            </div>
+            <span className="pill">{activeModel?.cells?.length || 0} عنصر مقروء</span>
+          </header>
+          <WorkbookModelPreview model={activeModel} values={previewValues} />
+        </div>
+      )}
 
       {tab === 'lines' && (
         <>
