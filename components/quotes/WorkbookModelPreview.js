@@ -33,6 +33,9 @@ const REPEAT_GROUPS = Object.freeze([
     id:'line_items',
     tokens:new Set(['item_no','description_ar','description_en','unit','qty','unit_price','line_total']),
     baseUnitsPerVisualLine:2,
+    minWrappedSpan:4,
+    renderedLineHeightPx:13.2,
+    verticalPaddingPx:6,
     wrapToken:'description_ar',
   },
   {
@@ -247,10 +250,33 @@ export default function WorkbookModelPreview({
         || cells[0];
       const widthCssPx = cellWidthPx(wrapCell, bounds, columnsPx) * colScaleMm * PX_PER_MM;
 
+      const patternHeights = [];
+      for (let r = startRow; r <= endRow; r += 1) {
+        patternHeights.push(pxHeight(rowMap.get(r)));
+      }
+      const microRowPx = patternHeights.length
+        ? patternHeights.reduce((sum, value) => sum + value, 0) / patternHeights.length
+        : 14.25;
+
       const instanceSpans = instances.map((record) => {
         const merged = record ? { ...values, ...record } : values;
         const display = tokenValue(wrapCell.text, merged);
         const visualLines = measureWrappedLines(display, widthCssPx);
+
+        if (definition.id === 'line_items') {
+          // One unwrapped line keeps the workbook's normal two-micro-row height.
+          // Once text wraps, honor the agreed minimum of four micro-rows, but do
+          // NOT multiply every visual line by two. Instead fit the actual rendered
+          // text into the minimum whole number of micro-rows. This removes the
+          // large dead space seen with long descriptions.
+          if (visualLines <= 1) return baseSpan;
+          const requiredPx =
+            visualLines * Number(definition.renderedLineHeightPx || 13.2)
+            + Number(definition.verticalPaddingPx || 6);
+          const fittedSpan = Math.ceil(requiredPx / Math.max(1, microRowPx));
+          return Math.max(baseSpan, Number(definition.minWrappedSpan || 4), fittedSpan);
+        }
+
         return Math.max(baseSpan, definition.baseUnitsPerVisualLine * visualLines);
       });
 
