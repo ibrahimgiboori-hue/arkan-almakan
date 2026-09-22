@@ -116,10 +116,14 @@ export default function WorkbookQuotePrintPage() {
     return { stamp, signature };
   }, [settings]);
 
-  async function moveOverlay(id, position, persist) {
-    setOverlayPositions((current) => ({ ...current, [id]:position }));
+  async function moveOverlay(overlayId, position, persist) {
+    let next = null;
+    setOverlayPositions((current) => {
+      next = { ...(current || {}), [overlayId]:position };
+      return next;
+    });
     if (!persist) return;
-    const next = { ...(overlayPositions || {}), [id]:position };
+    next = next || { ...(overlayPositions || {}), [overlayId]:position };
     const { error:saveError } = await supabase.from('quotations')
       .update({ print_overlay_positions:next })
       .eq('id', id);
