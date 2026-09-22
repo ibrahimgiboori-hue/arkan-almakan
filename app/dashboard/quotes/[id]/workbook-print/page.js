@@ -290,9 +290,9 @@ export default function WorkbookQuotePrintPage() {
             onChange={(event)=>saveSideMarginPreset(event.target.value)}
             style={{fontSize:12,padding:'5px 7px'}}
           >
-            <option value="small">صغير — خليتان</option>
-            <option value="medium">متوسط — 3 خلايا</option>
-            <option value="large">كبير — 4 خلايا</option>
+            <option value="small">صغير</option>
+            <option value="medium">متوسط</option>
+            <option value="large">كبير</option>
           </select>
         </label>
         <label style={{display:'flex',alignItems:'center',gap:7,fontSize:12,color:'#555'}}>
