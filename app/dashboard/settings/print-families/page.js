@@ -224,8 +224,8 @@ export default function PrintFamiliesSettingsPage() {
                 {downloading ? 'جارٍ التحميل…' : 'تحميل ملف العائلة الحالي'}
               </button>
 
-              <label className="btn ghost" style={{cursor:uploading?'wait':'pointer'}}>
-                {uploading ? 'جارٍ فحص ورفع الملف…' : current ? 'رفع نسخة معدلة' : 'رفع ملف العائلة الأول'}
+              {current ? <label className="btn ghost" style={{cursor:uploading?'wait':'pointer'}}>
+                {uploading ? 'جارٍ فحص ورفع الملف…' : 'رفع نسخة معدلة'}
                 <input
                   type="file"
                   accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -237,13 +237,15 @@ export default function PrintFamiliesSettingsPage() {
                   }}
                   style={{display:'none'}}
                 />
-              </label>
+              </label> : <button type="button" className="btn ghost" disabled>
+                جاري تجهيز ملف العائلة الأساسي
+              </button>}
             </div>
 
             <div className="hint">
               {current
                 ? `آخر ملف: ${current.original_name || 'بدون اسم'} · الإصدار ${current.version}. النسخ السابقة تبقى محفوظة في التخزين.`
-                : 'لم يُعتمد ملف لهذه العائلة بعد. أول ملف مرفوع يجب أن يحتوي النماذج الأساسية المذكورة أعلاه، وبعده يمكن إضافة Sheets جديدة.'}
+                : 'سيجهز النظام ملف العائلة الأساسي أولًا بكل النماذج الحالية. بعد تحميله وتعديله فقط يظهر خيار رفع نسخة معدلة.'}
             </div>
           </div>
         </Section>;
