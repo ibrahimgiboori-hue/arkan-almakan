@@ -337,7 +337,14 @@ export default function WorkbookModelPreview({
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
   }
 
-  const { bounds, columns, rows, totalHeightMm, renderCells } = layout;
+  const {
+    bounds,
+    columns,
+    rowSizesMm,
+    baseRowSizesMm,
+    totalExtraRows,
+    renderCells,
+  } = layout;
 
   const visibleOverlays = (overlays || [])
     .filter((overlay) => overlay.modelSheet === model?.name)
@@ -349,9 +356,73 @@ export default function WorkbookModelPreview({
       return rule ? Boolean(rule.defaultValue) : false;
     });
 
-  function overlayAnchor(overlay) {
-    return renderCells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(overlay.anchorToken)) || null;
+  const headerTrackCount = Math.max(0, CONTENT_START_ROW - bounds.startRow);
+  const footerBaseTrackIndex = Math.max(headerTrackCount, FOOTER_START_ROW - bounds.startRow);
+  const footerTrackIndex = Math.min(
+    rowSizesMm.length,
+    footerBaseTrackIndex + Math.max(0, Number(totalExtraRows || 0)),
+  );
+
+  const contentTopMm = baseRowSizesMm
+    .slice(0, headerTrackCount)
+    .reduce((sum, value) => sum + value, 0);
+  const contentHeightMm = baseRowSizesMm
+    .slice(headerTrackCount, footerBaseTrackIndex)
+    .reduce((sum, value) => sum + value, 0);
+  const flowRowSizesMm = rowSizesMm.slice(headerTrackCount, footerTrackIndex);
+
+  const flowCells = renderCells.filter((cell) =>
+    cell.row >= CONTENT_START_ROW && cell.row <= CONTENT_END_ROW
+  );
+
+  // A page break is not allowed inside a merged/logical element. This is what
+  // prevents a table row, section title, totals row or footer row from being cut
+  // by the physical footer. Oversized elements are the only exception.
+  const forbiddenBreaks = new Set();
+  for (const cell of flowCells) {
+    const startRow = (cell.renderRow - 1) - headerTrackCount;
+    const span = Math.max(1, Number(cell.renderRowSpan || 1));
+    for (let boundary = startRow + 1; boundary < startRow + span; boundary += 1) {
+      if (boundary > 0 && boundary < flowRowSizesMm.length) forbiddenBreaks.add(boundary);
+    }
   }
+
+  const pages = [];
+  let pageStart = 0;
+  const capacity = Math.max(1, contentHeightMm);
+
+  while (pageStart < flowRowSizesMm.length) {
+    let cursor = pageStart;
+    let used = 0;
+
+    while (
+      cursor < flowRowSizesMm.length
+      && used + flowRowSizesMm[cursor] <= capacity + 0.01
+    ) {
+      used += flowRowSizesMm[cursor];
+      cursor += 1;
+    }
+
+    if (cursor >= flowRowSizesMm.length) {
+      pages.push({ start:pageStart, end:flowRowSizesMm.length });
+      break;
+    }
+
+    let pageEnd = cursor;
+    while (pageEnd > pageStart && forbiddenBreaks.has(pageEnd)) pageEnd -= 1;
+
+    if (pageEnd === pageStart) {
+      // The next complete element is larger than the remaining page (or, in the
+      // extreme case, larger than a full content area). Move it as one block.
+      pageEnd = Math.min(flowRowSizesMm.length, pageStart + 1);
+      while (pageEnd < flowRowSizesMm.length && forbiddenBreaks.has(pageEnd)) pageEnd += 1;
+    }
+
+    pages.push({ start:pageStart, end:pageEnd });
+    pageStart = pageEnd;
+  }
+
+  if (!pages.length) pages.push({ start:0, end:0 });
 
   function columnOffsetMm(col) {
     const columnMap = new Map((model.columns || []).map((item) => [item.col, item]));
@@ -361,11 +432,6 @@ export default function WorkbookModelPreview({
       pxWidth(columnMap.get(bounds.startCol + index))
     ).reduce((sum, value) => sum + value, 0) || 1;
     return px * (A4_WIDTH_MM / totalPx);
-  }
-
-  function rowOffsetMm(renderRow) {
-    const parts = String(rows || '').split(' ').filter(Boolean).map((value) => Number(String(value).replace('mm','')) || 0);
-    return parts.slice(0, Math.max(0, renderRow - 1)).reduce((sum, value) => sum + value, 0);
   }
 
   function beginOverlayDrag(event, overlay) {
@@ -399,166 +465,201 @@ export default function WorkbookModelPreview({
     target.addEventListener('pointerup', up);
   }
 
-  return <div style={{
-    overflow:printMode ? 'visible' : 'auto',
-    padding:printMode ? 0 : 12,
-    background:printMode ? '#fff' : 'var(--paper,#fff)',
-  }}>
-    <div style={{
-      display:'grid',
-      gridTemplateColumns:columns,
-      gridTemplateRows:rows,
-      width:`${A4_WIDTH_MM}mm`,
-      minHeight:`${A4_HEIGHT_MM}mm`,
-      height:`${Math.max(A4_HEIGHT_MM, totalHeightMm)}mm`,
-      position:'relative',
-      direction:'ltr',
-      background:'transparent',
-      border:printMode ? 'none' : '1px solid var(--hair)',
-      boxShadow:printMode ? 'none' : '0 8px 24px rgba(0,0,0,.08)',
-      boxSizing:'border-box',
-      overflow:'visible',
-      WebkitPrintColorAdjust:'exact',
-      printColorAdjust:'exact',
-    }}>
-      {stationeryImages?.letterhead ? <img
+  function renderStationery() {
+    if (stationeryImages?.letterhead) {
+      return <img
         src={stationeryImages.letterhead}
         alt=""
         style={{
           position:'absolute',inset:0,width:'100%',height:'100%',
           objectFit:'fill',zIndex:0,pointerEvents:'none',
         }}
-      /> : <>
-        {stationeryImages?.header ? <img
-          src={stationeryImages.header}
-          alt=""
-          style={{
-            position:'absolute',left:0,top:0,width:'100%',
-            height:`${Math.max(0, Number(headerHeightMm || 0))}mm`,
-            objectFit:'fill',zIndex:0,pointerEvents:'none',
-          }}
-        /> : null}
-        {stationeryImages?.watermark ? <img
-          src={stationeryImages.watermark}
-          alt=""
-          style={{
-            position:'absolute',
-            left:0,
-            right:0,
-            top:`${Math.max(0, Number(headerHeightMm || 0))}mm`,
-            bottom:`${Math.max(0, Number(footerHeightMm || 0))}mm`,
-            width:'100%',
-            height:`calc(100% - ${Math.max(0, Number(headerHeightMm || 0)) + Math.max(0, Number(footerHeightMm || 0))}mm)`,
-            objectFit:'contain',zIndex:0,pointerEvents:'none',
-          }}
-        /> : null}
-        {stationeryImages?.footer ? <img
-          src={stationeryImages.footer}
-          alt=""
-          style={{
-            position:'absolute',left:0,bottom:0,width:'100%',
-            height:`${Math.max(0, Number(footerHeightMm || 0))}mm`,
-            objectFit:'fill',zIndex:0,pointerEvents:'none',
-          }}
-        /> : null}
-      </>}
+      />;
+    }
 
-      <div
-        aria-hidden="true"
+    return <>
+      {stationeryImages?.header ? <img
+        src={stationeryImages.header}
+        alt=""
+        style={{
+          position:'absolute',left:0,top:0,width:'100%',
+          height:`${Math.max(0, Number(headerHeightMm || contentTopMm))}mm`,
+          objectFit:'fill',zIndex:0,pointerEvents:'none',
+        }}
+      /> : null}
+      {stationeryImages?.watermark ? <img
+        src={stationeryImages.watermark}
+        alt=""
         style={{
           position:'absolute',
           left:0,
-          right:0,
-          top:`${Math.max(0, Number(headerHeightMm || 0))}mm`,
-          bottom:`${Math.max(0, Number(footerHeightMm || 0))}mm`,
-          background:`rgba(255,255,255,${Math.min(1, Math.max(0, Number(whiteVeilOpacity ?? 0.82)))})`,
-          zIndex:10,
-          pointerEvents:'none',
+          top:`${contentTopMm}mm`,
+          width:'100%',
+          height:`${contentHeightMm}mm`,
+          objectFit:'contain',zIndex:0,pointerEvents:'none',
         }}
-      />
+      /> : null}
+      {stationeryImages?.footer ? <img
+        src={stationeryImages.footer}
+        alt=""
+        style={{
+          position:'absolute',left:0,bottom:0,width:'100%',
+          height:`${Math.max(0, Number(footerHeightMm || (A4_HEIGHT_MM - contentTopMm - contentHeightMm)))}mm`,
+          objectFit:'fill',zIndex:0,pointerEvents:'none',
+        }}
+      /> : null}
+    </>;
+  }
 
-      {renderCells.map((cell) => {
-        const startCol = Math.max(cell.col, bounds.startCol);
-        const endCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
-        const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
-        const numeric = isNumericCell(cell);
-        const text = tokenValue(cell.text, cell.renderValues);
+  return <div style={{
+    overflow:printMode ? 'visible' : 'auto',
+    padding:printMode ? 0 : 12,
+    background:printMode ? '#ececec' : 'var(--paper,#fff)',
+  }}>
+    {pages.map((page, pageIndex) => {
+      const pageRows = flowRowSizesMm.slice(page.start, page.end);
+      const pageCells = flowCells.filter((cell) => {
+        const cellStart = (cell.renderRow - 1) - headerTrackCount;
+        const cellEnd = cellStart + Math.max(1, Number(cell.renderRowSpan || 1));
+        return cellStart >= page.start && cellEnd <= page.end;
+      });
 
-        return <div key={cell.renderKey} title={cell.address} style={{
-          gridColumn:`${startCol - bounds.startCol + 1} / span ${Math.max(1, endCol - startCol + 1)}`,
-          gridRow:`${cell.renderRow} / span ${Math.max(1, cell.renderRowSpan || 1)}`,
-          border:dynamic ? '1px solid #8fbad9' : '1px solid rgba(205,186,186,.55)',
-          background:dynamic ? 'rgba(221,235,247,.82)' : '#fff',
-          color:dynamic ? '#17365D' : '#2E2E30',
-          fontSize:numeric ? '10px' : '11px',
-          fontWeight:dynamic ? 650 : 500,
-          fontVariantNumeric:numeric ? 'tabular-nums' : undefined,
-          display:'flex',
-          alignItems:'center',
-          justifyContent:'center',
-          padding:numeric ? '1px 2px' : '2px 5px',
-          minWidth:0,
-          minHeight:0,
-          overflow:'hidden',
-          whiteSpace:numeric ? 'nowrap' : 'pre-wrap',
-          overflowWrap:numeric ? 'normal' : 'break-word',
-          wordBreak:numeric ? 'keep-all' : 'normal',
-          textAlign:'center',
-          direction:numeric ? 'ltr' : (/[؀-ۿ]/.test(text) ? 'rtl' : 'ltr'),
-          lineHeight:1.2,
-          boxSizing:'border-box',
-          position:'relative',
-          zIndex:20,
-        }}>
-          {text}
-        </div>;
-      })}
-
-      {visibleOverlays.map((overlay) => {
-        const anchorCell = overlayAnchor(overlay);
+      const pageOverlays = visibleOverlays.map((overlay) => {
+        const anchorCell = flowCells.find((cell) =>
+          Array.isArray(cell.tokens) && cell.tokens.includes(overlay.anchorToken)
+        );
         if (!anchorCell) return null;
+        const anchorStart = (anchorCell.renderRow - 1) - headerTrackCount;
+        if (anchorStart < page.start || anchorStart >= page.end) return null;
+        return { overlay, anchorCell, anchorStart };
+      }).filter(Boolean);
 
-        const savedPosition = overlayPositions?.[overlay.id] || {};
-        const xMm = Number(savedPosition.xMm ?? overlay.offsetXmm ?? 0);
-        const yMm = Number(savedPosition.yMm ?? overlay.offsetYmm ?? 0);
-        const src = overlayImages?.[overlay.variableCode] || overlayImages?.[overlay.id] || '';
+      return <div
+        key={`page-${pageIndex}`}
+        className="workbook-page"
+        style={{
+          position:'relative',
+          width:`${A4_WIDTH_MM}mm`,
+          height:`${A4_HEIGHT_MM}mm`,
+          margin:'0 auto 8mm',
+          background:'#fff',
+          overflow:'hidden',
+          boxSizing:'border-box',
+          border:printMode ? 'none' : '1px solid var(--hair)',
+          boxShadow:printMode ? '0 6px 28px rgba(0,0,0,.18)' : '0 8px 24px rgba(0,0,0,.08)',
+          WebkitPrintColorAdjust:'exact',
+          printColorAdjust:'exact',
+        }}
+      >
+        {renderStationery()}
 
-        const leftMm = columnOffsetMm(anchorCell.col) + xMm;
-        const topMm = rowOffsetMm(anchorCell.renderRow) + yMm;
-
-        return <div
-          key={`overlay::${overlay.id}`}
-          onPointerDown={(event) => beginOverlayDrag(event, overlay)}
-          title={editableOverlays ? 'اسحب لتحريك الطبقة' : overlay.id}
+        <div
+          aria-hidden="true"
           style={{
             position:'absolute',
-            left:`${leftMm}mm`,
-            top:`${topMm}mm`,
-            width:`${Math.max(1, Number(overlay.widthMm || 20))}mm`,
-            height:`${Math.max(1, Number(overlay.heightMm || 20))}mm`,
-            zIndex:Math.max(30, Number(overlay.zIndex || 30)),
-            cursor:editableOverlays ? 'move' : 'default',
-            touchAction:'none',
-            pointerEvents:editableOverlays ? 'auto' : 'none',
-            display:'flex',
-            alignItems:'center',
-            justifyContent:'center',
+            left:0,
+            top:`${contentTopMm}mm`,
+            width:'100%',
+            height:`${contentHeightMm}mm`,
+            background:`rgba(255,255,255,${Math.min(1, Math.max(0, Number(whiteVeilOpacity ?? 0.82)))})`,
+            zIndex:10,
+            pointerEvents:'none',
           }}
-        >
-          {src
-            ? <img src={src} alt="" style={{width:'100%',height:'100%',objectFit:'contain',display:'block'}} />
-            : <div style={{
-                width:'100%',height:'100%',
-                border:'1px dashed #7A1832',
-                color:'#7A1832',
-                background:'rgba(255,255,255,.6)',
-                fontSize:'10px',
-                display:'flex',
-                alignItems:'center',
-                justifyContent:'center',
-              }}>{overlay.id === 'stamp' ? 'الختم' : overlay.id === 'signature' ? 'التوقيع' : overlay.id}</div>}
-        </div>;
-      })}
-    </div>
+        />
+
+        <div style={{
+          position:'absolute',
+          left:0,
+          top:`${contentTopMm}mm`,
+          width:`${A4_WIDTH_MM}mm`,
+          display:'grid',
+          gridTemplateColumns:columns,
+          gridTemplateRows:pageRows.map((value) => `${value}mm`).join(' '),
+          direction:'ltr',
+          zIndex:20,
+          boxSizing:'border-box',
+        }}>
+          {pageCells.map((cell) => {
+            const startCol = Math.max(cell.col, bounds.startCol);
+            const endCol = Math.min(cell.col + (cell.colSpan || 1) - 1, bounds.endCol);
+            const cellStart = (cell.renderRow - 1) - headerTrackCount;
+            const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
+            const numeric = isNumericCell(cell);
+            const text = tokenValue(cell.text, cell.renderValues);
+
+            return <div key={cell.renderKey} title={cell.address} style={{
+              gridColumn:`${startCol - bounds.startCol + 1} / span ${Math.max(1, endCol - startCol + 1)}`,
+              gridRow:`${cellStart - page.start + 1} / span ${Math.max(1, cell.renderRowSpan || 1)}`,
+              border:dynamic ? '1px solid #8fbad9' : '1px solid rgba(205,186,186,.55)',
+              background:dynamic ? 'rgba(221,235,247,.82)' : 'transparent',
+              color:dynamic ? '#17365D' : '#2E2E30',
+              fontSize:numeric ? '10px' : '11px',
+              fontWeight:dynamic ? 650 : 500,
+              fontVariantNumeric:numeric ? 'tabular-nums' : undefined,
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              padding:numeric ? '1px 2px' : '2px 5px',
+              minWidth:0,
+              minHeight:0,
+              overflow:'hidden',
+              whiteSpace:numeric ? 'nowrap' : 'pre-wrap',
+              overflowWrap:numeric ? 'normal' : 'break-word',
+              wordBreak:numeric ? 'keep-all' : 'normal',
+              textAlign:'center',
+              direction:numeric ? 'ltr' : (/[؀-ۿ]/.test(text) ? 'rtl' : 'ltr'),
+              lineHeight:1.2,
+              boxSizing:'border-box',
+            }}>
+              {text}
+            </div>;
+          })}
+        </div>
+
+        {pageOverlays.map(({overlay, anchorCell, anchorStart}) => {
+          const savedPosition = overlayPositions?.[overlay.id] || {};
+          const xMm = Number(savedPosition.xMm ?? overlay.offsetXmm ?? 0);
+          const yMm = Number(savedPosition.yMm ?? overlay.offsetYmm ?? 0);
+          const src = overlayImages?.[overlay.variableCode] || overlayImages?.[overlay.id] || '';
+          const leftMm = columnOffsetMm(anchorCell.col) + xMm;
+          const topInPageContent = flowRowSizesMm
+            .slice(page.start, anchorStart)
+            .reduce((sum, value) => sum + value, 0);
+
+          return <div
+            key={`overlay::${overlay.id}::${pageIndex}`}
+            onPointerDown={(event) => beginOverlayDrag(event, overlay)}
+            title={editableOverlays ? 'اسحب لتحريك الطبقة' : overlay.id}
+            style={{
+              position:'absolute',
+              left:`${leftMm}mm`,
+              top:`${contentTopMm + topInPageContent + yMm}mm`,
+              width:`${Math.max(1, Number(overlay.widthMm || 20))}mm`,
+              height:`${Math.max(1, Number(overlay.heightMm || 20))}mm`,
+              zIndex:Math.max(30, Number(overlay.zIndex || 30)),
+              cursor:editableOverlays ? 'move' : 'default',
+              touchAction:'none',
+              pointerEvents:editableOverlays ? 'auto' : 'none',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+            }}
+          >
+            {src
+              ? <img src={src} alt="" style={{width:'100%',height:'100%',objectFit:'contain',display:'block'}} />
+              : <div style={{
+                  width:'100%',height:'100%',
+                  border:'1px dashed #7A1832',
+                  color:'#7A1832',
+                  background:'rgba(255,255,255,.6)',
+                  fontSize:'10px',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                }}>{overlay.id === 'stamp' ? 'الختم' : overlay.id === 'signature' ? 'التوقيع' : overlay.id}</div>}
+          </div>;
+        })}
+      </div>;
+    })}
   </div>;
 }
