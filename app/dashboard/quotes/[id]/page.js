@@ -255,6 +255,24 @@ export default function QuoteEditor() {
     })),
     terms:String(q.terms_text || '').split(/\r?\n/).map((text) => text.trim()).filter(Boolean).map((text) => ({ terms:text })),
   };
+  const previewRepeatData = {
+    line_items:numbered.map((line) => ({
+      item_no:line.number || '',
+      description_ar:line.description_ar || '',
+      description_en:line.description_en || '',
+      unit:line.kind === 'title' ? '' : (line.unit || ''),
+      qty:line.kind === 'title' ? '' : (line.qty ?? ''),
+      unit_price:line.kind === 'title' ? '' : money(Number(line.unit_price || 0)),
+      line_total:line.kind === 'title'
+        ? (showTotalCol ? money(Number(subs[line.id] || 0)) : '')
+        : (showTotalCol ? money(lineTotal(line, q.show_qty)) : ''),
+    })),
+    payment_terms:pays.map((payment, index) => ({
+      payment_terms:`${payment.label || `الدفعة ${index + 1}`}${Number(payment.percent || 0) ? ` — ${Number(payment.percent || 0)}%` : ''}${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
+    })),
+    terms:String(q.terms_text || '').split(/\r?\n/).map((text) => text.trim()).filter(Boolean).map((text) => ({ terms:text })),
+  };
+
   const previewValues = {
     quote_no:q.quote_no,
     quote_date:q.quote_date,
