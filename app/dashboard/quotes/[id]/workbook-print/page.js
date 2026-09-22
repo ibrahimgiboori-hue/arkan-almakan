@@ -133,6 +133,18 @@ export default function WorkbookQuotePrintPage() {
     };
   }, [settings]);
 
+  async function saveVeilOpacity(value) {
+    const next = Math.min(1, Math.max(0, Number(value ?? 0.82)));
+    const { error:saveError } = await supabase.from('app_settings')
+      .update({ print_white_veil_opacity:next })
+      .eq('id', 1);
+    if (saveError) setError('تعذّر حفظ عتامة الطبقة البيضاء: ' + saveError.message);
+    else {
+      setSaved('تم حفظ عتامة الطبقة البيضاء');
+      window.setTimeout(()=>setSaved(''),1200);
+    }
+  }
+
   async function moveOverlay(overlayId, position, persist) {
     let next = null;
     setOverlayPositions((current) => {
@@ -269,6 +281,8 @@ export default function WorkbookQuotePrintPage() {
             step="0.05"
             value={veilOpacity}
             onChange={(event)=>setVeilOpacity(Number(event.target.value))}
+            onMouseUp={(event)=>saveVeilOpacity(event.currentTarget.value)}
+            onTouchEnd={(event)=>saveVeilOpacity(event.currentTarget.value)}
             style={{width:110}}
           />
         </label>
@@ -320,6 +334,18 @@ export default function WorkbookQuotePrintPage() {
           box-sizing:border-box !important;
           box-shadow:none !important;
           overflow:visible !important;
+        }
+        .workbook-page {
+          margin:0 !important;
+          box-shadow:none !important;
+          break-inside:avoid !important;
+          page-break-inside:avoid !important;
+          break-after:page !important;
+          page-break-after:always !important;
+        }
+        .workbook-page:last-child {
+          break-after:auto !important;
+          page-break-after:auto !important;
         }
         .no-print { display:none !important; }
       }
