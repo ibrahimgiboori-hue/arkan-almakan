@@ -52,11 +52,20 @@ function pxHeight(item) {
 }
 
 function tokenValue(text, values) {
-  return String(text || '').replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (_match, code) => {
+  const resolved = String(text || '').replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (_match, code) => {
     const value = values?.[code];
     if (value == null || value === '') return '';
     return String(value);
   });
+
+  // A template may place optional tokens on their own visual line, e.g.
+  // "{{description_ar}}\n{{description_en}}". When the optional value is empty,
+  // that empty trailing line must NOT count as wrapped content; otherwise a normal
+  // two-micro-row item becomes four micro-rows.
+  const lines = resolved.replace(/\r\n/g, '\n').split('\n');
+  while (lines.length && !lines[0].trim()) lines.shift();
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  return lines.join('\n');
 }
 
 function measureWrappedLines(text, widthPx, font = '11px Arial') {
