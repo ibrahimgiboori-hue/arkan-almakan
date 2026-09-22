@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals, VAT_AR, QSTATUS_AR } from '@/lib/quote-calc';
 import { useLiveRefresh } from '@/lib/live';
@@ -12,6 +13,25 @@ import {
 import { quoteEditorService } from '@/lib/application/quote-editor-service';
 import QuotePartyGovernancePanel from '@/components/quotes/QuotePartyGovernancePanel';
 
+function pickWorkbookModel(schema, quote) {
+  const models = Array.isArray(schema?.models) ? schema.models : [];
+  if (!models.length || !quote) return null;
+  if (quote.print_model_sheet) {
+    const exact = models.find((model) => model.name === quote.print_model_sheet);
+    if (exact) return exact;
+  }
+  const wantsQty = Boolean(quote.show_qty);
+  const wantsVat = quote.vat_mode !== 'none';
+  return models.find((model) => Boolean(model.hasQty) === wantsQty && Boolean(model.hasVat) === wantsVat) || models[0];
+}
+
+function workbookLabel(schema, model, code, fallback) {
+  const visible = model?.tokenLabels?.[code];
+  if (visible && !String(visible).includes('{{')) return visible;
+  const variable = (schema?.variables || []).find((item) => item.code === code);
+  return variable?.labelAr || fallback;
+}
+
 export default function QuoteEditor() {
   const { id } = useParams();
   const [q, setQ] = useState(null);
@@ -19,6 +39,7 @@ export default function QuoteEditor() {
   const [pays, setPays] = useState([]);
   const [items, setItems] = useState([]);
   const [presets, setPresets] = useState([]);
+  const [printSchema, setPrintSchema] = useState(null);
   const [tab, setTab] = useState('lines');
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState('');
@@ -26,12 +47,19 @@ export default function QuoteEditor() {
   const load = useCallback(async () => {
     setErr('');
     try {
-      const workspace = await quoteEditorService.loadWorkspace({ quoteId:id });
+      const [workspace, familyResult] = await Promise.all([
+        quoteEditorService.loadWorkspace({ quoteId:id }),
+        supabase.from('print_family_workbooks')
+          .select('ui_schema,model_sheets,version')
+          .eq('family_id','quotations')
+          .maybeSingle(),
+      ]);
       setQ(workspace.quote);
       setLines(workspace.lines);
       setPays(workspace.payments);
       setItems(workspace.workItems);
       setPresets(workspace.presets);
+      if (!familyResult.error) setPrintSchema(familyResult.data?.ui_schema || null);
     } catch (error) {
       setErr(error?.message || 'تعذّر تحميل عرض السعر.');
     }
@@ -62,6 +90,16 @@ export default function QuoteEditor() {
   async function applyPreset(p) {
     const ok = await patch(p.switches || {});
     if (ok) flash('طُبّق قالب: ' + p.name_ar);
+  }
+
+  async function selectWorkbookModel(name) {
+    const model = (printSchema?.models || []).find((item) => item.name === name);
+    if (!model) return;
+    const fields = { print_model_sheet:name, show_qty:Boolean(model.hasQty) };
+    if (model.hasVat && q.vat_mode === 'none') fields.vat_mode = 'exclusive';
+    if (!model.hasVat) fields.vat_mode = 'none';
+    const ok = await patch(fields);
+    if (ok) flash('تم تطبيق نموذج Excel: ' + name);
   }
 
   async function addLine(kind) {
@@ -195,13 +233,23 @@ export default function QuoteEditor() {
   const rateOnly = !q.show_qty;
   const showTotalCol = q.show_line_total && !rateOnly;
   const payPctSum = pays.reduce((s,p)=>s+Number(p.percent||0), 0);
+  const activeModel = pickWorkbookModel(printSchema, q);
+  const label = (code, fallback) => workbookLabel(printSchema, activeModel, code, fallback);
+  const workbookModels = Array.isArray(printSchema?.models) ? printSchema.models : [];
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>{q.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'} <span className="mono" style={{fontSize:16,color:'var(--ink-soft)'}}>{q.quote_no}</span></h1>
+          <h1>{activeModel?.name || (q.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر')} <span className="mono" style={{fontSize:16,color:'var(--ink-soft)'}}>{q.quote_no}</span></h1>
           <p>{q.client_name} — {VAT_AR[q.vat_mode]}</p>
+          {workbookModels.length ? <div style={{marginTop:8,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            <span style={{fontSize:12.5,color:'var(--ink-soft)'}}>نموذج Excel:</span>
+            <select value={activeModel?.name || ''} onChange={(e)=>selectWorkbookModel(e.target.value)} style={{maxWidth:360}}>
+              {workbookModels.map((model)=><option key={model.name} value={model.name}>{model.name}</option>)}
+            </select>
+            <span className="pill">الواجهة مرتبطة بالإصدار المرفوع</span>
+          </div> : null}
         </div>
         <div className="rowsplit">
           <Link className="btn" href={`/print/quote/${id}`} target="_blank">معاينة وطباعة</Link>
@@ -213,7 +261,7 @@ export default function QuoteEditor() {
       {saved && <div className="msg ok" style={{marginBottom:12}}>{saved}</div>}
 
       <div className="tabs">
-        {[['lines','البنود'],['setup','بيانات العرض'],['switches','المفاتيح'],['pay','الدفعات'],['texts','النصوص']]
+        {[['lines',label('line_items','البنود')],['setup','بيانات العرض'],['switches','المفاتيح'],['pay',label('payment_terms','الدفعات')],['texts',label('terms','النصوص')]]
           .map(([k,l]) => <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
@@ -229,11 +277,11 @@ export default function QuoteEditor() {
           <div className="section" style={{marginTop:0,overflowX:'auto'}}>
             <table>
               <thead><tr>
-                <th style={{width:64}}>م</th><th>بيان الأعمال</th>
-                {q.show_unit && <th style={{width:80}}>الوحدة</th>}
-                {q.show_qty && <th style={{width:100}} className="num">الكمية</th>}
-                {q.show_unit_price && <th style={{width:110}} className="num">الفئة</th>}
-                {showTotalCol && <th style={{width:120}} className="num">الإجمالي</th>}
+                <th style={{width:64}}>{label('item_no','م')}</th><th>{label('description_ar','بيان الأعمال')}</th>
+                {q.show_unit && <th style={{width:80}}>{label('unit','الوحدة')}</th>}
+                {q.show_qty && <th style={{width:100}} className="num">{label('qty','الكمية')}</th>}
+                {q.show_unit_price && <th style={{width:110}} className="num">{label('unit_price','الفئة')}</th>}
+                {showTotalCol && <th style={{width:120}} className="num">{label('line_total','الإجمالي')}</th>}
                 <th style={{width:150}}>ترتيب / حذف</th>
               </tr></thead>
               <tbody>
@@ -303,19 +351,19 @@ export default function QuoteEditor() {
           </div> : <div className="grid k4" style={{marginTop:16}}>
             <div className="card"><h3>مجموع البنود</h3><div className="big">{money(t.linesSum)}</div></div>
             <div className="card"><h3>الخصم</h3><div className="big">{money(t.discount)}</div></div>
-            <div className="card"><h3>ضريبة القيمة المضافة</h3><div className="big">{money(t.vat)}</div><div className="foot">{VAT_AR[q.vat_mode]}</div></div>
-            <div className="card"><h3>المجموع شامل الضريبة</h3><div className="big" style={{color:'var(--maroon)'}}>{money(t.grand)}</div></div>
+            <div className="card"><h3>{label('vat_amount','ضريبة القيمة المضافة')}</h3><div className="big">{money(t.vat)}</div><div className="foot">{VAT_AR[q.vat_mode]}</div></div>
+            <div className="card"><h3>{q.vat_mode === 'none' ? label('plain_total','الإجمالي الكلي') : label('grand_total','الإجمالي الكلي')}</h3><div className="big" style={{color:'var(--maroon)'}}>{money(t.grand)}</div></div>
           </div>}
         </>
       )}
 
       {tab === 'setup' && <>
         <div className="section" style={{marginTop:0,padding:18}}><div className="form-grid">
-          <div className="field span2"><label>العميل *</label><input value={q.client_name || ''} onChange={(e)=>setQ({...q,client_name:e.target.value})} onBlur={(e)=>patch({client_name:e.target.value})} /></div>
-          <div className="field"><label>جهة الاتصال</label><input value={q.client_contact || ''} onChange={(e)=>setQ({...q,client_contact:e.target.value})} onBlur={(e)=>patch({client_contact:e.target.value})} /></div>
-          <div className="field span2"><label>المرجع وتفاصيل المشروع</label><input value={q.project_ref || ''} onChange={(e)=>setQ({...q,project_ref:e.target.value})} onBlur={(e)=>patch({project_ref:e.target.value})} /></div>
-          <div className="field"><label>الموقع</label><input value={q.site_location || ''} onChange={(e)=>setQ({...q,site_location:e.target.value})} onBlur={(e)=>patch({site_location:e.target.value})} /></div>
-          <div className="field"><label>التاريخ</label><input type="date" dir="ltr" value={q.quote_date || ''} onChange={(e)=>patch({quote_date:e.target.value})} /></div>
+          <div className="field span2"><label>{label('client_name','العميل')} *</label><input value={q.client_name || ''} onChange={(e)=>setQ({...q,client_name:e.target.value})} onBlur={(e)=>patch({client_name:e.target.value})} /></div>
+          <div className="field"><label>{label('client_contact','جهة الاتصال')}</label><input value={q.client_contact || ''} onChange={(e)=>setQ({...q,client_contact:e.target.value})} onBlur={(e)=>patch({client_contact:e.target.value})} /></div>
+          <div className="field span2"><label>{label('project_ref','المرجع وتفاصيل المشروع')}</label><input value={q.project_ref || ''} onChange={(e)=>setQ({...q,project_ref:e.target.value})} onBlur={(e)=>patch({project_ref:e.target.value})} /></div>
+          <div className="field"><label>{label('site_location','الموقع')}</label><input value={q.site_location || ''} onChange={(e)=>setQ({...q,site_location:e.target.value})} onBlur={(e)=>patch({site_location:e.target.value})} /></div>
+          <div className="field"><label>{label('quote_date','التاريخ')}</label><input type="date" dir="ltr" value={q.quote_date || ''} onChange={(e)=>patch({quote_date:e.target.value})} /></div>
           <div className="field">
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:q.show_validity?8:0}}><input type="checkbox" checked={!!q.show_validity} onChange={(e)=>patch({show_validity:e.target.checked})} /><span>إظهار صلاحية العرض</span></label>
             {q.show_validity && <><label>مدة الصلاحية (يوم)</label><input type="number" min="1" dir="ltr" value={q.valid_days ?? 30} onChange={(e)=>setQ({...q,valid_days:e.target.value})} onBlur={(e)=>patch({valid_days:Math.max(1,Number(e.target.value||30))})} /></>}
