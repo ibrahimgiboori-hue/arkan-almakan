@@ -150,6 +150,27 @@ export default function Settings() {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:6}}><span style={{fontSize:12.5,fontWeight:700}}>{label}</span><span className="mono" style={{fontSize:12,color:'var(--ui-accent)',fontWeight:700}}>{s[k]??0} مم</span></div>
           <input type="range" min={min} max={max} step="0.5" value={Number(s[k]??min)} onChange={(e)=>setS({...s,[k]:Number(e.target.value)})} onMouseUp={(e)=>saveField(k,Number(e.target.value))} onTouchEnd={(e)=>saveField(k,Number(e.target.value))} style={{width:'100%',accentColor:'var(--ui-accent)'}} />
         </div>)}
+
+        <div style={{marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:6}}>
+            <span style={{fontSize:12.5,fontWeight:700}}>عتامة الطبقة البيضاء فوق المطبوعات</span>
+            <span className="mono" style={{fontSize:12,color:'var(--ui-accent)',fontWeight:700}}>{Math.round(Number(s.print_white_veil_opacity ?? 0.82) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={Number(s.print_white_veil_opacity ?? 0.82)}
+            onChange={(e)=>setS({...s,print_white_veil_opacity:Number(e.target.value)})}
+            onMouseUp={(e)=>saveField('print_white_veil_opacity',Number(e.target.value))}
+            onTouchEnd={(e)=>saveField('print_white_veil_opacity',Number(e.target.value))}
+            style={{width:'100%',accentColor:'var(--ui-accent)'}}
+          />
+          <div className="hint" style={{marginTop:5}}>
+            تغطي كامل مساحة الصفحة بين الهيدر والفوتر فقط: 0% شفافة تمامًا، 100% بيضاء بالكامل.
+          </div>
+        </div>
       </div>
     </Section>
 
