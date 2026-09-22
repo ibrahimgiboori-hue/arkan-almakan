@@ -195,6 +195,7 @@ export default function WorkbookModelPreview({ model, values = {}, printMode = f
         const startRow = Math.max(cell.row, bounds.startRow);
         const endRow = Math.min(cell.row + (cell.rowSpan || 1) - 1, bounds.endRow);
         const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
+        const numeric = isNumericCell(cell);
         const text = tokenValue(cell.text, values);
 
         return <div key={cell.address} title={cell.address} style={{
