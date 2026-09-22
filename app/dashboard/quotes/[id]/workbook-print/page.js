@@ -36,7 +36,9 @@ export default function WorkbookQuotePrintPage() {
   const [payments, setPayments] = useState([]);
   const [schema, setSchema] = useState(null);
   const [settings, setSettings] = useState(null);
+  const [overlayPositions, setOverlayPositions] = useState({});
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -63,11 +65,70 @@ export default function WorkbookQuotePrintPage() {
     setPayments(p.data || []);
     setSchema(family.data?.ui_schema || null);
     setSettings(cfg.data || {});
+    setOverlayPositions(q.data?.print_overlay_positions || {});
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
   const model = useMemo(() => pickModel(schema, quote), [schema, quote]);
+
+  const toggles = useMemo(() => {
+    const rules = Array.isArray(schema?.visibility) ? schema.visibility : [];
+    return Object.fromEntries(rules.map((rule) => [
+      rule.toggle,
+      quote?.[rule.toggle] ?? rule.defaultValue,
+    ]));
+  }, [schema, quote]);
+
+  const repeatGroups = useMemo(() => {
+    const numbered = numberLines(lines);
+    return {
+      line_items:numbered
+        .filter((line) => line.kind !== 'title')
+        .map((line) => ({
+          item_no:line.number,
+          description_ar:line.description_ar || '',
+          description_en:line.description_en || '',
+          unit:line.unit || '',
+          qty:line.qty ?? '',
+          unit_price:line.unit_price ?? '',
+          line_total:lineTotal(line, quote?.show_qty),
+        })),
+      payment_terms:payments.map((payment, index) => ({
+        payment_terms:`${payment.label || `الدفعة ${index + 1}`}: ${Number(payment.percent || 0)}%${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
+      })),
+      terms:String(quote?.terms_text || '')
+        .split(/\r?\n/)
+        .map((text) => text.trim())
+        .filter(Boolean)
+        .map((text) => ({ terms:text })),
+    };
+  }, [lines, payments, quote]);
+
+  const overlayImages = useMemo(() => {
+    if (!settings) return {};
+    const stamp = settings.stamp_image_path
+      ? supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl
+      : '';
+    const signature = settings.signature_image_path
+      ? supabase.storage.from('brand').getPublicUrl(settings.signature_image_path).data.publicUrl
+      : '';
+    return { stamp, signature };
+  }, [settings]);
+
+  async function moveOverlay(id, position, persist) {
+    setOverlayPositions((current) => ({ ...current, [id]:position }));
+    if (!persist) return;
+    const next = { ...(overlayPositions || {}), [id]:position };
+    const { error:saveError } = await supabase.from('quotations')
+      .update({ print_overlay_positions:next })
+      .eq('id', id);
+    if (saveError) setError('تعذّر حفظ موضع الختم/التوقيع: ' + saveError.message);
+    else {
+      setSaved('تم حفظ موضع الطبقة');
+      window.setTimeout(()=>setSaved(''),1200);
+    }
+  }
 
   const values = useMemo(() => {
     if (!quote) return {};
@@ -93,6 +154,7 @@ export default function WorkbookQuotePrintPage() {
       site_location:quote.site_location || '',
       valid_days:quote.valid_days ?? '',
       intro_text:quote.intro_text || '',
+      closing_text:quote.closing_text || '',
       subtotal:money(computed.subtotal),
       vat_rate:`${Number(quote.vat_rate ?? SYSTEM.vatRate) * 100}%`,
       vat_amount:money(computed.vat),
@@ -132,6 +194,7 @@ export default function WorkbookQuotePrintPage() {
         <span style={{marginInlineStart:10,fontSize:12,color:'#666'}}>المصدر: ملف Excel المعتمد</span>
       </div>
       <div style={{display:'flex',gap:8}}>
+        {saved ? <span style={{fontSize:12,color:'#147a37'}}>{saved}</span> : null}
         <button onClick={load} style={{padding:'7px 12px'}}>تحديث البيانات</button>
         <button onClick={()=>window.print()} style={{padding:'7px 12px',fontWeight:700}}>طباعة / حفظ PDF</button>
       </div>
@@ -141,7 +204,20 @@ export default function WorkbookQuotePrintPage() {
       width:'210mm',minHeight:'297mm',margin:'18px auto',background:'#fff',
       boxShadow:'0 6px 28px rgba(0,0,0,.18)',overflow:'hidden',
     }}>
-      <WorkbookModelPreview model={model} values={values} printMode />
+      <WorkbookModelPreview
+        model={model}
+        values={values}
+        variables={schema?.variables || []}
+        visibility={schema?.visibility || []}
+        toggles={toggles}
+        repeatGroups={repeatGroups}
+        overlays={schema?.overlays || []}
+        overlayImages={overlayImages}
+        overlayPositions={overlayPositions}
+        editableOverlays
+        onOverlayMove={moveOverlay}
+        printMode
+      />
     </main>
 
     <style jsx global>{`
