@@ -48,3 +48,18 @@ Letterhead zones are protected independently from the absolute no-go area.
 7. General documents
 
 Each family is migrated and tested on the working branch. Production `main` stays untouched until every family is ready and the full audit/test/build gate passes. Then the migration is merged once.
+
+
+## Download, edit, upload
+
+The operational workflow is workbook-preserving:
+
+1. Download the current family workbook from the application.
+2. Edit existing worksheets directly in Excel.
+3. Add a new printable model by duplicating or creating a worksheet and naming it with the model name.
+4. Upload the workbook back to the application.
+5. The application validates system sheets and protected models, stores a new immutable workbook version, and makes that workbook the current family source.
+
+Existing model sheets cannot disappear merely because a user deleted a worksheet by mistake. Upload validation blocks that case. New non-system worksheets are accepted and discovered automatically without a code change.
+
+The application must not re-style the workbook on upload. Workbook formatting is preserved as authored; runtime data injection is a separate concern and must not become a second design engine.
