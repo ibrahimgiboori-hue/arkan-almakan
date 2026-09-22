@@ -224,8 +224,12 @@ export default function PrintFamiliesSettingsPage() {
                 {downloading ? 'جارٍ التحميل…' : 'تحميل ملف العائلة الحالي'}
               </button>
 
-              {current ? <label className="btn ghost" style={{cursor:uploading?'wait':'pointer'}}>
-                {uploading ? 'جارٍ فحص ورفع الملف…' : 'رفع نسخة معدلة'}
+              {(current || family.id === 'quotations') ? <label className="btn ghost" style={{cursor:uploading?'wait':'pointer'}}>
+                {uploading
+                  ? 'جارٍ قراءة الملف واعتماده…'
+                  : current
+                    ? 'رفع نسخة معدلة'
+                    : 'رفع ملف عروض الأسعار واعتماده'}
                 <input
                   type="file"
                   accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -245,7 +249,9 @@ export default function PrintFamiliesSettingsPage() {
             <div className="hint">
               {current
                 ? `آخر ملف: ${current.original_name || 'بدون اسم'} · الإصدار ${current.version}. النسخ السابقة تبقى محفوظة في التخزين.`
-                : 'سيجهز النظام ملف العائلة الأساسي أولًا بكل النماذج الحالية. بعد تحميله وتعديله فقط يظهر خيار رفع نسخة معدلة.'}
+                : family.id === 'quotations'
+                  ? 'ارفع ملف عائلة عروض الأسعار الذي جهزناه. سيقرأ البرنامج صفحات النظام والنماذج ويعتمده كالإصدار الأول، وبعدها يصبح التحميل والتعديل والرفع دورة ثابتة.'
+                  : 'سيجهز النظام ملف العائلة الأساسي أولًا بكل النماذج الحالية. بعد تحميله وتعديله فقط يظهر خيار رفع نسخة معدلة.'}
             </div>
           </div>
         </Section>;
