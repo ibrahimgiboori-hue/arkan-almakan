@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
+import WorkbookFamilyGridPreview from '@/components/quotes/WorkbookFamilyGridPreview';
 
 const FAMILY_ID = 'treasury_vouchers';
 const METHOD_LABEL = { cash:'نقدًا', bank_transfer:'تحويل بنكي', cheque:'شيك', card:'بطاقة', other:'أخرى' };
@@ -162,18 +162,12 @@ export default function TreasuryVoucherPrintPage() {
       width:`${pageWidthMm}mm`, minHeight:`${pageHeightMm}mm`, margin:embed ? '0 auto' : '18px auto',
       background:'#fff', boxShadow:embed ? 'none' : '0 6px 28px rgba(0,0,0,.18)', overflow:'visible', boxSizing:'border-box',
     }}>
-      <WorkbookModelPreview
+      <WorkbookFamilyGridPreview
         model={model}
         values={values}
-        variables={state.schema?.variables || []}
-        visibility={state.schema?.visibility || []}
         toggles={toggles}
-        repeatGroups={{}}
-        overlays={state.schema?.overlays || []}
         overlayImages={{ company_logo:logoUrl, company_logo_path:logoUrl }}
-        stationeryImages={{}}
         whiteVeilOpacity={Number(state.settings?.print_white_veil_opacity ?? 0.82)}
-        sideMarginPreset={state.settings?.print_side_margin_preset || 'small'}
         printMode
       />
     </main>
