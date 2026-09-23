@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/ConstitutionUI';
 
 const OVERLAY_ASSETS = [
+  { col:'company_logo_path', label:'شعار المنشأة', hint:'مصدر مركزي للشعار؛ الصورة من هنا، أما الموضع والحجم فمن Excel داخل _PLACED_ASSETS' },
   { col:'stamp_image_path', label:'ختم الشركة', hint:'طبقة حرة فوق المحتوى — يُفضل PNG بخلفية شفافة' },
   { col:'signature_image_path', label:'توقيع المدير التنفيذي', hint:'طبقة حرة فوق المحتوى — PNG بخلفية شفافة' },
 ];
@@ -262,7 +263,7 @@ export default function Settings() {
       description="مصدر واحد فقط: صورة ورقة المطبوعات A4 كاملة. البرنامج يحللها عند الرفع ويستخرج أبعادها ونسبة A4 والمناطق المحمية، ولا يعتمد على صور منفصلة للرأس أو التذييل أو العلامة المائية."
       boundary
     >
-      <div style={{padding:16,display:'grid',gridTemplateColumns:'minmax(320px,1.6fr) repeat(2,minmax(210px,.7fr))',gap:14,alignItems:'stretch'}}>
+      <div style={{padding:16,display:'grid',gridTemplateColumns:'minmax(320px,1.6fr) repeat(3,minmax(210px,.7fr))',gap:14,alignItems:'stretch'}}>
         <div data-ui-role="asset-card">
           <strong style={{fontSize:14}}>ورقة المطبوعات A4 — مصدر الحقيقة الوحيد</strong>
           <div data-ui-role="asset-preview" style={{minHeight:260}}>
@@ -303,7 +304,7 @@ export default function Settings() {
               ? <img src={url(s[a.col])} alt={a.label} />
               : <span style={{fontSize:11.5,color:'var(--ui-text-muted)'}}>لم تُرفع بعد</span>}
           </div>
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e)=>upload(a.col,e.target.files?.[0])} disabled={busy===a.col} style={{fontSize:12,maxWidth:'100%'}} />
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e)=>upload(a.col,e.target.files?.[0])} disabled={busy===a.col} style={{fontSize:12,maxWidth:'100%'}} />
           <div className="hint" style={{marginTop:5}}>{a.hint}</div>
           {busy===a.col ? <div style={{fontSize:11.5,color:'var(--ui-accent)'}}>جارٍ الرفع…</div> : null}
         </div>)}
