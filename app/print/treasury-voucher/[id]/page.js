@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
 import { getPrintFamilyGovernance } from '@/lib/print-family-route-governance';
@@ -30,8 +30,7 @@ function pageNo(value) {
 function pickVoucherModel(schema, voucher) {
   const models = Array.isArray(schema?.models) ? schema.models : [];
   if (!models.length) return null;
-  const type = voucher?.voucher_type;
-  const wanted = type === 'receipt' ? 'قبض' : 'صرف';
+  const wanted = voucher?.voucher_type === 'receipt' ? 'قبض' : 'صرف';
   return models.find((model) => String(model.name || '').includes(wanted)) || models[0];
 }
 
@@ -42,22 +41,27 @@ function brandPublicUrl(path) {
 
 export default function TreasuryVoucherPrintPage() {
   const { id } = useParams();
-  const search = useSearchParams();
-  const embed = search.get('embed') === '1';
+  const [embed, setEmbed] = useState(false);
   const [voucher, setVoucher] = useState(null);
   const [settings, setSettings] = useState(null);
   const [schema, setSchema] = useState(null);
-  const [familyRecord, setFamilyRecord] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setEmbed(new URLSearchParams(window.location.search).get('embed') === '1');
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    (async () => {
+    async function loadVoucherPrintFamily() {
       setError('');
       const [voucherQ, settingsQ, familyQ] = await Promise.all([
         supabase.rpc('fn_cash_voucher_print_get', { p_voucher_id:id }),
         supabase.from('app_settings').select('*').eq('id', 1).maybeSingle(),
-        supabase.from('print_family_workbooks').select('ui_schema,version,original_name,storage_path').eq('family_id', FAMILY_ID).maybeSingle(),
+        supabase.from('print_family_workbooks')
+          .select('ui_schema,version,original_name,storage_path')
+          .eq('family_id', FAMILY_ID)
+          .maybeSingle(),
       ]);
       if (cancelled) return;
       const firstError = voucherQ.error || settingsQ.error || familyQ.error;
@@ -72,8 +76,8 @@ export default function TreasuryVoucherPrintPage() {
       setVoucher(voucherQ.data);
       setSettings(settingsQ.data || {});
       setSchema(familyQ.data?.ui_schema || null);
-      setFamilyRecord(familyQ.data || null);
-    })();
+    }
+    loadVoucherPrintFamily();
     return () => { cancelled = true; };
   }, [id]);
 
@@ -89,14 +93,12 @@ export default function TreasuryVoucherPrintPage() {
 
   const assetImages = useMemo(() => {
     if (!settings) return {};
-    const companyLogo = brandPublicUrl(settings.company_logo_path) || '/brand/arkan-logo-official.svg';
-    const stamp = brandPublicUrl(settings.stamp_image_path);
-    const signature = brandPublicUrl(settings.signature_image_path);
+    const companyLogo = brandPublicUrl(settings.company_logo_path) || '/brand/arkan-logo-white.svg';
     return {
       company_logo:companyLogo,
       company_logo_path:companyLogo,
-      stamp,
-      signature,
+      stamp:brandPublicUrl(settings.stamp_image_path),
+      signature:brandPublicUrl(settings.signature_image_path),
     };
   }, [settings]);
 
@@ -109,13 +111,9 @@ export default function TreasuryVoucherPrintPage() {
     const method = METHOD_LABEL[voucher.payment_method] || voucher.payment_method || '';
     const idLabel = ID_NUMBER_LABEL[voucher.party_id_kind] || 'رقم إثبات';
     const effectivePaymentDate = voucher.payment_date || voucher.voucher_date || '';
-    const companyNameAr = settings?.company_name_ar || 'أركان المكان للمقاولات';
-    const companyNameEn = settings?.company_name_en || 'Arkan Al Makan Contracting';
-    const legalAcknowledgement = 'وأقر أنا المستفيد الموقع أدناه باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.';
 
     return {
       document_title:isReceipt ? 'سند قبض' : 'سند صرف',
-      voucher_type:latinDigits(voucher.voucher_type || ''),
       voucher_type_ar:isReceipt ? 'سند قبض' : 'سند صرف',
       voucher_type_en:isReceipt ? 'RECEIPT VOUCHER' : 'PAYMENT VOUCHER',
       voucher_no:latinDigits(voucher.voucher_no || ''),
@@ -143,10 +141,9 @@ export default function TreasuryVoucherPrintPage() {
       amount_halalah:amountHalalas,
       amount_words:String(voucher.amount_words || '').replace(/\s+فقط\s+لا\s+غير\s*$/, '').trim(),
       amount_words_full:voucher.amount_words || '',
-      legal_acknowledgement:legalAcknowledgement,
       beneficiary_role:isReceipt ? 'عميل' : 'موظف',
-      company_name_ar:companyNameAr,
-      company_name_en:companyNameEn,
+      company_name_ar:settings?.company_name_ar || 'أركان المكان للمقاولات',
+      company_name_en:settings?.company_name_en || 'Arkan Al Makan Contracting',
       cr_number:latinDigits(settings?.cr_number || ''),
       vat_number:latinDigits(settings?.vat_number || ''),
       city:settings?.city || 'الرياض',
@@ -160,9 +157,8 @@ export default function TreasuryVoucherPrintPage() {
     };
   }, [voucher, settings]);
 
-  const pageWidthMm = Number(model?.pageConfig?.widthMm || 210);
-  const pageHeightMm = Number(model?.pageConfig?.heightMm || 297);
-  const pageOrientation = pageWidthMm > pageHeightMm ? 'landscape' : 'portrait';
+  const pageWidthMm = Number(model?.pageConfig?.widthMm || 297);
+  const pageHeightMm = Number(model?.pageConfig?.heightMm || 210);
 
   if (error) return <div style={{ padding:40, direction:'rtl', color:'#b42318' }}>{error}</div>;
   if (!voucher || !settings) return <div style={{ padding:40, direction:'rtl' }}>جارٍ تجهيز السند…</div>;
@@ -204,7 +200,6 @@ export default function TreasuryVoucherPrintPage() {
         repeatGroups={{}}
         overlays={schema?.overlays || []}
         overlayImages={assetImages}
-        assetImages={assetImages}
         stationeryImages={{}}
         whiteVeilOpacity={Number(settings?.print_white_veil_opacity ?? 0.82)}
         sideMarginPreset={settings?.print_side_margin_preset || 'small'}
@@ -213,21 +208,17 @@ export default function TreasuryVoucherPrintPage() {
     </main>
 
     <style jsx global>{`
-      @page { size:A4 ${pageOrientation}; margin:0; }
+      @page { size:A4 landscape; margin:0; }
       @media print {
-        html, body { background:#fff !important; margin:0 !important; padding:0 !important; width:${pageWidthMm}mm !important; }
+        html, body { background:#fff !important; margin:0 !important; padding:0 !important; }
         body * { visibility:hidden; }
         main, main * { visibility:visible; }
         main {
           position:absolute !important;
           left:0 !important;
           top:0 !important;
-          width:${pageWidthMm}mm !important;
-          min-height:${pageHeightMm}mm !important;
-          height:auto !important;
           margin:0 !important;
           padding:0 !important;
-          box-sizing:border-box !important;
           box-shadow:none !important;
           overflow:visible !important;
         }
