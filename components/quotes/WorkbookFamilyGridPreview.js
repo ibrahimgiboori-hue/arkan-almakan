@@ -160,6 +160,7 @@ export default function WorkbookFamilyGridPreview({
       boxSizing:'border-box',
       overflow:'hidden',
       boxShadow:printMode ? 'none' : '0 10px 22px rgba(15,23,42,.12)',
+      direction:'ltr',
     }}
   >
     <div
@@ -184,6 +185,7 @@ export default function WorkbookFamilyGridPreview({
       width:'100%',
       minHeight:'100%',
       zIndex:5,
+      direction:'ltr',
     }}>
       {backgroundCells.map((cell) => <div
         key={`bg-${cell.row}-${cell.col}`}
@@ -247,6 +249,7 @@ export default function WorkbookFamilyGridPreview({
           pointerEvents:'none',
           display:'grid',
           placeItems:'center',
+          direction:'ltr',
         }}
       >
         {src ? <img
