@@ -85,8 +85,6 @@ function buildVoucherValues(voucher, settings) {
     approved_by_name:voucher.approved_by_name_snapshot || '',
     approved_by_title:voucher.approved_by_title_snapshot || '',
     company_logo:'',
-    stamp:'',
-    signature:'',
   };
 }
 
@@ -136,12 +134,7 @@ export default function TreasuryVoucherPrintPage() {
     const rules = Array.isArray(state.schema?.visibility) ? state.schema.visibility : [];
     return Object.fromEntries(rules.map((rule) => [rule.toggle, state.voucher?.[rule.toggle] ?? state.settings?.[rule.toggle] ?? rule.defaultValue]));
   }, [state.schema, state.voucher, state.settings]);
-  const overlayImages = useMemo(() => ({
-    company_logo:publicBrandUrl(state.settings?.company_logo_path) || '/brand/arkan-logo-white.svg',
-    company_logo_path:publicBrandUrl(state.settings?.company_logo_path) || '/brand/arkan-logo-white.svg',
-    stamp:publicBrandUrl(state.settings?.stamp_image_path),
-    signature:publicBrandUrl(state.settings?.signature_image_path),
-  }), [state.settings]);
+  const logoUrl = useMemo(() => publicBrandUrl(state.settings?.company_logo_path) || '/brand/arkan-logo-white.svg', [state.settings]);
 
   if (state.error) return <div style={{ padding:40, direction:'rtl', color:'#b42318' }}>{state.error}</div>;
   if (state.loading) return <div style={{ padding:40, direction:'rtl' }}>جارٍ تجهيز السند من عائلة Excel…</div>;
@@ -177,23 +170,12 @@ export default function TreasuryVoucherPrintPage() {
         toggles={toggles}
         repeatGroups={{}}
         overlays={state.schema?.overlays || []}
-        overlayImages={overlayImages}
+        overlayImages={{ company_logo:logoUrl, company_logo_path:logoUrl }}
         stationeryImages={{}}
         whiteVeilOpacity={Number(state.settings?.print_white_veil_opacity ?? 0.82)}
         sideMarginPreset={state.settings?.print_side_margin_preset || 'small'}
         printMode
       />
     </main>
-
-    <style>{`
-      @page { size:A4 landscape; margin:0; }
-      @media print {
-        html, body { background:#fff !important; margin:0 !important; padding:0 !important; }
-        body * { visibility:hidden; }
-        main, main * { visibility:visible; }
-        main { position:absolute !important; left:0 !important; top:0 !important; margin:0 !important; box-shadow:none !important; }
-        .no-print { display:none !important; }
-      }
-    `}</style>
   </div>;
 }
