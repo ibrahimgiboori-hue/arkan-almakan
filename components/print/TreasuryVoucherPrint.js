@@ -109,13 +109,13 @@ export default function TreasuryVoucherPrint({voucher,settings}){
 
       <VariableBox c1={8} r1={18} c2={14} r2={18} value={method}/>
       <StaticBox c1={15} r1={18} c2={18} r2={18}>وذلك عبر /</StaticBox>
-      <VariableBox c1={19} r1={18} c2={35} r2={18} value={String(voucher?.amount_words||'').replace(/\s+فقط\s+لا\s+غير\s*$/,'').trim()}/>
+      <VariableBox c1={19} r1={18} c2={35} r2={18} value={String(voucher?.amount_words||'').replace(/\s+فقط\s+لا\s+غير\s*$/,'').trim()} className="tvm-words-field"/>
       <VariableBox c1={37} r1={18} c2={42} r2={18} value={`${amountRiyals}.${amountHalalas}`} ltr/>
       <StaticBox c1={43} r1={18} c2={44} r2={18}>مبلغ /</StaticBox>
       <VariableBox c1={45} r1={18} c2={50} r2={18} value={city}/>
       <StaticBox c1={51} r1={18} c2={55} r2={18}>بمدينة /</StaticBox>
 
-      <VariableBox c1={8} r1={19} c2={32} r2={19} value={voucher?.description||''}/>
+      <VariableBox c1={8} r1={19} c2={32} r2={19} value={voucher?.description||''} className="tvm-purpose-field"/>
       <StaticBox c1={33} r1={19} c2={38} r2={19}>وذلك مقابل الاستحقاق /</StaticBox>
       <VariableBox c1={39} r1={19} c2={50} r2={19} value={voucher?.supporting_reference||voucher?.payment_reference||''}/>
       <StaticBox c1={51} r1={19} c2={55} r2={19}>مرجع الدفع /</StaticBox>
@@ -134,11 +134,11 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox c1={24} r1={25} c2={38} r2={25} value={voucher?.accountant_name_snapshot||''}/>
       <VariableBox c1={43} r1={25} c2={55} r2={25} value={voucher?.party_name||''}/>
 
-      <VariableBox c1={8} r1={26} c2={16} r2={26} value={voucher?.approved_by_title_snapshot||''}/>
+      <VariableBox c1={8} r1={26} c2={16} r2={26} value={voucher?.approved_by_title_snapshot||''} className="tvm-role-field"/>
       <StaticBox c1={17} r1={26} c2={19} r2={26}>الصفة /</StaticBox>
-      <VariableBox c1={24} r1={26} c2={35} r2={26} value={voucher?.accountant_title_snapshot||''}/>
+      <VariableBox c1={24} r1={26} c2={35} r2={26} value={voucher?.accountant_title_snapshot||''} className="tvm-role-field"/>
       <StaticBox c1={36} r1={26} c2={38} r2={26}>الصفة /</StaticBox>
-      <VariableBox c1={43} r1={26} c2={52} r2={26} value={partyRoleValue}/>
+      <VariableBox c1={43} r1={26} c2={52} r2={26} value={partyRoleValue} className="tvm-role-field"/>
       <StaticBox c1={53} r1={26} c2={55} r2={26}>{isEstablishment?'يمثلها /':'الصفة /'}</StaticBox>
 
       <VariableBox c1={8} r1={27} c2={16} r2={29} value="" className="tvm-sign-space"/>
