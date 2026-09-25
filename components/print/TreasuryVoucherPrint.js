@@ -1,18 +1,15 @@
 'use client';
 
-// Geometry is taken from the approved Excel skeleton H8:BC29.
-// Excel columns are 13 units wide except J and AZ, which are 2-unit spacer columns.
-// Rows 8:29 are exactly 12pt high.
+// Geometry is taken from the latest approved workbook skeleton H8:BC29.
+// In the uploaded workbook, columns A:BN are all width=2 and the default row height is 14.25pt.
+// We therefore keep 48 equal columns across H:BC and use the exact Excel row height.
 const FRAME_X = 29.7;
 const FRAME_Y = 30;
 const FRAME_W = 237.6;
-const EXCEL_COL_UNITS = Array.from({length:48},(_,index)=>{
-  const excelCol=8+index; // H..BC
-  return excelCol===10 || excelCol===52 ? 2 : 13; // J and AZ
-});
-const TOTAL_COL_UNITS = EXCEL_COL_UNITS.reduce((sum,value)=>sum+value,0); // 602
+const EXCEL_COL_UNITS = Array.from({length:48},()=>2);
+const TOTAL_COL_UNITS = EXCEL_COL_UNITS.reduce((sum,value)=>sum+value,0);
 const COL_UNIT_MM = FRAME_W / TOTAL_COL_UNITS;
-const ROW_MM = 12 * 25.4 / 72; // exact 12pt Excel row height
+const ROW_MM = 14.25 * 25.4 / 72;
 const FRAME_H = 22 * ROW_MM;
 
 function latinDigits(value){
@@ -46,7 +43,8 @@ function slot(c1,r1,c2,r2){
 }
 
 function StaticBox({children,c1,r1,c2,r2,className=''}) {
-  return <div className={`tvm-static ${className}`} style={slot(c1,r1,c2,r2)}>{children}</div>;
+  const bodyClass=r1>=17?'tvm-body-static':'';
+  return <div className={`tvm-static ${bodyClass} ${className}`.trim()} style={slot(c1,r1,c2,r2)}>{children}</div>;
 }
 
 function PlainBox({children,c1,r1,c2,r2,className=''}) {
@@ -55,7 +53,8 @@ function PlainBox({children,c1,r1,c2,r2,className=''}) {
 
 function VariableBox({value,c1,r1,c2,r2,className='',ltr=false}) {
   const text=String(value??'').trim();
-  return <div className={`tvm-variable ${className} ${ltr?'tvm-ltr':''}`} style={slot(c1,r1,c2,r2)}>
+  const bodyClass=r1>=17?'tvm-body-variable':'';
+  return <div className={`tvm-variable ${bodyClass} ${className} ${ltr?'tvm-ltr':''}`.trim()} style={slot(c1,r1,c2,r2)}>
     {text?<span className="tvm-variable-value">{text}</span>:null}
     <span className="tvm-variable-remainder" aria-hidden="true"/>
   </div>;
@@ -87,6 +86,8 @@ export default function TreasuryVoucherPrint({voucher,settings}){
   return <article className="treasury-voucher-mockup" dir="rtl">
     {voucher?.status==='void'?<div className="tvm-void">ملغى</div>:null}
     <section className="tvm-frame" style={{left:`${FRAME_X}mm`,top:`${FRAME_Y}mm`,width:`${FRAME_W}mm`,height:`${FRAME_H}mm`}}>
+      <div className="tvm-body-surface" style={slot(8,17,55,20)} aria-hidden="true"/>
+      <div className="tvm-signature-surface" style={slot(8,24,55,29)} aria-hidden="true"/>
       <PlainBox c1={8} r1={8} c2={23} r2={8} className="tvm-company-en">{companyEn}</PlainBox>
       <PlainBox c1={8} r1={9} c2={23} r2={9}>CR No: {latinDigits(settings?.cr_number||'7042008503')}</PlainBox>
       <PlainBox c1={8} r1={10} c2={23} r2={10}>Riyadh – King Fahd District</PlainBox>
@@ -107,7 +108,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox c1={18} r1={13} c2={23} r2={13} value={latinDigits(voucher?.voucher_no)} ltr/>
 
       <StaticBox c1={39} r1={12} c2={48} r2={12}>ريال - SR</StaticBox>
-      <StaticBox c1={49} r1={12} c2={55} r2={12}>هللة - Halalah</StaticBox>
+      <StaticBox c1={49} r1={12} c2={55} r2={12}>هللة - Hal.</StaticBox>
       <VariableBox c1={39} r1={13} c2={48} r2={13} value={amountRiyals} ltr/>
       <VariableBox c1={49} r1={13} c2={55} r2={13} value={amountHalalas} ltr/>
 
