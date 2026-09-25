@@ -16,8 +16,10 @@
   background:#fff;
   color:var(--tvm-ink);
   direction:rtl;
-  font-family:Tahoma,Arial,sans-serif;
+  font-family:var(--font-body),var(--font-plex),"IBM Plex Sans Arabic",Arial,sans-serif;
   font-size:8.4pt;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
   line-height:1.1;
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
