@@ -1,11 +1,19 @@
 'use client';
 
-const COL_MM = 4.95;
-const ROW_MM = 5;
+// Geometry is taken from the approved Excel skeleton H8:BC29.
+// Excel columns are 13 units wide except J and AZ, which are 2-unit spacer columns.
+// Rows 8:29 are exactly 12pt high.
 const FRAME_X = 29.7;
 const FRAME_Y = 30;
 const FRAME_W = 237.6;
-const FRAME_H = 110;
+const EXCEL_COL_UNITS = Array.from({length:48},(_,index)=>{
+  const excelCol=8+index; // H..BC
+  return excelCol===10 || excelCol===52 ? 2 : 13; // J and AZ
+});
+const TOTAL_COL_UNITS = EXCEL_COL_UNITS.reduce((sum,value)=>sum+value,0); // 602
+const COL_UNIT_MM = FRAME_W / TOTAL_COL_UNITS;
+const ROW_MM = 12 * 25.4 / 72; // exact 12pt Excel row height
+const FRAME_H = 22 * ROW_MM;
 
 function latinDigits(value){
   return String(value??'')
@@ -19,11 +27,20 @@ function formatDate(value){
 }
 function pageNo(value){return String(Number(value||0)).padStart(2,'0');}
 
+function colOffsetMm(excelCol){
+  const count=Math.max(0,excelCol-8);
+  return EXCEL_COL_UNITS.slice(0,count).reduce((sum,value)=>sum+value,0)*COL_UNIT_MM;
+}
+function colSpanMm(c1,c2){
+  const start=Math.max(0,c1-8);
+  const end=Math.max(start,c2-8);
+  return EXCEL_COL_UNITS.slice(start,end+1).reduce((sum,value)=>sum+value,0)*COL_UNIT_MM;
+}
 function slot(c1,r1,c2,r2){
   return {
-    left:`${(c1-8)*COL_MM}mm`,
+    left:`${colOffsetMm(c1)}mm`,
     top:`${(r1-8)*ROW_MM}mm`,
-    width:`${(c2-c1+1)*COL_MM}mm`,
+    width:`${colSpanMm(c1,c2)}mm`,
     height:`${(r2-r1+1)*ROW_MM}mm`,
   };
 }
