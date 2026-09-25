@@ -69,6 +69,25 @@ function frameOf(model, bounds) {
   };
 }
 
+function borderCss(side) {
+  if (!side) return 'none';
+  const width = Math.max(0.15, Number(side.widthMm || 0.2));
+  return `${width}mm ${side.lineStyle || 'solid'} ${side.color || '#8f8f8f'}`;
+}
+
+function alignItemsFor(vertical) {
+  if (vertical === 'top') return 'flex-start';
+  if (vertical === 'bottom') return 'flex-end';
+  return 'center';
+}
+
+function justifyFor(horizontal, rtl) {
+  if (horizontal === 'left') return 'flex-start';
+  if (horizontal === 'right') return 'flex-end';
+  if (horizontal === 'center' || horizontal === 'centerContinuous') return 'center';
+  return rtl ? 'flex-end' : 'flex-start';
+}
+
 function isInside(cell, bounds) {
   const rowSpan = Math.max(1, Number(cell.rowSpan || 1));
   const colSpan = Math.max(1, Number(cell.colSpan || 1));
@@ -103,13 +122,15 @@ export default function WorkbookFamilyGridPreview({
     const baseHeightPx = rowsPx.reduce((sum, value) => sum + value, 0) || 1;
     const colScale = widthMm / baseWidthPx;
     const rowScale = heightMm / baseHeightPx;
-    const cells = (model.cells || []).filter((cell) => isInside(cell, bounds));
-    return { bounds, frame, widthMm, heightMm, colsPx, rowsPx, colScale, rowScale, cells };
+    let cells = (model.cells || []).filter((cell) => isInside(cell, bounds));
+    const authoritativeBoundary = Boolean(pageConfig.boundaryAuthoritative && frame);
+    if (authoritativeBoundary) cells = cells.filter((cell) => isInside(cell, frame));
+    return { bounds, frame, widthMm, heightMm, colsPx, rowsPx, colScale, rowScale, cells, authoritativeBoundary };
   }, [model]);
 
   if (!layout) return null;
 
-  const { bounds, frame, widthMm, heightMm, colsPx, rowsPx, colScale, rowScale, cells } = layout;
+  const { bounds, frame, widthMm, heightMm, colsPx, rowsPx, colScale, rowScale, cells, authoritativeBoundary } = layout;
   const gridColumns = colsPx.map((value) => `${value * colScale}mm`).join(' ');
   const gridRows = rowsPx.map((value) => `${value * rowScale}mm`).join(' ');
 
@@ -137,13 +158,6 @@ export default function WorkbookFamilyGridPreview({
     return total;
   }
 
-  const backgroundCells = [];
-  for (let row = frame.startRow; row <= frame.endRow; row += 1) {
-    for (let col = frame.startCol; col <= frame.endCol; col += 1) {
-      backgroundCells.push({ row, col });
-    }
-  }
-
   const visibleAssets = (model.placedAssets || []).filter((asset) => {
     if (!asset.showToggle) return true;
     const explicit = toggles?.[asset.showToggle];
@@ -163,7 +177,7 @@ export default function WorkbookFamilyGridPreview({
       direction:'ltr',
     }}
   >
-    <div
+    {!authoritativeBoundary ? <div
       aria-hidden="true"
       style={{
         position:'absolute',
@@ -175,7 +189,22 @@ export default function WorkbookFamilyGridPreview({
         zIndex:1,
         pointerEvents:'none',
       }}
-    />
+    /> : null}
+
+    {authoritativeBoundary ? <div
+      aria-hidden="true"
+      style={{
+        position:'absolute',
+        left:`${colOffsetMm(frame.startCol)}mm`,
+        top:`${rowOffsetMm(frame.startRow)}mm`,
+        width:`${spanWidthMm(frame.startCol, frame.endCol)}mm`,
+        height:`${spanHeightMm(frame.startRow, frame.endRow)}mm`,
+        border:'0.55mm solid #111',
+        boxSizing:'border-box',
+        zIndex:8,
+        pointerEvents:'none',
+      }}
+    /> : null}
 
     <div style={{
       position:'relative',
@@ -187,42 +216,36 @@ export default function WorkbookFamilyGridPreview({
       zIndex:5,
       direction:'ltr',
     }}>
-      {backgroundCells.map((cell) => <div
-        key={`bg-${cell.row}-${cell.col}`}
-        aria-hidden="true"
-        style={{
-          gridColumn:`${cell.col - bounds.startCol + 1}`,
-          gridRow:`${cell.row - bounds.startRow + 1}`,
-          border:'1px solid rgba(160,120,120,.22)',
-          background:'transparent',
-          boxSizing:'border-box',
-          zIndex:1,
-        }}
-      />)}
-
       {cells.map((cell) => {
         const text = tokenValue(cell.text, values);
-        const isDynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
+        const style = cell.style || {};
+        const rtl = /[\u0600-\u06FF]/.test(text);
+        const horizontal = String(style.horizontal || '').trim();
+        const vertical = String(style.vertical || '').trim();
         return <div
           key={cell.address || `${cell.row}-${cell.col}`}
           style={{
             gridColumn:`${cell.col - bounds.startCol + 1} / span ${Math.max(1, Number(cell.colSpan || 1))}`,
             gridRow:`${cell.row - bounds.startRow + 1} / span ${Math.max(1, Number(cell.rowSpan || 1))}`,
-            border:'1px solid rgba(160,120,120,.36)',
-            background:isDynamic ? 'rgba(255,255,255,.36)' : 'rgba(255,255,255,.18)',
-            color:'#111827',
-            padding:'2px 4px',
-            fontSize:'10.5px',
-            fontWeight:isDynamic ? 700 : 500,
-            lineHeight:1.18,
+            borderTop:borderCss(style.borders?.top),
+            borderRight:borderCss(style.borders?.right),
+            borderBottom:borderCss(style.borders?.bottom),
+            borderLeft:borderCss(style.borders?.left),
+            background:style.fillColor || 'transparent',
+            color:style.fontColor || '#111827',
+            padding:'1px 3px',
+            fontSize:style.fontSizePt ? `${style.fontSizePt}pt` : '10.5px',
+            fontWeight:style.bold ? 700 : 400,
+            fontStyle:style.italic ? 'italic' : 'normal',
+            lineHeight:1.15,
             overflow:'hidden',
-            whiteSpace:'pre-wrap',
-            overflowWrap:'break-word',
-            textAlign:'center',
-            direction:/[\u0600-\u06FF]/.test(text) ? 'rtl' : 'ltr',
+            whiteSpace:style.wrapText ? 'pre-wrap' : 'nowrap',
+            overflowWrap:style.wrapText ? 'break-word' : 'normal',
+            textAlign:horizontal === 'left' ? 'left' : horizontal === 'right' ? 'right' : horizontal.startsWith('center') ? 'center' : (rtl ? 'right' : 'left'),
+            direction:rtl ? 'rtl' : 'ltr',
             display:'flex',
-            alignItems:'center',
-            justifyContent:'center',
+            alignItems:alignItemsFor(vertical),
+            justifyContent:justifyFor(horizontal, rtl),
             boxSizing:'border-box',
             zIndex:10,
           }}
