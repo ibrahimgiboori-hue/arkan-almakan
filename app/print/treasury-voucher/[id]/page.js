@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import TreasuryVoucherPrint from '@/components/print/TreasuryVoucherPrint';
 import TreasuryVoucherExcelPrint from '@/components/print/TreasuryVoucherExcelPrint';
+import { inspectPrintFamilyWorkbook } from '@/lib/print-family-workbook-client';
+import { PRINT_FAMILIES } from '@/lib/print-family-catalog.mjs';
 
 export default function TreasuryVoucherPrintPage() {
   const { id } = useParams();
@@ -22,7 +24,7 @@ export default function TreasuryVoucherPrintPage() {
       const [voucherQ,settingsQ,familyQ]=await Promise.all([
         supabase.rpc('fn_cash_voucher_print_get',{p_voucher_id:id}),
         supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),
-        supabase.from('print_family_workbooks').select('ui_schema,version,original_name').eq('family_id','treasury_vouchers').maybeSingle(),
+        supabase.from('print_family_workbooks').select('ui_schema,version,original_name,storage_path,model_sheets').eq('family_id','treasury_vouchers').maybeSingle(),
       ]);
       if(cancelled)return;
       const firstError=voucherQ.error||settingsQ.error||familyQ.error;
@@ -34,11 +36,40 @@ export default function TreasuryVoucherPrintPage() {
         setState({loading:false,voucher:null,settings:null,schema:null,error:'لم يُعثر على السند، أو لا تملك صلاحية عرضه.'});
         return;
       }
+      let liveSchema=familyQ.data?.ui_schema||null;
+
+      // Re-read the currently uploaded workbook itself so border visibility,
+      // merged spans, row heights and fixed labels stay in lockstep with Excel.
+      // The stored ui_schema remains the fallback if the workbook cannot be read.
+      if(familyQ.data?.storage_path){
+        try{
+          const fileQ=await supabase.storage.from('print-families').download(familyQ.data.storage_path);
+          if(!fileQ.error && fileQ.data){
+            const file=new File(
+              [fileQ.data],
+              familyQ.data.original_name||'treasury_vouchers.xlsx',
+              {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+            );
+            const inspection=await inspectPrintFamilyWorkbook(
+              file,
+              {id:'treasury_vouchers',...(PRINT_FAMILIES.treasury_vouchers||{})},
+              {protectedModels:familyQ.data.model_sheets||[]}
+            );
+            if(!inspection.errors?.length && inspection.uiSchema){
+              liveSchema=inspection.uiSchema;
+            }
+          }
+        }catch(_error){
+          // Keep the last stored schema as a safe fallback.
+        }
+      }
+
+      if(cancelled)return;
       setState({
         loading:false,
         voucher:voucherQ.data,
         settings:settingsQ.data||{},
-        schema:familyQ.data?.ui_schema||null,
+        schema:liveSchema,
         error:'',
       });
     }
