@@ -96,6 +96,12 @@ function buildBorderSegments(cells,slot){
   for(const cell of cells){
     const row=Number(cell?.row||0);
     if(row<18||row>29) continue;
+
+    const rawText=String(cell?.text||'').trim();
+    // Slash barrier cells and empty signature spaces are workbook layout guides,
+    // not printable boxes. Their borders caused the last stray vertical strokes.
+    if(rawText==='/' || isSignSpace(cell)) continue;
+
     const c1=Number(cell.col),r1=row,c2=cellEndCol(cell),r2=cellEndRow(cell);
     const rect=slot(c1,r1,c2,r2);
     const left=parseFloat(rect.left),top=parseFloat(rect.top),width=parseFloat(rect.width),height=parseFloat(rect.height);
@@ -111,10 +117,14 @@ function buildBorderSegments(cells,slot){
     }
 
     const leftSpec=borderSpec(borders.left);
-    if(leftSpec) put(`v:${left.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left,top,length:height,spec:leftSpec});
+    // In the approvals/signature area, thin vertical borders are Excel merge
+    // artifacts. Keep only deliberate medium/thick/double vertical rules.
+    if(leftSpec && !(row>=26 && leftSpec.strength<=2)){
+      put(`v:${left.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left,top,length:height,spec:leftSpec});
+    }
 
     const rightSpec=borderSpec(borders.right);
-    if(rightSpec){
+    if(rightSpec && !(row>=26 && rightSpec.strength<=2)){
       const x=left+width;
       put(`v:${x.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left:x,top,length:height,spec:rightSpec});
     }
