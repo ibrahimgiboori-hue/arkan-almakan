@@ -470,3 +470,25 @@
 .treasury-voucher-mockup .tvm-body-variable:not(.tvm-ltr) .tvm-variable-value{
   text-align:right!important;
 }
+
+/* Long reason/description is one logical field spanning two rows.
+   It wraps naturally instead of repeating the value in a second field. */
+.treasury-voucher-mockup .tvm-purpose-flow{
+  align-items:flex-start!important;
+  white-space:normal!important;
+  overflow:hidden!important;
+  padding-top:.55mm!important;
+}
+.treasury-voucher-mockup .tvm-purpose-flow .tvm-variable-value{
+  position:relative!important;
+  inset:auto!important;
+  transform:none!important;
+  max-width:100%!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  line-height:1.55!important;
+  text-align:right!important;
+  background:rgba(255,255,255,.985)!important;
+  padding:.1mm .5mm!important;
+}
