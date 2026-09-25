@@ -74,6 +74,23 @@ function amountWordsArabic(totalHalalas){
   return `${riyalWords} ${riyalUnit} و${halalaWords} ${halalaUnit} فقط لا غير`;
 }
 
+function compactPartyDisplayName(name,isEstablishment){
+  const raw=String(name||'').replace(/\s+/g,' ').trim();
+  if(!raw) return '';
+  if(!isEstablishment){
+    const words=raw.split(' ');
+    return words.length>3 ? `${words[0]} ${words[words.length-1]}` : raw;
+  }
+
+  // Bottom card only: keep the commercial name, remove business activity
+  // and trailing legal-form descriptions. The full name remains in the voucher body.
+  return raw
+    .replace(/\s+(?:شركة\s+شخص\s+واحد|شركة\s+الشخص\s+الواحد|ذات\s+مسؤولية\s+محدودة|ذ\.م\.م|مساهمة\s+مقفلة|مساهمة|تضامن|توصية\s+بسيطة)\s*$/u,'')
+    .replace(/\s+لل\S+(?:\s+.*)?$/u,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
 
 function createSlotter(isReceipt){
   const units=excelColUnits(isReceipt);
@@ -134,6 +151,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
   ].filter(Boolean).join(' — ');
   const partyHeading=isEstablishment?'المستفيد / المحصل منه':(isReceipt?'المحصل منه':'المستفيد');
   const partyRoleValue=isEstablishment?representative:(voucher?.party_title||(isReceipt?'عميل':'موظف'));
+  const partyCardName=compactPartyDisplayName(voucher?.party_name,isEstablishment);
 
   return <article className="treasury-voucher-mockup" dir="rtl">
     {voucher?.status==='void'?<div className="tvm-void">ملغى</div>:null}
@@ -193,12 +211,10 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox slotter={slot} c1={45} r1={19} c2={50} r2={19} value={city}/>
       <StaticBox slotter={slot} c1={51} r1={19} c2={55} r2={19}>بمدينة/</StaticBox>
 
-      <VariableBox slotter={slot} c1={8} r1={20} c2={32} r2={20} value={voucher?.description||''} className="tvm-purpose-field"/>
+      <VariableBox slotter={slot} c1={8} r1={20} c2={32} r2={21} value={voucher?.description||''} className="tvm-purpose-field tvm-purpose-flow"/>
       <StaticBox slotter={slot} c1={33} r1={20} c2={38} r2={20}>وذلك مقابل/</StaticBox>
       <VariableBox slotter={slot} c1={39} r1={20} c2={50} r2={20} value={voucher?.supporting_reference||voucher?.payment_reference||''}/>
       <StaticBox slotter={slot} c1={51} r1={20} c2={55} r2={20}>مرجع الدفع/</StaticBox>
-
-      <VariableBox slotter={slot} c1={8} r1={21} c2={55} r2={21} value={voucher?.description||''} className="tvm-continuation"/>
 
       <PlainBox slotter={slot} c1={8} r1={22} c2={55} r2={24} className="tvm-legal">
         {voucher?.legal_text_snapshot||''}
@@ -211,7 +227,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox slotter={slot} c1={24} r1={26} c2={33} r2={26} value={voucher?.accountant_name_snapshot||''}/>
       <StaticBox slotter={slot} c1={34} r1={26} c2={38} r2={26}>قسم المالية</StaticBox>
 
-      <VariableBox slotter={slot} c1={43} r1={26} c2={50} r2={26} value={voucher?.party_name||''}/>
+      <VariableBox slotter={slot} c1={43} r1={26} c2={50} r2={26} value={partyCardName}/>
       <StaticBox slotter={slot} c1={51} r1={26} c2={55} r2={26}>{partyHeading}</StaticBox>
 
       <VariableBox slotter={slot} c1={8} r1={27} c2={14} r2={27} value={voucher?.approved_by_title_snapshot||''} className="tvm-role-field"/>
