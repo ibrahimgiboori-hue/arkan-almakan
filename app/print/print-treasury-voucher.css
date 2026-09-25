@@ -976,3 +976,20 @@
   margin:0!important;
   font-family:inherit!important;
 }
+
+@media print{
+  [data-print-family="treasury_vouchers"]{
+    min-height:0!important;
+    height:210mm!important;
+    overflow:hidden!important;
+  }
+  [data-print-family="treasury_vouchers"] > main{
+    width:297mm!important;
+    height:210mm!important;
+    margin:0!important;
+    box-shadow:none!important;
+    overflow:hidden!important;
+    break-after:avoid-page!important;
+    page-break-after:avoid!important;
+  }
+}
