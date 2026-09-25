@@ -1,394 +1,165 @@
-/* Treasury voucher document profile — content only.
-   Physical A4 carrier geometry is owned by ConstitutionPagedFrame. */
+/* Dedicated treasury voucher mockup.
+   Geometry mirrors the measured Excel skeleton exactly; no workbook grid is rendered. */
 
-.treasury-voucher-document{
-  --tv-brand:#8B3332;
-  --tv-brand-dark:#7C2B28;
-  --tv-brand-gray:#5F6468;
-  --tv-ink:#242426;
-  --tv-rule:.30mm;
-  --tv-frame:.50mm;
-  --tv-cut-side:10.910%;
+.treasury-voucher-mockup{
+  --tvm-maroon:#8b3332;
+  --tvm-maroon-dark:#742827;
+  --tvm-ink:#171717;
+  --tvm-rule:#111;
   position:relative;
-  width:100%;
-  height:100%;
-  min-height:100%;
-  padding:3.2mm 4mm 2.5mm;
-  border:var(--tv-frame) solid var(--tv-brand);
+  width:297mm;
+  height:210mm;
   background:#fff;
-  color:var(--tv-ink);
+  color:var(--tvm-ink);
   direction:rtl;
   font-family:Tahoma,Arial,sans-serif;
-  font-size:9.6pt;
-  line-height:1.18;
-  font-synthesis:none;
-  text-rendering:geometricPrecision;
-  -webkit-text-size-adjust:100%;
-  text-size-adjust:100%;
+  font-size:8.4pt;
+  line-height:1.1;
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
   overflow:hidden;
 }
+.treasury-voucher-mockup *{box-sizing:border-box}
 
-.treasury-voucher-document .tv-void{
-  position:absolute;inset:44% 9% auto;z-index:8;
-  transform:rotate(-12deg);text-align:center;
-  font-size:30pt;font-weight:800;color:rgba(139,51,50,.16);
-  pointer-events:none;
-}
-
-.treasury-voucher-document .tv-brand{
-  height:15mm;
-  display:block;
-  border:var(--tv-rule) solid var(--tv-brand);
-  border-bottom:0;
-  direction:ltr;
+.treasury-voucher-mockup .tvm-frame{
+  position:absolute;
+  border:.36mm solid #111;
   background:#fff;
-  overflow:visible;
-  position:relative;
-  z-index:6;
-  isolation:isolate;
-}
-.treasury-voucher-document .tv-brand-logo-box{
-  position:absolute;
-  top:-1px;
-  height:calc(21.5mm + 1px); /* header + company strip as one integrated panel */
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:1mm .75mm .8mm;
-  background:var(--tv-brand-gray);
-  overflow:visible;
-  z-index:8;
-}
-.treasury-voucher-document .tv-brand-logo-box:first-child{
-  left:-1px;
-  width:calc(var(--tv-cut-side) + 1px);
-}
-.treasury-voucher-document .tv-brand-logo-box:last-child{
-  right:-1px;
-  width:calc(var(--tv-cut-side) + 1px);
-}
-.treasury-voucher-document .tv-brand img{
-  display:block;
-  width:17.4mm;
-  height:19.2mm;
-  max-width:calc(100% - 1.1mm);
-  max-height:19.2mm;
-  object-fit:contain;
-  object-position:center center;
-  transform:translateY(.35mm);
-  position:relative;
-  z-index:7;
-}
-.treasury-voucher-document .tv-brand-name{
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:68%;
-  transform:translate(-50%,-50%);
-  text-align:center;
-  direction:rtl;
-  line-height:1;
-  z-index:4;
-}
-.treasury-voucher-document .tv-brand-name strong{
-  display:block;
-  color:var(--tv-brand-dark);
-  font-size:13.6pt;
-  font-weight:800;
-  letter-spacing:normal;
-  word-spacing:normal;
-  white-space:nowrap;
-}
-.treasury-voucher-document .tv-brand-name span{
-  display:block;
-  margin-top:.35mm;
-  color:#555;
-  font-size:7.1pt;
-  direction:ltr;
-}
-
-.treasury-voucher-document .tv-company-strip{
-  height:6.5mm;
-  display:grid;
-  /*
-   * One continuous identity band: the side logo panels and the company
-   * information strip share the official charcoal identity colour.
-   * Both side widths are deliberately symmetrical and remain locked to
-   * the matching 37% coloured columns below.
-   */
-  grid-template-columns:var(--tv-cut-side) minmax(0,1fr) var(--tv-cut-side);
-  direction:ltr;
-  position:relative;
-  z-index:2;
-  background:var(--tv-brand-gray);
-}
-.treasury-voucher-document .tv-company-cut{
-  height:6.5mm;
-  background:var(--tv-brand-gray);
-  border:0;
-}
-.treasury-voucher-document .tv-legal-bar{
-  height:6.5mm;
-  min-width:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:0 1.5mm;
-  border:0;
-  background:var(--tv-brand-gray);
-  color:#fff;
-  font-size:7.4pt;
-  font-weight:700;
-  white-space:nowrap;
   overflow:hidden;
 }
+.treasury-voucher-mockup .tvm-static,
+.treasury-voucher-mockup .tvm-plain,
+.treasury-voucher-mockup .tvm-variable,
+.treasury-voucher-mockup .tvm-logo{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:.45mm .7mm;
+  overflow:hidden;
+}
+.treasury-voucher-mockup .tvm-static{
+  background:var(--tvm-maroon);
+  color:#fff;
+  border:.20mm solid var(--tvm-rule);
+  font-weight:800;
+  text-align:center;
+  white-space:nowrap;
+}
+.treasury-voucher-mockup .tvm-plain{
+  color:#111;
+  background:#fff;
+  border:.20mm solid var(--tvm-rule);
+  text-align:center;
+  white-space:nowrap;
+  font-weight:650;
+}
+.treasury-voucher-mockup .tvm-company-ar{font-size:7.6pt}
+.treasury-voucher-mockup .tvm-company-en{direction:ltr;font-size:7.6pt}
 
-.treasury-voucher-document .tv-top{
-  height:23.8mm;
-  display:grid;
-  grid-template-columns:1.15fr 1.6fr 1.15fr;
-  direction:ltr;
+.treasury-voucher-mockup .tvm-logo{
+  background:#fff;
+  border:.20mm solid var(--tvm-rule);
+  padding:1.3mm;
 }
-.treasury-voucher-document .tv-meta,
-.treasury-voucher-document .tv-title-box,
-.treasury-voucher-document .tv-amount{
-  height:23.8mm;border:var(--tv-rule) solid var(--tv-brand);background:#fff;
+.treasury-voucher-mockup .tvm-logo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
 }
-.treasury-voucher-document .tv-meta{
-  display:grid;grid-template-rows:repeat(4,1fr);direction:ltr;
-}
-.treasury-voucher-document .tv-meta-row{
-  display:grid;grid-template-columns:37% 63%;min-height:0;
-}
-.treasury-voucher-document .tv-red-cell,
-.treasury-voucher-document .tv-white-cell{
-  min-width:0;display:flex;align-items:center;justify-content:center;
-}
-.treasury-voucher-document .tv-red-cell{
-  background:var(--tv-brand);color:#fff;font-weight:700;direction:rtl;
-}
-.treasury-voucher-document .tv-white-cell{
-  background:#fff;color:#111;font-weight:800;direction:ltr;font-variant-numeric:tabular-nums;
-}
-.treasury-voucher-document .tv-meta-row .tv-red-cell{
-  border-bottom:var(--tv-rule) solid #fff;border-right:var(--tv-rule) solid #fff;font-size:7.8pt;
-}
-.treasury-voucher-document .tv-meta-row .tv-white-cell{
-  border-bottom:var(--tv-rule) solid var(--tv-brand);border-left:var(--tv-rule) solid var(--tv-brand);font-size:7.7pt;
-}
-.treasury-voucher-document .tv-meta-row:first-child .tv-red-cell{border-top:var(--tv-rule) solid #fff}
-.treasury-voucher-document .tv-meta-row:last-child .tv-red-cell,
-.treasury-voucher-document .tv-meta-row:last-child .tv-white-cell{border-bottom:0}
 
-.treasury-voucher-document .tv-title-box{
-  display:grid;grid-template-rows:1fr 2fr 1fr;
+.treasury-voucher-mockup .tvm-voucher-title{
+  flex-direction:column;
+  gap:.25mm;
+  background:var(--tvm-maroon);
 }
-.treasury-voucher-document .tv-title-fill{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:var(--tv-brand);color:#fff;text-align:center;
-  border-top:var(--tv-rule) solid var(--tv-brand);border-bottom:var(--tv-rule) solid var(--tv-brand);
-}
-.treasury-voucher-document .tv-title-fill strong{font-size:12.1pt;font-weight:800}
-.treasury-voucher-document .tv-title-fill span{font-size:6.8pt;margin-top:.35mm;direction:ltr;letter-spacing:.02em}
+.treasury-voucher-mockup .tvm-voucher-title strong{font-size:10pt}
+.treasury-voucher-mockup .tvm-voucher-title span{font-size:6.3pt;direction:ltr;font-weight:700}
 
-.treasury-voucher-document .tv-amount{
-  display:grid;grid-template-columns:63% 37%;grid-template-rows:repeat(4,1fr);direction:ltr;
-}
-.treasury-voucher-document .tv-amount .tv-white-cell{
-  border-bottom:var(--tv-rule) solid var(--tv-brand);border-right:var(--tv-rule) solid var(--tv-brand);
-}
-.treasury-voucher-document .tv-amount .tv-red-cell{
-  border-bottom:var(--tv-rule) solid #fff;border-left:var(--tv-rule) solid #fff;
-}
-.treasury-voucher-document .tv-amount-title{grid-column:1;grid-row:1;font-size:7.8pt}
-.treasury-voucher-document .tv-amount-number{grid-column:1;grid-row:2;font-size:8.7pt}
-.treasury-voucher-document .tv-riyal{
-  grid-column:2;
-  grid-row:1/3;
-  font-size:8.1pt;
-  border-top:var(--tv-rule) solid #fff!important;
-  align-items:flex-end;
-  padding-bottom:1.15mm;
-}
-.treasury-voucher-document .tv-halala-number{grid-column:1;grid-row:3;font-size:8.5pt}
-.treasury-voucher-document .tv-halala-label{grid-column:2;grid-row:3;font-size:7.8pt}
-.treasury-voucher-document .tv-amount-words{grid-column:1;grid-row:4;padding:0 .7mm;text-align:center;direction:rtl!important;font-size:7pt}
-.treasury-voucher-document .tv-words-label{grid-column:2;grid-row:4;font-size:7.8pt}
-.treasury-voucher-document .tv-amount-words,
-.treasury-voucher-document .tv-words-label{border-bottom:0!important}
-
-.treasury-voucher-document .tv-body{
-  margin-top:1.8mm;padding-top:1.35mm;border-top:var(--tv-rule) solid var(--tv-brand);
-}
-.treasury-voucher-document .tv-flow-row{
-  min-height:6.1mm;
-  display:flex;align-items:flex-end;gap:.65mm;
-  white-space:nowrap;overflow:hidden;
-}
-.treasury-voucher-document .tv-fixed{
-  flex:0 0 auto;font-size:8.35pt;font-weight:700;white-space:nowrap;
-}
-.treasury-voucher-document .tv-fill{
-  --tv-dot:#777;
-  min-width:8mm;height:4.9mm;min-height:4.9mm;
-  flex:1 1 0;display:flex;align-items:stretch;gap:.3mm;
-  position:relative;
-  overflow:hidden;white-space:nowrap;
-  background-image:radial-gradient(circle, var(--tv-dot) .33mm, transparent .36mm);
-  background-size:2.15mm .7mm;
-  background-position:left calc(100% - .25mm);
+.treasury-voucher-mockup .tvm-variable{
+  --tvm-dot:#777;
+  justify-content:flex-start;
+  gap:.35mm;
+  background:#fff;
+  border:.20mm solid var(--tvm-rule);
+  direction:rtl;
+  white-space:nowrap;
+  background-image:radial-gradient(circle,#858585 .27mm,transparent .31mm);
+  background-size:2mm .65mm;
+  background-position:left calc(100% - .35mm);
   background-repeat:repeat-x;
 }
-.treasury-voucher-document .tv-method{
-  flex:0 1 23mm;
-  min-width:16mm;
-  max-width:27mm;
-}
-.treasury-voucher-document .tv-date{
-  flex:0 1 28mm;
-  min-width:24mm;
-  max-width:31mm;
-  direction:ltr;
-  font-variant-numeric:tabular-nums;
-}
-.treasury-voucher-document .tv-date .tv-value{word-spacing:normal}
-.treasury-voucher-document .tv-city{
-  flex:0 1 18mm;
-  min-width:14mm;
-  max-width:21mm;
-}
-.treasury-voucher-document .tv-amount-line{
-  flex:1 1 auto;
-  min-width:0;
-}
-
-.treasury-voucher-document .tv-value{
+.treasury-voucher-mockup .tvm-variable-value{
   position:relative;
   z-index:2;
-  top:-.15mm;
   flex:0 0 auto;
   max-width:100%;
   overflow:hidden;
   text-overflow:ellipsis;
-  padding:0 .45mm .7mm;
-  font-size:8.35pt;
-  font-style:italic;
-  font-weight:700;
+  padding:0 .55mm .9mm;
+  background:rgba(255,255,255,.94);
   color:#111;
-  line-height:1.05;
-  background:rgba(255,255,255,.90);
+  font-style:italic;
+  font-weight:800;
+  font-size:8.2pt;
+  line-height:1;
 }
-.treasury-voucher-document .tv-fill-sealed .tv-value{overflow:visible;text-overflow:clip}
-.treasury-voucher-document .tv-soft-fill{
-  position:relative;
-  z-index:1;
+.treasury-voucher-mockup .tvm-variable-remainder{
+  align-self:stretch;
   flex:1 1 auto;
   min-width:0;
-  height:100%;
-  align-self:stretch;
+  margin:-.45mm -.7mm -.45mm 0;
   background:
-    linear-gradient(rgba(139,51,50,.09),rgba(139,51,50,.09)),
-    radial-gradient(circle, var(--tv-dot) .33mm, transparent .36mm);
-  background-size:auto,2.15mm .7mm;
-  background-position:0 0,left calc(100% - .25mm);
+    linear-gradient(rgba(139,51,50,.085),rgba(139,51,50,.085)),
+    radial-gradient(circle,#858585 .27mm,transparent .31mm);
+  background-size:auto,2mm .65mm;
+  background-position:0 0,left calc(100% - .35mm);
   background-repeat:no-repeat,repeat-x;
-  border-radius:.35mm .35mm 0 0;
 }
-.treasury-voucher-document .tv-grow{min-width:30mm}
-.treasury-voucher-document .tv-name{min-width:47mm}
-.treasury-voucher-document .tv-party-row .tv-value{font-size:8.1pt}
-.treasury-voucher-document .tv-ack{
-  margin-top:1.6mm;
-  padding:1.25mm 1.45mm;
-  border:var(--tv-rule) solid #d8caca;
-  background:#fffdfd;
-  font-size:7.7pt;
-  line-height:1.48;
-  font-weight:600;
-  text-align:justify;
+.treasury-voucher-mockup .tvm-ltr{
+  direction:ltr;
+  justify-content:flex-start;
+}
+.treasury-voucher-mockup .tvm-ltr .tvm-variable-remainder{
+  margin:-.45mm 0 -.45mm -.7mm;
+}
+.treasury-voucher-mockup .tvm-continuation .tvm-variable-remainder,
+.treasury-voucher-mockup .tvm-sign-space .tvm-variable-remainder{
+  margin:-.45mm -.7mm;
+}
+.treasury-voucher-mockup .tvm-sign-space{
+  align-items:flex-end;
 }
 
-.treasury-voucher-document .tv-signatures{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:4.2mm;
-  margin-top:3.4mm;
+.treasury-voucher-mockup .tvm-legal{
+  white-space:normal;
+  text-align:justify;
+  align-items:center;
+  justify-content:center;
+  padding:1.2mm 1.5mm;
+  font-size:7.5pt;
+  line-height:1.45;
   direction:rtl;
 }
-.treasury-voucher-document .tv-sign{
-  --tv-label:16mm;
-  min-height:15.5mm;
-  padding-top:.85mm;
-  border-top:var(--tv-rule) solid var(--tv-brand);
-  position:relative;
-  overflow:visible;
-}
-.treasury-voucher-document .tv-admin-sign{--tv-label:22.5mm}
-.treasury-voucher-document .tv-sign-row{
-  min-height:4.25mm;
-  display:grid;
-  grid-template-columns:var(--tv-label) minmax(0,1fr);
-  align-items:center;
-  column-gap:.75mm;
-}
-.treasury-voucher-document .tv-sign-row>span{
-  color:var(--tv-brand-dark);
-  font-size:7.15pt;
-  font-weight:800;
-  text-align:center;
-  white-space:nowrap;
-}
-.treasury-voucher-document .tv-sign-row>strong{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  color:#222;
-  font-size:7.15pt;
-  font-weight:700;
-  text-align:right;
-  white-space:nowrap;
-}
-.treasury-voucher-document .tv-sign-row>i{
-  display:block;
-  height:2.9mm;
-  background:
-    linear-gradient(rgba(139,51,50,.07),rgba(139,51,50,.07)),
-    radial-gradient(circle, #8e7b7b .3mm, transparent .33mm);
-  background-size:auto,2mm .65mm;
-  background-position:0 0,left calc(100% - .2mm);
-  background-repeat:no-repeat,repeat-x;
-}
-.treasury-voucher-document .tv-stamp{
-  position:absolute;left:5%;top:6.7mm;
-  width:25mm;max-width:25mm;max-height:13mm;object-fit:contain;opacity:.84;z-index:3;
-}
-
-.treasury-voucher-document .tv-footer{
+.treasury-voucher-mockup .tvm-void{
   position:absolute;
-  right:4mm;
-  left:4mm;
-  bottom:.45mm;
-  padding-top:.45mm;
-  border-top:var(--tv-rule) solid #d5caca;
-  color:#666;
-  font-size:6.8pt;
-  text-align:right;
+  z-index:50;
+  left:55mm;
+  right:55mm;
+  top:86mm;
+  text-align:center;
+  transform:rotate(-12deg);
+  font-size:35pt;
+  font-weight:900;
+  color:rgba(139,51,50,.15);
+  pointer-events:none;
 }
 
-/* Preview and physical print intentionally share the exact same typography and rules.
-   Print mode may remove only non-document chrome; it must not restyle the voucher. */
 @media print{
-  .treasury-voucher-document{
-    --tv-rule:.30mm!important;
-    --tv-frame:.50mm!important;
-    box-shadow:none;
-    font-family:Tahoma,Arial,sans-serif!important;
-    font-synthesis:none!important;
-    text-rendering:geometricPrecision;
-    -webkit-text-size-adjust:100%!important;
-    text-size-adjust:100%!important;
+  @page{size:A4 landscape;margin:0}
+  html,body{margin:0!important;padding:0!important;background:#fff!important}
+  .treasury-voucher-mockup{
+    box-shadow:none!important;
     -webkit-print-color-adjust:exact!important;
     print-color-adjust:exact!important;
   }
