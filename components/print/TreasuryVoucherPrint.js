@@ -2,19 +2,46 @@
 
 const CONTENT_X = 29.7;
 const CONTENT_Y = 30;
-const CONTENT_W = 237.6;
-const ROW_MM = 14.25 * 25.4 / 72;
-const COL_MM = CONTENT_W / 48;
+const FRAME_W = 247.5;
+const PT_MM = 25.4 / 72;
 
-const FRAME_X = CONTENT_X - COL_MM;
-const FRAME_Y = CONTENT_Y - ROW_MM;
-const FRAME_W = CONTENT_W + (COL_MM * 2);
-const FRAME_H = 24 * ROW_MM;
-const SAR_SYMBOL_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAaCAMAAABrajdMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHOUExURQAAACIeIiIcHiIcHCIfHyQhIiMeICQdHSQfHyAgICIfHyUhIiIdHyMcHCQeICQfIRwcHCIfHyIdHyQfHyQgISMfICMfHyMfICMgICYcHCQgICQkJCcnJyUhISMfISMfICQbGxoaGiQgICMfICMfICIfICMfICIeHiIeHyIeICMeICQgISMfICUgIiQgISAcIAAAAAAAACMgICUiIiMfICIfICQfICUgISMfICQfICIgICUgIiEdISIeHiQfICMfICQfISMfICMfICYeHigbKCQkJCEeHiQfIiMeICQdHyMfICAgICMfHyUgIiMfICUgIiMgICUfHyIgICcdHSQfHyQgISMfICMfICYiIyMgICIdHyIcHCMfICIgHiYhIyMdHyMaGiQgIiQfIRcXLiYcJiUiIiIfHyMgICUhISMfHyMfHyciIyMfISMfICMgICIeICIeHiMgIiMeICMfICQgICMfHyUgIyAgICMeIyYgISMfICcfHyYhISEhISMfISQgISMfISUhIychISEeHiUfISMfHyIeICMfHyMfHyYhISMjIx4eHiMfICMfICUfISEfISMfISMeICUgIiIfHyQeHiUgISQeICIfHyYfIiIiInR/kVgAAACadFJOUwBErC1i//8jYhCr//0kcPsSo/xq//rL+cIbwQcNdXXhHArH/sbQ95/8d8r+///4PwEDSKam3////N5ZWUa57Oz/xfAiEw5U+/56vwiK5NzckCmyGjHW1un/of8ltZ//7B3wrAsbUlLA7FHM/8ytrY+Gn5/NwElgGDvn4CE2NnvnfHwnVYODuutCLxYRzvj7ZLyYmFuI/oZKSg9QdiWfAAAACXBIWXMAABcRAAAXEQHKJvM/AAABRUlEQVQoU73QVVMDUQwF4INDg5OyC8VdLi6LS6G4u7u7u7u7/ltmZ2kHOjyTp8w3J/dmApjLxtbO0v8oewdHJwDOLlauI1c3wN3D08q9yNsNPqy3znupeV+W/nT5v9zvt/uzZEBAYFBQ8E8PCQ3j8Ag5koiiLB5NMbFx8UIwcwIlJgFITklJTUvPyBQKCSGysrJzcvMMAPILCiVSioQQxUYhlZSatAfKyhVmZiEqKlHFUrVqdjWArrauvqGxsYlcmyGzvsXJprWtvQPI0S7bSV3dkFn9l5l6LPv09vUPQGZmhY2DQ8MajoyOjU9MAlPTM7Nz8wZ1G2BhcWmZFFoBsLq2bp7f2GRSiGhr2yymnd29fcwmMNPUweGRhscnp2fEzDgPvri8vPqOXt/cEpFCd/fmYa1MzAo9PD49/2a8vL69f3yq3RdJejzyuEuC1QAAAABJRU5ErkJggg==';
+function voucherGeometry(isReceipt){
+  // Exact geometry from the latest Excel family:
+  // payment: G:BD all width 13, rows are 14.25pt (row 30 = 15pt)
+  // receipt: J and AZ width 2, all other G:BD columns width 13, rows 7:30 = 12pt
+  const colWidths={};
+  for(let col=7;col<=56;col++) colWidths[col]=(isReceipt && (col===10||col===52))?2:13;
+  const totalUnits=Object.values(colWidths).reduce((sum,v)=>sum+v,0);
+  const unitMm=FRAME_W/totalUnits;
+  const colMm=(col)=>colWidths[col]*unitMm;
 
-function excelColUnits(){
-  return Array.from({length:48},()=>1); // H..BC — one equal mini-cell grid from latest Excel
+  const rowPt=(row)=>{
+    if(isReceipt) return 12;
+    if(row===30) return 15;
+    return 14.25;
+  };
+  const rowMm=(row)=>rowPt(row)*PT_MM;
+
+  const frameX=CONTENT_X-colMm(7);
+  const frameY=CONTENT_Y-rowMm(7);
+  const frameH=Array.from({length:24},(_,i)=>rowMm(7+i)).reduce((a,b)=>a+b,0);
+
+  const slot=(c1,r1,c2,r2)=>{
+    let left=0;
+    for(let col=7;col<c1;col++) left+=colMm(col);
+    let top=0;
+    for(let row=7;row<r1;row++) top+=rowMm(row);
+    let width=0;
+    for(let col=c1;col<=c2;col++) width+=colMm(col);
+    let height=0;
+    for(let row=r1;row<=r2;row++) height+=rowMm(row);
+    return {left:`${left}mm`,top:`${top}mm`,width:`${width}mm`,height:`${height}mm`};
+  };
+
+  return {frameX,frameY,frameW:FRAME_W,frameH,slot};
 }
+
+const SAR_SYMBOL_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAaCAMAAABrajdMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHOUExURQAAACIeIiIcHiIcHCIfHyQhIiMeICQdHSQfHyAgICIfHyUhIiIdHyMcHCQeICQfIRwcHCIfHyIdHyQfHyQgISMfICMfHyMfICMgICYcHCQgICQkJCcnJyUhISMfISMfICQbGxoaGiQgICMfICMfICIfICMfICIeHiIeHyIeICMeICQgISMfICUgIiQgISAcIAAAAAAAACMgICUiIiMfICIfICQfICUgISMfICQfICIgICUgIiEdISIeHiQfICMfICQfISMfICMfICYeHigbKCQkJCEeHiQfIiMeICQdHyMfICAgICMfHyUgIiMfICUgIiMgICUfHyIgICcdHSQfHyQgISMfICMfICYiIyMgICIdHyIcHCMfICIgHiYhIyMdHyMaGiQgIiQfIRcXLiYcJiUiIiIfHyMgICUhISMfHyMfHyciIyMfISMfICMgICIeICIeHiMgIiMeICMfICQgICMfHyUgIyAgICMeIyYgISMfICcfHyYhISEhISMfISQgISMfISUhIychISEeHiUfISMfHyIeICMfHyMfHyYhISMjIx4eHiMfICMfICUfISEfISMfISMeICUgIiIfHyQeHiUgISQeICIfHyYfIiIiInR/kVgAAACadFJOUwBErC1i//8jYhCr//0kcPsSo/xq//rL+cIbwQcNdXXhHArH/sbQ95/8d8r+///4PwEDSKam3////N5ZWUa57Oz/xfAiEw5U+/56vwiK5NzckCmyGjHW1un/of8ltZ//7B3wrAsbUlLA7FHM/8ytrY+Gn5/NwElgGDvn4CE2NnvnfHwnVYODuutCLxYRzvj7ZLyYmFuI/oZKSg9QdiWfAAAACXBIWXMAABcRAAAXEQHKJvM/AAABRUlEQVQoU73QVVMDUQwF4INDg5OyC8VdLi6LS6G4u7u7u7u7/ltmZ2kHOjyTp8w3J/dmApjLxtbO0v8oewdHJwDOLlauI1c3wN3D08q9yNsNPqy3znupeV+W/nT5v9zvt/uzZEBAYFBQ8E8PCQ3j8Ag5koiiLB5NMbFx8UIwcwIlJgFITklJTUvPyBQKCSGysrJzcvMMAPILCiVSioQQxUYhlZSatAfKyhVmZiEqKlHFUrVqdjWArrauvqGxsYlcmyGzvsXJprWtvQPI0S7bSV3dkFn9l5l6LPv09vUPQGZmhY2DQ8MajoyOjU9MAlPTM7Nz8wZ1G2BhcWmZFFoBsLq2bp7f2GRSiGhr2yymnd29fcwmMNPUweGRhscnp2fEzDgPvri8vPqOXt/cEpFCd/fmYa1MzAo9PD49/2a8vL69f3yq3RdJejzyuEuC1QAAAABJRU5ErkJggg==';
 
 function latinDigits(value){
   return String(value??'')
@@ -94,20 +121,6 @@ function compactPartyDisplayName(name,isEstablishment){
 }
 
 
-function createSlotter(){
-  const units=excelColUnits();
-  const total=units.reduce((sum,value)=>sum+value,0);
-  const unitMm=CONTENT_W/total;
-  const offset=(excelCol)=>COL_MM + units.slice(0,Math.max(0,excelCol-8)).reduce((s,v)=>s+v,0)*unitMm;
-  const span=(c1,c2)=>units.slice(Math.max(0,c1-8),Math.max(0,c2-8)+1).reduce((s,v)=>s+v,0)*unitMm;
-  return (c1,r1,c2,r2)=>({
-    left:`${offset(c1)}mm`,
-    top:`${ROW_MM + (r1-8)*ROW_MM}mm`,
-    width:`${span(c1,c2)}mm`,
-    height:`${(r2-r1+1)*ROW_MM}mm`,
-  });
-}
-
 function StaticBox({children,c1,r1,c2,r2,className='',slotter}) {
   const bodyClass=r1>=18?'tvm-body-static':'';
   return <div className={`tvm-static ${bodyClass} ${className}`.trim()} style={slotter(c1,r1,c2,r2)}>{children}</div>;
@@ -140,7 +153,8 @@ function PurposeFlowBox({value,slotter}) {
 
 export default function TreasuryVoucherPrint({voucher,settings}){
   const isReceipt=voucher?.voucher_type==='receipt';
-  const slot=createSlotter();
+  const geometry=voucherGeometry(isReceipt);
+  const slot=geometry.slot;
 
   const partyType=voucher?.party_type||(voucher?.party_id_kind==='cr'?'establishment':'individual');
   const isEstablishment=partyType==='establishment';
@@ -172,7 +186,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
   return <article className="treasury-voucher-mockup" dir="rtl">
     {voucher?.status==='void'?<div className="tvm-void">ملغى</div>:null}
 
-    <section className="tvm-frame" style={{left:`${FRAME_X}mm`,top:`${FRAME_Y}mm`,width:`${FRAME_W}mm`,height:`${FRAME_H}mm`}}>
+    <section className="tvm-frame" style={{left:`${geometry.frameX}mm`,top:`${geometry.frameY}mm`,width:`${geometry.frameW}mm`,height:`${geometry.frameH}mm`}}>
       <div className="tvm-body-surface" style={slot(8,18,55,21)} aria-hidden="true"/>
       <div className="tvm-signature-surface" style={slot(8,26,55,29)} aria-hidden="true"/>
 
