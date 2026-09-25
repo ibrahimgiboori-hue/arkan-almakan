@@ -1,10 +1,15 @@
 'use client';
 
-const FRAME_X = 29.7;
-const FRAME_Y = 30;
-const FRAME_W = 237.6;
+const CONTENT_X = 29.7;
+const CONTENT_Y = 30;
+const CONTENT_W = 237.6;
 const ROW_MM = 14.25 * 25.4 / 72;
-const FRAME_H = 22 * ROW_MM;
+const COL_MM = CONTENT_W / 48;
+
+const FRAME_X = CONTENT_X - COL_MM;
+const FRAME_Y = CONTENT_Y - ROW_MM;
+const FRAME_W = CONTENT_W + (COL_MM * 2);
+const FRAME_H = 24 * ROW_MM;
 const SAR_SYMBOL_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAaCAMAAABrajdMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHOUExURQAAACIeIiIcHiIcHCIfHyQhIiMeICQdHSQfHyAgICIfHyUhIiIdHyMcHCQeICQfIRwcHCIfHyIdHyQfHyQgISMfICMfHyMfICMgICYcHCQgICQkJCcnJyUhISMfISMfICQbGxoaGiQgICMfICMfICIfICMfICIeHiIeHyIeICMeICQgISMfICUgIiQgISAcIAAAAAAAACMgICUiIiMfICIfICQfICUgISMfICQfICIgICUgIiEdISIeHiQfICMfICQfISMfICMfICYeHigbKCQkJCEeHiQfIiMeICQdHyMfICAgICMfHyUgIiMfICUgIiMgICUfHyIgICcdHSQfHyQgISMfICMfICYiIyMgICIdHyIcHCMfICIgHiYhIyMdHyMaGiQgIiQfIRcXLiYcJiUiIiIfHyMgICUhISMfHyMfHyciIyMfISMfICMgICIeICIeHiMgIiMeICMfICQgICMfHyUgIyAgICMeIyYgISMfICcfHyYhISEhISMfISQgISMfISUhIychISEeHiUfISMfHyIeICMfHyMfHyYhISMjIx4eHiMfICMfICUfISEfISMfISMeICUgIiIfHyQeHiUgISQeICIfHyYfIiIiInR/kVgAAACadFJOUwBErC1i//8jYhCr//0kcPsSo/xq//rL+cIbwQcNdXXhHArH/sbQ95/8d8r+///4PwEDSKam3////N5ZWUa57Oz/xfAiEw5U+/56vwiK5NzckCmyGjHW1un/of8ltZ//7B3wrAsbUlLA7FHM/8ytrY+Gn5/NwElgGDvn4CE2NnvnfHwnVYODuutCLxYRzvj7ZLyYmFuI/oZKSg9QdiWfAAAACXBIWXMAABcRAAAXEQHKJvM/AAABRUlEQVQoU73QVVMDUQwF4INDg5OyC8VdLi6LS6G4u7u7u7u7/ltmZ2kHOjyTp8w3J/dmApjLxtbO0v8oewdHJwDOLlauI1c3wN3D08q9yNsNPqy3znupeV+W/nT5v9zvt/uzZEBAYFBQ8E8PCQ3j8Ag5koiiLB5NMbFx8UIwcwIlJgFITklJTUvPyBQKCSGysrJzcvMMAPILCiVSioQQxUYhlZSatAfKyhVmZiEqKlHFUrVqdjWArrauvqGxsYlcmyGzvsXJprWtvQPI0S7bSV3dkFn9l5l6LPv09vUPQGZmhY2DQ8MajoyOjU9MAlPTM7Nz8wZ1G2BhcWmZFFoBsLq2bp7f2GRSiGhr2yymnd29fcwmMNPUweGRhscnp2fEzDgPvri8vPqOXt/cEpFCd/fmYa1MzAo9PD49/2a8vL69f3yq3RdJejzyuEuC1QAAAABJRU5ErkJggg==';
 
 function excelColUnits(){
@@ -92,12 +97,12 @@ function compactPartyDisplayName(name,isEstablishment){
 function createSlotter(){
   const units=excelColUnits();
   const total=units.reduce((sum,value)=>sum+value,0);
-  const unitMm=FRAME_W/total;
-  const offset=(excelCol)=>units.slice(0,Math.max(0,excelCol-8)).reduce((s,v)=>s+v,0)*unitMm;
+  const unitMm=CONTENT_W/total;
+  const offset=(excelCol)=>COL_MM + units.slice(0,Math.max(0,excelCol-8)).reduce((s,v)=>s+v,0)*unitMm;
   const span=(c1,c2)=>units.slice(Math.max(0,c1-8),Math.max(0,c2-8)+1).reduce((s,v)=>s+v,0)*unitMm;
   return (c1,r1,c2,r2)=>({
     left:`${offset(c1)}mm`,
-    top:`${(r1-8)*ROW_MM}mm`,
+    top:`${ROW_MM + (r1-8)*ROW_MM}mm`,
     width:`${span(c1,c2)}mm`,
     height:`${(r2-r1+1)*ROW_MM}mm`,
   });
