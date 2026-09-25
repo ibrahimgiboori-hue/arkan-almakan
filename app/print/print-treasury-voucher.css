@@ -397,3 +397,42 @@
   z-index:3;
   background:#fff!important;
 }
+
+/* Exact supplied Saudi Riyal mark + final alignment rules. */
+.treasury-voucher-mockup .tvm-riyal-label{
+  gap:.7mm;
+}
+.treasury-voucher-mockup .tvm-riyal-label img{
+  width:3.2mm;
+  height:3.2mm;
+  object-fit:contain;
+  filter:brightness(0) invert(1);
+}
+.treasury-voucher-mockup .tvm-amount-with-riyal{
+  position:absolute;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.8mm;
+  color:#111;
+  font-style:italic;
+  font-weight:800;
+  font-size:7.9pt;
+  background:transparent;
+  border-bottom:.10mm solid rgba(143,31,40,.16);
+  overflow:hidden;
+}
+.treasury-voucher-mockup .tvm-amount-with-riyal img{
+  width:3.1mm;
+  height:3.1mm;
+  object-fit:contain;
+}
+.treasury-voucher-mockup .tvm-body-variable:not(.tvm-ltr){
+  justify-content:flex-start!important;
+  text-align:right!important;
+}
+.treasury-voucher-mockup .tvm-ltr{
+  justify-content:center!important;
+  text-align:center!important;
+}
