@@ -142,9 +142,6 @@ export default function WorkbookFamilyGridPreview({
   if (!layout) return null;
 
   const { bounds, frame, widthMm, heightMm, colsPx, rowsPx, colScale, rowScale, cells, authoritativeBoundary } = layout;
-  const gridColumns = colsPx.map((value) => `${value * colScale}mm`).join(' ');
-  const gridRows = rowsPx.map((value) => `${value * rowScale}mm`).join(' ');
-
   function colOffsetMm(col) {
     let total = 0;
     for (let current = bounds.startCol; current < col; current += 1) total += Number(colsPx[current - bounds.startCol] || 0) * colScale;
@@ -202,28 +199,21 @@ export default function WorkbookFamilyGridPreview({
       }}
     /> : null}
 
-    <div
-      aria-hidden="true"
-      style={{
-        position:'absolute',
-        inset:0,
-        display:'grid',
-        gridTemplateColumns:gridColumns,
-        gridTemplateRows:gridRows,
-        zIndex:5,
-        direction:'ltr',
-        pointerEvents:'none',
-      }}
-    >
+    <div aria-hidden="true" style={{ position:'absolute', inset:0, zIndex:5, pointerEvents:'none' }}>
       {cells.filter(hasGeometry).map((cell) => {
         const style = cell.style || {};
         const fill = String(style.fillColor || '').toUpperCase();
         const background = fill && fill !== '#FFFFFF' && fill !== '#FFF' ? style.fillColor : 'transparent';
+        const endCol = cell.col + Math.max(1, Number(cell.colSpan || 1)) - 1;
+        const endRow = cell.row + Math.max(1, Number(cell.rowSpan || 1)) - 1;
         return <div
           key={`geo-${cell.address || `${cell.row}-${cell.col}`}`}
           style={{
-            gridColumn:`${cell.col - bounds.startCol + 1} / span ${Math.max(1, Number(cell.colSpan || 1))}`,
-            gridRow:`${cell.row - bounds.startRow + 1} / span ${Math.max(1, Number(cell.rowSpan || 1))}`,
+            position:'absolute',
+            left:`${colOffsetMm(cell.col)}mm`,
+            top:`${rowOffsetMm(cell.row)}mm`,
+            width:`${spanWidthMm(cell.col, endCol)}mm`,
+            height:`${spanHeightMm(cell.row, endRow)}mm`,
             borderTop:borderCss(style.borders?.top),
             borderRight:borderCss(style.borders?.right),
             borderBottom:borderCss(style.borders?.bottom),
@@ -235,16 +225,7 @@ export default function WorkbookFamilyGridPreview({
       })}
     </div>
 
-    <div style={{
-      position:'absolute',
-      inset:0,
-      display:'grid',
-      gridTemplateColumns:gridColumns,
-      gridTemplateRows:gridRows,
-      zIndex:10,
-      direction:'ltr',
-      pointerEvents:'none',
-    }}>
+    <div style={{ position:'absolute', inset:0, zIndex:10, pointerEvents:'none' }}>
       {cells.map((cell) => {
         const text = tokenValue(cell.text, values);
         if (!text) return null;
@@ -252,11 +233,16 @@ export default function WorkbookFamilyGridPreview({
         const rtl = /[\u0600-\u06FF]/.test(text);
         const horizontal = String(style.horizontal || '').trim();
         const vertical = String(style.vertical || '').trim();
+        const endCol = cell.col + Math.max(1, Number(cell.colSpan || 1)) - 1;
+        const endRow = cell.row + Math.max(1, Number(cell.rowSpan || 1)) - 1;
         return <div
           key={`txt-${cell.address || `${cell.row}-${cell.col}`}`}
           style={{
-            gridColumn:`${cell.col - bounds.startCol + 1} / span ${Math.max(1, Number(cell.colSpan || 1))}`,
-            gridRow:`${cell.row - bounds.startRow + 1} / span ${Math.max(1, Number(cell.rowSpan || 1))}`,
+            position:'absolute',
+            left:`${colOffsetMm(cell.col)}mm`,
+            top:`${rowOffsetMm(cell.row)}mm`,
+            width:`${spanWidthMm(cell.col, endCol)}mm`,
+            height:`${spanHeightMm(cell.row, endRow)}mm`,
             color:style.fontColor || '#111827',
             padding:'1px 3px',
             fontSize:style.fontSizePt ? `${style.fontSizePt}pt` : '10.5px',
