@@ -28,13 +28,17 @@ export default function TreasuryVoucherPrint({voucher,settings}){
   const companyEn=settings?.company_name_en||'Arkan Al Makan Contracting';
   const isReceipt=voucher.voucher_type==='receipt';
   const method=METHOD_LABEL[voucher.payment_method]||voucher.payment_method||'';
-  const idLabel=ID_NUMBER_LABEL[voucher.party_id_kind]||'رقم إثبات';
+  const partyType=voucher.party_type||(voucher.party_id_kind==='cr'?'establishment':'individual');
+  const isEstablishment=partyType==='establishment';
+  const nationality=String(voucher.party_nationality||'').trim();
+  const isSaudi=/^(سعودي|سعودية|saudi)$/i.test(nationality);
+  const idLabel=isEstablishment?'سجل تجاري رقم':(isSaudi?'هوية رقم':'إقامة رقم');
   const showBank=Boolean(voucher.bank_name&&voucher.payment_method!=='cash');
   const totalHalalas=Math.round(Number(voucher.amount||0)*100);
   const amountRiyals=Math.floor(totalHalalas/100);
   const amountHalalas=String(totalHalalas%100).padStart(2,'0');
   const effectivePaymentDate=voucher.payment_date||voucher.voucher_date||'';
-  const beneficiaryRole=isReceipt?'عميل':'موظف';
+  const beneficiaryRole=voucher.party_title||(isReceipt?'عميل':'موظف');
   const englishTitle=isReceipt?'RECEIPT VOUCHER':'PAYMENT VOUCHER';
   const legalAcknowledgement='وأقر أنا المستفيد الموقع أدناه باستلام كامل المبلغ المبين في هذا السند رقمًا وكتابةً عن الاستحقاق الموضح أعلاه، بعد الاطلاع على بياناته والعلم بسبب الصرف وطريقة الوفاء، ويعد توقيعي إقرارًا بصحة الاستلام في حدود هذا السند، دون أن يعد إبراءً عامًا عن أي حقوق أو التزامات أخرى.';
 
@@ -60,7 +64,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <div className="tv-flow-row tv-party-row" data-print-grid-row data-print-grid-name="treasury-beneficiary" data-print-resizable-block>
         <span className="tv-fixed">استلمنا نحن /</span><Fill sealed className="tv-name">{voucher.party_name}</Fill>
         <span className="tv-fixed">{idLabel} /</span><Fill sealed>{latinDigits(voucher.party_id_number||'')}</Fill>
-        {voucher.party_nationality?<><span className="tv-fixed">الجنسية /</span><Fill sealed>{voucher.party_nationality}</Fill></>:null}
+        {!isEstablishment&&voucher.party_nationality?<><span className="tv-fixed">الجنسية /</span><Fill sealed>{voucher.party_nationality}</Fill></>:null}
         {voucher.party_mobile?<><span className="tv-fixed">الجوال /</span><Fill sealed>{latinDigits(voucher.party_mobile)}</Fill></>:null}
       </div>
       <div className="tv-flow-row" data-print-grid-row data-print-grid-name="treasury-settlement" data-print-resizable-block>
@@ -134,9 +138,15 @@ export default function TreasuryVoucherPrint({voucher,settings}){
 
     <section className="tv-signatures" data-print-grid-row data-print-grid-name="treasury-signatures" data-print-resizable-block>
       <div className="tv-sign">
-        <div className="tv-sign-row"><span>المستفيد /</span><strong>{voucher.party_name}</strong></div>
-        <div className="tv-sign-row"><span>الصفة /</span><strong>{beneficiaryRole}</strong></div>
-        <div className="tv-sign-row"><span>التوقيع /</span><i/></div>
+        {isEstablishment?<>
+          <div className="tv-sign-row"><span>المستفيد / المحصل منه</span><strong>{voucher.party_name||'—'}</strong></div>
+          <div className="tv-sign-row"><span>يمثلها /</span><strong>{voucher.party_representative_name||voucher.party_representative_title||'—'}</strong></div>
+          <div className="tv-sign-row"><span>التوقيع /</span><i/></div>
+        </>:<>
+          <div className="tv-sign-row"><span>{isReceipt?'المحصل منه /':'المستفيد /'}</span><strong>{voucher.party_name||'—'}</strong></div>
+          <div className="tv-sign-row"><span>الصفة /</span><strong>{beneficiaryRole||'—'}</strong></div>
+          <div className="tv-sign-row"><span>التوقيع /</span><i/></div>
+        </>}
       </div>
       <div className="tv-sign">
         <div className="tv-sign-row"><span>المحاسب /</span><strong>{voucher.accountant_name_snapshot||'—'}</strong></div>
