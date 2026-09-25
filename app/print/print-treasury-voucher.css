@@ -2,10 +2,13 @@
    Geometry mirrors the measured Excel skeleton exactly; no workbook grid is rendered. */
 
 .treasury-voucher-mockup{
-  --tvm-maroon:#8b3332;
-  --tvm-maroon-dark:#742827;
+  --tvm-maroon:#8f1f28;
+  --tvm-maroon-dark:#6f151d;
+  --tvm-maroon-soft:#a53a42;
   --tvm-ink:#171717;
-  --tvm-rule:#111;
+  --tvm-rule:#7d2027;
+  --tvm-soft:#f7f3f3;
+  --tvm-soft-2:#fbf9f9;
   position:relative;
   width:100%;
   height:100%;
@@ -19,14 +22,47 @@
   -webkit-print-color-adjust:exact;
   print-color-adjust:exact;
   overflow:hidden;
+  z-index:2;
 }
 .treasury-voucher-mockup *{box-sizing:border-box}
 
 .treasury-voucher-mockup .tvm-frame{
   position:absolute;
-  border:.36mm solid #111;
-  background:#fff;
+  border:.42mm solid var(--tvm-maroon);
+  background:
+    linear-gradient(135deg,rgba(143,31,40,.035),transparent 24%),
+    linear-gradient(315deg,rgba(143,31,40,.025),transparent 24%),
+    #fff;
   overflow:hidden;
+  box-shadow:0 0 0 .18mm rgba(143,31,40,.10);
+  border-radius:1.2mm;
+  isolation:isolate;
+}
+.treasury-voucher-mockup .tvm-frame::before,
+.treasury-voucher-mockup .tvm-frame::after{
+  content:'';
+  position:absolute;
+  top:0;
+  width:16mm;
+  height:14mm;
+  z-index:0;
+  opacity:.95;
+  pointer-events:none;
+}
+.treasury-voucher-mockup .tvm-frame::before{
+  left:0;
+  background:
+    linear-gradient(135deg,var(--tvm-maroon-dark) 0 32%,transparent 33%),
+    linear-gradient(135deg,rgba(143,31,40,.28) 0 48%,transparent 49%),
+    linear-gradient(135deg,rgba(120,120,120,.12) 0 64%,transparent 65%);
+}
+.treasury-voucher-mockup .tvm-frame::after{
+  right:0;
+  transform:scaleX(-1);
+  background:
+    linear-gradient(135deg,var(--tvm-maroon-dark) 0 32%,transparent 33%),
+    linear-gradient(135deg,rgba(143,31,40,.28) 0 48%,transparent 49%),
+    linear-gradient(135deg,rgba(120,120,120,.12) 0 64%,transparent 65%);
 }
 .treasury-voucher-mockup .tvm-static,
 .treasury-voucher-mockup .tvm-plain,
@@ -40,28 +76,41 @@
   overflow:hidden;
 }
 .treasury-voucher-mockup .tvm-static{
-  background:var(--tvm-maroon);
+  background:linear-gradient(180deg,var(--tvm-maroon-soft),var(--tvm-maroon-dark));
   color:#fff;
-  border:.20mm solid var(--tvm-rule);
+  border:.16mm solid var(--tvm-maroon-dark);
   font-weight:800;
   text-align:center;
   white-space:nowrap;
+  letter-spacing:.01em;
+  box-shadow:inset 0 .18mm 0 rgba(255,255,255,.18);
 }
 .treasury-voucher-mockup .tvm-plain{
   color:#111;
-  background:#fff;
-  border:.20mm solid var(--tvm-rule);
+  background:rgba(255,255,255,.97);
+  border:.14mm solid rgba(110,110,110,.55);
   text-align:center;
   white-space:nowrap;
   font-weight:650;
 }
-.treasury-voucher-mockup .tvm-company-ar{font-size:7.6pt}
-.treasury-voucher-mockup .tvm-company-en{direction:ltr;font-size:7.6pt}
+.treasury-voucher-mockup .tvm-company-ar{
+  font-size:8.2pt;
+  font-weight:800;
+  color:var(--tvm-maroon-dark);
+}
+.treasury-voucher-mockup .tvm-company-en{
+  direction:ltr;
+  font-size:8.1pt;
+  font-weight:800;
+  color:var(--tvm-maroon-dark);
+}
 
 .treasury-voucher-mockup .tvm-logo{
-  background:#fff;
-  border:.20mm solid var(--tvm-rule);
-  padding:1.3mm;
+  background:
+    radial-gradient(circle at center,rgba(143,31,40,.05),transparent 58%),
+    #fff;
+  border:.14mm solid rgba(143,31,40,.35);
+  padding:1.15mm;
 }
 .treasury-voucher-mockup .tvm-logo img{
   width:100%;
@@ -71,18 +120,30 @@
 
 .treasury-voucher-mockup .tvm-voucher-title{
   flex-direction:column;
-  gap:.25mm;
-  background:var(--tvm-maroon);
+  gap:.18mm;
+  background:linear-gradient(180deg,#a52e38 0%,var(--tvm-maroon) 56%,var(--tvm-maroon-dark) 100%);
+  border-color:var(--tvm-maroon-dark);
+  border-radius:.8mm;
+  box-shadow:inset 0 .2mm 0 rgba(255,255,255,.20);
 }
-.treasury-voucher-mockup .tvm-voucher-title strong{font-size:10pt}
-.treasury-voucher-mockup .tvm-voucher-title span{font-size:6.3pt;direction:ltr;font-weight:700}
+.treasury-voucher-mockup .tvm-voucher-title strong{
+  font-size:11.2pt;
+  line-height:1;
+  letter-spacing:.02em;
+}
+.treasury-voucher-mockup .tvm-voucher-title span{
+  font-size:6.5pt;
+  direction:ltr;
+  font-weight:700;
+  letter-spacing:.08em;
+}
 
 .treasury-voucher-mockup .tvm-variable{
   --tvm-dot:#777;
   justify-content:flex-start;
   gap:.35mm;
-  background:#fff;
-  border:.20mm solid var(--tvm-rule);
+  background:var(--tvm-soft-2);
+  border:.12mm solid rgba(143,31,40,.42);
   direction:rtl;
   white-space:nowrap;
   background-image:radial-gradient(circle,#858585 .27mm,transparent .31mm);
@@ -98,7 +159,7 @@
   overflow:hidden;
   text-overflow:ellipsis;
   padding:0 .55mm .9mm;
-  background:rgba(255,255,255,.94);
+  background:rgba(255,255,255,.96);
   color:#111;
   font-style:italic;
   font-weight:800;
@@ -111,7 +172,7 @@
   min-width:0;
   margin:-.45mm -.7mm -.45mm 0;
   background:
-    linear-gradient(rgba(139,51,50,.085),rgba(139,51,50,.085)),
+    linear-gradient(rgba(143,31,40,.065),rgba(143,31,40,.065)),
     radial-gradient(circle,#858585 .27mm,transparent .31mm);
   background-size:auto,2mm .65mm;
   background-position:0 0,left calc(100% - .35mm);
@@ -137,10 +198,13 @@
   text-align:justify;
   align-items:center;
   justify-content:center;
-  padding:1.2mm 1.5mm;
-  font-size:7.5pt;
-  line-height:1.45;
+  padding:1.35mm 1.7mm;
+  font-size:7.35pt;
+  line-height:1.5;
   direction:rtl;
+  background:linear-gradient(180deg,#fff,#fcf8f8);
+  border:.14mm solid rgba(143,31,40,.38);
+  color:#282323;
 }
 .treasury-voucher-mockup .tvm-void{
   position:absolute;
@@ -162,4 +226,18 @@
     -webkit-print-color-adjust:exact!important;
     print-color-adjust:exact!important;
   }
+}
+
+.treasury-voucher-mockup .tvm-static[style*="top: 80mm"],
+.treasury-voucher-mockup .tvm-static[style*="top:80mm"]{
+  border-radius:.55mm .55mm 0 0;
+}
+.treasury-voucher-mockup .tvm-variable{
+  font-variant-numeric:tabular-nums;
+}
+.treasury-voucher-mockup .tvm-variable-value{
+  text-shadow:0 .1mm 0 rgba(255,255,255,.65);
+}
+.treasury-voucher-mockup .tvm-sign-space{
+  background-color:#fffafa;
 }
