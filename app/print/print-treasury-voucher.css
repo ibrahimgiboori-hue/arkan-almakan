@@ -955,3 +955,24 @@
 .treasury-voucher-mockup .tvm-sign-space .tvm-variable-remainder{
   opacity:.58!important;
 }
+
+/* Tatweel correction: keep each Arabic label as one shaping run.
+   Splitting tatweel into nested spans breaks joining in Arabic fonts. */
+.treasury-voucher-mockup .tvm-static-text{
+  display:inline-block!important;
+  white-space:pre!important;
+  unicode-bidi:plaintext!important;
+  font-family:inherit!important;
+  font-kerning:normal!important;
+  font-feature-settings:"kern" 1!important;
+  letter-spacing:0!important;
+  transform:none!important;
+  text-rendering:optimizeLegibility!important;
+}
+.treasury-voucher-mockup .tvm-kashida-run{
+  display:inline!important;
+  letter-spacing:0!important;
+  transform:none!important;
+  margin:0!important;
+  font-family:inherit!important;
+}
