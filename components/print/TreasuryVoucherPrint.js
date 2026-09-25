@@ -144,9 +144,10 @@ function DividerBox({c,r,r2=r,slotter}) {
 function PurposeFlowBox({value,slotter}) {
   const text=String(value??'').trim();
   const excluded=slotter(28,20,55,20); // AB:BC occupied by divider + fixed/other fields on first row
+  const firstRow=slotter(8,20,8,20);
   return <div className="tvm-purpose-flow-single" style={slotter(8,20,55,21)}>
     <span className="tvm-purpose-flow-dots" aria-hidden="true"/>
-    <span className="tvm-purpose-exclusion" style={{width:excluded.width,height:`${ROW_MM}mm`}} aria-hidden="true"/>
+    <span className="tvm-purpose-exclusion" style={{width:excluded.width,height:firstRow.height}} aria-hidden="true"/>
     {text?<span className="tvm-purpose-flow-text">{text}</span>:null}
   </div>;
 }
