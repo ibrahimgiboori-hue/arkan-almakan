@@ -657,3 +657,143 @@
 .treasury-voucher-mockup .tvm-body-variable{
   box-sizing:border-box;
 }
+
+/* Excel-driven treasury voucher.
+   Excel owns fixed labels, positions, merged ranges and field widths.
+   Runtime data only fills variable placeholders. */
+.treasury-voucher-excel{
+  position:relative;
+  direction:rtl;
+  overflow:hidden;
+  background:#fff;
+  box-sizing:border-box;
+  font-family:var(--font-plex, "IBM Plex Sans Arabic", Arial, sans-serif);
+}
+.treasury-voucher-excel .tvx-frame{
+  position:absolute;
+  box-sizing:border-box;
+  border:.42mm solid #111;
+  pointer-events:none;
+  z-index:1;
+}
+.treasury-voucher-excel .tvx-static,
+.treasury-voucher-excel .tvx-divider,
+.treasury-voucher-excel .tvx-variable,
+.treasury-voucher-excel .tvx-legal,
+.treasury-voucher-excel .tvx-asset{
+  position:absolute;
+  box-sizing:border-box;
+}
+.treasury-voucher-excel .tvx-static{
+  z-index:3;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  padding:.22mm .42mm;
+  color:#8f1f28;
+  font-size:7.2pt;
+  font-weight:700;
+  line-height:1.18;
+  text-align:right;
+  overflow:hidden;
+}
+.treasury-voucher-excel .tvx-header-static{
+  justify-content:center;
+  text-align:center;
+  font-size:7.7pt;
+}
+.treasury-voucher-excel .tvx-divider{
+  z-index:4;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#8f1f28;
+  font-weight:900;
+  font-size:8pt;
+  line-height:1;
+  overflow:hidden;
+}
+.treasury-voucher-excel .tvx-variable{
+  z-index:2;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  overflow:hidden;
+  padding:.18mm .48mm;
+  color:#111;
+  font-size:7.2pt;
+  font-weight:800;
+  font-style:italic;
+  line-height:1.28;
+  background:
+    linear-gradient(rgba(143,31,40,.012),rgba(143,31,40,.012)),
+    radial-gradient(circle,rgba(110,110,110,.34) .11mm,transparent .15mm);
+  background-size:auto,1.85mm .62mm;
+  background-position:0 0,left calc(100% - .16mm);
+  background-repeat:no-repeat,repeat-x;
+}
+.treasury-voucher-excel .tvx-variable > span{
+  position:relative;
+  z-index:2;
+  display:block;
+  max-width:100%;
+  background:rgba(255,255,255,.985);
+  padding:0 .25mm;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.treasury-voucher-excel .tvx-variable.tvx-right{
+  justify-content:flex-start;
+  direction:rtl;
+  text-align:right;
+}
+.treasury-voucher-excel .tvx-variable.tvx-center{
+  justify-content:center;
+  direction:ltr;
+  text-align:center;
+}
+.treasury-voucher-excel .tvx-variable.tvx-wrap{
+  align-items:flex-start;
+  padding-top:.42mm;
+}
+.treasury-voucher-excel .tvx-variable.tvx-wrap > span{
+  white-space:normal;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+}
+.treasury-voucher-excel .tvx-riyal-mark{
+  position:relative;
+  z-index:3;
+  width:3mm;
+  height:3mm;
+  object-fit:contain;
+  margin-inline-start:.45mm;
+  flex:0 0 auto;
+}
+.treasury-voucher-excel .tvx-legal{
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  direction:rtl;
+  text-align:right;
+  color:#2d2926;
+  font-size:6.6pt;
+  font-weight:600;
+  line-height:1.42;
+  padding:.5mm .8mm;
+  overflow:hidden;
+}
+.treasury-voucher-excel .tvx-asset{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  pointer-events:none;
+}
+.treasury-voucher-excel .tvx-asset img{
+  width:100%;
+  height:100%;
+  display:block;
+}
