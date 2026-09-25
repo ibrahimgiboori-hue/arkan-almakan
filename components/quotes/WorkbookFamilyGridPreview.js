@@ -78,7 +78,8 @@ function borderCss(side) {
 function hasGeometry(cell) {
   const style = cell?.style || {};
   const fill = String(style.fillColor || '').toUpperCase();
-  const visibleFill = Boolean(fill && fill !== '#FFFFFF' && fill !== '#FFF');
+  const semanticMapFill = style.semanticRole === 'static' || style.semanticRole === 'variable';
+  const visibleFill = !semanticMapFill && Boolean(fill && fill !== '#FFFFFF' && fill !== '#FFF');
   return visibleFill
     || Boolean(style.borders?.top?.intentional)
     || Boolean(style.borders?.right?.intentional)
@@ -203,7 +204,10 @@ export default function WorkbookFamilyGridPreview({
       {cells.filter(hasGeometry).map((cell) => {
         const style = cell.style || {};
         const fill = String(style.fillColor || '').toUpperCase();
-        const background = fill && fill !== '#FFFFFF' && fill !== '#FFF' ? style.fillColor : 'transparent';
+        const semanticMapFill = style.semanticRole === 'static' || style.semanticRole === 'variable';
+        const background = !semanticMapFill && fill && fill !== '#FFFFFF' && fill !== '#FFF'
+          ? style.fillColor
+          : 'transparent';
         const endCol = cell.col + Math.max(1, Number(cell.colSpan || 1)) - 1;
         const endRow = cell.row + Math.max(1, Number(cell.rowSpan || 1)) - 1;
         return <div
@@ -227,9 +231,13 @@ export default function WorkbookFamilyGridPreview({
 
     <div style={{ position:'absolute', inset:0, zIndex:10, pointerEvents:'none' }}>
       {cells.map((cell) => {
-        const text = tokenValue(cell.text, values);
-        if (!text) return null;
         const style = cell.style || {};
+        const rawText = String(cell.text || '');
+        const resolvedText = tokenValue(rawText, values);
+        const text = style.semanticRole === 'variable' && !(cell.tokens || []).length
+          ? ''
+          : resolvedText;
+        if (!text) return null;
         const rtl = /[\u0600-\u06FF]/.test(text);
         const horizontal = String(style.horizontal || '').trim();
         const vertical = String(style.vertical || '').trim();
