@@ -5,6 +5,7 @@ const FRAME_Y = 30;
 const FRAME_W = 237.6;
 const ROW_MM = 14.25 * 25.4 / 72;
 const FRAME_H = 22 * ROW_MM;
+const SAR_SYMBOL_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAaCAMAAABrajdMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHOUExURQAAACIeIiIcHiIcHCIfHyQhIiMeICQdHSQfHyAgICIfHyUhIiIdHyMcHCQeICQfIRwcHCIfHyIdHyQfHyQgISMfICMfHyMfICMgICYcHCQgICQkJCcnJyUhISMfISMfICQbGxoaGiQgICMfICMfICIfICMfICIeHiIeHyIeICMeICQgISMfICUgIiQgISAcIAAAAAAAACMgICUiIiMfICIfICQfICUgISMfICQfICIgICUgIiEdISIeHiQfICMfICQfISMfICMfICYeHigbKCQkJCEeHiQfIiMeICQdHyMfICAgICMfHyUgIiMfICUgIiMgICUfHyIgICcdHSQfHyQgISMfICMfICYiIyMgICIdHyIcHCMfICIgHiYhIyMdHyMaGiQgIiQfIRcXLiYcJiUiIiIfHyMgICUhISMfHyMfHyciIyMfISMfICMgICIeICIeHiMgIiMeICMfICQgICMfHyUgIyAgICMeIyYgISMfICcfHyYhISEhISMfISQgISMfISUhIychISEeHiUfISMfHyIeICMfHyMfHyYhISMjIx4eHiMfICMfICUfISEfISMfISMeICUgIiIfHyQeHiUgISQeICIfHyYfIiIiInR/kVgAAACadFJOUwBErC1i//8jYhCr//0kcPsSo/xq//rL+cIbwQcNdXXhHArH/sbQ95/8d8r+///4PwEDSKam3////N5ZWUa57Oz/xfAiEw5U+/56vwiK5NzckCmyGjHW1un/of8ltZ//7B3wrAsbUlLA7FHM/8ytrY+Gn5/NwElgGDvn4CE2NnvnfHwnVYODuutCLxYRzvj7ZLyYmFuI/oZKSg9QdiWfAAAACXBIWXMAABcRAAAXEQHKJvM/AAABRUlEQVQoU73QVVMDUQwF4INDg5OyC8VdLi6LS6G4u7u7u7u7/ltmZ2kHOjyTp8w3J/dmApjLxtbO0v8oewdHJwDOLlauI1c3wN3D08q9yNsNPqy3znupeV+W/nT5v9zvt/uzZEBAYFBQ8E8PCQ3j8Ag5koiiLB5NMbFx8UIwcwIlJgFITklJTUvPyBQKCSGysrJzcvMMAPILCiVSioQQxUYhlZSatAfKyhVmZiEqKlHFUrVqdjWArrauvqGxsYlcmyGzvsXJprWtvQPI0S7bSV3dkFn9l5l6LPv09vUPQGZmhY2DQ8MajoyOjU9MAlPTM7Nz8wZ1G2BhcWmZFFoBsLq2bp7f2GRSiGhr2yymnd29fcwmMNPUweGRhscnp2fEzDgPvri8vPqOXt/cEpFCd/fmYa1MzAo9PD49/2a8vL69f3yq3RdJejzyuEuC1QAAAABJRU5ErkJggg==';
 
 function excelColUnits(isReceipt){
   return Array.from({length:48},(_,index)=>{
@@ -112,7 +113,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox slotter={slot} c1={12} r1={13} c2={17} r2={13} value={pageNo(voucher?.page_no)} ltr/>
       <VariableBox slotter={slot} c1={18} r1={13} c2={23} r2={13} value={latinDigits(voucher?.voucher_no)} ltr/>
 
-      <StaticBox slotter={slot} c1={39} r1={12} c2={48} r2={12}>ريال- SR</StaticBox>
+      <StaticBox slotter={slot} c1={39} r1={12} c2={48} r2={12} className="tvm-riyal-label"><span>ريال</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></StaticBox>
       <StaticBox slotter={slot} c1={49} r1={12} c2={55} r2={12}>هللة- Hal.</StaticBox>
       <VariableBox slotter={slot} c1={39} r1={13} c2={48} r2={13} value={amountRiyals} ltr/>
       <VariableBox slotter={slot} c1={49} r1={13} c2={55} r2={13} value={amountHalalas} ltr/>
@@ -137,7 +138,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox slotter={slot} c1={8} r1={19} c2={14} r2={19} value={method}/>
       <StaticBox slotter={slot} c1={15} r1={19} c2={18} r2={19}>وذلك عبر/</StaticBox>
       <VariableBox slotter={slot} c1={19} r1={19} c2={35} r2={19} value={String(voucher?.amount_words||'').replace(/\s+فقط\s+لا\s+غير\s*$/,'').trim()} className="tvm-words-field"/>
-      <VariableBox slotter={slot} c1={37} r1={19} c2={42} r2={19} value={amountNumber} ltr/>
+      <div className="tvm-amount-with-riyal" style={slot(37,19,42,19)} dir="ltr"><span>{amountNumber}</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></div>
       <StaticBox slotter={slot} c1={43} r1={19} c2={44} r2={19}>مبلغ/</StaticBox>
       <VariableBox slotter={slot} c1={45} r1={19} c2={50} r2={19} value={city}/>
       <StaticBox slotter={slot} c1={51} r1={19} c2={55} r2={19}>بمدينة/</StaticBox>
