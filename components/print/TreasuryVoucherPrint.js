@@ -7,11 +7,8 @@ const ROW_MM = 14.25 * 25.4 / 72;
 const FRAME_H = 22 * ROW_MM;
 const SAR_SYMBOL_DATA = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAaCAMAAABrajdMAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAHOUExURQAAACIeIiIcHiIcHCIfHyQhIiMeICQdHSQfHyAgICIfHyUhIiIdHyMcHCQeICQfIRwcHCIfHyIdHyQfHyQgISMfICMfHyMfICMgICYcHCQgICQkJCcnJyUhISMfISMfICQbGxoaGiQgICMfICMfICIfICMfICIeHiIeHyIeICMeICQgISMfICUgIiQgISAcIAAAAAAAACMgICUiIiMfICIfICQfICUgISMfICQfICIgICUgIiEdISIeHiQfICMfICQfISMfICMfICYeHigbKCQkJCEeHiQfIiMeICQdHyMfICAgICMfHyUgIiMfICUgIiMgICUfHyIgICcdHSQfHyQgISMfICMfICYiIyMgICIdHyIcHCMfICIgHiYhIyMdHyMaGiQgIiQfIRcXLiYcJiUiIiIfHyMgICUhISMfHyMfHyciIyMfISMfICMgICIeICIeHiMgIiMeICMfICQgICMfHyUgIyAgICMeIyYgISMfICcfHyYhISEhISMfISQgISMfISUhIychISEeHiUfISMfHyIeICMfHyMfHyYhISMjIx4eHiMfICMfICUfISEfISMfISMeICUgIiIfHyQeHiUgISQeICIfHyYfIiIiInR/kVgAAACadFJOUwBErC1i//8jYhCr//0kcPsSo/xq//rL+cIbwQcNdXXhHArH/sbQ95/8d8r+///4PwEDSKam3////N5ZWUa57Oz/xfAiEw5U+/56vwiK5NzckCmyGjHW1un/of8ltZ//7B3wrAsbUlLA7FHM/8ytrY+Gn5/NwElgGDvn4CE2NnvnfHwnVYODuutCLxYRzvj7ZLyYmFuI/oZKSg9QdiWfAAAACXBIWXMAABcRAAAXEQHKJvM/AAABRUlEQVQoU73QVVMDUQwF4INDg5OyC8VdLi6LS6G4u7u7u7u7/ltmZ2kHOjyTp8w3J/dmApjLxtbO0v8oewdHJwDOLlauI1c3wN3D08q9yNsNPqy3znupeV+W/nT5v9zvt/uzZEBAYFBQ8E8PCQ3j8Ag5koiiLB5NMbFx8UIwcwIlJgFITklJTUvPyBQKCSGysrJzcvMMAPILCiVSioQQxUYhlZSatAfKyhVmZiEqKlHFUrVqdjWArrauvqGxsYlcmyGzvsXJprWtvQPI0S7bSV3dkFn9l5l6LPv09vUPQGZmhY2DQ8MajoyOjU9MAlPTM7Nz8wZ1G2BhcWmZFFoBsLq2bp7f2GRSiGhr2yymnd29fcwmMNPUweGRhscnp2fEzDgPvri8vPqOXt/cEpFCd/fmYa1MzAo9PD49/2a8vL69f3yq3RdJejzyuEuC1QAAAABJRU5ErkJggg==';
 
-function excelColUnits(isReceipt){
-  return Array.from({length:48},(_,index)=>{
-    const excelCol=8+index; // H..BC
-    return isReceipt && (excelCol===10 || excelCol===52) ? 2 : 13; // J / AZ spacers only in receipt sheet
-  });
+function excelColUnits(){
+  return Array.from({length:48},()=>1); // H..BC — one equal mini-cell grid from latest Excel
 }
 
 function latinDigits(value){
@@ -92,8 +89,8 @@ function compactPartyDisplayName(name,isEstablishment){
 }
 
 
-function createSlotter(isReceipt){
-  const units=excelColUnits(isReceipt);
+function createSlotter(){
+  const units=excelColUnits();
   const total=units.reduce((sum,value)=>sum+value,0);
   const unitMm=FRAME_W/total;
   const offset=(excelCol)=>units.slice(0,Math.max(0,excelCol-8)).reduce((s,v)=>s+v,0)*unitMm;
@@ -122,17 +119,23 @@ function VariableBox({value,c1,r1,c2,r2,className='',ltr=false,slotter}) {
   </div>;
 }
 
+function DividerBox({c,r,r2=r,slotter}) {
+  return <div className="tvm-divider" style={slotter(c,r,c,r2)}>/</div>;
+}
+
 function PurposeFlowBox({value,slotter}) {
   const text=String(value??'').trim();
-  return <div className="tvm-purpose-flow-single" style={slotter(8,20,32,21)}>
-    {text?<span className="tvm-purpose-flow-text">{text}</span>:null}
+  const excluded=slotter(28,20,55,20); // AB:BC occupied by divider + fixed/other fields on first row
+  return <div className="tvm-purpose-flow-single" style={slotter(8,20,55,21)}>
     <span className="tvm-purpose-flow-dots" aria-hidden="true"/>
+    <span className="tvm-purpose-exclusion" style={{width:excluded.width,height:`${ROW_MM}mm`}} aria-hidden="true"/>
+    {text?<span className="tvm-purpose-flow-text">{text}</span>:null}
   </div>;
 }
 
 export default function TreasuryVoucherPrint({voucher,settings}){
   const isReceipt=voucher?.voucher_type==='receipt';
-  const slot=createSlotter(isReceipt);
+  const slot=createSlotter();
 
   const partyType=voucher?.party_type||(voucher?.party_id_kind==='cr'?'establishment':'individual');
   const isEstablishment=partyType==='establishment';
@@ -157,7 +160,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
     voucher?.party_representative_name,
     voucher?.party_representative_title
   ].filter(Boolean).join(' — ');
-  const partyHeading=isEstablishment?'المستفيد / المحصل منه':(isReceipt?'المحصل منه':'المستفيد');
+  const partyHeading=isReceipt?'المحصل منه':'المستفيد';
   const partyRoleValue=isEstablishment?representative:(voucher?.party_title||(isReceipt?'عميل':'موظف'));
   const partyCardName=compactPartyDisplayName(voucher?.party_name,isEstablishment);
 
@@ -203,58 +206,80 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <StaticBox slotter={slot} c1={39} r1={15} c2={44} r2={15}>التاريخ/</StaticBox>
       <VariableBox slotter={slot} c1={45} r1={15} c2={55} r2={15} value={formatDate(voucher?.voucher_date)} ltr/>
 
-      {/* Unified body */}
-      <VariableBox slotter={slot} c1={8} r1={18} c2={14} r2={18} value={latinDigits(voucher?.party_mobile||'')} ltr/>
-      <StaticBox slotter={slot} c1={15} r1={18} c2={18} r2={18}>جوال رقم/</StaticBox>
-      <VariableBox slotter={slot} c1={19} r1={18} c2={28} r2={18} value={latinDigits(voucher?.party_id_number||'')} ltr/>
-      <StaticBox slotter={slot} c1={29} r1={18} c2={32} r2={18}>{idLabel}/</StaticBox>
-      <VariableBox slotter={slot} c1={33} r1={18} c2={50} r2={18} value={voucher?.party_name||''}/>
-      <StaticBox slotter={slot} c1={51} r1={18} c2={55} r2={18}>{isReceipt?'استلمنا من السيد/':'استلمنا نحن/'}</StaticBox>
+      {/* Unified body — exact latest Excel geometry with one-cell "/" barriers */}
+      <VariableBox slotter={slot} c1={8} r1={18} c2={13} r2={18} value={latinDigits(voucher?.party_mobile||'')} ltr/>
+      <DividerBox slotter={slot} c={14} r={18}/>
+      <StaticBox slotter={slot} c1={15} r1={18} c2={18} r2={18}>جوال رقم</StaticBox>
 
-      <VariableBox slotter={slot} c1={8} r1={19} c2={14} r2={19} value={method}/>
-      <StaticBox slotter={slot} c1={15} r1={19} c2={18} r2={19}>وذلك عبر/</StaticBox>
-      <VariableBox slotter={slot} c1={19} r1={19} c2={35} r2={19} value={amountWords} className="tvm-words-field"/>
-      <div className="tvm-amount-with-riyal" style={slot(37,19,42,19)} dir="ltr"><span>{amountNumber}</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></div>
-      <StaticBox slotter={slot} c1={43} r1={19} c2={44} r2={19}>مبلغ/</StaticBox>
-      <VariableBox slotter={slot} c1={45} r1={19} c2={50} r2={19} value={city}/>
-      <StaticBox slotter={slot} c1={51} r1={19} c2={55} r2={19}>بمدينة/</StaticBox>
+      <VariableBox slotter={slot} c1={19} r1={18} c2={26} r2={18} value={latinDigits(voucher?.party_id_number||'')} ltr/>
+      <DividerBox slotter={slot} c={27} r={18}/>
+      <StaticBox slotter={slot} c1={28} r1={18} c2={32} r2={18}>{idLabel}</StaticBox>
+
+      <VariableBox slotter={slot} c1={33} r1={18} c2={47} r2={18} value={voucher?.party_name||''}/>
+      <DividerBox slotter={slot} c={48} r={18}/>
+      <StaticBox slotter={slot} c1={49} r1={18} c2={55} r2={18}>{isReceipt?'استلمنا من السيد':'استلمنا نحن'}</StaticBox>
+
+      <VariableBox slotter={slot} c1={8} r1={19} c2={13} r2={19} value={method}/>
+      <DividerBox slotter={slot} c={14} r={19}/>
+      <StaticBox slotter={slot} c1={15} r1={19} c2={18} r2={19}>وذلك عبر</StaticBox>
+
+      <VariableBox slotter={slot} c1={19} r1={19} c2={33} r2={19} value={amountWords} className="tvm-words-field"/>
+      <div className="tvm-amount-with-riyal" style={slot(35,19,39,19)} dir="ltr"><span>{amountNumber}</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></div>
+      <DividerBox slotter={slot} c={40} r={19}/>
+      <StaticBox slotter={slot} c1={41} r1={19} c2={42} r2={19}>مبلغ</StaticBox>
+
+      <VariableBox slotter={slot} c1={43} r1={19} c2={47} r2={19} value={city}/>
+      <DividerBox slotter={slot} c={48} r={19}/>
+      <StaticBox slotter={slot} c1={49} r1={19} c2={55} r2={19}>بمدينة</StaticBox>
 
       <PurposeFlowBox slotter={slot} value={voucher?.description||''}/>
-      <StaticBox slotter={slot} c1={33} r1={20} c2={38} r2={20}>وذلك مقابل/</StaticBox>
-      <VariableBox slotter={slot} c1={39} r1={20} c2={50} r2={20} value={voucher?.supporting_reference||voucher?.payment_reference||''}/>
-      <StaticBox slotter={slot} c1={51} r1={20} c2={55} r2={20}>مرجع الدفع/</StaticBox>
+      <DividerBox slotter={slot} c={28} r={20}/>
+      <StaticBox slotter={slot} c1={29} r1={20} c2={34} r2={20}>وذلك مقابل</StaticBox>
+
+      <VariableBox slotter={slot} c1={35} r1={20} c2={47} r2={20} value={voucher?.supporting_reference||voucher?.payment_reference||''}/>
+      <DividerBox slotter={slot} c={48} r={20}/>
+      <StaticBox slotter={slot} c1={49} r1={20} c2={55} r2={20}>مرجع الدفع</StaticBox>
 
       <PlainBox slotter={slot} c1={8} r1={22} c2={55} r2={24} className="tvm-legal">
         {voucher?.legal_text_snapshot||''}
       </PlainBox>
 
-      {/* Signature area — exact latest workbook rows 26:29 */}
+      {/* Signature area — exact latest Excel geometry with dedicated "/" mini-cells */}
       <VariableBox slotter={slot} c1={8} r1={26} c2={14} r2={26} value={voucher?.approved_by_name_snapshot||''}/>
-      <StaticBox slotter={slot} c1={15} r1={26} c2={19} r2={26}>اعتماد الإدارة</StaticBox>
+      <DividerBox slotter={slot} c={15} r={26}/>
+      <StaticBox slotter={slot} c1={16} r1={26} c2={19} r2={26}>الاعتمادات</StaticBox>
 
-      <VariableBox slotter={slot} c1={24} r1={26} c2={33} r2={26} value={voucher?.accountant_name_snapshot||''}/>
-      <StaticBox slotter={slot} c1={34} r1={26} c2={38} r2={26}>قسم المالية</StaticBox>
+      <VariableBox slotter={slot} c1={20} r1={26} c2={29} r2={26} value={voucher?.accountant_name_snapshot||''}/>
+      <DividerBox slotter={slot} c={30} r={26}/>
+      <StaticBox slotter={slot} c1={31} r1={26} c2={34} r2={26}>المالية</StaticBox>
 
-      <VariableBox slotter={slot} c1={43} r1={26} c2={50} r2={26} value={partyCardName}/>
-      <StaticBox slotter={slot} c1={51} r1={26} c2={55} r2={26}>{partyHeading}</StaticBox>
+      <VariableBox slotter={slot} c1={35} r1={26} c2={50} r2={26} value={partyCardName}/>
+      <DividerBox slotter={slot} c={51} r={26}/>
+      <StaticBox slotter={slot} c1={52} r1={26} c2={55} r2={26}>{partyHeading}</StaticBox>
 
       <VariableBox slotter={slot} c1={8} r1={27} c2={14} r2={27} value={voucher?.approved_by_title_snapshot||''} className="tvm-role-field"/>
-      <StaticBox slotter={slot} c1={15} r1={27} c2={19} r2={27}>الصفة/</StaticBox>
+      <DividerBox slotter={slot} c={15} r={27}/>
+      <StaticBox slotter={slot} c1={16} r1={27} c2={19} r2={27}>الصفة</StaticBox>
 
-      <VariableBox slotter={slot} c1={24} r1={27} c2={33} r2={27} value={voucher?.accountant_title_snapshot||''} className="tvm-role-field"/>
-      <StaticBox slotter={slot} c1={34} r1={27} c2={38} r2={27}>الصفة/</StaticBox>
+      <VariableBox slotter={slot} c1={20} r1={27} c2={29} r2={27} value={voucher?.accountant_title_snapshot||''} className="tvm-role-field"/>
+      <DividerBox slotter={slot} c={30} r={27}/>
+      <StaticBox slotter={slot} c1={31} r1={27} c2={34} r2={27}>الصفة</StaticBox>
 
-      <VariableBox slotter={slot} c1={43} r1={27} c2={50} r2={27} value={partyRoleValue} className="tvm-role-field"/>
-      <StaticBox slotter={slot} c1={51} r1={27} c2={55} r2={27}>{isEstablishment?'يمثلها/':'الصفة/'}</StaticBox>
+      <VariableBox slotter={slot} c1={35} r1={27} c2={50} r2={27} value={partyRoleValue} className="tvm-role-field"/>
+      <DividerBox slotter={slot} c={51} r={27}/>
+      <StaticBox slotter={slot} c1={52} r1={27} c2={55} r2={27}>الصفة</StaticBox>
 
-      <VariableBox slotter={slot} c1={8} r1={28} c2={14} r2={29} value="" className="tvm-sign-space"/>
-      <StaticBox slotter={slot} c1={15} r1={28} c2={19} r2={29}>التوقيع/</StaticBox>
+      <VariableBox slotter={slot} c1={8} r1={28} c2={15} r2={29} value="" className="tvm-sign-space"/>
+      <DividerBox slotter={slot} c={16} r={28} r2={29}/>
+      <StaticBox slotter={slot} c1={17} r1={28} c2={19} r2={29}>التوقيع</StaticBox>
 
-      <VariableBox slotter={slot} c1={24} r1={28} c2={33} r2={29} value="" className="tvm-sign-space"/>
-      <StaticBox slotter={slot} c1={34} r1={28} c2={38} r2={29}>التوقيع/</StaticBox>
+      <VariableBox slotter={slot} c1={20} r1={28} c2={30} r2={29} value="" className="tvm-sign-space"/>
+      <DividerBox slotter={slot} c={31} r={28} r2={29}/>
+      <StaticBox slotter={slot} c1={32} r1={28} c2={34} r2={29}>التوقيع</StaticBox>
 
-      <VariableBox slotter={slot} c1={43} r1={28} c2={50} r2={29} value="" className="tvm-sign-space"/>
-      <StaticBox slotter={slot} c1={51} r1={28} c2={55} r2={29}>التوقيع/</StaticBox>
+      <VariableBox slotter={slot} c1={35} r1={28} c2={51} r2={29} value="" className="tvm-sign-space"/>
+      <DividerBox slotter={slot} c={52} r={28} r2={29}/>
+      <StaticBox slotter={slot} c1={53} r1={28} c2={55} r2={29}>التوقيع</StaticBox>
     </section>
   </article>;
 }
