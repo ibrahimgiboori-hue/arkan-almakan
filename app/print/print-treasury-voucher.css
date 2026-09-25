@@ -356,3 +356,44 @@
   border:0!important;
   border-bottom:.10mm solid rgba(143,31,40,.16)!important;
 }
+
+/* Stacking fix: semantic body surfaces are backgrounds only; all content must sit above them. */
+.treasury-voucher-mockup .tvm-body-surface,
+.treasury-voucher-mockup .tvm-signature-surface{
+  z-index:0!important;
+}
+.treasury-voucher-mockup .tvm-static,
+.treasury-voucher-mockup .tvm-plain,
+.treasury-voucher-mockup .tvm-variable,
+.treasury-voucher-mockup .tvm-logo{
+  z-index:2;
+}
+
+/* Body constants must stay clearly visible as maroon text on the single white body plane. */
+.treasury-voucher-mockup .tvm-body-static{
+  color:#8f1f28!important;
+  background:transparent!important;
+  font-weight:800!important;
+  opacity:1!important;
+}
+
+/* Anti-tamper rule: visible dotted baseline + barely perceptible leftover shading. */
+.treasury-voucher-mockup .tvm-body-variable{
+  overflow:hidden;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-remainder,
+.treasury-voucher-mockup .tvm-sign-space .tvm-variable-remainder{
+  opacity:1!important;
+  min-width:2mm;
+  background:
+    linear-gradient(rgba(143,31,40,.018),rgba(143,31,40,.018)),
+    radial-gradient(circle,#9f9f9f .18mm,transparent .22mm)!important;
+  background-size:auto,1.85mm .60mm!important;
+  background-position:0 0,left calc(100% - .24mm)!important;
+  background-repeat:no-repeat,repeat-x!important;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-value{
+  position:relative;
+  z-index:3;
+  background:#fff!important;
+}
