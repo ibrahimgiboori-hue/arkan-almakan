@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import WorkbookFamilyGridPreview from '@/components/quotes/WorkbookFamilyGridPreview';
+import { inspectPrintFamilyWorkbook } from '@/lib/print-family-workbook-client';
 
 const FAMILY_ID = 'treasury_vouchers';
 const METHOD_LABEL = { cash:'نقدًا', bank_transfer:'تحويل بنكي', cheque:'شيك', card:'بطاقة', other:'أخرى' };
@@ -114,7 +115,7 @@ export default function TreasuryVoucherPrintPage() {
       const [voucherQ, settingsQ, familyQ] = await Promise.all([
         supabase.rpc('fn_cash_voucher_print_get', { p_voucher_id:id }),
         supabase.from('app_settings').select('*').eq('id', 1).maybeSingle(),
-        supabase.from('print_family_workbooks').select('ui_schema').eq('family_id', FAMILY_ID).maybeSingle(),
+        supabase.from('print_family_workbooks').select('ui_schema,storage_path,original_name').eq('family_id', FAMILY_ID).maybeSingle(),
       ]);
       if (cancelled) return;
       const firstError = voucherQ.error || settingsQ.error || familyQ.error;
@@ -126,11 +127,34 @@ export default function TreasuryVoucherPrintPage() {
         setState({ loading:false, voucher:null, settings:null, schema:null, error:'لم يُعثر على السند، أو لا تملك صلاحية عرضه.' });
         return;
       }
+      let liveSchema = familyQ.data?.ui_schema || null;
+      const storagePath = familyQ.data?.storage_path || '';
+      if (storagePath) {
+        const download = await supabase.storage.from('print-families').download(storagePath);
+        if (!download.error && download.data) {
+          try {
+            const file = new File(
+              [download.data],
+              familyQ.data?.original_name || 'treasury-vouchers.xlsx',
+              { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+            );
+            const inspection = await inspectPrintFamilyWorkbook(
+              file,
+              { id:FAMILY_ID, models:[] },
+              { protectedModels:[] }
+            );
+            if (!inspection.errors?.length && inspection.uiSchema) liveSchema = inspection.uiSchema;
+          } catch (error) {
+            console.warn('live voucher workbook parse failed; using stored schema', error);
+          }
+        }
+      }
+
       setState({
         loading:false,
         voucher:voucherQ.data,
         settings:settingsQ.data || {},
-        schema:familyQ.data?.ui_schema || null,
+        schema:liveSchema,
         error:'',
       });
     }
