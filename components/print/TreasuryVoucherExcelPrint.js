@@ -66,6 +66,17 @@ function cellTokens(cell){
 function cellEndCol(cell){return Number(cell.col)+Math.max(1,Number(cell.colSpan||1))-1;}
 function cellEndRow(cell){return Number(cell.row)+Math.max(1,Number(cell.rowSpan||1))-1;}
 
+function excelBorderVars(cell){
+  const borders=cell?.style?.borders||{};
+  const line=(side)=>borders?.[side] ? '.10mm solid rgba(143,31,40,.18)' : '0 solid transparent';
+  return {
+    '--tvm-eb-top':line('top'),
+    '--tvm-eb-right':line('right'),
+    '--tvm-eb-bottom':line('bottom'),
+    '--tvm-eb-left':line('left'),
+  };
+}
+
 function buildGeometry(model){
   const FRAME_START_COL=7,FRAME_END_COL=56,FRAME_START_ROW=7,FRAME_END_ROW=30;
   const cols=new Map((model?.columns||[]).map((x)=>[Number(x.col),Number(x.widthPx||x.width||12)]));
@@ -157,7 +168,7 @@ function titleParts(text){
 }
 
 function Variable({cell,slot,value,token}){
-  const style=slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell));
+  const style={...slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell)),...excelBorderVars(cell)};
   const cls=`tvm-variable ${Number(cell.row)>=18?'tvm-body-variable':''} ${isNumericToken(token)?'tvm-ltr':''}`.trim();
   if(token==='amount_number'){
     return <div className="tvm-amount-with-riyal" style={style} dir="ltr"><span>{value}</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></div>;
@@ -208,7 +219,7 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
         const text=String(cell.text||'').trim();
         const tokens=cellTokens(cell);
         const token=tokens[0]||'';
-        const style=g.slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell));
+        const style={...g.slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell)),...excelBorderVars(cell)};
 
         if(isSignSpace(cell)){
           return <div key={cell.address} className="tvm-variable tvm-body-variable tvm-sign-space" style={style}>
