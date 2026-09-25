@@ -97,9 +97,19 @@ function buildBorderSegments(cells,slot){
     if(row<18||row>29) continue;
 
     const c1=Number(cell.col),r1=row,c2=cellEndCol(cell),r2=cellEndRow(cell);
+    const borders=cell?.style?.borders||{};
+    const rawText=String(cell?.text||'').trim();
+    const hasContent=Boolean(rawText||cellTokens(cell).length);
+    const mergedCell=c2>c1||r2>r1;
+    const hasIntentionalBorder=Object.values(borders).some((edge)=>Boolean(edge?.intentional));
+
+    // Ignore Excel's helper-grid noise: empty, unmerged cells with only ordinary
+    // thin borders are construction guides, not printable document rules.
+    // Real merged regions, content cells and explicitly intentional borders remain.
+    if(!hasContent && !mergedCell && !hasIntentionalBorder) continue;
+
     const rect=slot(c1,r1,c2,r2);
     const left=parseFloat(rect.left),top=parseFloat(rect.top),width=parseFloat(rect.width),height=parseFloat(rect.height);
-    const borders=cell?.style?.borders||{};
 
     const topSpec=borderSpec(borders.top);
     if(topSpec) put(`h:${top.toFixed(4)}:${left.toFixed(4)}:${(left+width).toFixed(4)}`,{axis:'h',left,top,length:width,spec:topSpec});
