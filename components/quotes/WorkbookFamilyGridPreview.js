@@ -70,9 +70,20 @@ function frameOf(model, bounds) {
 }
 
 function borderCss(side) {
-  if (!side) return 'none';
+  if (!side?.intentional) return 'none';
   const width = Math.max(0.15, Number(side.widthMm || 0.2));
-  return `${width}mm ${side.lineStyle || 'solid'} ${side.color || '#8f8f8f'}`;
+  return `${width}mm ${side.lineStyle || 'solid'} ${side.color || '#111'}`;
+}
+
+function hasGeometry(cell) {
+  const style = cell?.style || {};
+  const fill = String(style.fillColor || '').toUpperCase();
+  const visibleFill = Boolean(fill && fill !== '#FFFFFF' && fill !== '#FFF');
+  return visibleFill
+    || Boolean(style.borders?.top?.intentional)
+    || Boolean(style.borders?.right?.intentional)
+    || Boolean(style.borders?.bottom?.intentional)
+    || Boolean(style.borders?.left?.intentional);
 }
 
 function alignItemsFor(vertical) {
@@ -191,39 +202,25 @@ export default function WorkbookFamilyGridPreview({
       }}
     /> : null}
 
-    {authoritativeBoundary ? <div
+    <div
       aria-hidden="true"
       style={{
         position:'absolute',
-        left:`${colOffsetMm(frame.startCol)}mm`,
-        top:`${rowOffsetMm(frame.startRow)}mm`,
-        width:`${spanWidthMm(frame.startCol, frame.endCol)}mm`,
-        height:`${spanHeightMm(frame.startRow, frame.endRow)}mm`,
-        border:'0.55mm solid #111',
-        boxSizing:'border-box',
-        zIndex:8,
+        inset:0,
+        display:'grid',
+        gridTemplateColumns:gridColumns,
+        gridTemplateRows:gridRows,
+        zIndex:5,
+        direction:'ltr',
         pointerEvents:'none',
       }}
-    /> : null}
-
-    <div style={{
-      position:'relative',
-      display:'grid',
-      gridTemplateColumns:gridColumns,
-      gridTemplateRows:gridRows,
-      width:'100%',
-      minHeight:'100%',
-      zIndex:5,
-      direction:'ltr',
-    }}>
-      {cells.map((cell) => {
-        const text = tokenValue(cell.text, values);
+    >
+      {cells.filter(hasGeometry).map((cell) => {
         const style = cell.style || {};
-        const rtl = /[\u0600-\u06FF]/.test(text);
-        const horizontal = String(style.horizontal || '').trim();
-        const vertical = String(style.vertical || '').trim();
+        const fill = String(style.fillColor || '').toUpperCase();
+        const background = fill && fill !== '#FFFFFF' && fill !== '#FFF' ? style.fillColor : 'transparent';
         return <div
-          key={cell.address || `${cell.row}-${cell.col}`}
+          key={`geo-${cell.address || `${cell.row}-${cell.col}`}`}
           style={{
             gridColumn:`${cell.col - bounds.startCol + 1} / span ${Math.max(1, Number(cell.colSpan || 1))}`,
             gridRow:`${cell.row - bounds.startRow + 1} / span ${Math.max(1, Number(cell.rowSpan || 1))}`,
@@ -231,7 +228,35 @@ export default function WorkbookFamilyGridPreview({
             borderRight:borderCss(style.borders?.right),
             borderBottom:borderCss(style.borders?.bottom),
             borderLeft:borderCss(style.borders?.left),
-            background:style.fillColor || 'transparent',
+            background,
+            boxSizing:'border-box',
+          }}
+        />;
+      })}
+    </div>
+
+    <div style={{
+      position:'absolute',
+      inset:0,
+      display:'grid',
+      gridTemplateColumns:gridColumns,
+      gridTemplateRows:gridRows,
+      zIndex:10,
+      direction:'ltr',
+      pointerEvents:'none',
+    }}>
+      {cells.map((cell) => {
+        const text = tokenValue(cell.text, values);
+        if (!text) return null;
+        const style = cell.style || {};
+        const rtl = /[\u0600-\u06FF]/.test(text);
+        const horizontal = String(style.horizontal || '').trim();
+        const vertical = String(style.vertical || '').trim();
+        return <div
+          key={`txt-${cell.address || `${cell.row}-${cell.col}`}`}
+          style={{
+            gridColumn:`${cell.col - bounds.startCol + 1} / span ${Math.max(1, Number(cell.colSpan || 1))}`,
+            gridRow:`${cell.row - bounds.startRow + 1} / span ${Math.max(1, Number(cell.rowSpan || 1))}`,
             color:style.fontColor || '#111827',
             padding:'1px 3px',
             fontSize:style.fontSizePt ? `${style.fontSizePt}pt` : '10.5px',
@@ -247,13 +272,11 @@ export default function WorkbookFamilyGridPreview({
             alignItems:alignItemsFor(vertical),
             justifyContent:justifyFor(horizontal, rtl),
             boxSizing:'border-box',
-            zIndex:10,
           }}
           title={cell.address}
         >{text}</div>;
       })}
     </div>
-
     {visibleAssets.map((asset) => {
       const anchor = parseAnchorRange(asset.anchorRange);
       if (!anchor) return null;
