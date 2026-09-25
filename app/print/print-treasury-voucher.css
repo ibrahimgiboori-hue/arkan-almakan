@@ -882,3 +882,76 @@
   overflow:hidden;
   text-overflow:clip;
 }
+
+/* Final treasury refinement: Excel owns body/signature border geometry.
+   Cells themselves do not invent borders; a single deduplicated overlay draws them. */
+.treasury-voucher-mockup .tvm-body-static,
+.treasury-voucher-mockup .tvm-body-variable,
+.treasury-voucher-mockup .tvm-divider,
+.treasury-voucher-mockup .tvm-amount-with-riyal,
+.treasury-voucher-mockup .tvm-sign-space,
+.treasury-voucher-mockup .tvm-legal{
+  border:0!important;
+}
+.treasury-voucher-mockup .tvm-excel-border-map{
+  position:absolute;
+  inset:0;
+  z-index:6;
+  pointer-events:none;
+}
+
+/* Fixed Arabic labels keep the exact Excel text, while tatweel runs gain
+   enough optical length to read as intentional elongation at print scale. */
+.treasury-voucher-mockup .tvm-static-text{
+  display:inline-flex;
+  align-items:center;
+  white-space:pre;
+  unicode-bidi:plaintext;
+  font-family:inherit;
+  font-kerning:none;
+  font-feature-settings:"kern" 0;
+  text-rendering:geometricPrecision;
+}
+.treasury-voucher-mockup .tvm-kashida-run{
+  display:inline-block;
+  letter-spacing:.09em;
+  transform:scaleX(1.28);
+  transform-origin:center;
+  margin-inline:.05em;
+  font-family:Arial,var(--font-plex),sans-serif;
+  font-weight:700;
+}
+
+/* Stronger body rhythm without altering Excel geometry. */
+.treasury-voucher-mockup .tvm-body-static{
+  font-size:8pt!important;
+  font-weight:700!important;
+  line-height:1.15!important;
+  padding:.28mm .36mm .46mm!important;
+}
+.treasury-voucher-mockup .tvm-body-variable{
+  padding:.24mm .38mm .48mm!important;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-value{
+  font-size:8.15pt!important;
+  font-weight:700!important;
+  line-height:1.15!important;
+  font-style:normal!important;
+}
+.treasury-voucher-mockup .tvm-words-field .tvm-variable-value{
+  font-size:7.7pt!important;
+}
+.treasury-voucher-mockup .tvm-role-field .tvm-variable-value{
+  font-size:7.35pt!important;
+}
+.treasury-voucher-mockup .tvm-legal{
+  font-size:7.4pt!important;
+  line-height:1.42!important;
+  padding:1mm 1.35mm!important;
+}
+
+/* Anti-tamper texture stays present but recedes behind the text. */
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-remainder,
+.treasury-voucher-mockup .tvm-sign-space .tvm-variable-remainder{
+  opacity:.58!important;
+}
