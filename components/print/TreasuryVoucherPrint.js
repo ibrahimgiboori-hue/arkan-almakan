@@ -249,7 +249,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
 
       <VariableBox slotter={slot} c1={43} r1={19} c2={47} r2={19} value={city}/>
       <DividerBox slotter={slot} c={48} r={19}/>
-      <StaticBox slotter={slot} c1={49} r1={19} c2={55} r2={19}>بمدينة</StaticBox>
+      <StaticBox slotter={slot} c1={49} r1={19} c2={55} r2={19}>مكان الوفاء</StaticBox>
 
       <PurposeFlowBox slotter={slot} value={voucher?.description||''}/>
       <DividerBox slotter={slot} c={28} r={20}/>
