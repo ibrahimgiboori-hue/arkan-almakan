@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import TreasuryVoucherPrint from '@/components/print/TreasuryVoucherPrint';
+import TreasuryVoucherExcelPrint from '@/components/print/TreasuryVoucherExcelPrint';
 
 export default function TreasuryVoucherPrintPage() {
   const { id } = useParams();
-  const [state, setState] = useState({ loading:true, voucher:null, settings:null, error:'' });
+  const [state, setState] = useState({ loading:true, voucher:null, settings:null, schema:null, error:'' });
   const [embed, setEmbed] = useState(false);
 
   useEffect(() => {
@@ -18,24 +19,26 @@ export default function TreasuryVoucherPrintPage() {
     let cancelled=false;
     async function load(){
       setState((current)=>({...current,loading:true,error:''}));
-      const [voucherQ,settingsQ]=await Promise.all([
+      const [voucherQ,settingsQ,familyQ]=await Promise.all([
         supabase.rpc('fn_cash_voucher_print_get',{p_voucher_id:id}),
         supabase.from('app_settings').select('*').eq('id',1).maybeSingle(),
+        supabase.from('print_family_workbooks').select('ui_schema,version,original_name').eq('family_id','treasury_vouchers').maybeSingle(),
       ]);
       if(cancelled)return;
-      const firstError=voucherQ.error||settingsQ.error;
+      const firstError=voucherQ.error||settingsQ.error||familyQ.error;
       if(firstError){
-        setState({loading:false,voucher:null,settings:null,error:firstError.message||'تعذّر تحميل السند.'});
+        setState({loading:false,voucher:null,settings:null,schema:null,error:firstError.message||'تعذّر تحميل السند.'});
         return;
       }
       if(!voucherQ.data){
-        setState({loading:false,voucher:null,settings:null,error:'لم يُعثر على السند، أو لا تملك صلاحية عرضه.'});
+        setState({loading:false,voucher:null,settings:null,schema:null,error:'لم يُعثر على السند، أو لا تملك صلاحية عرضه.'});
         return;
       }
       setState({
         loading:false,
         voucher:voucherQ.data,
         settings:settingsQ.data||{},
+        schema:familyQ.data?.ui_schema||null,
         error:'',
       });
     }
@@ -53,7 +56,7 @@ export default function TreasuryVoucherPrintPage() {
     }}>
       <div>
         <strong>{state.voucher?.voucher_type==='receipt'?'سند قبض':'سند صرف'}</strong>
-        <span style={{marginInlineStart:10,fontSize:12,color:'#666'}}>قالب سند مالي مخصص — مطابق لخريطة المواضع المعتمدة</span>
+        <span style={{marginInlineStart:10,fontSize:12,color:'#666'}}>Excel هو مصدر الثوابت والمواضع والمساحات — البيانات من السند</span>
       </div>
       <button type="button" onClick={()=>window.print()} style={{padding:'7px 12px',fontWeight:700}}>طباعة / حفظ PDF</button>
     </div>:null}
@@ -62,7 +65,9 @@ export default function TreasuryVoucherPrintPage() {
       width:'297mm',height:'210mm',margin:embed?'0 auto':'18px auto',
       background:'#fff',boxShadow:embed?'none':'0 6px 28px rgba(0,0,0,.18)',overflow:'hidden',boxSizing:'border-box',
     }}>
-      <TreasuryVoucherPrint voucher={state.voucher} settings={state.settings||{}}/>
+      {state.schema
+        ? <TreasuryVoucherExcelPrint voucher={state.voucher} settings={state.settings||{}} schema={state.schema}/>
+        : <TreasuryVoucherPrint voucher={state.voucher} settings={state.settings||{}}/>}
     </main>
   </div>;
 }
