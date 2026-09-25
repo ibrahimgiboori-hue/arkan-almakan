@@ -77,10 +77,11 @@ function borderSpec(edge){
       : /dot|hair/.test(rawStyle)
         ? 'dotted'
         : 'solid';
+  const strong=rawStyle==='double'||/thick|medium/.test(rawStyle);
   return {
-    width,
+    width:strong?width:Math.min(width,0.10),
     lineStyle,
-    color:String(edge.color||'#111111'),
+    color:strong?String(edge.color||'#111111'):'rgba(143,31,40,.26)',
     strength:(rawStyle==='double'?5:/thick/.test(rawStyle)?4:/medium/.test(rawStyle)?3:2),
   };
 }
@@ -118,17 +119,38 @@ function buildBorderSegments(cells,slot){
       put(`v:${x.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left:x,top,length:height,spec:rightSpec});
     }
   }
-  return Array.from(byKey.values());
+  const raw=Array.from(byKey.values());
+  const groups=new Map();
+  for(const segment of raw){
+    const key=`${segment.axis}:${segment.axis==='h'?segment.top:segment.left}:${segment.spec.width}:${segment.spec.lineStyle}:${segment.spec.color}`;
+    const list=groups.get(key)||[];
+    list.push(segment);
+    groups.set(key,list);
+  }
+
+  const merged=[];
+  for(const list of groups.values()){
+    list.sort((a,b)=>(a.axis==='h'?a.left:a.top)-(b.axis==='h'?b.left:b.top));
+    for(const seg of list){
+      const last=merged[merged.length-1];
+      if(last && last.axis===seg.axis && last.spec.width===seg.spec.width && last.spec.lineStyle===seg.spec.lineStyle && last.spec.color===seg.spec.color){
+        if(seg.axis==='h' && Math.abs(last.top-seg.top)<0.01 && seg.left<=last.left+last.length+0.03){
+          last.length=Math.max(last.left+last.length,seg.left+seg.length)-last.left;
+          continue;
+        }
+        if(seg.axis==='v' && Math.abs(last.left-seg.left)<0.01 && seg.top<=last.top+last.length+0.03){
+          last.length=Math.max(last.top+last.length,seg.top+seg.length)-last.top;
+          continue;
+        }
+      }
+      merged.push({...seg});
+    }
+  }
+  return merged;
 }
 
 function renderStaticLabel(text){
-  const parts=String(text||'').split(/(ـ+)/u);
-  return parts.map((part,index)=>{
-    if(/^ـ+$/u.test(part)){
-      return <span key={index} className="tvm-kashida-run" style={{'--tvm-kashida-count':String(part.length)}}>{part}</span>;
-    }
-    return part;
-  });
+  return String(text||'');
 }
 
 function buildGeometry(model){
