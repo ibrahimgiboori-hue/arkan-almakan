@@ -579,3 +579,81 @@
   padding-left:.75mm!important;
   padding-right:.75mm!important;
 }
+
+/* Latest Excel layout: no overlap workaround.
+   Every fixed label, "/" barrier and variable owns a separate cell range. */
+.treasury-voucher-mockup .tvm-body-static{
+  z-index:2!important;
+  background:transparent!important;
+  color:#8f1f28!important;
+  padding:.32mm .38mm .62mm!important;
+  overflow:hidden!important;
+}
+.treasury-voucher-mockup .tvm-body-variable,
+.treasury-voucher-mockup .tvm-amount-with-riyal{
+  z-index:2!important;
+  overflow:hidden!important;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-value{
+  max-width:calc(100% - .8mm)!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.treasury-voucher-mockup .tvm-divider{
+  position:absolute;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  color:#8f1f28;
+  background:transparent;
+  font-weight:900;
+  font-size:8pt;
+  line-height:1;
+  border-bottom:.10mm solid rgba(143,31,40,.16);
+}
+
+/* One logical purpose field:
+   first line is H20:AA20; fixed fields occupy AB20:BC20;
+   continuation line H21:BC21 uses the full width automatically. */
+.treasury-voucher-mockup .tvm-purpose-flow-single{
+  z-index:2!important;
+  display:block!important;
+  direction:rtl!important;
+  text-align:right!important;
+  padding:.38mm .5mm!important;
+  overflow:hidden!important;
+}
+.treasury-voucher-mockup .tvm-purpose-exclusion{
+  display:block;
+  float:right;
+  shape-outside:margin-box;
+}
+.treasury-voucher-mockup .tvm-purpose-flow-text{
+  position:relative!important;
+  z-index:3!important;
+  display:inline!important;
+  width:auto!important;
+  max-width:none!important;
+  color:#111;
+  background:rgba(255,255,255,.985);
+  font-style:italic;
+  font-weight:800;
+  font-size:7.25pt;
+  line-height:1.52;
+  white-space:normal!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+}
+.treasury-voucher-mockup .tvm-purpose-flow-dots{
+  z-index:1!important;
+}
+
+/* The separate Excel barrier cells are the only separators;
+   labels themselves no longer carry a slash. */
+.treasury-voucher-mockup .tvm-body-static,
+.treasury-voucher-mockup .tvm-divider,
+.treasury-voucher-mockup .tvm-body-variable{
+  box-sizing:border-box;
+}
