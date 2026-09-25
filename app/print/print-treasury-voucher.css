@@ -534,3 +534,48 @@
   background-repeat:no-repeat,repeat-x;
   pointer-events:none;
 }
+
+/* Collision guard: fixed labels must never be covered by variable values.
+   Keep the body visually unified, but reserve a clean white mask for constants. */
+.treasury-voucher-mockup .tvm-body-static{
+  z-index:8!important;
+  background:#fff!important;
+  color:#8f1f28!important;
+  isolation:isolate;
+}
+
+/* Variables always stay below constants and are clipped to their own Excel slot. */
+.treasury-voucher-mockup .tvm-body-variable,
+.treasury-voucher-mockup .tvm-purpose-flow-single,
+.treasury-voucher-mockup .tvm-amount-with-riyal{
+  z-index:3!important;
+  overflow:hidden!important;
+  min-width:0!important;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-value{
+  z-index:4!important;
+  max-width:calc(100% - 1mm)!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.treasury-voucher-mockup .tvm-words-field .tvm-variable-value,
+.treasury-voucher-mockup .tvm-role-field .tvm-variable-value{
+  max-width:calc(100% - 1.2mm)!important;
+}
+
+/* The two-row purpose field may wrap, but never escape its reserved area. */
+.treasury-voucher-mockup .tvm-purpose-flow-single{
+  clip-path:inset(0);
+}
+.treasury-voucher-mockup .tvm-purpose-flow-text{
+  max-width:100%!important;
+  overflow:hidden!important;
+}
+
+/* Give constants a tiny breathing edge so adjacent values do not visually touch them. */
+.treasury-voucher-mockup .tvm-body-static{
+  padding-left:.75mm!important;
+  padding-right:.75mm!important;
+}
