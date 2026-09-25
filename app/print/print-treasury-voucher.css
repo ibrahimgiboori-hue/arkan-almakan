@@ -231,9 +231,15 @@
   flex:0 0 auto;font-size:8.35pt;font-weight:700;white-space:nowrap;
 }
 .treasury-voucher-document .tv-fill{
-  min-width:8mm;height:4.7mm;min-height:4.7mm;
-  flex:1 1 0;display:flex;align-items:flex-end;gap:.3mm;
-  border-bottom:var(--tv-rule) dotted #555;overflow:hidden;white-space:nowrap;
+  --tv-dot:#777;
+  min-width:8mm;height:4.9mm;min-height:4.9mm;
+  flex:1 1 0;display:flex;align-items:stretch;gap:.3mm;
+  position:relative;
+  overflow:hidden;white-space:nowrap;
+  background-image:radial-gradient(circle, var(--tv-dot) .33mm, transparent .36mm);
+  background-size:2.15mm .7mm;
+  background-position:left calc(100% - .25mm);
+  background-repeat:repeat-x;
 }
 .treasury-voucher-document .tv-method{
   flex:0 1 23mm;
@@ -259,14 +265,36 @@
 }
 
 .treasury-voucher-document .tv-value{
-  position:relative;top:-.35mm;flex:0 0 auto;
-  max-width:100%;overflow:hidden;text-overflow:ellipsis;
-  font-size:8.35pt;font-style:italic;font-weight:700;color:#111;
+  position:relative;
+  z-index:2;
+  top:-.15mm;
+  flex:0 0 auto;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  padding:0 .45mm .7mm;
+  font-size:8.35pt;
+  font-style:italic;
+  font-weight:700;
+  color:#111;
+  line-height:1.05;
+  background:rgba(255,255,255,.90);
 }
 .treasury-voucher-document .tv-fill-sealed .tv-value{overflow:visible;text-overflow:clip}
 .treasury-voucher-document .tv-soft-fill{
-  flex:1 1 auto;align-self:flex-end;height:2.45mm;min-width:0;
-  background:rgba(139,51,50,.105);border-radius:.35mm;
+  position:relative;
+  z-index:1;
+  flex:1 1 auto;
+  min-width:0;
+  height:100%;
+  align-self:stretch;
+  background:
+    linear-gradient(rgba(139,51,50,.09),rgba(139,51,50,.09)),
+    radial-gradient(circle, var(--tv-dot) .33mm, transparent .36mm);
+  background-size:auto,2.15mm .7mm;
+  background-position:0 0,left calc(100% - .25mm);
+  background-repeat:no-repeat,repeat-x;
+  border-radius:.35mm .35mm 0 0;
 }
 .treasury-voucher-document .tv-grow{min-width:30mm}
 .treasury-voucher-document .tv-name{min-width:47mm}
@@ -323,7 +351,14 @@
   white-space:nowrap;
 }
 .treasury-voucher-document .tv-sign-row>i{
-  display:block;height:2.7mm;border-bottom:var(--tv-rule) dotted #8e7b7b;
+  display:block;
+  height:2.9mm;
+  background:
+    linear-gradient(rgba(139,51,50,.07),rgba(139,51,50,.07)),
+    radial-gradient(circle, #8e7b7b .3mm, transparent .33mm);
+  background-size:auto,2mm .65mm;
+  background-position:0 0,left calc(100% - .2mm);
+  background-repeat:no-repeat,repeat-x;
 }
 .treasury-voucher-document .tv-stamp{
   position:absolute;left:5%;top:6.7mm;
