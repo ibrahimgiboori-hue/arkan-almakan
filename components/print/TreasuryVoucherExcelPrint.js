@@ -271,17 +271,22 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
   const cells=model.cells||[];
   const logoCell=cells.find(isLogoCell);
   const legalCell=cells.find(isLegalCell);
-  const visibleCells=cells.filter((cell)=>{
+  const frameCells=cells.filter((cell)=>
+    Number(cell.row)>=8&&Number(cell.row)<=29&&Number(cell.col)>=7&&cellEndCol(cell)<=56
+  );
+  const visibleCells=frameCells.filter((cell)=>{
     if(isLogoCell(cell)||isSignSpace(cell))return true;
     return Boolean(String(cell?.text||'').trim()||cellTokens(cell).length);
-  }).filter((cell)=>Number(cell.row)>=8&&Number(cell.row)<=29&&Number(cell.col)>=8&&cellEndCol(cell)<=55);
+  });
 
   const bodyStart=18;
   const legalStart=legalCell?Number(legalCell.row):22;
   const signatureRows=visibleCells.filter((c)=>Number(c.row)>=25);
   const signatureStart=signatureRows.length?Math.min(...signatureRows.map((c)=>Number(c.row))):26;
   const signatureEnd=signatureRows.length?Math.max(...signatureRows.map(cellEndRow)):29;
-  const borderSegments=buildBorderSegments(visibleCells,g.slot);
+  // Border geometry must use every styled cell from the Excel frame,
+  // including empty cells. Using only text-bearing cells drops real Excel rules.
+  const borderSegments=buildBorderSegments(frameCells,g.slot);
 
   const logoPath=settings?.company_logo_path||'';
   const logoSrc=logoPath
