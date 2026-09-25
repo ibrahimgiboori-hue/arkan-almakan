@@ -26,6 +26,55 @@ function formatDate(value){
 }
 function pageNo(value){return String(Number(value||0)).padStart(2,'0');}
 
+function arabicUnder100(n){
+  const ones=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة'];
+  const teens={10:'عشرة',11:'أحد عشر',12:'اثنا عشر',13:'ثلاثة عشر',14:'أربعة عشر',15:'خمسة عشر',16:'ستة عشر',17:'سبعة عشر',18:'ثمانية عشر',19:'تسعة عشر'};
+  const tens={20:'عشرون',30:'ثلاثون',40:'أربعون',50:'خمسون',60:'ستون',70:'سبعون',80:'ثمانون',90:'تسعون'};
+  if(n<10) return ones[n];
+  if(n<20) return teens[n];
+  const t=Math.floor(n/10)*10, o=n%10;
+  return o ? `${ones[o]} و${tens[t]}` : tens[t];
+}
+function arabicUnder1000(n){
+  if(n<100) return arabicUnder100(n);
+  const hundreds={1:'مائة',2:'مائتان',3:'ثلاثمائة',4:'أربعمائة',5:'خمسمائة',6:'ستمائة',7:'سبعمائة',8:'ثمانمائة',9:'تسعمائة'};
+  const h=Math.floor(n/100), rest=n%100;
+  return rest ? `${hundreds[h]} و${arabicUnder100(rest)}` : hundreds[h];
+}
+function arabicInteger(n){
+  n=Math.floor(Math.abs(Number(n)||0));
+  if(n===0) return 'صفر';
+  const parts=[];
+  const million=Math.floor(n/1000000);
+  const thousand=Math.floor((n%1000000)/1000);
+  const rest=n%1000;
+
+  if(million){
+    if(million===1) parts.push('مليون');
+    else if(million===2) parts.push('مليونان');
+    else if(million>=3 && million<=10) parts.push(`${arabicUnder1000(million)} ملايين`);
+    else parts.push(`${arabicUnder1000(million)} مليونًا`);
+  }
+  if(thousand){
+    if(thousand===1) parts.push('ألف');
+    else if(thousand===2) parts.push('ألفان');
+    else if(thousand>=3 && thousand<=10) parts.push(`${arabicUnder1000(thousand)} آلاف`);
+    else parts.push(`${arabicUnder1000(thousand)} ألفًا`);
+  }
+  if(rest) parts.push(arabicUnder1000(rest));
+  return parts.join(' و');
+}
+function amountWordsArabic(totalHalalas){
+  const riyals=Math.floor(totalHalalas/100);
+  const halalas=totalHalalas%100;
+  const riyalWords=arabicInteger(riyals);
+  const halalaWords=arabicInteger(halalas);
+  const riyalUnit=riyals===1?'ريال سعودي':riyals===2?'ريالان سعوديان':'ريال سعودي';
+  const halalaUnit=halalas===1?'هللة':halalas===2?'هللتان':'هللة';
+  return `${riyalWords} ${riyalUnit} و${halalaWords} ${halalaUnit} فقط لا غير`;
+}
+
+
 function createSlotter(isReceipt){
   const units=excelColUnits(isReceipt);
   const total=units.reduce((sum,value)=>sum+value,0);
@@ -70,6 +119,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
   const amountRiyals=Math.floor(totalHalalas/100).toLocaleString('en-US');
   const amountHalalas=String(totalHalalas%100).padStart(2,'0');
   const amountNumber=`${amountRiyals}.${amountHalalas}`;
+  const amountWords=amountWordsArabic(totalHalalas);
 
   const titleAr=isReceipt?'سند قبض':'سند صرف';
   const titleEn=isReceipt?'Receipt Voucher':'Payment Voucher';
@@ -137,7 +187,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
 
       <VariableBox slotter={slot} c1={8} r1={19} c2={14} r2={19} value={method}/>
       <StaticBox slotter={slot} c1={15} r1={19} c2={18} r2={19}>وذلك عبر/</StaticBox>
-      <VariableBox slotter={slot} c1={19} r1={19} c2={35} r2={19} value={String(voucher?.amount_words||'').replace(/\s+فقط\s+لا\s+غير\s*$/,'').trim()} className="tvm-words-field"/>
+      <VariableBox slotter={slot} c1={19} r1={19} c2={35} r2={19} value={amountWords} className="tvm-words-field"/>
       <div className="tvm-amount-with-riyal" style={slot(37,19,42,19)} dir="ltr"><span>{amountNumber}</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></div>
       <StaticBox slotter={slot} c1={43} r1={19} c2={44} r2={19}>مبلغ/</StaticBox>
       <VariableBox slotter={slot} c1={45} r1={19} c2={50} r2={19} value={city}/>
