@@ -815,3 +815,54 @@
 .treasury-voucher-mockup .tvm-signature-surface{
   border:0!important;
 }
+
+/* Voucher legibility pass: use the program font at print-safe weights.
+   Arabic values are intentionally upright; italic Arabic becomes muddy at this scale. */
+.treasury-voucher-mockup{
+  font-family:var(--font-body),var(--font-plex),"IBM Plex Sans Arabic",Arial,sans-serif!important;
+  font-weight:500;
+}
+.treasury-voucher-mockup .tvm-body-static{
+  font-family:inherit!important;
+  font-size:7.8pt!important;
+  font-weight:700!important;
+  line-height:1.18!important;
+  letter-spacing:0!important;
+  text-shadow:none!important;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-value{
+  font-family:inherit!important;
+  font-size:8pt!important;
+  font-style:normal!important;
+  font-weight:700!important;
+  line-height:1.18!important;
+  letter-spacing:0!important;
+  text-shadow:none!important;
+}
+.treasury-voucher-mockup .tvm-words-field .tvm-variable-value{
+  font-size:7.6pt!important;
+  font-style:normal!important;
+  font-weight:700!important;
+}
+.treasury-voucher-mockup .tvm-role-field .tvm-variable-value{
+  font-size:7.25pt!important;
+  font-style:normal!important;
+  font-weight:650!important;
+}
+.treasury-voucher-mockup .tvm-amount-with-riyal{
+  font-family:inherit!important;
+  font-size:8pt!important;
+  font-style:normal!important;
+  font-weight:700!important;
+}
+.treasury-voucher-mockup .tvm-legal{
+  font-family:inherit!important;
+  font-size:7.25pt!important;
+  font-weight:500!important;
+  line-height:1.45!important;
+  text-rendering:optimizeLegibility;
+}
+.treasury-voucher-mockup .tvm-divider{
+  font-family:inherit!important;
+  font-size:8.2pt!important;
+}
