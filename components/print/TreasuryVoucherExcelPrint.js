@@ -66,29 +66,69 @@ function cellTokens(cell){
 function cellEndCol(cell){return Number(cell.col)+Math.max(1,Number(cell.colSpan||1))-1;}
 function cellEndRow(cell){return Number(cell.row)+Math.max(1,Number(cell.rowSpan||1))-1;}
 
-function excelBorderVars(cell){
-  const borders=cell?.style?.borders||{};
-  const line=(side)=>{
-    const edge=borders?.[side];
-    if(!edge) return '0 solid transparent';
-    const width=Math.max(0.08,Number(edge.widthMm||0.2));
-    const rawStyle=String(edge.style||'').toLowerCase();
-    const lineStyle=rawStyle==='double'
-      ? 'double'
-      : /dash/.test(rawStyle)
-        ? 'dashed'
-        : /dot|hair/.test(rawStyle)
-          ? 'dotted'
-          : 'solid';
-    const color=String(edge.color||'#111111');
-    return `${width}mm ${lineStyle} ${color}`;
-  };
+function borderSpec(edge){
+  if(!edge) return null;
+  const width=Math.max(0.08,Number(edge.widthMm||0.2));
+  const rawStyle=String(edge.style||'').toLowerCase();
+  const lineStyle=rawStyle==='double'
+    ? 'double'
+    : /dash/.test(rawStyle)
+      ? 'dashed'
+      : /dot|hair/.test(rawStyle)
+        ? 'dotted'
+        : 'solid';
   return {
-    '--tvm-eb-top':line('top'),
-    '--tvm-eb-right':line('right'),
-    '--tvm-eb-bottom':line('bottom'),
-    '--tvm-eb-left':line('left'),
+    width,
+    lineStyle,
+    color:String(edge.color||'#111111'),
+    strength:(rawStyle==='double'?5:/thick/.test(rawStyle)?4:/medium/.test(rawStyle)?3:2),
   };
+}
+
+function buildBorderSegments(cells,slot){
+  const byKey=new Map();
+  const put=(key,segment)=>{
+    const prev=byKey.get(key);
+    if(!prev || Number(segment.spec?.strength||0)>Number(prev.spec?.strength||0)) byKey.set(key,segment);
+  };
+
+  for(const cell of cells){
+    const row=Number(cell?.row||0);
+    if(row<18||row>29) continue;
+    const c1=Number(cell.col),r1=row,c2=cellEndCol(cell),r2=cellEndRow(cell);
+    const rect=slot(c1,r1,c2,r2);
+    const left=parseFloat(rect.left),top=parseFloat(rect.top),width=parseFloat(rect.width),height=parseFloat(rect.height);
+    const borders=cell?.style?.borders||{};
+
+    const topSpec=borderSpec(borders.top);
+    if(topSpec) put(`h:${top.toFixed(4)}:${left.toFixed(4)}:${(left+width).toFixed(4)}`,{axis:'h',left,top,length:width,spec:topSpec});
+
+    const bottomSpec=borderSpec(borders.bottom);
+    if(bottomSpec){
+      const y=top+height;
+      put(`h:${y.toFixed(4)}:${left.toFixed(4)}:${(left+width).toFixed(4)}`,{axis:'h',left,top:y,length:width,spec:bottomSpec});
+    }
+
+    const leftSpec=borderSpec(borders.left);
+    if(leftSpec) put(`v:${left.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left,top,length:height,spec:leftSpec});
+
+    const rightSpec=borderSpec(borders.right);
+    if(rightSpec){
+      const x=left+width;
+      put(`v:${x.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left:x,top,length:height,spec:rightSpec});
+    }
+  }
+  return Array.from(byKey.values());
+}
+
+function renderStaticLabel(text){
+  const parts=String(text||'').split(/(ـ+)/u);
+  return parts.map((part,index)=>{
+    if(/^ـ+$/u.test(part)){
+      return <span key={index} className="tvm-kashida-run" style={{'--tvm-kashida-count':String(part.length)}}>{part}</span>;
+    }
+    return part;
+  });
 }
 
 function buildGeometry(model){
@@ -182,7 +222,7 @@ function titleParts(text){
 }
 
 function Variable({cell,slot,value,token}){
-  const style={...slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell)),...excelBorderVars(cell)};
+  const style=slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell));
   const cls=`tvm-variable ${Number(cell.row)>=18?'tvm-body-variable':''} ${isNumericToken(token)?'tvm-ltr':''}`.trim();
   if(token==='amount_number'){
     return <div className="tvm-amount-with-riyal" style={style} dir="ltr"><span>{value}</span><img src={SAR_SYMBOL_DATA} alt="علامة الريال السعودي"/></div>;
@@ -212,6 +252,7 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
   const signatureRows=visibleCells.filter((c)=>Number(c.row)>=25);
   const signatureStart=signatureRows.length?Math.min(...signatureRows.map((c)=>Number(c.row))):26;
   const signatureEnd=signatureRows.length?Math.max(...signatureRows.map(cellEndRow)):29;
+  const borderSegments=buildBorderSegments(visibleCells,g.slot);
 
   const logoPath=settings?.company_logo_path||'';
   const logoSrc=logoPath
@@ -225,6 +266,17 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
       <div className="tvm-body-surface" style={g.slot(8,bodyStart,55,Math.max(bodyStart,legalStart-1))} aria-hidden="true"/>
       <div className="tvm-signature-surface" style={g.slot(8,signatureStart,55,signatureEnd)} aria-hidden="true"/>
 
+      <div className="tvm-excel-border-map" aria-hidden="true">
+        {borderSegments.map((segment,index)=>{
+          const spec=segment.spec;
+          const common={position:'absolute',zIndex:6,pointerEvents:'none',boxSizing:'border-box'};
+          if(segment.axis==='h'){
+            return <span key={index} style={{...common,left:`${segment.left}mm`,top:`${segment.top}mm`,width:`${segment.length}mm`,height:0,borderTop:`${spec.width}mm ${spec.lineStyle} ${spec.color}`}}/>;
+          }
+          return <span key={index} style={{...common,left:`${segment.left}mm`,top:`${segment.top}mm`,width:0,height:`${segment.length}mm`,borderLeft:`${spec.width}mm ${spec.lineStyle} ${spec.color}`}}/>;
+        })}
+      </div>
+
       {logoCell?<div className="tvm-logo" style={g.slot(Number(logoCell.col),Number(logoCell.row),cellEndCol(logoCell),cellEndRow(logoCell))}>
         <img src={logoSrc} alt="شعار أركان المكان"/>
       </div>:null}
@@ -233,7 +285,7 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
         const text=String(cell.text||'').trim();
         const tokens=cellTokens(cell);
         const token=tokens[0]||'';
-        const style={...g.slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell)),...excelBorderVars(cell)};
+        const style=g.slot(Number(cell.col),Number(cell.row),cellEndCol(cell),cellEndRow(cell));
 
         if(isSignSpace(cell)){
           return <div key={cell.address} className="tvm-variable tvm-body-variable tvm-sign-space" style={style}>
@@ -260,7 +312,7 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
         const cls=plainHeader
           ? `tvm-plain ${/[A-Za-z]/.test(text)?'tvm-company-en':'tvm-company-ar'}`
           : `tvm-static ${body?'tvm-body-static':''}`;
-        return <div key={cell.address} className={cls.trim()} style={style}><span className="tvm-static-text">{staticText(cell,settings)}</span></div>;
+        return <div key={cell.address} className={cls.trim()} style={style}><span className="tvm-static-text">{renderStaticLabel(staticText(cell,settings))}</span></div>;
       })}
     </section>
   </article>;
