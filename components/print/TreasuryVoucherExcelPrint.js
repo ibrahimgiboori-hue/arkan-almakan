@@ -68,7 +68,21 @@ function cellEndRow(cell){return Number(cell.row)+Math.max(1,Number(cell.rowSpan
 
 function excelBorderVars(cell){
   const borders=cell?.style?.borders||{};
-  const line=(side)=>borders?.[side] ? '.10mm solid rgba(143,31,40,.18)' : '0 solid transparent';
+  const line=(side)=>{
+    const edge=borders?.[side];
+    if(!edge) return '0 solid transparent';
+    const width=Math.max(0.08,Number(edge.widthMm||0.2));
+    const rawStyle=String(edge.style||'').toLowerCase();
+    const lineStyle=rawStyle==='double'
+      ? 'double'
+      : /dash/.test(rawStyle)
+        ? 'dashed'
+        : /dot|hair/.test(rawStyle)
+          ? 'dotted'
+          : 'solid';
+    const color=String(edge.color||'#111111');
+    return `${width}mm ${lineStyle} ${color}`;
+  };
   return {
     '--tvm-eb-top':line('top'),
     '--tvm-eb-right':line('right'),
@@ -246,7 +260,7 @@ export default function TreasuryVoucherExcelPrint({voucher,settings,schema}){
         const cls=plainHeader
           ? `tvm-plain ${/[A-Za-z]/.test(text)?'tvm-company-en':'tvm-company-ar'}`
           : `tvm-static ${body?'tvm-body-static':''}`;
-        return <div key={cell.address} className={cls.trim()} style={style}>{staticText(cell,settings)}</div>;
+        return <div key={cell.address} className={cls.trim()} style={style}><span className="tvm-static-text">{staticText(cell,settings)}</span></div>;
       })}
     </section>
   </article>;
