@@ -68,7 +68,7 @@ function cellEndRow(cell){return Number(cell.row)+Math.max(1,Number(cell.rowSpan
 
 function borderSpec(edge){
   if(!edge) return null;
-  const width=Math.max(0.08,Number(edge.widthMm||0.2));
+  const width=Math.max(0.06,Number(edge.widthMm||0.2));
   const rawStyle=String(edge.style||'').toLowerCase();
   const lineStyle=rawStyle==='double'
     ? 'double'
@@ -77,11 +77,10 @@ function borderSpec(edge){
       : /dot|hair/.test(rawStyle)
         ? 'dotted'
         : 'solid';
-  const strong=rawStyle==='double'||/thick|medium/.test(rawStyle);
   return {
-    width:strong?width:Math.min(width,0.10),
+    width,
     lineStyle,
-    color:strong?String(edge.color||'#111111'):'rgba(143,31,40,.26)',
+    color:String(edge.color||'#111111'),
     strength:(rawStyle==='double'?5:/thick/.test(rawStyle)?4:/medium/.test(rawStyle)?3:2),
   };
 }
@@ -96,11 +95,6 @@ function buildBorderSegments(cells,slot){
   for(const cell of cells){
     const row=Number(cell?.row||0);
     if(row<18||row>29) continue;
-
-    const rawText=String(cell?.text||'').trim();
-    // Slash barrier cells and empty signature spaces are workbook layout guides,
-    // not printable boxes. Their borders caused the last stray vertical strokes.
-    if(rawText==='/' || isSignSpace(cell)) continue;
 
     const c1=Number(cell.col),r1=row,c2=cellEndCol(cell),r2=cellEndRow(cell);
     const rect=slot(c1,r1,c2,r2);
@@ -117,45 +111,48 @@ function buildBorderSegments(cells,slot){
     }
 
     const leftSpec=borderSpec(borders.left);
-    // In the approvals/signature area, thin vertical borders are Excel merge
-    // artifacts. Keep only deliberate medium/thick/double vertical rules.
-    if(leftSpec && !(row>=26 && leftSpec.strength<=2)){
-      put(`v:${left.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left,top,length:height,spec:leftSpec});
-    }
+    if(leftSpec) put(`v:${left.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left,top,length:height,spec:leftSpec});
 
     const rightSpec=borderSpec(borders.right);
-    if(rightSpec && !(row>=26 && rightSpec.strength<=2)){
+    if(rightSpec){
       const x=left+width;
       put(`v:${x.toFixed(4)}:${top.toFixed(4)}:${(top+height).toFixed(4)}`,{axis:'v',left:x,top,length:height,spec:rightSpec});
     }
   }
+
   const raw=Array.from(byKey.values());
-  const groups=new Map();
+  const grouped=new Map();
   for(const segment of raw){
-    const key=`${segment.axis}:${segment.axis==='h'?segment.top:segment.left}:${segment.spec.width}:${segment.spec.lineStyle}:${segment.spec.color}`;
-    const list=groups.get(key)||[];
+    const anchor=segment.axis==='h'?segment.top:segment.left;
+    const key=`${segment.axis}:${anchor.toFixed(4)}:${segment.spec.width}:${segment.spec.lineStyle}:${segment.spec.color}`;
+    const list=grouped.get(key)||[];
     list.push(segment);
-    groups.set(key,list);
+    grouped.set(key,list);
   }
 
   const merged=[];
-  for(const list of groups.values()){
+  for(const list of grouped.values()){
     list.sort((a,b)=>(a.axis==='h'?a.left:a.top)-(b.axis==='h'?b.left:b.top));
+    let current=null;
     for(const seg of list){
-      const last=merged[merged.length-1];
-      if(last && last.axis===seg.axis && last.spec.width===seg.spec.width && last.spec.lineStyle===seg.spec.lineStyle && last.spec.color===seg.spec.color){
-        if(seg.axis==='h' && Math.abs(last.top-seg.top)<0.01 && seg.left<=last.left+last.length+0.03){
-          last.length=Math.max(last.left+last.length,seg.left+seg.length)-last.left;
-          continue;
-        }
-        if(seg.axis==='v' && Math.abs(last.left-seg.left)<0.01 && seg.top<=last.top+last.length+0.03){
-          last.length=Math.max(last.top+last.length,seg.top+seg.length)-last.top;
-          continue;
-        }
+      if(!current){
+        current={...seg};
+        continue;
       }
-      merged.push({...seg});
+      const currentStart=current.axis==='h'?current.left:current.top;
+      const currentEnd=currentStart+current.length;
+      const segStart=seg.axis==='h'?seg.left:seg.top;
+      const segEnd=segStart+seg.length;
+      if(segStart<=currentEnd+0.03){
+        current.length=Math.max(currentEnd,segEnd)-currentStart;
+      }else{
+        merged.push(current);
+        current={...seg};
+      }
     }
+    if(current) merged.push(current);
   }
+
   return merged;
 }
 
