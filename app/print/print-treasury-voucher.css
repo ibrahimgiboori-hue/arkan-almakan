@@ -7,8 +7,9 @@
   --tvm-ink:#171717;
   --tvm-rule:#111;
   position:relative;
-  width:297mm;
-  height:210mm;
+  width:100%;
+  height:100%;
+  min-height:100%;
   background:#fff;
   color:var(--tvm-ink);
   direction:rtl;
@@ -156,8 +157,6 @@
 }
 
 @media print{
-  @page{size:A4 landscape;margin:0}
-  html,body{margin:0!important;padding:0!important;background:#fff!important}
   .treasury-voucher-mockup{
     box-shadow:none!important;
     -webkit-print-color-adjust:exact!important;
