@@ -47,6 +47,8 @@ function buildVoucherValues(voucher, settings) {
 
   return {
     document_title:isReceipt ? 'سند قبض' : 'سند صرف',
+    voucher_title:isReceipt ? 'سند قبض' : 'سند صرف',
+    voucher_title_en:isReceipt ? 'RECEIPT VOUCHER' : 'PAYMENT VOUCHER',
     voucher_type_ar:isReceipt ? 'سند قبض' : 'سند صرف',
     voucher_type_en:isReceipt ? 'RECEIPT VOUCHER' : 'PAYMENT VOUCHER',
     voucher_no:latinDigits(voucher.voucher_no || ''),
@@ -68,13 +70,17 @@ function buildVoucherValues(voucher, settings) {
     payment_reference:latinDigits(voucher.payment_reference || ''),
     bank_name:voucher.bank_name || '',
     description:voucher.description || '',
+    receipt_reason:voucher.description || '',
+    supporting_document:voucher.supporting_reference || '',
     amount_number:`${amountRiyals.toLocaleString('en-US')}.${amountHalalas}`,
     amount_riyal:amountRiyals.toLocaleString('en-US'),
     amount_riyals:amountRiyals.toLocaleString('en-US'),
     amount_halalah:amountHalalas,
     amount_words:String(voucher.amount_words || '').replace(/\s+فقط\s+لا\s+غير\s*$/, '').trim(),
     amount_words_full:voucher.amount_words || '',
+    legal_ack:voucher.legal_text_snapshot || '',
     beneficiary_role:isReceipt ? 'عميل' : 'موظف',
+    party_title:voucher.party_title || '',
     company_name_ar:settings?.company_name_ar || 'أركان المكان للمقاولات',
     company_name_en:settings?.company_name_en || 'Arkan Al Makan Contracting',
     cr_number:latinDigits(settings?.cr_number || ''),
@@ -84,6 +90,10 @@ function buildVoucherValues(voucher, settings) {
     accountant_title:voucher.accountant_title_snapshot || '',
     approved_by_name:voucher.approved_by_name_snapshot || '',
     approved_by_title:voucher.approved_by_title_snapshot || '',
+    approver_name:voucher.approved_by_name_snapshot || '',
+    approver_title:voucher.approved_by_title_snapshot || '',
+    issuer_name:voucher.issuer_name_snapshot || '',
+    issuer_title:voucher.issuer_title_snapshot || '',
     company_logo:'',
   };
 }
