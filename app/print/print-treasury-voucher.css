@@ -285,3 +285,74 @@
 .treasury-voucher-mockup .tvm-logo img{
   filter:drop-shadow(0 .25mm .45mm rgba(80,20,25,.12));
 }
+
+/* Body rule: solid maroon fill is reserved for the upper voucher area (through the date row).
+   Below it, the document reads as one continuous body. */
+.treasury-voucher-mockup .tvm-body-surface,
+.treasury-voucher-mockup .tvm-signature-surface{
+  position:absolute;
+  z-index:1;
+  background:#fff;
+  border:.14mm solid rgba(143,31,40,.26);
+  pointer-events:none;
+}
+.treasury-voucher-mockup .tvm-body-surface{
+  background:linear-gradient(180deg,#fff,#fffdfd);
+}
+.treasury-voucher-mockup .tvm-signature-surface{
+  background:#fff;
+}
+
+/* Static labels in the body are maroon text, not maroon blocks. */
+.treasury-voucher-mockup .tvm-body-static{
+  background:transparent!important;
+  color:var(--tvm-maroon-dark)!important;
+  border:0!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  justify-content:flex-start;
+  font-weight:800;
+  padding:.35mm .5mm .8mm;
+}
+
+/* Variable values remain black and sit on the same body plane. */
+.treasury-voucher-mockup .tvm-body-variable{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:#111;
+  padding:.3mm .45mm .65mm;
+}
+
+/* Anti-tamper shading is deliberately almost invisible in normal print. */
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-remainder,
+.treasury-voucher-mockup .tvm-sign-space .tvm-variable-remainder{
+  background:
+    linear-gradient(rgba(143,31,40,.022),rgba(143,31,40,.022)),
+    radial-gradient(circle,#b8b8b8 .20mm,transparent .24mm)!important;
+  background-size:auto,2.1mm .62mm!important;
+  background-position:0 0,left calc(100% - .28mm)!important;
+  background-repeat:no-repeat,repeat-x!important;
+}
+.treasury-voucher-mockup .tvm-body-variable .tvm-variable-value{
+  color:#111;
+  background:rgba(255,255,255,.985);
+}
+
+/* Signature area: no solid maroon bands below the date row. */
+.treasury-voucher-mockup .tvm-signature-surface{
+  border-top:.2mm solid rgba(143,31,40,.50);
+}
+.treasury-voucher-mockup .tvm-sign-space{
+  background:#fff!important;
+}
+
+/* Keep only restrained separators to preserve the Excel-measured blocks. */
+.treasury-voucher-mockup .tvm-body-static,
+.treasury-voucher-mockup .tvm-body-variable{
+  border-bottom:.10mm solid rgba(143,31,40,.16)!important;
+}
+.treasury-voucher-mockup .tvm-sign-space{
+  border:0!important;
+  border-bottom:.10mm solid rgba(143,31,40,.16)!important;
+}
