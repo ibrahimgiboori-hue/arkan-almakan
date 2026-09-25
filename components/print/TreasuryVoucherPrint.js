@@ -122,6 +122,14 @@ function VariableBox({value,c1,r1,c2,r2,className='',ltr=false,slotter}) {
   </div>;
 }
 
+function PurposeFlowBox({value,slotter}) {
+  const text=String(value??'').trim();
+  return <div className="tvm-purpose-flow-single" style={slotter(8,20,32,21)}>
+    {text?<span className="tvm-purpose-flow-text">{text}</span>:null}
+    <span className="tvm-purpose-flow-dots" aria-hidden="true"/>
+  </div>;
+}
+
 export default function TreasuryVoucherPrint({voucher,settings}){
   const isReceipt=voucher?.voucher_type==='receipt';
   const slot=createSlotter(isReceipt);
@@ -211,7 +219,7 @@ export default function TreasuryVoucherPrint({voucher,settings}){
       <VariableBox slotter={slot} c1={45} r1={19} c2={50} r2={19} value={city}/>
       <StaticBox slotter={slot} c1={51} r1={19} c2={55} r2={19}>بمدينة/</StaticBox>
 
-      <VariableBox slotter={slot} c1={8} r1={20} c2={32} r2={21} value={voucher?.description||''} className="tvm-purpose-field tvm-purpose-flow"/>
+      <PurposeFlowBox slotter={slot} value={voucher?.description||''}/>
       <StaticBox slotter={slot} c1={33} r1={20} c2={38} r2={20}>وذلك مقابل/</StaticBox>
       <VariableBox slotter={slot} c1={39} r1={20} c2={50} r2={20} value={voucher?.supporting_reference||voucher?.payment_reference||''}/>
       <StaticBox slotter={slot} c1={51} r1={20} c2={55} r2={20}>مرجع الدفع/</StaticBox>
