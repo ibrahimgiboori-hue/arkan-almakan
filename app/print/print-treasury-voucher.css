@@ -241,3 +241,47 @@
 .treasury-voucher-mockup .tvm-sign-space{
   background-color:#fffafa;
 }
+
+/* Final controlled-design pass: geometry is locked, only visual treatment changes. */
+.treasury-voucher-mockup .tvm-frame{
+  background:
+    linear-gradient(180deg,rgba(143,31,40,.025),transparent 18mm),
+    linear-gradient(135deg,rgba(143,31,40,.02),transparent 24%),
+    linear-gradient(315deg,rgba(143,31,40,.02),transparent 24%),
+    #fff;
+}
+.treasury-voucher-mockup .tvm-static{
+  text-shadow:0 .15mm 0 rgba(0,0,0,.10);
+}
+.treasury-voucher-mockup .tvm-plain{
+  font-size:7.4pt;
+}
+.treasury-voucher-mockup .tvm-company-ar,
+.treasury-voucher-mockup .tvm-company-en{
+  font-size:8.4pt;
+}
+.treasury-voucher-mockup .tvm-variable{
+  background-color:#fff;
+}
+.treasury-voucher-mockup .tvm-variable-value{
+  font-size:7.9pt;
+}
+.treasury-voucher-mockup .tvm-words-field .tvm-variable-value,
+.treasury-voucher-mockup .tvm-purpose-field .tvm-variable-value{
+  font-size:7.25pt;
+}
+.treasury-voucher-mockup .tvm-role-field .tvm-variable-value{
+  font-size:6.75pt;
+  letter-spacing:-.015em;
+}
+.treasury-voucher-mockup .tvm-legal{
+  border-radius:.45mm;
+}
+.treasury-voucher-mockup .tvm-voucher-title{
+  box-shadow:
+    inset 0 .2mm 0 rgba(255,255,255,.18),
+    0 .18mm .45mm rgba(103,15,22,.16);
+}
+.treasury-voucher-mockup .tvm-logo img{
+  filter:drop-shadow(0 .25mm .45mm rgba(80,20,25,.12));
+}
