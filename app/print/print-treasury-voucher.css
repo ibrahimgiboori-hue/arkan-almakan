@@ -436,3 +436,37 @@
   justify-content:center!important;
   text-align:center!important;
 }
+
+/* Final alignment rule: all numeric/date/LTR values are perfectly centered in their slots.
+   Keep the anti-tamper remainder spanning the full slot underneath. */
+.treasury-voucher-mockup .tvm-ltr{
+  position:absolute;
+  justify-content:center!important;
+  text-align:center!important;
+}
+.treasury-voucher-mockup .tvm-ltr .tvm-variable-value{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-50%)!important;
+  z-index:4!important;
+  max-width:calc(100% - 1.2mm)!important;
+  padding:0 .45mm!important;
+  background:rgba(255,255,255,.98)!important;
+  text-align:center!important;
+  white-space:nowrap!important;
+}
+.treasury-voucher-mockup .tvm-ltr .tvm-variable-remainder{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+}
+.treasury-voucher-mockup .tvm-amount-with-riyal{
+  justify-content:center!important;
+  text-align:center!important;
+}
+.treasury-voucher-mockup .tvm-body-variable:not(.tvm-ltr) .tvm-variable-value{
+  text-align:right!important;
+}
