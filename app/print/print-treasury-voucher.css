@@ -492,3 +492,45 @@
   background:rgba(255,255,255,.985)!important;
   padding:.1mm .5mm!important;
 }
+
+/* Dedicated single-source purpose field: one text node spans both rows.
+   This prevents any duplicate rendering while still allowing natural wrap. */
+.treasury-voucher-mockup .tvm-purpose-flow-single{
+  position:absolute;
+  z-index:2;
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-start;
+  overflow:hidden;
+  direction:rtl;
+  text-align:right;
+  padding:.5mm .55mm;
+  background:transparent;
+  border-bottom:.10mm solid rgba(143,31,40,.16);
+}
+.treasury-voucher-mockup .tvm-purpose-flow-text{
+  position:relative;
+  z-index:3;
+  display:block;
+  width:100%;
+  color:#111;
+  font-style:italic;
+  font-weight:800;
+  font-size:7.25pt;
+  line-height:1.45;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  background:rgba(255,255,255,.985);
+}
+.treasury-voucher-mockup .tvm-purpose-flow-dots{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:
+    linear-gradient(rgba(143,31,40,.018),rgba(143,31,40,.018)),
+    radial-gradient(circle,#9f9f9f .18mm,transparent .22mm);
+  background-size:auto,1.85mm .60mm;
+  background-position:0 0,left calc(100% - .24mm);
+  background-repeat:no-repeat,repeat-x;
+  pointer-events:none;
+}
