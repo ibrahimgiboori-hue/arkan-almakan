@@ -797,3 +797,19 @@
   height:100%;
   display:block;
 }
+
+.treasury-voucher-mockup .tvm-body-static,
+.treasury-voucher-mockup .tvm-body-variable,
+.treasury-voucher-mockup .tvm-divider,
+.treasury-voucher-mockup .tvm-amount-with-riyal,
+.treasury-voucher-mockup .tvm-sign-space,
+.treasury-voucher-mockup .tvm-legal{
+  border-top:var(--tvm-eb-top,0 solid transparent)!important;
+  border-right:var(--tvm-eb-right,0 solid transparent)!important;
+  border-bottom:var(--tvm-eb-bottom,0 solid transparent)!important;
+  border-left:var(--tvm-eb-left,0 solid transparent)!important;
+}
+.treasury-voucher-mockup .tvm-body-surface,
+.treasury-voucher-mockup .tvm-signature-surface{
+  border:0!important;
+}
