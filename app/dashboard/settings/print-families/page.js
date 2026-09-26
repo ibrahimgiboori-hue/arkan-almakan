@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/ConstitutionUI';
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-const BOOTSTRAP_FAMILY_UPLOADS = new Set(['quotations', 'treasury_vouchers']);
+const BOOTSTRAP_FAMILY_UPLOADS = new Set(['quotations', 'treasury_vouchers', 'hr']);
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
