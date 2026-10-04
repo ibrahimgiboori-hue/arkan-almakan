@@ -10,6 +10,7 @@ import styles from '../timesheet.module.css';
 const STATUS_AR = { draft:'مسودة', reviewed:'مراجع', approved:'معتمد', closed:'مغلق' };
 const WEEKDAY = ['أحد','اثن','ثلا','أرب','خمي','جمع','سبت'];
 const DEFAULT_VAT_RATE = 0.15;
+const PAYMENT_DETAILS = Object.freeze({ bank:'مصرف الإنماء', beneficiary:'مؤسسة أركان المكان للمقاولات العامة', iban:'SA4905000068205728542000' });
 const n = (value) => Number(value || 0);
 const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
@@ -284,6 +285,14 @@ export default function ExternalTimesheetEditor() {
           <div className={styles.summaryCard}><span>شامل الضريبة</span><strong>{claimTotal ? `${money(claimTotalWithVat)} ر.س` : '—'}</strong></div>
         </div>
         <table className={styles.claimTable}><thead><tr><th>العامل</th><th className={styles.num}>الأيام</th><th className={styles.num}>اليومية</th><th className={styles.num}>الإجمالي</th></tr></thead><tbody>{state.workers.map((row,index)=>{const rate=row.daily_rate==null||row.daily_rate===''?sheet.default_daily_rate:row.daily_rate;return <tr key={`claim-${workerKey(row,index)}`}><td>{row.worker_name||'—'}</td><td className={styles.num}>{n(row.reported_days)}</td><td className={styles.num}>{rate==null||rate===''?'—':money(rate)}</td><td className={styles.num}>{rate==null||rate===''?'—':money(n(row.reported_days)*n(rate))}</td></tr>;})}</tbody></table>
+      </Section>
+
+      <Section title="وسيلة الدفع في المطالبة" description="بيانات ثابتة تظهر تلقائيًا في بيان مطالبة التايم شيت الخارجي.">
+        <div className="form-grid" style={{padding:16}}>
+          <div className="field"><label>اسم البنك</label><input value={PAYMENT_DETAILS.bank} readOnly /></div>
+          <div className="field"><label>اسم المستفيد</label><input value={PAYMENT_DETAILS.beneficiary} readOnly /></div>
+          <div className="field span2"><label>رقم الآيبان</label><input dir="ltr" value={PAYMENT_DETAILS.iban} readOnly /></div>
+        </div>
       </Section>
     </div>
   </ConstitutionPage>;
