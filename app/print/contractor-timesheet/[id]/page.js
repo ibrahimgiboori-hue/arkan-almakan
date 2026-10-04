@@ -9,6 +9,7 @@ import styles from './timesheet-print.module.css';
 
 const STATUS_AR = { draft:'مسودة', reviewed:'مراجع', approved:'معتمد', closed:'مغلق' };
 const DEFAULT_VAT_RATE = 0.15;
+const PAYMENT_DETAILS = Object.freeze({ bank:'مصرف الإنماء', beneficiary:'مؤسسة أركان المكان للمقاولات العامة', iban:'SA4905000068205728542000' });
 const n = (value) => Number(value || 0);
 const money = (value) => Number(value || 0).toLocaleString('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -101,6 +102,14 @@ export default function ExternalContractorTimesheetPrint() {
           <div><span>الإجمالي قبل الضريبة</span><strong>{claimBase?`${money(claimBase)} ر.س`:'—'}</strong></div>
           <div><span>ضريبة القيمة المضافة {(vatRate*100).toFixed(0)}%</span><strong>{claimBase?`${money(vatAmount)} ر.س`:'—'}</strong></div>
           <div className={styles.claimGrand}><span>الإجمالي شامل الضريبة</span><strong>{claimBase?`${money(claimTotalWithVat)} ر.س`:'—'}</strong></div>
+        </div>
+        <div className={styles.paymentBox} data-print-keep-together="true">
+          <div className={styles.paymentTitle}>بيانات وسيلة الدفع</div>
+          <div className={styles.paymentGrid}>
+            <div><span>اسم البنك</span><strong>{PAYMENT_DETAILS.bank}</strong></div>
+            <div><span>اسم المستفيد</span><strong>{PAYMENT_DETAILS.beneficiary}</strong></div>
+            <div className={styles.paymentIban}><span>رقم الآيبان</span><strong dir="ltr">{PAYMENT_DETAILS.iban}</strong></div>
+          </div>
         </div>
         <p className={styles.taxNote}>هذا البيان مبدئي لغرض المطالبة ولا يُعد فاتورة ضريبية.</p>
         <div className={styles.signoff} data-print-keep-together="true"><div><strong>مقدم المطالبة</strong><span className={styles.line}/></div><div><strong>مراجعة</strong><span className={styles.line}/></div><div><strong>اعتماد</strong><span className={styles.line}/></div></div>
