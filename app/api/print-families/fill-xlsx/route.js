@@ -181,9 +181,9 @@ function makeSelectedSheetActive(files,sheetName){
     return '<sheet'+next+'/>';
   });
   if(index>=0&&/<workbookView\b/.test(xml)){
-    xml=xml.replace(/<workbookView\b([^>]*)>/,(whole,attrs)=>{
+    xml=xml.replace(/<workbookView\b([^>]*?)(\/?)>/,(whole,attrs,closingSlash)=>{
       const next=attrs.replace(/\s+activeTab="[^"]*"/g,'')+' activeTab="'+index+'"';
-      return '<workbookView'+next+'>';
+      return '<workbookView'+next+closingSlash+'>';
     });
   }
   files['xl/workbook.xml']=strToU8(xml);
