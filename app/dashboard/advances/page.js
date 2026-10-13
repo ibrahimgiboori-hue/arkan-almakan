@@ -1,9 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr, money } from '@/lib/format';
 import { STATUS_AR, STATUS_CLASS, nextStage, STAGE_AR } from '@/lib/requests';
-import { operationalDate, roundValue, canMutateWorkflow, canCancelWorkflow } from '@/lib/system-constitution';
+import { operationalDate, canMutateWorkflow, canCancelWorkflow } from '@/lib/system-constitution';
+import { advanceInstallmentAmount } from '@/lib/advance-request.mjs';
 import {
   ConstitutionPage, PageHeader, Section, EntrySurface, SummaryStrip,
   Notice, Toolbar, TableFrame, EmptyState,
@@ -32,7 +34,7 @@ export default function Advances(){
   }
   useEffect(()=>{load();},[]);
 
-  const per=form.amount&&form.installments?roundValue(Number(form.amount)/Number(form.installments)):0;
+  const per=advanceInstallmentAmount(form.amount,form.installments);
   function closeForms(){setOpen(false);setEditId(null);setDecisionTarget(null);setDisbursementTarget(null);}
   function startEdit(r){setSelected(null);setDecisionTarget(null);setDisbursementTarget(null);setEditId(r.id);setForm({employee_id:r.employee_id,amount:r.amount,installments:r.installments,first_deduction_month:r.first_deduction_month||'',reason:r.reason||''});setOpen(true);setErr('');setMsg('');}
   function startNew(){setSelected(null);setDecisionTarget(null);setDisbursementTarget(null);setEditId(null);setForm({...EMPTY});setOpen(true);setErr('');setMsg('');}
@@ -87,6 +89,7 @@ export default function Advances(){
           {selected.disbursed_at&&<div className="field"><label>تاريخ الصرف</label><strong>{dateAr(selected.disbursed_at)}</strong></div>}
         </div>
         <Toolbar>
+          <Link className="btn ghost" href={`/print/advance/${selected.id}`} target="_blank" rel="noopener noreferrer">طباعة طلب السلفة</Link>
           {selectedStage&&!['cancelled','rejected'].includes(selected.status)&&<button className="btn" onClick={()=>startDecision(selected)}>تسجيل الإجراء</button>}
           {selected.status==='ceo_approved'&&!selected.disbursed_at&&<button className="btn" onClick={()=>startDisbursement(selected)}>تسجيل الصرف</button>}
           {canEdit(selected)&&<button className="btn ghost" onClick={()=>startEdit(selected)}>تعديل</button>}
