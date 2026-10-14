@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { money } from '@/lib/format';
+import { money, dateAr } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals, VAT_AR, QSTATUS_AR } from '@/lib/quote-calc';
 import { useLiveRefresh } from '@/lib/live';
 import {
@@ -12,6 +12,7 @@ import {
 import { quoteEditorService } from '@/lib/application/quote-editor-service';
 import QuotePartyGovernancePanel from '@/components/quotes/QuotePartyGovernancePanel';
 import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
+import { buildQuoteWorkbookData } from '@/lib/quote-workbook-data.mjs';
 
 function pickWorkbookModel(schema, quote) {
   const models = Array.isArray(schema?.models) ? schema.models : [];
@@ -76,7 +77,9 @@ export default function QuoteEditor() {
     setErr('');
     try {
       const server = await quoteEditorService.patchQuote({ quoteId:id, fields });
-      if (server) setQ((current) => current ? { ...current, ...server } : server);
+      if (server) setQ((current) => current ? {
+        ...current, ...Object.fromEntries(Object.keys(fields).map((key) => [key,server[key]])),
+      } : server);
       flash('حُفظ');
       return true;
     } catch (error) {
@@ -237,74 +240,12 @@ export default function QuoteEditor() {
   const label = (code, fallback) => workbookLabel(printSchema, activeModel, code, fallback);
   const workbookModels = Array.isArray(printSchema?.models) ? printSchema.models : [];
   const workbookVisibility = Array.isArray(printSchema?.visibility) ? printSchema.visibility : [];
-  const previewToggles = Object.fromEntries(workbookVisibility.map((rule) => [
-    rule.toggle,
-    q?.[rule.toggle] ?? rule.defaultValue,
-  ]));
-  const previewRepeatGroups = {
-    line_items:numbered
-      .filter((line) => line.kind !== 'title')
-      .map((line) => ({
-        item_no:line.number,
-        description_ar:line.description_ar || '',
-        description_en:line.description_en || '',
-        unit:line.unit || '',
-        qty:line.qty ?? '',
-        unit_price:line.unit_price ?? '',
-        line_total:lineTotal(line, q.show_qty),
-      })),
-    payment_terms:pays.map((payment, index) => ({
-      payment_terms:`${payment.label || `الدفعة ${index + 1}`}: ${Number(payment.percent || 0)}%${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
-    })),
-    terms:String(q.terms_text || '').split(/\r?\n/).map((text) => text.trim()).filter(Boolean).map((text) => ({ terms:text })),
-  };
-  const previewRepeatData = {
-    line_items:numbered.map((line) => ({
-      item_no:line.number || '',
-      description_ar:line.description_ar || '',
-      description_en:line.description_en || '',
-      unit:line.kind === 'title' ? '' : (line.unit || ''),
-      qty:line.kind === 'title' ? '' : (line.qty ?? ''),
-      unit_price:line.kind === 'title' ? '' : money(Number(line.unit_price || 0)),
-      line_total:line.kind === 'title'
-        ? (showTotalCol ? money(Number(subs[line.id] || 0)) : '')
-        : (showTotalCol ? money(lineTotal(line, q.show_qty)) : ''),
-    })),
-    payment_terms:pays.map((payment, index) => ({
-      payment_terms:`${payment.label || `الدفعة ${index + 1}`}${Number(payment.percent || 0) ? ` — ${Number(payment.percent || 0)}%` : ''}${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
-    })),
-    terms:String(q.terms_text || '').split(/\r?\n/).map((text) => text.trim()).filter(Boolean).map((text) => ({ terms:text })),
-  };
-
-  const previewValues = {
-    quote_no:q.quote_no,
-    quote_date:q.quote_date,
-    client_name:q.client_name,
-    client_contact:q.client_contact,
-    project_ref:q.project_ref,
-    site_location:q.site_location,
-    valid_days:q.valid_days,
-    intro_text:q.intro_text,
-    subtotal:t.subtotal,
-    vat_rate:Number(q.vat_rate || 0) * 100 + '%',
-    vat_amount:t.vat,
-    grand_total:t.grand,
-    plain_total:t.grand,
-    item_no:numbered[0]?.number || 1,
-    description_ar:numbered[0]?.description_ar || label('description_ar','بيان الأعمال'),
-    description_en:numbered[0]?.description_en || '',
-    unit:numbered[0]?.unit || '',
-    qty:numbered[0]?.qty ?? '',
-    unit_price:numbered[0]?.unit_price ?? '',
-    line_total:numbered[0] ? lineTotal(numbered[0], q.show_qty) : '',
-    representative_name:q.arkan_signatory_name || '',
-    representative_title:q.arkan_signatory_title || '',
-    bank_name:'مصرف الراجحي',
-    bank_account_no:'',
-    bank_iban:'',
-    payment_terms:pays.length ? `${pays.length} دفعات` : label('payment_terms','شروط الدفع'),
-    terms:q.terms_text || label('terms','الشروط والأحكام'),
-  };
+  const preview = buildQuoteWorkbookData({
+    quote:q,
+    numberedLines:numbered.map((line) => ({ ...line,calculated_total:lineTotal(line,q.show_qty) })),
+    payments:pays, computed:t, subtotals:subs, settings:printAssets,
+    formatMoney:money, formatDate:dateAr,
+  });
 
   return (
     <>
@@ -345,11 +286,11 @@ export default function QuoteEditor() {
           </header>
           <WorkbookModelPreview
             model={activeModel}
-            values={previewValues}
+            values={preview.values}
             variables={printSchema?.variables || []}
             visibility={workbookVisibility}
-            toggles={previewToggles}
-            repeatGroups={previewRepeatGroups}
+            toggles={preview.toggles}
+            repeatGroups={preview.repeatGroups}
             overlays={printSchema?.overlays || []}
             overlayImages={printAssets}
             overlayPositions={q.print_overlay_positions || {}}

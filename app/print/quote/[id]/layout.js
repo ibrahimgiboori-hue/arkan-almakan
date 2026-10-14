@@ -52,14 +52,6 @@ export default function QuotePrintLayout({ children }) {
     show_validity:false,
     language:'ar',
   };
-  const visibleCount = [visibility.show_client,visibility.show_project,visibility.show_quote_info,visibility.show_validity].filter(Boolean).length;
-  const rules = `
-    ${visibility.show_client ? '' : '.print-doc-quotation .q-meta > .mcell:nth-child(1){display:none!important;}'}
-    ${visibility.show_project ? '' : '.print-doc-quotation .q-meta > .mcell:nth-child(2){display:none!important;}'}
-    ${visibility.show_quote_info ? '' : '.print-doc-quotation .q-meta > .mcell:nth-child(3){display:none!important;}'}
-    .print-doc-quotation .q-meta{grid-template-columns:${visibleCount > 0 ? `repeat(${visibleCount},minmax(0,1fr))` : 'none'}!important;}
-    ${visibleCount === 0 ? '.print-doc-quotation .q-meta{display:none!important;}' : ''}
-  `;
 
   const labels = [
     ['show_client','العميل'],
@@ -72,7 +64,6 @@ export default function QuotePrintLayout({ children }) {
   return (
     <>
       <QuoteExcelAction quoteId={id} placement="print" />
-      <style>{rules}</style>
       <div className="quote-meta-visibility no-print" dir="rtl">
         <strong>إعداد الطباعة</strong>
         <div className="quote-print-language" role="group" aria-label="لغة المستند">

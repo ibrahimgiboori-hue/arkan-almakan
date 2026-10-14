@@ -1,4 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { fillWorkbookText, resolveWorkbookVisibility, workbookLineCells } from '../../../../lib/workbook-visibility.mjs';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -128,36 +129,6 @@ function cloneMergeRefs(refs,start,end,copies){
   }
   return out;
 }
-function isEnabled(rule,toggles){
-  const value=toggles?.[rule.toggle];
-  return value===undefined||value===null?Boolean(rule.defaultValue):Boolean(value);
-}
-function hiddenTokenSet(visibility,toggles){
-  const hidden=new Set();
-  for(const rule of visibility||[]){
-    if(isEnabled(rule,toggles))continue;
-    if(rule.elementType==='INLINE_TOKEN'||rule.offBehavior==='HIDE_CONTENT'){
-      String(rule.target||'').split(',').map((x)=>x.trim()).filter(Boolean).forEach((x)=>hidden.add(x));
-    }
-  }
-  return hidden;
-}
-function fillText(template,values,hiddenTokens){
-  return String(template||'')
-    .replace(/\{\{([a-z][a-z0-9_]*)\}\}/g,(_match,code)=>{
-      if(hiddenTokens.has(code))return '';
-      const value=values?.[code];
-      return value==null?'':String(value);
-    })
-    .split('\n').filter((line)=>line.trim()!=='').join('\n').trim();
-}
-function findTitleCell(model,tokenCell,target){
-  const label=model?.tokenLabels?.[target];
-  if(!label)return null;
-  return (model.cells||[]).filter((cell)=>!(cell.tokens||[]).length)
-    .filter((cell)=>cell.text===label&&cell.row<tokenCell.row&&tokenCell.row-cell.row<=4)
-    .sort((a,b)=>b.row-a.row)[0]||null;
-}
 function sheetPathForModel(files,sheetName){
   const workbookXml=strFromU8(files['xl/workbook.xml']);
   const sheetMatch=workbookXml.match(new RegExp('<sheet\\b[^>]*name="'+escapeRegExp(sheetName)+'"[^>]*r:id="([^"]+)"[^>]*/>'));
@@ -192,42 +163,23 @@ function transformWorksheet(xml,payload){
   const model=payload.model, variables=payload.variables||[], visibility=payload.visibility||[];
   const toggles=payload.toggles||{}, repeatGroups=payload.repeatGroups||{}, values=payload.values||{};
   let rows=sheetRows(xml), refs=mergeRefs(xml);
-  const hiddenTokens=hiddenTokenSet(visibility,toggles);
-  const variableByCode=new Map(variables.map((item)=>[item.code,item]));
+  const {hiddenTokens,blankCells,collapsedRows,collapsedRanges}=resolveWorkbookVisibility(model,visibility,toggles);
   const groupByCode=new Map(variables.filter((item)=>item.repeatGroup).map((item)=>[item.code,item.repeatGroup]));
 
   for(const cell of model.cells||[]){
+    if(blankCells.has(cell.address)){setCellText(rows,cell.address,'');continue;}
     const tokens=cell.tokens||[];
     if(!tokens.length||tokens.some((token)=>groupByCode.has(token)))continue;
-    setCellText(rows,cell.address,fillText(cell.text,values,hiddenTokens));
+    setCellText(rows,cell.address,fillWorkbookText(cell.text,values,hiddenTokens));
   }
 
-  const ops=[], disabledGroups=new Set();
-  for(const rule of visibility){
-    if(isEnabled(rule,toggles))continue;
-    const targets=String(rule.target||'').split(',').map((x)=>x.trim()).filter(Boolean);
-    if(rule.elementType==='FLOW_BLOCK'){
-      for(const target of targets){
-        const cell=(model.cells||[]).find((item)=>item.tokens?.includes(target));
-        if(cell)ops.push({type:'delete',start:cell.row,end:cell.row+(cell.rowSpan||1)-1});
-      }
-    }else if(rule.elementType==='FLOW_GROUP'){
-      for(const target of targets){
-        const cell=(model.cells||[]).find((item)=>item.tokens?.includes(target));
-        if(!cell)continue;
-        const title=findTitleCell(model,cell,target);
-        ops.push({type:'delete',start:title?.row||cell.row,end:cell.row+(cell.rowSpan||1)-1});
-        const variable=variableByCode.get(target);
-        if(variable?.repeatGroup)disabledGroups.add(variable.repeatGroup);
-      }
-    }
-  }
+  const ops=collapsedRanges.map((range)=>({type:'delete',...range}));
 
   const groups=Array.from(new Set(variables.map((item)=>item.repeatGroup).filter(Boolean)));
   for(const group of groups){
-    if(disabledGroups.has(group))continue;
     const codes=new Set(variables.filter((item)=>item.repeatGroup===group).map((item)=>item.code));
-    const cells=(model.cells||[]).filter((cell)=>(cell.tokens||[]).some((token)=>codes.has(token)));
+    const cells=(model.cells||[]).filter((cell)=>(cell.tokens||[]).some((token)=>codes.has(token)))
+      .filter((cell)=>!collapsedRows.has(cell.row));
     if(!cells.length)continue;
     const start=Math.min(...cells.map((cell)=>cell.row));
     const end=Math.max(...cells.map((cell)=>cell.row+(cell.rowSpan||1)-1));
@@ -265,7 +217,20 @@ function transformWorksheet(xml,payload){
       const record={...values,...(op.records[copy]||{})};
       for(const cell of op.cells){
         const row=start+(cell.row-op.start)+copy*height;
-        setCellText(rows,cellAddress(cell.col,row),fillText(cell.text,record,hiddenTokens));
+        setCellText(rows,cellAddress(cell.col,row),fillWorkbookText(cell.text,record,hiddenTokens));
+      }
+      if(['title','note'].includes(record.kind)){
+        const description=workbookLineCells(op.cells,record).find((cell)=>cell.tokens?.includes('description_ar'));
+        if(description){
+          const row=start+(description.row-op.start)+copy*height;
+          const lastCol=description.col+description.colSpan-1;
+          refs=refs.filter((ref)=>{
+            const range=parseRange(ref);
+            return !range||range.start.row<row||range.end.row>=row+height
+              ||range.start.col<description.col||range.end.col>lastCol;
+          });
+          refs.push(rangeRef({start:{col:description.col,row},end:{col:lastCol,row:row+(description.rowSpan||1)-1}}));
+        }
       }
     }
   }

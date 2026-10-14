@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { fillWorkbookText, resolveWorkbookVisibility, workbookLineCells } from '@/lib/workbook-visibility.mjs';
 
 const PX_PER_MM = 96 / 25.4;
 const DEFAULT_PAGE_BOUNDS = Object.freeze({ startRow:3, endRow:61, startCol:2, endCol:41 });
@@ -65,17 +66,7 @@ function pxHeight(item) {
   return 18;
 }
 
-function tokenValue(text, values) {
-  const resolved = String(text || '').replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (_match, code) => {
-    const value = values?.[code];
-    if (value == null || value === '') return '';
-    return String(value);
-  });
-  const lines = resolved.replace(/\r\n/g, '\n').split('\n');
-  while (lines.length && !lines[0].trim()) lines.shift();
-  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-  return lines.join('\n');
-}
+const tokenValue = fillWorkbookText;
 
 function measureWrappedLines(text, widthPx, font = '11px Arial') {
   const source = String(text ?? '');
@@ -219,6 +210,7 @@ export default function WorkbookModelPreview({
   printMode = false,
 }) {
   const effectiveRepeatData = Object.keys(repeatData || {}).length ? repeatData : (repeatGroups || {});
+  const visibilityState = useMemo(() => resolveWorkbookVisibility(model, visibility, toggles), [model, visibility, toggles]);
 
   const layout = useMemo(() => {
     if (!model?.cells?.length) return null;
@@ -255,7 +247,10 @@ export default function WorkbookModelPreview({
 
     const sourceCells = model.cells
       .filter((cell) => isInsideBounds(cell, bounds))
-      .filter((cell) => !isGuideCell(cell, pageConfig));
+      .filter((cell) => !isGuideCell(cell, pageConfig))
+      .filter((cell) => !Array.from({ length:cell.rowSpan || 1 }, (_unused,index) => cell.row+index)
+        .some((row) => visibilityState.collapsedRows.has(row)))
+      .map((cell) => visibilityState.blankCells.has(cell.address) ? { ...cell,text:'' } : cell);
 
     const groups = carrierMode ? [] : REPEAT_GROUPS.map((definition) => {
       const cells = sourceCells.filter((cell) => groupForCell(cell)?.id === definition.id);
@@ -274,7 +269,7 @@ export default function WorkbookModelPreview({
         : 14.25;
       const instanceSpans = instances.map((record) => {
         const merged = record ? { ...values, ...record } : values;
-        const display = tokenValue(wrapCell.text, merged);
+        const display = tokenValue(wrapCell.text, merged, visibilityState.hiddenTokens);
         const visualLines = measureWrappedLines(display, widthCssPx);
         if (definition.id === 'line_items') {
           if (visualLines <= 1) return baseSpan;
@@ -319,7 +314,7 @@ export default function WorkbookModelPreview({
         continue;
       }
       if (groups.some((item) => row > item.startRow && row <= item.endRow)) continue;
-      expandedRowsPx.push(pxHeight(rowMap.get(row)));
+      expandedRowsPx.push(visibilityState.collapsedRows.has(row) ? 0 : pxHeight(rowMap.get(row)));
     }
 
     const renderCells = [];
@@ -341,7 +336,8 @@ export default function WorkbookModelPreview({
       group.instances.forEach((record, index) => {
         const span = group.instanceSpans[index];
         const recordValues = record ? { ...values, ...record } : values;
-        for (const cell of group.cells) {
+        const instanceCells = group.id === 'line_items' ? workbookLineCells(group.cells, record) : group.cells;
+        for (const cell of instanceCells) {
           renderCells.push({
             ...cell,
             renderKey:`${cell.address}::${group.id}::${index}`,
@@ -359,7 +355,7 @@ export default function WorkbookModelPreview({
         if ((cell.renderRowSpan || 1) !== 1) continue;
         if (groupForCell(cell)) continue;
         if (!Array.isArray(cell.tokens) || !cell.tokens.some((token) => COMPACT_TOKENS.has(token))) continue;
-        const display = tokenValue(cell.text, cell.renderValues);
+        const display = tokenValue(cell.text, cell.renderValues, visibilityState.hiddenTokens);
         if (isNoWrapCell(cell)) continue;
         const widthCssPx = cellWidthPx(cell, bounds, columnsPx) * colScaleMm * PX_PER_MM;
         const visualLines = measureWrappedLines(display, widthCssPx);
@@ -387,7 +383,7 @@ export default function WorkbookModelPreview({
       colScaleMm,
       rowScaleMm,
     };
-  }, [model, values, effectiveRepeatData, sideMarginPreset]);
+  }, [model, values, effectiveRepeatData, sideMarginPreset, visibilityState]);
 
   if (!layout) {
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
@@ -447,6 +443,16 @@ export default function WorkbookModelPreview({
         if (boundary > 0 && boundary < flowRowSizesMm.length) forbiddenBreaks.add(boundary);
       }
     }
+
+    const lineDescriptions = flowCells.filter((cell) => cell.tokens?.includes('description_ar'));
+    lineDescriptions.forEach((cell,index) => {
+      if (cell.renderValues?.kind !== 'title') return;
+      const next = lineDescriptions[index+1];
+      if (!next || next.renderValues?.kind === 'title') return;
+      const start = cell.renderRow-1-headerTrackCount;
+      const end = next.renderRow-1-headerTrackCount+(next.renderRowSpan||1);
+      for (let boundary=start+1; boundary<end; boundary+=1) forbiddenBreaks.add(boundary);
+    });
 
     const footerTokens = new Set(['representative_name','representative_title','bank_name','bank_account_no','bank_iban']);
     const footerGroupCells = flowCells.filter((cell) => {
@@ -582,13 +588,14 @@ export default function WorkbookModelPreview({
   }}>
     {pages.map((page, pageIndex) => {
       const pageOffsetRows = carrierMode ? 0 : page.start;
-      const pageRows = carrierMode
-        ? rows
+      const pageRowSizes = carrierMode
+        ? rowSizesMm
         : [
           ...baseRowSizesMm.slice(0, headerTrackCount),
           ...flowRowSizesMm.slice(page.start, page.end),
           ...baseRowSizesMm.slice(footerBaseTrackIndex),
-        ].map((value) => `${value}mm`).join(' ');
+        ];
+      const pageRows = pageRowSizes.map((value) => `${value}mm`).join(' ');
 
       const pageCells = carrierMode ? renderCells : renderCells.filter((cell) => {
         const flowIndex = (cell.renderRow - 1) - headerTrackCount;
@@ -596,10 +603,14 @@ export default function WorkbookModelPreview({
         const isFooter = cell.row >= footerStartRow;
         return isHeader || isFooter || (flowIndex >= page.start && flowIndex < page.end);
       });
+      const localRowOf = (cell) => carrierMode ? cell.renderRow
+        : cell.row < contentStartRow ? cell.renderRow
+          : cell.row >= footerStartRow ? headerTrackCount+(page.end-page.start)+(cell.row-footerStartRow)+1
+            : cell.renderRow-pageOffsetRows;
 
       return <div
         key={`page-${pageIndex}`}
-        className="workbook-preview-page"
+        className="workbook-preview-page workbook-page"
         style={{
           position:'relative',
           width:`${pageConfig.widthMm}mm`,
@@ -636,30 +647,23 @@ export default function WorkbookModelPreview({
           zIndex:10,
         }}>
           {pageCells.map((cell) => {
-            const isHeader = !carrierMode && cell.row < contentStartRow;
-            const isFooter = !carrierMode && cell.row >= footerStartRow;
-            const localRow = carrierMode
-              ? cell.renderRow
-              : isHeader
-                ? cell.renderRow
-                : isFooter
-                  ? headerTrackCount + (page.end - page.start) + (cell.row - footerStartRow) + 1
-                  : cell.renderRow - headerTrackCount - pageOffsetRows + headerTrackCount;
+            const localRow = localRowOf(cell);
             const numeric = isNumericCell(cell);
             const noWrap = isNoWrapCell(cell);
-            const text = tokenValue(cell.text, cell.renderValues);
+            const text = tokenValue(cell.text, cell.renderValues, visibilityState.hiddenTokens);
             const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
+            const sectionTitle = cell.renderValues?.kind === 'title';
             return <div
               key={`${pageIndex}-${cell.renderKey}`}
               style={{
                 gridColumn:`${cell.col - bounds.startCol + 1} / span ${cell.colSpan || 1}`,
                 gridRow:`${localRow} / span ${Math.max(1, Number(cell.renderRowSpan || 1))}`,
                 border:printMode ? '1px solid rgba(160,120,120,.28)' : '1px solid rgba(71,85,105,.18)',
-                background:printMode ? 'transparent' : (dynamic ? 'rgba(219,234,254,.72)' : 'rgba(255,255,255,.82)'),
-                color:'#111827',
+                background:sectionTitle ? 'rgba(244,232,236,.8)' : (printMode ? 'transparent' : (dynamic ? 'rgba(219,234,254,.72)' : 'rgba(255,255,255,.82)')),
+                color:sectionTitle ? '#7A1832' : '#111827',
                 padding:'2px 4px',
                 fontSize:numeric ? '10px' : '11px',
-                fontWeight:numeric ? 700 : 500,
+                fontWeight:sectionTitle || numeric ? 700 : 500,
                 lineHeight:1.25,
                 whiteSpace:noWrap ? 'nowrap' : 'pre-wrap',
                 overflow:'hidden',
@@ -679,13 +683,12 @@ export default function WorkbookModelPreview({
         </div>
 
         {visibleOverlays.map((overlay) => {
-          const anchorCell = renderCells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(overlay.anchorToken));
+          const anchorCell = pageCells.find((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(overlay.anchorToken));
           if (!anchorCell) return null;
           const current = overlayPositions?.[overlay.id] || {};
           const xMm = Number(current.xMm ?? overlay.offsetXmm ?? 0);
           const yMm = Number(current.yMm ?? overlay.offsetYmm ?? 0);
-          const pageOffsetMm = carrierMode ? 0 : contentTopMm;
-          const topMm = (anchorCell.renderRow - 1) * (rowSizesMm[0] || 4) + yMm + pageOffsetMm;
+          const topMm = pageRowSizes.slice(0,localRowOf(anchorCell)-1).reduce((sum,height) => sum+height,0) + yMm;
           const leftMm = columnOffsetMm(anchorCell.col) + xMm;
           const src = overlayImages?.[overlay.id] || overlayImages?.[overlay.variableCode] || '';
           return <div

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { money } from '@/lib/format';
-import { SYSTEM } from '@/lib/system-constitution';
-import { numberLines, lineTotal, totals } from '@/lib/quote-calc';
+import { money, dateAr } from '@/lib/format';
+import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
 import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
+import { buildQuoteWorkbookData } from '@/lib/quote-workbook-data.mjs';
 
 function pickModel(schema, quote) {
   const models = Array.isArray(schema?.models) ? schema.models : [];
@@ -18,15 +18,6 @@ function pickModel(schema, quote) {
   const wantsQty = Boolean(quote?.show_qty);
   const wantsVat = quote?.vat_mode !== 'none';
   return models.find((model) => Boolean(model.hasQty) === wantsQty && Boolean(model.hasVat) === wantsVat) || models[0];
-}
-
-function dateText(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
-    day:'2-digit', month:'2-digit', year:'numeric',
-  }).format(date);
 }
 
 export default function WorkbookQuotePrintPage() {
@@ -80,38 +71,13 @@ export default function WorkbookQuotePrintPage() {
 
   const model = useMemo(() => pickModel(schema, quote), [schema, quote]);
 
-  const toggles = useMemo(() => {
-    const rules = Array.isArray(schema?.visibility) ? schema.visibility : [];
-    return Object.fromEntries(rules.map((rule) => [
-      rule.toggle,
-      quote?.[rule.toggle] ?? rule.defaultValue,
-    ]));
-  }, [schema, quote]);
-
-  const repeatGroups = useMemo(() => {
-    const numbered = numberLines(lines);
-    return {
-      line_items:numbered
-        .filter((line) => line.kind !== 'title')
-        .map((line) => ({
-          item_no:line.number,
-          description_ar:line.description_ar || '',
-          description_en:line.description_en || '',
-          unit:line.unit || '',
-          qty:line.qty ?? '',
-          unit_price:money(Number(line.unit_price || 0)),
-          line_total:money(lineTotal(line, quote?.show_qty)),
-        })),
-      payment_terms:payments.map((payment, index) => ({
-        payment_terms:`${payment.label || `الدفعة ${index + 1}`}: ${Number(payment.percent || 0)}%${payment.trigger_note ? ` — ${payment.trigger_note}` : ''}`,
-      })),
-      terms:String(quote?.terms_text || '')
-        .split(/\r?\n/)
-        .map((text) => text.trim())
-        .filter(Boolean)
-        .map((text) => ({ terms:text })),
-    };
-  }, [lines, payments, quote]);
+  const projection = useMemo(() => quote ? buildQuoteWorkbookData({
+    quote,
+    numberedLines:numberLines(lines).map((line) => ({ ...line,calculated_total:lineTotal(line,quote.show_qty) })),
+    payments,computed:totals(quote,lines),subtotals:titleSubtotals(lines,quote.show_qty),
+    settings:settings || {},formatMoney:money,formatDate:dateAr,
+  }) : { toggles:{},repeatGroups:{},values:{} }, [quote,lines,payments,settings]);
+  const { toggles, repeatGroups, values } = projection;
 
   const overlayImages = useMemo(() => {
     if (!settings) return {};
@@ -173,56 +139,6 @@ export default function WorkbookQuotePrintPage() {
       window.setTimeout(()=>setSaved(''),1200);
     }
   }
-
-  const values = useMemo(() => {
-    if (!quote) return {};
-    const numbered = numberLines(lines);
-    const computed = totals(quote, lines);
-    const first = numbered.find((line) => line.kind === 'item') || numbered[0] || null;
-    const paymentText = payments
-      .map((payment, index) => {
-        const pct = Number(payment.percent || 0);
-        const label = payment.label || `الدفعة ${index + 1}`;
-        const trigger = payment.trigger_note ? ` — ${payment.trigger_note}` : '';
-        return `${label}: ${pct}%${trigger}`;
-      })
-      .join('\n');
-
-    return {
-      document_title:quote.title_override || 'عرض سعر',
-      quote_no:quote.quote_no || '',
-      quote_date:dateText(quote.quote_date),
-      client_name:quote.client_name || '',
-      client_contact:quote.client_contact || '',
-      project_ref:quote.project_ref || '',
-      site_location:quote.site_location || '',
-      valid_days:quote.valid_days ?? '',
-      intro_text:quote.intro_text || '',
-      closing_text:quote.closing_text || '',
-      subtotal:money(computed.subtotal),
-      vat_rate:`${Number(quote.vat_rate ?? SYSTEM.vatRate) * 100}%`,
-      vat_amount:money(computed.vat),
-      grand_total:money(computed.grand),
-      plain_total:money(computed.grand),
-      item_no:first?.number || 1,
-      description_ar:first?.description_ar || '',
-      description_en:first?.description_en || '',
-      unit:first?.unit || '',
-      qty:first?.qty ?? '',
-      unit_price:first ? money(first.unit_price) : '',
-      line_total:first ? money(lineTotal(first, quote.show_qty)) : '',
-      payment_terms:paymentText,
-      terms:quote.terms_text || '',
-      representative_name:quote.arkan_signatory_name || '',
-      representative_title:quote.arkan_signatory_title || '',
-      stamp:'',
-      signature:'',
-      bank_name:settings?.bank_name_full || 'مصرف الراجحي',
-      bank_account_no:settings?.bank_account_no || '',
-      bank_iban:settings?.bank_iban || '',
-    };
-  }, [quote, lines, payments, settings]);
-
 
   async function downloadFilledWorkbook() {
     if (!familyRecord?.storage_path || !model) return;

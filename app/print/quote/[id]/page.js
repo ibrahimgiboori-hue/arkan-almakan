@@ -142,7 +142,7 @@ export default function QuotePrint(){
 
         {!rateOnly?<div className="q-sum"><div className="srow grand"><span>{tr('المجموع','Total')}</span><span className="mono">{money(t.grand)} <Riyal/></span></div></div>:null}
 
-        {quoteSpecificTerms.length?<div className="q-sum rate-only" aria-label={tr('شروط عرض السعر','Quotation conditions')}>
+        {q.show_terms&&quoteSpecificTerms.length?<div className="q-sum rate-only" aria-label={tr('شروط عرض السعر','Quotation conditions')}>
           {quoteSpecificTerms.map((term,index)=><div className="srow" key={`quote-term-${index}`}><span>{term}</span></div>)}
         </div>:null}
 
