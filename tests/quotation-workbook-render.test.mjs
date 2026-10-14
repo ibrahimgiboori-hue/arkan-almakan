@@ -19,6 +19,7 @@ const compiled = await transform(fs.readFileSync('components/quotes/WorkbookMode
 let code = compiled.code
   .replaceAll('"react/jsx-runtime"',JSON.stringify(pathToFileURL(require.resolve('react/jsx-runtime')).href))
   .replaceAll("'react'",JSON.stringify(pathToFileURL(require.resolve('react')).href))
+  .replaceAll("'@/lib/quotation-workbook-language.mjs'",JSON.stringify(new URL('../lib/quotation-workbook-language.mjs',import.meta.url).href))
   .replaceAll("'@/lib/workbook-visibility.mjs'",JSON.stringify(new URL('../lib/workbook-visibility.mjs',import.meta.url).href));
 const { default:Preview } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const numberedLines = [
@@ -62,4 +63,23 @@ test('multi-page quotation retains every heading and draws enabled stamp only on
   for (let index=1; index<=28; index+=1) assert.equal((html.match(new RegExp(`SECTION_${index} / Works`,'g')) || []).length,1);
   assert.equal((html.match(/alt="stamp"/g) || []).length,1);
   assert.equal((html.match(/alt="signature"/g) || []).length,0);
+});
+
+test('English quotation markup is LTR, has English labels and one primary description without forced breaks', () => {
+  const data = buildQuoteWorkbookData({
+    quote:{ language:'en',show_en_desc:true,show_qty:true,show_line_total:true,show_validity:true,valid_days:15,quote_date:'14/10/2026',intro_text:'This is an English quotation.\nPlease review the scope.',closing_text:'Thank you.\nWe look forward to working with you.' },
+    numberedLines:numberedLines.map((line)=>({...line,description_en:`${line.kind==='title'?'Sanitary Installation Works':line.kind==='item'&&line.id==='tech'?'Skilled Worker':'Helper'}\nFull scope retained.`})),
+    computed:{subtotal:1640,vat:246,grand:1886},
+    payments:[{percent:30}],settings:{bank_name_full:'مصرف الراجحي'},
+  });
+  const html = renderToStaticMarkup(React.createElement(Preview,{model,visibility,...data,printMode:true}));
+  assert.match(html,/<div lang="en" dir="ltr"/);
+  assert.doesNotMatch(html,/[\u0600-\u06ff]/);
+  assert.equal((html.match(/Sanitary Installation Works/g)||[]).length,1);
+  assert.equal((html.match(/Skilled Worker/g)||[]).length,1);
+  assert.ok(html.includes('Sanitary Installation Works Full scope retained.'));
+  assert.ok(html.includes('This is an English quotation. Please review the scope.'));
+  for(const label of ['QUOTATION','Description of Works','Subtotal','Grand Total','Terms &amp; Conditions','Payment Terms','Bank Details','Al Rajhi Bank','15 days'])assert.ok(html.includes(label),label);
+  assert.match(html,/text-align:left;direction:ltr/);
+  assert.match(html,/white-space:normal/);
 });

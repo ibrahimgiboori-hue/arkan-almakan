@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { fillWorkbookText, resolveWorkbookVisibility, workbookLineCells } from '@/lib/workbook-visibility.mjs';
+import { quotationWorkbookCell } from '@/lib/quotation-workbook-language.mjs';
 
 const PX_PER_MM = 96 / 25.4;
 const DEFAULT_PAGE_BOUNDS = Object.freeze({ startRow:3, endRow:61, startCol:2, endCol:41 });
@@ -194,6 +195,8 @@ function isGuideCell(cell, pageConfig) {
 
 export default function WorkbookModelPreview({
   model,
+  language = 'ar',
+  variables = [],
   values = {},
   repeatData = {},
   repeatGroups = {},
@@ -250,7 +253,7 @@ export default function WorkbookModelPreview({
       .filter((cell) => !isGuideCell(cell, pageConfig))
       .filter((cell) => !Array.from({ length:cell.rowSpan || 1 }, (_unused,index) => cell.row+index)
         .some((row) => visibilityState.collapsedRows.has(row)))
-      .map((cell) => visibilityState.blankCells.has(cell.address) ? { ...cell,text:'' } : cell);
+      .map((cell) => visibilityState.blankCells.has(cell.address) ? { ...cell,text:'' } : quotationWorkbookCell(cell,{ language,values,variables }));
 
     const groups = carrierMode ? [] : REPEAT_GROUPS.map((definition) => {
       const cells = sourceCells.filter((cell) => groupForCell(cell)?.id === definition.id);
@@ -268,9 +271,12 @@ export default function WorkbookModelPreview({
         ? patternHeights.reduce((sum, value) => sum + value, 0) / patternHeights.length
         : 14.25;
       const instanceSpans = instances.map((record) => {
+        const fittedCells = definition.id==='line_items' ? workbookLineCells(cells,record) : cells;
+        const fittedWrapCell = fittedCells.find((cell) => cell.tokens?.includes(definition.wrapToken)) || wrapCell;
+        const fittedWidthPx = cellWidthPx(fittedWrapCell,bounds,columnsPx)*colScaleMm*PX_PER_MM;
         const merged = record ? { ...values, ...record } : values;
-        const display = tokenValue(wrapCell.text, merged, visibilityState.hiddenTokens);
-        const visualLines = measureWrappedLines(display, widthCssPx);
+        const display = tokenValue(fittedWrapCell.text, merged, visibilityState.hiddenTokens);
+        const visualLines = measureWrappedLines(display, fittedWidthPx || widthCssPx);
         if (definition.id === 'line_items') {
           if (visualLines <= 1) return baseSpan;
           const requiredPx = visualLines * Number(definition.renderedLineHeightPx || 13.2)
@@ -383,7 +389,7 @@ export default function WorkbookModelPreview({
       colScaleMm,
       rowScaleMm,
     };
-  }, [model, values, effectiveRepeatData, sideMarginPreset, visibilityState]);
+  }, [model, values, effectiveRepeatData, sideMarginPreset, visibilityState,language,variables]);
 
   if (!layout) {
     return <div className="empty"><h3>لا يوجد مخطط Excel مقروء لهذا النموذج</h3><p>أعد رفع ملف العائلة بعد حفظه من Excel.</p></div>;
@@ -457,7 +463,7 @@ export default function WorkbookModelPreview({
     const footerTokens = new Set(['representative_name','representative_title','bank_name','bank_account_no','bank_iban']);
     const footerGroupCells = flowCells.filter((cell) => {
       const tokens = Array.isArray(cell.tokens) ? cell.tokens : [];
-      const text = String(cell.text || '');
+      const text = String(cell.sourceText ?? cell.text ?? '');
       return tokens.some((token) => footerTokens.has(token))
         || /قبول العميل|ممثل أركان المكان|تفاصيل الحساب البنكي|الاسم:|التوقيع:|التاريخ:/.test(text);
     });
@@ -476,7 +482,7 @@ export default function WorkbookModelPreview({
       { token:'terms', title:/^الشروط والأحكام العامة$/, minDataRows:4 },
     ];
     for (const rule of sectionStartGuards) {
-      const titleCell = flowCells.find((cell) => rule.title.test(String(cell.text || '').trim()));
+      const titleCell = flowCells.find((cell) => rule.title.test(String(cell.sourceText ?? cell.text ?? '').trim()));
       const dataCells = flowCells.filter((cell) => Array.isArray(cell.tokens) && cell.tokens.includes(rule.token));
       if (!titleCell || !dataCells.length) continue;
       const titleStart = (titleCell.renderRow - 1) - headerTrackCount;
@@ -580,11 +586,12 @@ export default function WorkbookModelPreview({
     />;
   }
 
-  return <div style={{
+  return <div lang={language} dir={language==='en' ? 'ltr' : 'rtl'} style={{
     display:'flex',
     flexDirection:'column',
     gap:carrierMode ? '8mm' : '10mm',
     alignItems:'center',
+    fontFamily:language==='en' ? 'Arial, Helvetica, sans-serif' : undefined,
   }}>
     {pages.map((page, pageIndex) => {
       const pageOffsetRows = carrierMode ? 0 : page.start;
@@ -653,6 +660,8 @@ export default function WorkbookModelPreview({
             const text = tokenValue(cell.text, cell.renderValues, visibilityState.hiddenTokens);
             const dynamic = Array.isArray(cell.tokens) && cell.tokens.length > 0;
             const sectionTitle = cell.renderValues?.kind === 'title';
+            const leftAligned = language==='en' && !numeric && !noWrap && cell.row>=13
+              && !['No.','Unit','Qty','Unit Rate','Amount'].includes(text);
             return <div
               key={`${pageIndex}-${cell.renderKey}`}
               style={{
@@ -665,15 +674,15 @@ export default function WorkbookModelPreview({
                 fontSize:numeric ? '10px' : '11px',
                 fontWeight:sectionTitle || numeric ? 700 : 500,
                 lineHeight:1.25,
-                whiteSpace:noWrap ? 'nowrap' : 'pre-wrap',
+                whiteSpace:noWrap ? 'nowrap' : (language==='en' ? 'normal' : 'pre-wrap'),
                 overflow:'hidden',
                 overflowWrap:noWrap ? 'normal' : 'break-word',
                 wordBreak:noWrap ? 'keep-all' : 'normal',
-                textAlign:'center',
-                direction:noWrap ? 'ltr' : (/[\u0600-\u06FF]/.test(text) ? 'rtl' : 'ltr'),
+                textAlign:leftAligned ? 'left' : 'center',
+                direction:language==='en' || noWrap ? 'ltr' : (/[\u0600-\u06FF]/.test(text) ? 'rtl' : 'ltr'),
                 display:'flex',
                 alignItems:'center',
-                justifyContent:'center',
+                justifyContent:leftAligned ? 'flex-start' : 'center',
                 position:'relative',
                 zIndex:12,
               }}
