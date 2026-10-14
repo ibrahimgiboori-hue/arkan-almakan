@@ -286,6 +286,7 @@ export default function QuoteEditor() {
           </header>
           <WorkbookModelPreview
             model={activeModel}
+            language={q.language}
             values={preview.values}
             variables={printSchema?.variables || []}
             visibility={workbookVisibility}

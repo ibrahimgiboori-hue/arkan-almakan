@@ -1,5 +1,6 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { fillWorkbookText, resolveWorkbookVisibility, workbookLineCells } from '../../../../lib/workbook-visibility.mjs';
+import { quotationWorkbookCell } from '../../../../lib/quotation-workbook-language.mjs';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -162,6 +163,7 @@ function makeSelectedSheetActive(files,sheetName){
 function transformWorksheet(xml,payload){
   const model=payload.model, variables=payload.variables||[], visibility=payload.visibility||[];
   const toggles=payload.toggles||{}, repeatGroups=payload.repeatGroups||{}, values=payload.values||{};
+  const language=payload.language||toggles.language||'ar';
   let rows=sheetRows(xml), refs=mergeRefs(xml);
   const {hiddenTokens,blankCells,collapsedRows,collapsedRanges}=resolveWorkbookVisibility(model,visibility,toggles);
   const groupByCode=new Map(variables.filter((item)=>item.repeatGroup).map((item)=>[item.code,item.repeatGroup]));
@@ -169,8 +171,10 @@ function transformWorksheet(xml,payload){
   for(const cell of model.cells||[]){
     if(blankCells.has(cell.address)){setCellText(rows,cell.address,'');continue;}
     const tokens=cell.tokens||[];
-    if(!tokens.length||tokens.some((token)=>groupByCode.has(token)))continue;
-    setCellText(rows,cell.address,fillWorkbookText(cell.text,values,hiddenTokens));
+    if(tokens.some((token)=>groupByCode.has(token)))continue;
+    const presentation=quotationWorkbookCell(cell,{language,values,variables});
+    if(!tokens.length&&presentation.text===cell.text)continue;
+    setCellText(rows,cell.address,fillWorkbookText(presentation.text,values,hiddenTokens));
   }
 
   const ops=collapsedRanges.map((range)=>({type:'delete',...range}));
@@ -217,7 +221,8 @@ function transformWorksheet(xml,payload){
       const record={...values,...(op.records[copy]||{})};
       for(const cell of op.cells){
         const row=start+(cell.row-op.start)+copy*height;
-        setCellText(rows,cellAddress(cell.col,row),fillWorkbookText(cell.text,record,hiddenTokens));
+        const presentation=quotationWorkbookCell(cell,{language,values:record,variables});
+        setCellText(rows,cellAddress(cell.col,row),fillWorkbookText(presentation.text,record,hiddenTokens));
       }
       if(['title','note'].includes(record.kind)){
         const description=workbookLineCells(op.cells,record).find((cell)=>cell.tokens?.includes('description_ar'));
@@ -237,6 +242,11 @@ function transformWorksheet(xml,payload){
 
   xml=setSheetRows(xml,rows);
   xml=setMergeRefs(xml,refs);
+  if(language==='en'){
+    xml=xml.replace(/<sheetView\b([^>]*?)(\/?)>/,(_whole,attrs,closingSlash)=>{
+      return '<sheetView'+attrs.replace(/\s+rightToLeft="[^"]*"/g,'')+' rightToLeft="0"'+closingSlash+'>';
+    });
+  }
   const maxRow=Math.max(...Array.from(rows.keys()),1);
   xml=xml.replace(/<dimension\b[^>]*ref="([^"]+)"[^>]*\/>/,(whole,ref)=>{
     const range=parseRange(ref);

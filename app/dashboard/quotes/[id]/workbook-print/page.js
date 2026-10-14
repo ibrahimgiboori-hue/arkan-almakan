@@ -156,6 +156,7 @@ export default function WorkbookQuotePrintPage() {
     }));
     form.append('payload', JSON.stringify({
       model,
+      language:quote.language,
       variables:schema?.variables || [],
       visibility:schema?.visibility || [],
       toggles,
@@ -237,6 +238,7 @@ export default function WorkbookQuotePrintPage() {
     }}>
       <WorkbookModelPreview
         model={model}
+        language={quote.language}
         values={values}
         variables={schema?.variables || []}
         visibility={schema?.visibility || []}
