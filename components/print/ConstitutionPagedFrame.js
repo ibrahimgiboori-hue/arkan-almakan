@@ -35,6 +35,7 @@ import { PrintPresentationProvider } from '@/components/print/PrintPresentationC
 import PagedTableGridEditor from '@/components/print/PagedTableGridEditor';
 import ExactPrintMirror from '@/components/print/ExactPrintMirror';
 import PrintMarks from '@/components/print/PrintMarks';
+import { centralSafeArea, resolvePageSafeArea, safeAreaWarnings } from '@/lib/page-geometry.mjs';
 
 const assetUrl = (path) => path ? supabase.storage.from('brand').getPublicUrl(path).data.publicUrl : null;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value)));
@@ -42,7 +43,14 @@ const snap = (value) => Math.round(Number(value) * 2) / 2;
 const finiteMm = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const MAX_MARGIN = 90;
 const CSS_PX_PER_MM = 96 / 25.4;
-const CAPTAIN_GEOMETRY_SCHEMA = 6;
+// 7: margins come from the central safe area (app_settings.page_safe_*); only an explicit
+//    document override saved at schema >= 7 may replace an edge. Family presets never set margins.
+const CAPTAIN_GEOMETRY_SCHEMA = 7;
+// Orientation / letterhead / rotation / surface presets saved since schema 6 stay valid.
+const LAYOUT_PRESET_SCHEMA = 6;
+const MARGIN_EDGES = ['topMm','bottomMm','leftMm','rightMm'];
+const pickMargins = (settings = {}) => Object.fromEntries(MARGIN_EDGES.map((edge)=>[edge, settings?.[edge] ?? null]));
+const withoutMargins = (settings = {}) => Object.fromEntries(Object.entries(settings || {}).filter(([key])=>!MARGIN_EDGES.includes(key)));
 
 function pxToMm(value) {
   return Number(value || 0) / CSS_PX_PER_MM;
@@ -267,11 +275,6 @@ export default function ConstitutionPagedFrame({
   stampStyle,
   signatureStyle,
   captainOptions = [],
-  contentTopMm,
-  contentBottomMm,
-  contentSideMm,
-  contentLeftMm,
-  contentRightMm,
   direction = 'auto',
   pageClassName = '',
   contentClassName = '',
@@ -300,13 +303,11 @@ export default function ConstitutionPagedFrame({
   const docDirection = explicitDirection || inferredDirection || 'rtl';
   const docTextAlign = docDirection === 'ltr' ? 'left' : 'right';
 
+  // Word's body margin is kept only as a reported reference; it no longer floors the safe area.
   const wordMarginMm = finiteMm(paper?.bodyMarginMm,25.4);
-  const minMarginMm = wordMarginMm;
-  const defaultTop = clamp(Math.max(finiteMm(contentTopMm,wordMarginMm),wordMarginMm),minMarginMm,MAX_MARGIN);
-  const defaultBottom = clamp(Math.max(finiteMm(contentBottomMm,wordMarginMm),wordMarginMm),minMarginMm,MAX_MARGIN);
-  const requestedSide = finiteMm(contentSideMm,wordMarginMm);
-  const defaultLeft = clamp(Math.max(finiteMm(contentLeftMm,requestedSide),wordMarginMm),minMarginMm,MAX_MARGIN);
-  const defaultRight = clamp(Math.max(finiteMm(contentRightMm,requestedSide),wordMarginMm),minMarginMm,MAX_MARGIN);
+  const minMarginMm = 0;
+  // The one source of page geometry: the owner's four central safe-area values.
+  const centralArea = useMemo(()=>centralSafeArea(cfg || {}), [cfg]);
   const defaultBlockGap = clamp(layout.grid?.blockGapMm ?? 3, 1, 8);
   const defaultSectionGap = clamp(layout.grid?.sectionGapMm ?? 6, 2, 14);
   const surfacePolicy = layout.surface || null;
@@ -318,10 +319,10 @@ export default function ConstitutionPagedFrame({
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState('');
   const [draft, setDraft] = useState({
-    topMm:defaultTop,
-    bottomMm:defaultBottom,
-    leftMm:defaultLeft,
-    rightMm:defaultRight,
+    topMm:null,
+    bottomMm:null,
+    leftMm:null,
+    rightMm:null,
     blockGapMm:defaultBlockGap,
     sectionGapMm:defaultSectionGap,
     orientation:layout.orientation || PRINT_ORIENTATION.PORTRAIT,
@@ -343,14 +344,16 @@ export default function ConstitutionPagedFrame({
     if (!error) {
       const familySettings = (data || []).find((x)=>x.scope==='family' && x.scope_key===definition.family)?.settings || {};
       const documentSettings = (data || []).find((x)=>x.scope==='document' && x.scope_key===documentKey)?.settings || {};
-      const merged = mergeSettings(familySettings, documentSettings);
-      const geometryCurrent = Number(merged.gridSchemaVersion || 0) >= CAPTAIN_GEOMETRY_SCHEMA;
+      // Family presets may set orientation/letterhead/grids, never margins.
+      const merged = mergeSettings(withoutMargins(familySettings), documentSettings);
+      const geometryCurrent = Number(merged.gridSchemaVersion || 0) >= LAYOUT_PRESET_SCHEMA;
+      // A document's own margins count only when saved under the central-safe-area schema.
+      const documentMargins = Number(documentSettings.gridSchemaVersion || 0) >= CAPTAIN_GEOMETRY_SCHEMA
+        ? pickMargins(documentSettings)
+        : pickMargins({});
       setDraft({
-        ...merged,
-        topMm:clamp(geometryCurrent ? (merged.topMm ?? defaultTop) : defaultTop, minMarginMm, MAX_MARGIN),
-        bottomMm:clamp(geometryCurrent ? (merged.bottomMm ?? defaultBottom) : defaultBottom, minMarginMm, MAX_MARGIN),
-        leftMm:clamp(geometryCurrent ? (merged.leftMm ?? defaultLeft) : defaultLeft, minMarginMm, MAX_MARGIN),
-        rightMm:clamp(geometryCurrent ? (merged.rightMm ?? defaultRight) : defaultRight, minMarginMm, MAX_MARGIN),
+        ...withoutMargins(merged),
+        ...documentMargins,
         blockGapMm:clamp(merged.blockGapMm ?? defaultBlockGap, 1, 8),
         sectionGapMm:clamp(merged.sectionGapMm ?? defaultSectionGap, 2, 14),
         orientation:geometryCurrent && Object.values(PRINT_ORIENTATION).includes(merged.orientation)
@@ -378,7 +381,7 @@ export default function ConstitutionPagedFrame({
       .maybeSingle();
     const labels = presentation.data?.settings?.labels || {};
     setPresentationLabels({ ...defaultLabels, ...labels });
-  }, [defaultBlockGap, defaultBottom, defaultLabels, defaultLeft, defaultRight, defaultSectionGap, defaultTop, definition.family, documentKey, layout.letterheadSource, layout.orientation, layout.paperRotation, minMarginMm]);
+  }, [defaultBlockGap, defaultLabels, defaultSectionGap, definition.family, documentKey, layout.letterheadSource, layout.orientation, layout.paperRotation]);
 
   useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
@@ -412,10 +415,7 @@ export default function ConstitutionPagedFrame({
         gridColumns:PRINT_GRID_COLUMNS,
         gridMajorColumns:PRINT_GRID_MAJOR_COLUMNS,
         gridRowMm:PRINT_GRID_ROW_MM,
-        topMm:draft.topMm,
-        bottomMm:draft.bottomMm,
-        leftMm:draft.leftMm,
-        rightMm:draft.rightMm,
+        ...(scope === 'document' ? pickMargins(draft) : {}),
         blockGapMm:draft.blockGapMm,
         sectionGapMm:draft.sectionGapMm,
         orientation:draft.orientation,
@@ -462,10 +462,10 @@ export default function ConstitutionPagedFrame({
 
   function resetDraft() {
     setDraft({
-      topMm:defaultTop,
-      bottomMm:defaultBottom,
-      leftMm:defaultLeft,
-      rightMm:defaultRight,
+      topMm:null,
+      bottomMm:null,
+      leftMm:null,
+      rightMm:null,
       blockGapMm:defaultBlockGap,
       sectionGapMm:defaultSectionGap,
       orientation:layout.orientation || PRINT_ORIENTATION.PORTRAIT,
@@ -478,7 +478,7 @@ export default function ConstitutionPagedFrame({
       grids:{}, rows:{},
     });
     setPresentationLabels(defaultLabels);
-    setMessage('عادت إعدادات Word القياسية وبروفايل الليترهيد المقاس؛ احفظ ما تريد تثبيته');
+    setMessage('عاد المطبوع يتبع المساحات الآمنة المركزية من الإعدادات؛ احفظ ما تريد تثبيته');
   }
 
   const orientation = draft.orientation || PRINT_ORIENTATION.PORTRAIT;
@@ -517,22 +517,29 @@ export default function ConstitutionPagedFrame({
   );
   const topBottomReservedLetterhead = letterheadSource !== PRINT_LETTERHEAD_SOURCE.NONE && !sideReservedLetterhead;
 
-  const requestedTop = surfaceMode ? surfaceTopMm : clamp(draft.topMm ?? defaultTop,minMarginMm,MAX_MARGIN);
-  const requestedBottom = surfaceMode ? surfaceBottomMm : clamp(draft.bottomMm ?? defaultBottom,minMarginMm,MAX_MARGIN);
-  const requestedLeft = surfaceMode ? surfaceLeftMm : clamp(draft.leftMm ?? defaultLeft,minMarginMm,MAX_MARGIN);
-  const requestedRight = surfaceMode ? surfaceRightMm : clamp(draft.rightMm ?? defaultRight,minMarginMm,MAX_MARGIN);
-  const physicalLeft = surfaceMode ? requestedLeft : (sideReservedLetterhead
-    ? Math.max(requestedLeft, paperRotation === PRINT_PAPER_ROTATION.CLOCKWISE ? letterheadBottom : letterheadTop)
-    : requestedLeft);
-  const physicalRight = surfaceMode ? requestedRight : (sideReservedLetterhead
-    ? Math.max(requestedRight, paperRotation === PRINT_PAPER_ROTATION.CLOCKWISE ? letterheadTop : letterheadBottom)
-    : requestedRight);
-  const top = surfaceMode ? requestedTop : (topBottomReservedLetterhead
-    ? Math.max(requestedTop, letterheadTop + headerClearanceMm)
-    : requestedTop);
-  const bottom = surfaceMode ? requestedBottom : (topBottomReservedLetterhead
-    ? Math.max(requestedBottom, letterheadBottom + footerClearanceMm)
-    : requestedBottom);
+  // Central safe area → physical page edges (rotation with the paper, plain-paper rule),
+  // then any explicit per-document edge. The owner's numbers are final; overlaps only warn.
+  const resolvedArea = resolvePageSafeArea({
+    central:centralArea,
+    override:pickMargins(draft),
+    orientation,
+    letterheadSource,
+    paperRotation,
+    sideReservedLetterhead,
+  });
+  const requestedTop = surfaceMode ? surfaceTopMm : resolvedArea.topMm;
+  const requestedBottom = surfaceMode ? surfaceBottomMm : resolvedArea.bottomMm;
+  const requestedLeft = surfaceMode ? surfaceLeftMm : resolvedArea.leftMm;
+  const requestedRight = surfaceMode ? surfaceRightMm : resolvedArea.rightMm;
+  const physicalLeft = requestedLeft;
+  const physicalRight = requestedRight;
+  const top = requestedTop;
+  const bottom = requestedBottom;
+  const geometryWarnings = surfaceMode || !topBottomReservedLetterhead || landscape
+    ? []
+    : safeAreaWarnings({ topMm:top, bottomMm:bottom, rightMm:physicalRight, leftMm:physicalLeft }, {
+      artwork:{ topMm:letterheadTop, bottomMm:letterheadBottom },
+    });
   const grid = { ...(layout.grid || {}), blockGapMm:draft.blockGapMm, sectionGapMm:draft.sectionGapMm };
 
   useEffect(() => {
@@ -838,10 +845,10 @@ export default function ConstitutionPagedFrame({
               <label>تحريك أفقي <input type="range" min="-30" max="30" step="0.5" value={surfaceOffsetXMm} onChange={(event)=>setDraft((previous)=>({...previous,surfaceOffsetXMm:snap(event.target.value)}))} /><strong>{surfaceOffsetXMm.toFixed(1)} مم</strong></label>
               <label>تحريك رأسي <input type="range" min="-60" max="60" step="0.5" value={surfaceOffsetYMm} onChange={(event)=>setDraft((previous)=>({...previous,surfaceOffsetYMm:snap(event.target.value)}))} /><strong>{surfaceOffsetYMm.toFixed(1)} مم</strong></label>
             </> : <>
-              <label>هامش Word العلوي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedTop} onChange={(event)=>setEdge('topMm',event.target.value)} /><strong>{top.toFixed(1)} مم فعلي</strong></label>
-              <label>هامش Word السفلي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedBottom} onChange={(event)=>setEdge('bottomMm',event.target.value)} /><strong>{bottom.toFixed(1)} مم فعلي</strong></label>
-              <label>الهامش الأيسر <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedLeft} onChange={(event)=>setEdge('leftMm',event.target.value)} /><strong>{physicalLeft.toFixed(1)} مم</strong></label>
-              <label>الهامش الأيمن <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setEdge('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم</strong></label>
+              <label>الهامش العلوي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedTop} onChange={(event)=>setEdge('topMm',event.target.value)} /><strong>{top.toFixed(1)} مم{draft.topMm == null ? ' · مركزي' : ' · لهذا المستند'}</strong></label>
+              <label>الهامش السفلي <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedBottom} onChange={(event)=>setEdge('bottomMm',event.target.value)} /><strong>{bottom.toFixed(1)} مم{draft.bottomMm == null ? ' · مركزي' : ' · لهذا المستند'}</strong></label>
+              <label>الهامش الأيسر <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedLeft} onChange={(event)=>setEdge('leftMm',event.target.value)} /><strong>{physicalLeft.toFixed(1)} مم{draft.leftMm == null ? ' · مركزي' : ' · لهذا المستند'}</strong></label>
+              <label>الهامش الأيمن <input type="range" min={minMarginMm} max={MAX_MARGIN} step="0.5" value={requestedRight} onChange={(event)=>setEdge('rightMm',event.target.value)} /><strong>{physicalRight.toFixed(1)} مم{draft.rightMm == null ? ' · مركزي' : ' · لهذا المستند'}</strong></label>
             </>}
             <label>تباعد الكتل <input type="range" min="1" max="8" step="0.5" value={draft.blockGapMm} onChange={(event)=>setDraft((previous)=>({...previous,blockGapMm:snap(event.target.value)}))} /><strong>{Number(draft.blockGapMm).toFixed(1)} مم</strong></label>
             <label>تباعد الأقسام <input type="range" min="2" max="14" step="0.5" value={draft.sectionGapMm} onChange={(event)=>setDraft((previous)=>({...previous,sectionGapMm:snap(event.target.value)}))} /><strong>{Number(draft.sectionGapMm).toFixed(1)} مم</strong></label>
@@ -862,11 +869,12 @@ export default function ConstitutionPagedFrame({
               </fieldset>
             )}
             <button type="button" onClick={()=>saveLayout('document')}>حفظ هندسة هذا المطبوع</button>
-            <button type="button" onClick={()=>saveLayout('family')}>حفظ هندسة العائلة</button>
+            <button type="button" onClick={()=>saveLayout('family')}>حفظ إعدادات العائلة (بلا هوامش)</button>
             <button type="button" onClick={followFamily}>استخدام هندسة العائلة</button>
-            <button type="button" onClick={resetDraft}>إعادة Word القياسي</button>
+            <button type="button" onClick={resetDraft}>العودة للمساحات المركزية</button>
             <span className="constitution-paper-mode">{landscape ? 'أفقي' : 'عمودي'} · {sourceLabel(letterheadSource)}{surfaceMode ? ` · مستند ${surfaceWidthMm.toFixed(1)}×${surfaceHeightMm.toFixed(1)} مم على A4` : ''}</span>
-            <span className="constitution-paper-standard">Word 25.4 مم · Header 12.7 · Footer 12.7 · Letterhead {letterheadTop.toFixed(2)}/{letterheadBottom.toFixed(2)}</span>
+            <span className="constitution-paper-standard">المساحات المركزية: أعلى {centralArea.topMm} · أسفل {centralArea.bottomMm} · يمين {centralArea.rightMm} · يسار {centralArea.leftMm} مم — تُغيَّر من الإعدادات</span>
+            {geometryWarnings.map((warning)=><span key={warning} className="constitution-paper-warning" role="alert">{warning}</span>)}
           </>}
           {message && <span>{message}</span>}
         </div>}
@@ -980,7 +988,7 @@ export default function ConstitutionPagedFrame({
           <ExactPrintMirror documentKey={documentKey} pageCount={pageCount} orientation={orientation}/>
           <style jsx global>{`
             .constitution-paged-layoutbar{position:sticky;top:0;z-index:28;max-width:297mm;margin:8px auto 0;padding:8px 10px;background:#fff;border:1px solid #c7c7c7;display:flex;gap:7px;align-items:center;flex-wrap:wrap;direction:rtl;box-shadow:0 1px 6px rgba(0,0,0,.08)}
-            .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:62px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}.constitution-paper-standard{color:#6b6b6d!important}.constitution-captain-approvals{display:flex;align-items:center;gap:8px;margin:0;padding:5px 8px;border:1px solid #d8b8b6;border-radius:8px;background:#fff8f7}.constitution-captain-approvals legend{padding:0 5px;font-size:11px;font-weight:800;color:#7c2b28}.constitution-captain-toggle{cursor:pointer;font-weight:700}.constitution-captain-toggle input{width:16px;height:16px;margin:0;accent-color:#8b3332}.constitution-captain-toggle input:disabled{cursor:wait;opacity:.55}.constitution-captain-toggle span{color:#332f2f!important;white-space:nowrap}
+            .constitution-paged-layoutbar button,.constitution-presentation-editor button{font:inherit;font-size:12px;padding:6px 9px;border:1px solid #aaa;background:#fff;color:#222;cursor:pointer}.constitution-paged-layoutbar button.active{background:#8B3332;border-color:#8B3332;color:#fff}.constitution-paged-layoutbar label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#333}.constitution-paged-layoutbar input[type=range]{width:86px;accent-color:#8B3332}.constitution-paged-layoutbar select{font:inherit;font-size:11.5px;padding:4px 6px;background:#fff;border:1px solid #bbb}.constitution-paged-layoutbar strong{font-size:11px;min-width:62px}.constitution-paged-layoutbar span{font-size:11.5px;color:#444}.constitution-paper-mode{font-weight:700}.constitution-paper-standard{color:#6b6b6d!important}.constitution-paged-layoutbar .constitution-paper-warning{color:#8a1f1f;font-weight:700}.constitution-captain-approvals{display:flex;align-items:center;gap:8px;margin:0;padding:5px 8px;border:1px solid #d8b8b6;border-radius:8px;background:#fff8f7}.constitution-captain-approvals legend{padding:0 5px;font-size:11px;font-weight:800;color:#7c2b28}.constitution-captain-toggle{cursor:pointer;font-weight:700}.constitution-captain-toggle input{width:16px;height:16px;margin:0;accent-color:#8b3332}.constitution-captain-toggle input:disabled{cursor:wait;opacity:.55}.constitution-captain-toggle span{color:#332f2f!important;white-space:nowrap}
             .constitution-presentation-editor{position:sticky;top:48px;z-index:27;max-width:297mm;margin:6px auto;padding:8px 10px;background:#fff;border:1px solid #d5d5d5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;direction:rtl}.constitution-presentation-editor>strong{font-size:12px}.constitution-presentation-editor label{display:flex;align-items:center;gap:4px;font-size:10.5px;color:#555}.constitution-presentation-editor input{width:130px;font:inherit;font-size:11.5px;padding:4px 5px;border:1px solid #bbb}
             .constitution-flow-measure{position:fixed!important;z-index:-1000!important;left:-10000px!important;top:0!important;height:auto!important;min-height:0!important;box-sizing:border-box!important;visibility:hidden!important;pointer-events:none!important;background:#fff!important;font-size:9pt;line-height:1.45;overflow:visible!important}
             .constitution-paged-pages{padding:24px 14px 60px;display:flex;flex-direction:column;align-items:center;gap:20px;background:#efeaea}.constitution-paged-sheet{position:relative;background:#fff;overflow:hidden;box-sizing:border-box;box-shadow:0 1px 6px rgba(0,0,0,.16)}.constitution-paged-sheet.dragging{cursor:grabbing;user-select:none}.constitution-paged-assets{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}.constitution-paged-full{position:absolute;object-fit:fill;display:block}.constitution-paged-header{position:absolute;top:0;right:0;object-fit:fill;display:block}.constitution-paged-footer{position:absolute;bottom:0;right:0;object-fit:fill;display:block}.constitution-paged-watermark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:60%;max-height:60%;object-fit:contain;display:block}

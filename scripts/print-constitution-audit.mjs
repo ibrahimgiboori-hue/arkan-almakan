@@ -101,9 +101,13 @@ for(const forbidden of ['contentTopMm','contentBottomMm','contentSideMm','conten
 }
 
 const paged=requireTokens('components/print/ConstitutionPagedFrame.js',[
-  'CAPTAIN_GEOMETRY_SCHEMA = 6','PRINT_LETTERHEAD_SOURCE','PRINT_PAPER_ROTATION','data-print-letterhead-source','data-print-paper-rotation','data-print-geometry-schema','data-print-line-seams="visual-line-box"','measuredLineBands(','visualLineSeams(','chooseVisualLineBreak(','measuredRowSlice(','letterheadTop + headerClearanceMm','letterheadBottom + footerClearanceMm','sideReservedLetterhead','rotatedDigitalMaster',"@page{size:A4 ${orientation};margin:0}",
+  'CAPTAIN_GEOMETRY_SCHEMA = 7','PRINT_LETTERHEAD_SOURCE','PRINT_PAPER_ROTATION','data-print-letterhead-source','data-print-paper-rotation','data-print-geometry-schema','data-print-line-seams="visual-line-box"','measuredLineBands(','visualLineSeams(','chooseVisualLineBreak(','measuredRowSlice(','sideReservedLetterhead','rotatedDigitalMaster',"@page{size:A4 ${orientation};margin:0}",
+  // Central safe area (owner-set, app_settings.page_safe_*) is the only source of page margins.
+  "from '@/lib/page-geometry.mjs'",'centralSafeArea(cfg','resolvePageSafeArea(','safeAreaWarnings(','withoutMargins(familySettings)','minMarginMm = 0',
 ]);
-for(const forbidden of ['cfg?.letterhead_top_mm','cfg?.letterhead_bottom_mm','safeBottomMm','NORMAL_TOP_MM','NORMAL_BOTTOM_MM','setFlowPagination','samePagination']){
+for(const forbidden of ['cfg?.letterhead_top_mm','cfg?.letterhead_bottom_mm','safeBottomMm','NORMAL_TOP_MM','NORMAL_BOTTOM_MM','setFlowPagination','samePagination',
+  // the old hidden floors: Word body margin and letterhead artwork + Word clearance
+  'minMarginMm = wordMarginMm','letterheadTop + headerClearanceMm','letterheadBottom + footerClearanceMm','contentSideMm']){
   if(paged.includes(forbidden))violations.push(`ConstitutionPagedFrame.js: بقايا محرك/هندسة قديمة (${forbidden})`);
 }
 

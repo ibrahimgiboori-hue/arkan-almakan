@@ -229,6 +229,17 @@ export default function Settings() {
     {msg ? <Notice tone="success">{msg}</Notice> : null}
 
     <Section
+      title="المساحات الآمنة للصفحة"
+      description="حدود المحتوى (أعلى، أسفل، يمين، يسار) التي تسري على كل المطبوعات، مع معاينة حية على ورقة الترويسة."
+      boundary
+    >
+      <div style={{padding:16,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+        <div className="hint">مصدر واحد لهوامش كل صفحة مطبوعة.</div>
+        <Link className="btn" href="/dashboard/settings/page-geometry">ضبط المساحات الآمنة</Link>
+      </div>
+    </Section>
+
+    <Section
       title="عائلات المطبوعات"
       description="ملفات Excel التي تملك تصميم المطبوعات: تحميل، تعديل، رفع واعتماد نسخة جديدة."
       boundary
