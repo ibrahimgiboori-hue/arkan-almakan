@@ -1,3 +1,6 @@
+-- STATUS: NOT YET APPLIED to the live database (awaiting owner approval).
+-- Rollback script: docs/rollback/20261105090000_revoke_anon_execute_on_definer_rpcs.rollback.sql
+--
 -- Close anonymous (not-signed-in) access to SECURITY DEFINER RPCs.
 --
 -- Why: the Supabase security advisor reported 90 SECURITY DEFINER functions
