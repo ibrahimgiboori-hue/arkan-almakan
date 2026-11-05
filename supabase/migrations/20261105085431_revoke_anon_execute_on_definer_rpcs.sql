@@ -1,5 +1,8 @@
--- STATUS: NOT YET APPLIED to the live database (awaiting owner approval).
--- Rollback script: docs/rollback/20261105090000_revoke_anon_execute_on_definer_rpcs.rollback.sql
+-- STATUS: APPLIED to the live database on 2026-11-05 as version 20261105085431 (owner approved).
+--   Verified: anon can no longer call e.g. next_document_number / laborer_daily_rate;
+--   anon can still call get_public_vacancy / get_public_job_offer / get_public_contract_draft;
+--   signed-in users still call the revoked functions.
+-- Rollback script: docs/rollback/20261105085431_revoke_anon_execute_on_definer_rpcs.rollback.sql
 --
 -- Close anonymous (not-signed-in) access to SECURITY DEFINER RPCs.
 --

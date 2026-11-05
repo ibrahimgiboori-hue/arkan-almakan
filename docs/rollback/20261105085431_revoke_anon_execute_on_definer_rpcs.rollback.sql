@@ -1,4 +1,4 @@
--- Rollback for supabase/migrations/20261105090000_revoke_anon_execute_on_definer_rpcs.sql
+-- Rollback for supabase/migrations/20261105085431_revoke_anon_execute_on_definer_rpcs.sql
 -- Restores anonymous EXECUTE exactly as it was on 2026-11-05 (67 functions).
 -- Run only if a public (not-signed-in) page breaks after the migration.
 set search_path = public;
