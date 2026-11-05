@@ -12,8 +12,8 @@ const KIND={
 const STATUS={draft:'مسودة',submitted:'مرسل للاعتماد',hr_reviewed:'مراجع إداريًا',accountant_approved:'مراجع ماليًا',ceo_approved:'معتمد نهائيًا',rejected:'مرفوض',cancelled:'ملغى'};
 const TERMINAL=new Set(['accountant_approved','ceo_approved','rejected','cancelled']);
 const EDITABLE=new Set(['draft','rejected']);
-const money=v=>`${Number(v||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`;
-const date=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
+const money=v=>`${Number(v||0).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{maximumFractionDigits:2})} ر.س`;
+const date=v=>v?new Date(v).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn'):'—';
 const today=()=>new Date().toISOString().slice(0,10);
 const EMPTY=()=>({employee_id:'',action_kind:'written_warning',violation_date:today(),description:'',deduction_amount:0,suspension_days:0,investigation_minutes:'',employee_response:''});
 

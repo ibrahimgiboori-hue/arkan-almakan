@@ -14,7 +14,7 @@ import {
 import styles from './movements.module.css';
 
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-function dateLabel(value){const [y,m,d]=String(value).split('-').map(Number);return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d))}
+function dateLabel(value){const [y,m,d]=String(value).split('-').map(Number);return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d))}
 
 export default function MovementsPage(){
   const {id:projectId}=useParams();
@@ -68,7 +68,7 @@ export default function MovementsPage(){
           <span className={`${styles.marker} ${styles[`m_${row.type}`]||''}`}></span>
           <div className={styles.copy}><strong>{row.title}</strong><small title={row.detail||''}>{row.detail||'—'}</small></div>
           {row.value&&<b>{row.value}</b>}
-          <time>{row.time?new Date(row.time).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—'}</time>
+          <time>{row.time?new Date(row.time).toLocaleTimeString('ar-SA-u-ca-gregory-nu-latn',{hour:'2-digit',minute:'2-digit'}):'—'}</time>
         </div>)}</div>}
   </div>;
 }

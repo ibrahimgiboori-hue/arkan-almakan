@@ -85,7 +85,7 @@ function today(){
   const values=Object.fromEntries(parts.map((part)=>[part.type,part.value]));
   return `${values.year}-${values.month}-${values.day}`;
 }
-function money(value){return `${Number(value||0).toLocaleString('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س`;}
+function money(value){return `${Number(value||0).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س`;}
 function esc(value){return String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
 function pageNo(value){const n=Number(value)||0;return n===100?'100':String(n).padStart(2,'0');}
 function errorMessage(error){return error?.message||'تعذر تنفيذ العملية.';}

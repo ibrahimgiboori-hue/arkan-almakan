@@ -25,7 +25,7 @@ function riyadhDay(value=new Date()){
 }
 function fmtDate(value){
   if(!value)return '—';
-  return new Intl.DateTimeFormat('ar-SA',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'}).format(new Date(value));
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'}).format(new Date(value));
 }
 function safeFileName(name){return String(name||'file').replace(/[^\w.\-\u0600-\u06FF]+/g,'_').slice(-120);}
 function bytes(n){const v=Number(n||0);if(v<1024)return `${v} B`;if(v<1024*1024)return `${(v/1024).toFixed(1)} KB`;return `${(v/1024/1024).toFixed(1)} MB`;}

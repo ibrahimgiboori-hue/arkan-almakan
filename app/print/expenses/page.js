@@ -9,7 +9,7 @@ import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const PAYER_AR={contractor:'المقاول',arkan_direct:'أركان مباشرة',arkan_custody:'أركان من العهدة',employee:'مدفوع من الحساب الشخصي'};
 const CHARGE_AR={arkan:'أركان',contractor:'المقاول',owner:'المالك'};
-const fmt=(d)=>d?new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(`${d}T12:00:00`)):'—';
+const fmt=(d)=>d?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(`${d}T12:00:00`)):'—';
 
 export default function ExpensePrintPage(){
   const [query,setQuery]=useState(null),[cfg,setCfg]=useState(null),[project,setProject]=useState(null),[contractor,setContractor]=useState(null);
