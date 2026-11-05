@@ -49,6 +49,10 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
     setDraftRows(prev=>(prev||entryRows).map(r=>r._id===rowKey?{...r,...patch}:r));
   }
 
+  function appendPastedRows(patches){
+    setDraftRows(prev=>[...(prev||entryRows),...patches.map((patch)=>({...createDirectExpenseDraft(date),...patch}))]);
+  }
+
   function addRows(count=4){
     setDraftRows(prev=>[...(prev||entryRows),...Array.from({length:count},()=>createDirectExpenseDraft(date))]);
   }
@@ -157,6 +161,7 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
         rowKey={(row)=>row._id}
         savedFlag={(row)=>row.persisted}
         onPatchRow={patchEntry}
+        onAppendRows={appendPastedRows}
         busy={busy}
         loading={loading && !data}
       />

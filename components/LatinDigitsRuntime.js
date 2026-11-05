@@ -152,6 +152,8 @@ export default function LatinDigitsRuntime() {
     const onDateClick = (event) => {
       const element = event.target;
       if (!isDateField(element) || element.readOnly || element.disabled) return;
+      // Inside an Excel sheet one click only selects the cell; the sheet opens the calendar on double-click / Alt+↓.
+      if (element.closest('[data-sheet-engine="excel"]')) return;
       if (element.getAttribute(DATE_OVERLAY_ATTRIBUTE) === 'off' || typeof element.showPicker !== 'function') return;
       try { element.showPicker(); } catch {}
     };
