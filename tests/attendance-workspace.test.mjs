@@ -3,6 +3,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+// Screens were split into presentation + lib/application (services) + lib/adapters (Supabase).
+// A behaviour is asserted on the layer that now owns it.
+const readAll = (...paths) => paths.map(read).join('\n');
+const ATTENDANCE_UI = 'app/dashboard/projects/[id]/operations/attendance-workspace.js';
+const ATTENDANCE_RULES = 'lib/project-attendance.mjs';
+const LABOR_PAGE = 'app/dashboard/projects/[id]/operations/labor/page.js';
+const LABOR_UI = 'app/dashboard/projects/[id]/operations/labor/ProjectLaborWorkspaceEngineered.js';
+const CUSTODY_PAGE = 'app/dashboard/projects/[id]/operations/custody/page.js';
+const CUSTODY_UI = 'app/dashboard/projects/[id]/operations/custody/ProjectCustodyWorkspaceEngineered.js';
 
 test('attendance entry offers only full and half day', () => {
   const bulk = read('app/dashboard/projects/[id]/operations/BulkAttendanceList.js');
@@ -56,7 +65,7 @@ test('attendance ignores stale responses after the operator changes day', () => 
 });
 
 test('legacy stopped and leave states are preserved and protected from quick overwrite', () => {
-  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  const page = readAll(ATTENDANCE_UI, ATTENDANCE_RULES);
   const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
   assert.match(page, /stopped/);
   assert.match(page, /leave/);
@@ -66,27 +75,31 @@ test('legacy stopped and leave states are preserved and protected from quick ove
 });
 
 test('queued attendance moves into registered list without creating duplicate clicks', () => {
-  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
+  const page = readAll(ATTENDANCE_UI, ATTENDANCE_RULES);
   const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
-  assert.match(page, /pending: true/);
+  assert.match(page, /pending:\s*true/);
   assert.match(page, /existing\?\.pending/);
   assert.match(registered, /بانتظار المزامنة/);
 });
 
 test('attendance cancellation rejects false-success boolean and stale row identity', () => {
-  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
-  assert.match(page, /data !== true/);
+  const page = read(ATTENDANCE_UI);
+  const adapter = read('lib/adapters/project-attendance-supabase.js');
+  const service = read('lib/application/project-attendance-service.js');
+  // The RPC result must be literally true; anything else is a failed removal, never a silent success.
+  assert.match(adapter, /return query\.data\s*===\s*true/);
+  assert.match(service, /if\s*\(!removed\)\s*throw new Error/);
   assert.match(page, /current\[worker\.id\]\?\.id !== row\.id/);
   assert.match(page, /row\.work_date/);
 });
 
 test('load failures remain errors and never masquerade as empty rosters', () => {
   const attendance = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
-  const labor = read('app/dashboard/projects/[id]/operations/labor/page.js');
+  const labor = readAll(LABOR_PAGE, LABOR_UI);
   assert.match(attendance, /loadError/);
   assert.match(attendance, /لم تُعرض حالة فارغة بديلة/);
   assert.match(labor, /setLoadError\(message\)/);
-  assert.match(labor, /\{loadError \? null : <>/);
+  assert.match(labor, /\{loadError\s*\?\s*null\s*:\s*<>/);
 });
 
 test('contractor with no labor has a corrective route instead of false completion', () => {
@@ -97,21 +110,25 @@ test('contractor with no labor has a corrective route instead of false completio
 });
 
 test('labor management lives inside the project and uses existing guarded RPCs', () => {
-  const page = read('app/dashboard/projects/[id]/operations/labor/page.js');
-  assert.match(page, /fn_quick_add_workers/);
-  assert.match(page, /fn_move_laborer/);
-  assert.match(page, /fn_update_labor_assignment/);
+  const page = readAll(LABOR_PAGE, LABOR_UI);
+  const adapter = read('lib/adapters/project-labor-supabase.js');
+  assert.match(adapter, /fn_quick_add_workers/);
+  assert.match(adapter, /fn_move_laborer/);
+  assert.match(adapter, /fn_update_labor_assignment/);
   assert.match(page, /data-canonical-labor-create-form/);
   assert.equal(page.includes('/dashboard/site-operations'), false);
 });
 
 test('labor transfer uses the target contractor rate instead of carrying the old rate', () => {
-  const labor = read('app/dashboard/projects/[id]/operations/labor/page.js');
+  const labor = readAll(LABOR_PAGE, LABOR_UI);
+  const payload = read('lib/project-labor.mjs');
   assert.match(labor, /rateForTarget/);
   assert.match(labor, /changeMoveContractor/);
   assert.match(labor, /يومية الجديدة/);
   assert.equal(labor.includes('p_daily_rate: moveFor.daily_rate'), false);
-  assert.match(labor, /p_daily_rate: moveFor\.pay_basis === 'daily'/);
+  assert.equal(payload.includes('p_daily_rate:moveFor.daily_rate'), false);
+  // Only daily-paid workers send a rate; a blank rate lets fn_move_laborer use the target contractor's rate.
+  assert.match(payload, /p_daily_rate:\s*worker\.pay_basis\s*===\s*'daily'/);
 });
 
 test('legacy contractor labor route cannot create laborers', () => {
@@ -126,7 +143,7 @@ test('legacy contractor labor route cannot create laborers', () => {
 });
 
 test('custody follows the same project operation date and uses a constitutional confirmation', () => {
-  const custody = read('app/dashboard/projects/[id]/operations/custody/page.js');
+  const custody = readAll(CUSTODY_PAGE, CUSTODY_UI);
   assert.match(custody, /useProjectOperationContext/);
   assert.match(custody, /trx_date:operationDate/);
   assert.match(custody, /opened_at:operationDate/);

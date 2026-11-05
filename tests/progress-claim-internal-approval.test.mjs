@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 
 const migration = readFileSync(new URL('../supabase/migrations/20260907215000_progress_claim_internal_approval_route.sql', import.meta.url),'utf8');
 const claimUi = readFileSync(new URL('../components/ProjClaims.js', import.meta.url),'utf8');
+// RPC names live in the claims adapter; journey labels live in the screen and lib/project-claims.mjs.
+const claimJourney = ['../components/ProjClaims.js','../lib/project-claims.mjs','../lib/adapters/project-claims-supabase.js']
+  .map((path)=>readFileSync(new URL(path, import.meta.url),'utf8')).join('\n');
 
 test('project claims use a fixed three-stage internal approval route', () => {
   assert.match(migration,/projects\.claims\.review/);
@@ -31,9 +34,9 @@ test('approval inbox exposes only the current pending step', () => {
 });
 
 test('claim journey keeps internal approval separate from client submission', () => {
-  assert.match(claimUi,/fn_submit_progress_claim_for_approval/);
-  assert.match(claimUi,/fn_approval_decide/);
-  assert.match(claimUi,/record_claim_client_submission/);
+  assert.match(claimJourney,/fn_submit_progress_claim_for_approval/);
+  assert.match(claimJourney,/fn_approval_decide/);
+  assert.match(claimJourney,/record_claim_client_submission/);
   assert.match(claimUi,/التقديم للعميل/);
   assert.match(claimUi,/اعتماد العميل/);
 });

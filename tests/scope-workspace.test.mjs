@@ -25,13 +25,23 @@ test('every destructive scope action routes through one confirm path', () => {
 
 test('the performing functions no longer decide whether to ask', () => {
   // del/delDecision صارتا تنفيذًا خالصًا ترمي الخطأ ليعرضه الحوار في مكانه.
+  // They execute only and let failures propagate to the dialog: no confirm, no local catch.
+  // The service owns the explicit failures (throw new Error) the dialog then shows in place.
+  const service = read('lib/application/project-scope-service.js');
   const del = scope.slice(scope.indexOf('async function del(id)'), scope.indexOf('function requestDeleteItem'));
   assert.equal(del.includes('confirm'), false);
-  assert.match(del, /throw new Error/);
+  assert.equal(/\bcatch\b/.test(del), false);
+  assert.match(del, /projectScopeService\.deleteItem\(/);
 
   const cancel = scope.slice(scope.indexOf('async function delDecision('), scope.indexOf('if (!items) return'));
   assert.equal(cancel.includes('confirm'), false);
-  assert.match(cancel, /throw new Error/);
+  assert.equal(/\bcatch\b/.test(cancel), false);
+  assert.match(cancel, /projectScopeService\.cancelExecution\(/);
+
+  const serviceDelete = service.slice(service.indexOf('async deleteItem('), service.indexOf('async deleteItem(') + 600);
+  assert.match(serviceDelete, /throw new Error/);
+  const serviceCancel = service.slice(service.indexOf('async cancelExecution('), service.indexOf('async cancelExecution(') + 600);
+  assert.match(serviceCancel, /throw new Error/);
 });
 
 test('execution state vocabulary has exactly one home', () => {

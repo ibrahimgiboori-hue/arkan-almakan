@@ -5,6 +5,18 @@ import { interpretGuardedWrite } from '../lib/guarded-write.mjs';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const CONFLICT = 'لم يتغيّر شيء.';
+const readAll = (...paths) => paths.map(read).join('\n');
+const CUSTODY_SOURCES = [
+  'app/dashboard/projects/[id]/operations/custody/page.js',
+  'app/dashboard/projects/[id]/operations/custody/ProjectCustodyWorkspaceEngineered.js',
+  'lib/application/project-custody-service.js',
+  'lib/adapters/project-custody-supabase.js',
+];
+const CLAIMS_SOURCES = [
+  'components/ProjClaims.js',
+  'lib/application/project-claims-service.js',
+  'lib/adapters/project-claims-supabase.js',
+];
 
 test('a guarded write that changed nothing is never reported as success', () => {
   const outcome = interpretGuardedWrite({ error:null, data:null }, { conflictMessage:CONFLICT });
@@ -41,26 +53,29 @@ test('a conflict message is mandatory — silence is not an option', () => {
 });
 
 test('guarded screens ask for the affected rows instead of trusting error alone', () => {
-  const custody = read('app/dashboard/projects/[id]/operations/custody/page.js');
-  const claims = read('components/ProjClaims.js');
+  const custody = readAll(...CUSTODY_SOURCES);
+  const claims = readAll(...CLAIMS_SOURCES);
 
   assert.equal(custody.includes('interpretGuardedWrite'), true);
   assert.equal(claims.includes('interpretGuardedWrite'), true);
 
+  // Writes are now multi-line query chains in the adapters, so inspect whole statements.
   for (const [name, source] of [['custody', custody], ['claims', claims]]) {
-    const guarded = source.match(/\.eq\('status',\s*'(open|available)'\)[^\n]*/g) || [];
+    const guarded = source
+      .split(';')
+      .filter((statement) => /\.(update|delete)\(/.test(statement))
+      .filter((statement) => /\.eq\('status',\s*'(open|available|draft)'\)/.test(statement));
     assert.ok(guarded.length > 0, `${name} should still have status-guarded writes`);
-    for (const line of guarded) {
-      assert.match(line, /\.select\(/, `${name}: guarded write must select affected rows -> ${line}`);
+    for (const statement of guarded) {
+      assert.match(statement, /\.select\(/, `${name}: guarded write must select affected rows -> ${statement.trim()}`);
     }
   }
 });
 
 test('the claims tab surfaces a load error instead of loading forever', () => {
   const claims = read('components/ProjClaims.js');
-  assert.match(claims, /if \(cr\.error \|\| av\.error \|\| it\.error\)/);
-  assert.match(claims, /setErr\(\(cr\.error \|\| av\.error \|\| it\.error\)\?\.message \|\| 'تعذر تحميل المستخلصات'\)/);
-  assert.match(claims, /setClaims\(\[\]\); return;/);
+  // Loading goes through the claims service; any failure lands in catch, shows the error and ends the spinner.
+  assert.match(claims, /catch\s*\(error\)\s*\{\s*setErr\(error\?\.message\s*\|\|\s*'تعذر تحميل المستخلصات'\);\s*setClaims\(\[\]\);/);
   assert.match(claims, /if\(claims===null\)return <div className="empty">جارٍ تحميل رحلة المستخلصات/);
   assert.match(claims, /\{err&&<div className="msg err"/);
 });
@@ -79,7 +94,7 @@ test('material deletion no longer swallows its error', () => {
 });
 
 test('project custody uses the constitutional Riyadh day, not the UTC day', () => {
-  const custody = read('app/dashboard/projects/[id]/operations/custody/page.js');
+  const custody = readAll(...CUSTODY_SOURCES.slice(0, 2));
   assert.equal(custody.includes("new Date().toISOString().slice(0,10)"), false);
   assert.equal(custody.includes('todayIsoInRiyadh'), true);
 });

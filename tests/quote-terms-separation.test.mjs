@@ -13,8 +13,8 @@ test('quotation print never infers hourly billing from labor-only or hidden quan
 });
 
 test('offer-specific conditions and general contractual terms are separate', () => {
-  assert.match(printSource, /quoteSpecificTerms=\(q\.terms_text\|\|''\)/);
-  assert.match(printSource, /sourceTerms=\(Array\.isArray\(q\.terms_structured\)\?q\.terms_structured:\[\]\)\.filter\(hasTermContent\)/);
+  assert.match(printSource, /quoteSpecificTerms=printableLines\(q\.terms_text\)/);
+  assert.match(printSource, /sourceTerms=\(Array\.isArray\(q\.terms_structured\)\?q\.terms_structured:\[\]\)(\.map\(cleanTerm\))?\.filter\(hasTermContent\)/);
   assert.match(printSource, /شروط عرض السعر/);
   assert.match(printSource, /الشروط والأحكام العامة/);
 });
