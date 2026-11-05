@@ -97,6 +97,12 @@ function isHtmlElement(node, tag) {
   return isValidElement(node) && typeof node.type === 'string' && node.type.toLowerCase() === tag;
 }
 
+function domTableOf(element) {
+  if (!element) return null;
+  if (element.tagName === 'TABLE') return element;
+  return element.querySelector(':scope > table');
+}
+
 function repeatableTableParts(table) {
   if (!isValidElement(table) || table.props?.['data-print-flow'] !== PRINT_FLOW_KIND.REPEATABLE_TABLE) return null;
   const children = Children.toArray(table.props.children);
@@ -637,9 +643,13 @@ export default function ConstitutionPagedFrame({
       if (boundary === PRINT_FLOW_BOUNDARY.FORCE_PAGE && current.length) newPage();
 
       const tableParts = repeatableTableParts(block);
-      const domRows = tableParts ? [...element.querySelectorAll(':scope > tbody > tr')] : [];
-      const domHead = tableParts ? element.querySelector(':scope > thead') : null;
-      const domFoot = tableParts ? element.querySelector(':scope > tfoot') : null;
+      // DocumentContentRoot wraps every block in a grid cell (div.document-visible-block), so the
+      // measured element is usually the wrapper, not the <table>. Measure the real table inside it;
+      // otherwise rows are never found and a long table is clipped instead of continuing on the next page.
+      const domTable = tableParts ? domTableOf(element) : null;
+      const domRows = domTable ? [...domTable.querySelectorAll(':scope > tbody > tr')] : [];
+      const domHead = domTable ? domTable.querySelector(':scope > thead') : null;
+      const domFoot = domTable ? domTable.querySelector(':scope > tfoot') : null;
 
       if (tableParts && domRows.length === tableParts.rows.length) {
         const headHeight = domHead ? outerHeight(domHead) : 0;
