@@ -4,7 +4,17 @@ import './print-captain-hardening.css';
 import './print-semantic-roles.css';
 import './print-clean-pin-ruler.css';
 import { Suspense } from 'react';
-import { IBM_Plex_Sans_Arabic } from 'next/font/google';
+// Self-hosted (bundled from npm) so builds never depend on reaching Google Fonts.
+import '@fontsource/ibm-plex-sans-arabic/arabic-300.css';
+import '@fontsource/ibm-plex-sans-arabic/latin-300.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-400.css';
+import '@fontsource/ibm-plex-sans-arabic/latin-400.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-500.css';
+import '@fontsource/ibm-plex-sans-arabic/latin-500.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-600.css';
+import '@fontsource/ibm-plex-sans-arabic/latin-600.css';
+import '@fontsource/ibm-plex-sans-arabic/arabic-700.css';
+import '@fontsource/ibm-plex-sans-arabic/latin-700.css';
 import QuoteTerminologyFix from '@/components/QuoteTerminologyFix';
 import ActiveUISkinRuntime from '@/components/ui/ActiveUISkinRuntime';
 import LatinDigitsRuntime from '@/components/LatinDigitsRuntime';
@@ -13,12 +23,6 @@ import PrintContentWorkbench from '@/components/print/PrintContentWorkbench';
 import { SYSTEM_VERSION } from '@/lib/system-constitution';
 import { uiSkinDataAttributes } from '@/lib/ui-skin-contract';
 import { ACTIVE_UI_SKIN_KEY } from '@/lib/ui-active-skin';
-
-const plex = IBM_Plex_Sans_Arabic({
-  subsets: ['arabic', 'latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-plex',
-});
 
 export const metadata = {
   title: 'أركان المكان — النظام الإداري',
@@ -36,8 +40,8 @@ export default function RootLayout({ children }) {
       data-system-constitution="v2"
       data-system-version={SYSTEM_VERSION}
       data-numeral-system="latn"
-      className={plex.variable}
       style={{
+        '--font-plex': "'IBM Plex Sans Arabic', system-ui, sans-serif",
         '--font-display': 'var(--font-plex)',
         '--font-body': 'var(--font-plex)',
       }}

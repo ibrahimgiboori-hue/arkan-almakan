@@ -13,6 +13,7 @@ test('blank general-term draft rows are not persisted as printable terms', () =>
 
 test('quotation print defensively removes empty general terms', () => {
   assert.match(print, /function hasTermContent\(term\)/);
-  assert.match(print, /terms_structured\)\?q\.terms_structured:\[\]\)\.filter\(hasTermContent\)/);
+  // Terms are trimmed (cleanTerm) before the empty check, so whitespace-only rows are dropped too.
+  assert.match(print, /terms_structured\)\?q\.terms_structured:\[\]\)(\.map\(cleanTerm\))?\.filter\(hasTermContent\)/);
   assert.match(print, /q\.show_terms&&termItems\.length/);
 });

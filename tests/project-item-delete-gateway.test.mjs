@@ -4,12 +4,18 @@ import assert from 'node:assert/strict';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const scope = read('components/ProjScope.js');
+const scopeService = read('lib/application/project-scope-service.js');
+const scopeAdapter = read('lib/adapters/project-scope-supabase.js');
 const migration = read('supabase/migrations/20260826190000_explicit_item_execution_cancellation.sql');
 const priorMigration = read('supabase/migrations/20260826183000_safe_project_item_delete_gateway.sql');
 
 test('the scope screen never deletes a project item directly', () => {
-  assert.equal(/from\(['"]project_items['"]\)\.delete\(/.test(scope), false);
-  assert.equal(scope.includes('fn_delete_project_item_safely'), true);
+  for (const source of [scope, scopeService, scopeAdapter]) {
+    assert.equal(/from\(['"]project_items['"]\)\s*\.delete\(/.test(source), false);
+  }
+  // The screen deletes through the service, which calls only the safe gateway RPC.
+  assert.match(scope, /projectScopeService\.deleteItem\(/);
+  assert.equal(scopeAdapter.includes("rpc('fn_delete_project_item_safely'"), true);
 });
 
 test('the delete gateway still refuses to erase operational history', () => {
@@ -59,7 +65,8 @@ test('the cancel gateway keeps started, ended and worked assignments as history'
 });
 
 test('the screen reports the cancellation count it actually received', () => {
-  assert.match(scope, /cancelled_planned_assignments/);
+  assert.match(scopeService, /cancelledPlannedAssignments:\s*Number\(result\.cancelled_planned_assignments/);
+  assert.match(scope, /result\.cancelledPlannedAssignments/);
   assert.match(scope, /أُلغي معه/);
 });
 

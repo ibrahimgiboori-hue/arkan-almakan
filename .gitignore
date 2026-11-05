@@ -17,3 +17,6 @@
 # OS / editor / local certificates
 .DS_Store
 *.pem
+
+# Scratch files
+/tmp/

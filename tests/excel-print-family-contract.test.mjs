@@ -49,8 +49,14 @@ test('dress code requires the semantic roles Excel uses as its visual language',
   const rows = [
     'MAIN_TITLE','SECTION_TITLE','COLUMN_HEADER','DYNAMIC_FIELD','REPEAT_ROW',
     'FORMULA_CELL','STATIC_DATA','LETTERHEAD_RESERVED','ABSOLUTE_NO_GO',
+    // Added with quotation workbooks: optional sections and free overlay layers (stamp, signature).
+    'OPTIONAL_BLOCK','OVERLAY_ASSET',
   ].map((role) => ({ role }));
   assert.deepEqual(validateDressCodeDefinitions(rows), []);
+  assert.deepEqual(
+    validateDressCodeDefinitions(rows.filter(({ role }) => role !== 'OVERLAY_ASSET')),
+    ['missing dress-code role OVERLAY_ASSET'],
+  );
 });
 
 test('all current print routes belong to one declared family', () => {
