@@ -11,7 +11,7 @@ export function daysInMonth(year, month) {
 }
 
 export function monthlyTimesheetMonthLabel(year, month) {
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { month:'long', year:'numeric' })
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { month:'long', year:'numeric' })
     .format(new Date(Number(year), Number(month) - 1, 1));
 }
 

@@ -25,7 +25,7 @@ function num(value) {
 }
 
 function fmt(value, digits = 2) {
-  return num(value).toLocaleString('ar-SA', { maximumFractionDigits:digits });
+  return num(value).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { maximumFractionDigits:digits });
 }
 
 function classLabel(value) {

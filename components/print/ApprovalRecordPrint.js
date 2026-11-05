@@ -27,7 +27,7 @@ function dt(v){
   if(!v)return '—';
   const d=new Date(v);
   if(Number.isNaN(d.getTime()))return String(v);
-  return new Intl.DateTimeFormat('ar-SA',{dateStyle:'medium',timeStyle:'short'}).format(d);
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{dateStyle:'medium',timeStyle:'short'}).format(d);
 }
 
 function SnapshotSection({snapshot}){

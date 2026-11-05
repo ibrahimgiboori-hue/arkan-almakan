@@ -9,7 +9,7 @@ import { composeSalaryCertificate, salaryFacts } from '@/lib/document-automation
 const DEFAULT_RECIPIENT = 'إلى من يهمه الأمر';
 
 function money(value) {
-  return Number(value || 0).toLocaleString('ar-SA', {
+  return Number(value || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });

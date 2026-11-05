@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ConstitutionPage, PageHeader, Section, TableFrame, EmptyState, Notice, Toolbar } from '@/components/ui/ConstitutionUI';
 
-const monthLabel = (year, month) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { month:'long', year:'numeric' }).format(new Date(Number(year), Number(month) - 1, 1));
+const monthLabel = (year, month) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { month:'long', year:'numeric' }).format(new Date(Number(year), Number(month) - 1, 1));
 const statusAr = { draft:'مسودة', reviewed:'مراجع', approved:'معتمد', closed:'مغلق' };
 
 export default function ExternalContractorTimesheets() {
@@ -94,7 +94,7 @@ export default function ExternalContractorTimesheets() {
           <td><strong>{sheet.external_project_name}</strong>{sheet.site_location ? <div className="hint">{sheet.site_location}</div> : null}</td>
           <td>{monthLabel(sheet.period_year,sheet.period_month)}</td>
           <td>{statusAr[sheet.status] || sheet.status}</td>
-          <td>{sheet.default_daily_rate == null ? 'غير محددة' : `${Number(sheet.default_daily_rate).toLocaleString('ar-SA')} ر.س`}</td>
+          <td>{sheet.default_daily_rate == null ? 'غير محددة' : `${Number(sheet.default_daily_rate).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ر.س`}</td>
           <td><Link className="btn ghost" href={`/dashboard/contractors/timesheets/${sheet.id}`}>فتح</Link></td>
         </tr>)}</tbody>
       </table></TableFrame>}

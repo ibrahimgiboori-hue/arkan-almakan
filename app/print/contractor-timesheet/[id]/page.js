@@ -11,7 +11,7 @@ const STATUS_AR = { draft:'مسودة', reviewed:'مراجع', approved:'معت�
 const DEFAULT_VAT_RATE = 0.15;
 const PAYMENT_DETAILS = Object.freeze({ bank:'مصرف الإنماء', beneficiary:'مؤسسة أركان المكان للمقاولات العامة', iban:'SA4905000068205728542000' });
 const n = (value) => Number(value || 0);
-const money = (value) => Number(value || 0).toLocaleString('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money = (value) => Number(value || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{minimumFractionDigits:2,maximumFractionDigits:2});
 const round2 = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
 export default function ExternalContractorTimesheetPrint() {

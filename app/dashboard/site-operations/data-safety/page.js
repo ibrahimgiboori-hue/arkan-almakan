@@ -85,7 +85,7 @@ export default function OperationDataSafetyPage(){
       <div className={styles.healthCard}><span>إيصالات الخادم</span><b>{receiptCount}</b><small>كل إيصال مرتبط بحركة فعلية</small></div>
       <div className={`${styles.healthCard} ${pending?styles.warn:''}`}><span>ينتظر المزامنة على هذا الجهاز</span><b>{pending}</b><small>{pending?'لم تُفقد، لكنها ليست مسجلة في الخادم بعد':'لا توجد عمليات معلقة'}</small>{pending>0&&<button onClick={sync} disabled={busy==='sync'}>{busy==='sync'?'جارٍ التحقق…':'مزامنة الآن'}</button>}</div>
       <div className={styles.healthCard}><span>دفعات أوراق مفتوحة</span><b>{openCount}</b><small>لا تغلق قبل مطابقة المراجع</small></div>
-      <div className={styles.healthCard}><span>آخر حفظ مثبت</span><b className={styles.receiptNo}>{last?`#${last.receipt_no}`:'—'}</b><small>{last?new Date(last.verified_at).toLocaleString('ar-SA-u-ca-gregory'):'لا يوجد حتى الآن'}</small></div>
+      <div className={styles.healthCard}><span>آخر حفظ مثبت</span><b className={styles.receiptNo}>{last?`#${last.receipt_no}`:'—'}</b><small>{last?new Date(last.verified_at).toLocaleString('ar-SA-u-ca-gregory-nu-latn'):'لا يوجد حتى الآن'}</small></div>
     </div>
 
     {showForm&&<form className={styles.batchForm} onSubmit={createBatch}>
@@ -108,7 +108,7 @@ export default function OperationDataSafetyPage(){
     </tbody></table></div></section>
 
     <section className="section"><header><h2>آخر إثباتات الحفظ</h2><span className={styles.serverOnly}>هذه القائمة مقروءة من الخادم</span></header><div className={styles.tableWrap}><table><thead><tr><th>الإثبات</th><th>الحركة</th><th>المشروع</th><th>تاريخ الحدث</th><th>مصدرها</th><th>وقت الحفظ</th></tr></thead><tbody>
-      {receipts.map(r=><tr key={r.id}><td className="mono"><b>#{r.receipt_no}</b></td><td>{OPERATION_LABEL[r.operation_type]||r.operation_type}<div className={styles.sub}>{r.entity_ids?.length||0} سجل</div></td><td>{r.projects?`${r.projects.project_no} — ${r.projects.name_ar}`:'—'}</td><td className="mono">{dateAr(r.work_date)}</td><td>{r.operation_entry_batches?.batch_no||'إدخال مباشر'}{r.source_ref&&<div className={styles.sub}>{r.source_ref}</div>}</td><td className="mono">{new Date(r.verified_at).toLocaleString('ar-SA-u-ca-gregory')}</td></tr>)}
+      {receipts.map(r=><tr key={r.id}><td className="mono"><b>#{r.receipt_no}</b></td><td>{OPERATION_LABEL[r.operation_type]||r.operation_type}<div className={styles.sub}>{r.entity_ids?.length||0} سجل</div></td><td>{r.projects?`${r.projects.project_no} — ${r.projects.name_ar}`:'—'}</td><td className="mono">{dateAr(r.work_date)}</td><td>{r.operation_entry_batches?.batch_no||'إدخال مباشر'}{r.source_ref&&<div className={styles.sub}>{r.source_ref}</div>}</td><td className="mono">{new Date(r.verified_at).toLocaleString('ar-SA-u-ca-gregory-nu-latn')}</td></tr>)}
       {!receipts.length&&<tr><td colSpan="6"><div className="empty">ستظهر هنا أول حركة تحفظ عبر طبقة الإثبات الجديدة.</div></td></tr>}
     </tbody></table></div></section>
   </div>;

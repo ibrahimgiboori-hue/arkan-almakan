@@ -7,7 +7,7 @@ import styles from './ProcedureActionHook.module.css';
 
 const STATUS_LABELS={new:'جديد',received:'مستلم',in_progress:'قيد التنفيذ',waiting:'بانتظار إجراء',completed:'مكتمل',closed:'مغلق',cancelled:'ملغى',pending:'قيد الاعتماد',approved:'معتمد',returned:'معاد',rejected:'مرفوض'};
 const ACTION_LABELS={review:'مراجعة',approve:'اعتماد',authorize:'تعميد',issue:'إصدار',create:'إنشاء',forward:'إحالة'};
-const money=new Intl.NumberFormat('ar-SA',{minimumFractionDigits:0,maximumFractionDigits:2});
+const money=new Intl.NumberFormat('ar-SA-u-ca-gregory-nu-latn',{minimumFractionDigits:0,maximumFractionDigits:2});
 
 export default function ProcedureActionHook({
   capabilityKey,sourceTable,sourceId,sourceLabel,amount=0,currentDestinationKey,scopeType='all',scopeKey=null,projectId=null,
@@ -101,7 +101,7 @@ export default function ProcedureActionHook({
   return <div className={styles.root} data-entry-ignore="true">
     <div className={styles.stateLine}>
       {runtime?<><strong>{runtimeDone?'تم الإجراء':'تحت المعالجة'}</strong>{inquiryOpen?<span>· استفسار مفتوح</span>:null}{live?<span>· لدى {targetText}</span>:null}</>:live?<><strong>{STATUS_LABELS[live.status]||live.status||'قيد الإجراء'}</strong><span>· لدى {targetText}</span></>:<><strong>لم يبدأ مسار إجراء</strong><span>· المعاملة بلا جهة اعتماد حالية</span></>}
-      {live?.due_at?<small>· حتى {new Date(live.due_at).toLocaleString('ar-SA')}</small>:null}
+      {live?.due_at?<small>· حتى {new Date(live.due_at).toLocaleString('ar-SA-u-ca-gregory-nu-latn')}</small>:null}
       {runtime?.financial_effect?<small>· {money.format(Number(runtime.original_amount||0))} ر.س · مسوّى {money.format(Number(runtime.settled_amount||0))} · متبقٍ {money.format(Number(runtime.outstanding_amount||0))}</small>:null}
     </div>
     <button className={styles.hook} type="button" onClick={openActions} disabled={busy}>إجراء</button>

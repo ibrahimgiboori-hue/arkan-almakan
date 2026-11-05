@@ -22,7 +22,7 @@ function hasSectionAccess(definition, capabilityKeys, fullAdmin){
   return definition.capabilities.some(key=>capabilityKeys?.has(key));
 }
 
-function date(value){return value?new Date(value).toLocaleDateString('ar-SA'):'—';}
+function date(value){return value?new Date(value).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn'):'—';}
 
 async function loadAdminCatalogs(){
   const [{data:sequences,error:sErr},{data:clauses,error:cErr}]=await Promise.all([

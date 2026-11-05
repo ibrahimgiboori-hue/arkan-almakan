@@ -22,7 +22,7 @@ import layoutStyles from './attendance-layout.module.css';
 function dateLabel(value) {
   if (!value) return '—';
   const [y, m, d] = String(value).split('-').map(Number);
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', {
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   }).format(new Date(y, m - 1, d));
 }

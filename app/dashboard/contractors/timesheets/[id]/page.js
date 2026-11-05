@@ -55,7 +55,7 @@ function nextCellValue(value) {
 }
 
 function money(value) {
-  return Number(value || 0).toLocaleString('ar-SA', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  return Number(value || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { minimumFractionDigits:2, maximumFractionDigits:2 });
 }
 
 export default function ExternalTimesheetEditor() {
@@ -222,7 +222,7 @@ export default function ExternalTimesheetEditor() {
   if (!state.sheet) return <ConstitutionPage><Notice tone="warning">{state.error || 'لم يُعثر على التايم شيت.'}</Notice></ConstitutionPage>;
 
   const sheet = state.sheet;
-  const monthName = new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{month:'long',year:'numeric'}).format(new Date(sheet.period_year,sheet.period_month-1,1));
+  const monthName = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{month:'long',year:'numeric'}).format(new Date(sheet.period_year,sheet.period_month-1,1));
 
   return <ConstitutionPage>
     <PageHeader
@@ -278,7 +278,7 @@ export default function ExternalTimesheetEditor() {
       <Section title="ملخص المطالبة المبدئية" description="التسعير والضريبة لا يؤثران على التايم شيت نفسه ويمكن تعديلهما قبل إصدار المطالبة.">
         <div className={styles.summary} style={{padding:'0 0 12px'}}>
           <div className={styles.summaryCard}><span>عدد العمال</span><strong>{state.workers.length}</strong></div>
-          <div className={styles.summaryCard}><span>إجمالي أيام العمل</span><strong>{totalDays.toLocaleString('ar-SA')}</strong></div>
+          <div className={styles.summaryCard}><span>إجمالي أيام العمل</span><strong>{totalDays.toLocaleString('ar-SA-u-ca-gregory-nu-latn')}</strong></div>
           <div className={styles.summaryCard}><span>اليومية الافتراضية</span><strong>{sheet.default_daily_rate == null || sheet.default_daily_rate === '' ? 'غير محددة' : `${money(sheet.default_daily_rate)} ر.س`}</strong></div>
           <div className={styles.summaryCard}><span>قبل الضريبة</span><strong>{claimTotal ? `${money(claimTotal)} ر.س` : '—'}</strong></div>
           <div className={styles.summaryCard}><span>ضريبة القيمة المضافة {(vatRate*100).toFixed(0)}%</span><strong>{claimTotal ? `${money(claimVat)} ر.س` : '—'}</strong></div>

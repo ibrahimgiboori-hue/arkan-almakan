@@ -292,3 +292,20 @@ tr.bud-total td{background:var(--rose-wash);font-weight:600;
 @media (max-width:760px){
   .pe-grid.double,.pe-grid.quad{grid-template-columns:1fr}
 }
+
+
+/* ---------- خانات التاريخ: نص سليم بأرقام إنجليزية ----------
+   Chrome بواجهة عربية يرسم «يوم/شهر/سنة» في الخانة الفارغة بحروف مقلوبة ومفككة،
+   ويرسم التاريخ المُدخل بترتيب نظام التشغيل، ولا يصل إليه أي CSS.
+   LatinDigitsRuntime يضع data-date-overlay و data-date-display (lib/date-field-display.mjs):
+   hint = تلميح عربي سليم، value = التاريخ بصيغة النظام 05/11/2026، off = أثناء الكتابة فقط. */
+input[data-date-overlay="hint"]::-webkit-datetime-edit,
+input[data-date-overlay="value"]::-webkit-datetime-edit{opacity:0}
+input[data-date-overlay="hint"]::before,
+input[data-date-overlay="value"]::before{
+  content:attr(data-date-display);
+  /* عائم بعرض صفر: لا يدفع أيقونة التقويم ولا يغيّر عرض الخانة، والنص يمتد فوق نص Chrome المخفي */
+  float:inline-start;width:0;overflow:visible;white-space:nowrap;pointer-events:none;
+}
+input[data-date-overlay="hint"]::before{color:var(--ink-soft,#7a7f88);font-family:var(--font-plex,inherit);font-weight:400}
+input[data-date-overlay="value"]::before{color:inherit;font-variant-numeric:lining-nums tabular-nums}

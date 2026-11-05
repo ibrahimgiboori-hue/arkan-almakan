@@ -309,7 +309,7 @@ export default function DocumentSmartFillPanel({ code, docId = null }) {
         { _id:crypto.randomUUID(), description:'التكلفة المباشرة المعروفة حتى الآن', quantity:1, unit_price:Number(f?.direct_cost_known || 0), line_total:Number(f?.direct_cost_known || 0) },
         { _id:crypto.randomUUID(), description:'المتبقي من الميزانية', quantity:1, unit_price:Number(b?.total_remaining || 0), line_total:Number(b?.total_remaining || 0) },
       ];
-      const details = `قيمة المشروع المسجلة: ${Number(f?.contract_value || b?.total_revenue || 0).toLocaleString('ar-SA')} ريال. الميزانية المسجلة: ${Number(b?.total_spend_budget || f?.budget_total || 0).toLocaleString('ar-SA')} ريال. التكلفة المباشرة المعروفة: ${Number(f?.direct_cost_known || 0).toLocaleString('ar-SA')} ريال. البنود المتجاوزة للميزانية: ${Number(b?.items_over_budget || 0)}.`;
+      const details = `قيمة المشروع المسجلة: ${Number(f?.contract_value || b?.total_revenue || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال. الميزانية المسجلة: ${Number(b?.total_spend_budget || f?.budget_total || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال. التكلفة المباشرة المعروفة: ${Number(f?.direct_cost_known || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال. البنود المتجاوزة للميزانية: ${Number(b?.items_over_budget || 0)}.`;
       return { rows, extras:{ amount:Number(b?.total_spend_budget || f?.budget_total || 0), details } };
     }
 
@@ -345,7 +345,7 @@ export default function DocumentSmartFillPanel({ code, docId = null }) {
         (aQ.data || []).forEach((row) => { counts[row.status] = (counts[row.status] || 0) + 1; });
       }
       const financeQ = await supabase.from('v_project_financials').select('computed_progress_pct,manual_progress_pct,earned_value,claimed_gross,collected,pending_collection').eq('project_id', projectId).maybeSingle();
-      const details = `الفترة من ${from} إلى ${contextDate}. أيام الموقع المسجلة: ${(daysQ.data || []).length}. تسجيلات الحضور: كامل ${counts.full || 0}، نصف يوم ${counts.half || 0}، غياب ${counts.absent || 0}.` + (financeQ.data ? ` نسبة الإنجاز الحالية: ${Number(financeQ.data.computed_progress_pct ?? financeQ.data.manual_progress_pct ?? 0).toFixed(2)}%، القيمة المكتسبة ${Number(financeQ.data.earned_value || 0).toLocaleString('ar-SA')} ريال، المطالبات ${Number(financeQ.data.claimed_gross || 0).toLocaleString('ar-SA')} ريال، المحصل ${Number(financeQ.data.collected || 0).toLocaleString('ar-SA')} ريال.` : '');
+      const details = `الفترة من ${from} إلى ${contextDate}. أيام الموقع المسجلة: ${(daysQ.data || []).length}. تسجيلات الحضور: كامل ${counts.full || 0}، نصف يوم ${counts.half || 0}، غياب ${counts.absent || 0}.` + (financeQ.data ? ` نسبة الإنجاز الحالية: ${Number(financeQ.data.computed_progress_pct ?? financeQ.data.manual_progress_pct ?? 0).toFixed(2)}%، القيمة المكتسبة ${Number(financeQ.data.earned_value || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال، المطالبات ${Number(financeQ.data.claimed_gross || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال، المحصل ${Number(financeQ.data.collected || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال.` : '');
       return { rows:null, extras:{ details } };
     }
 

@@ -269,7 +269,7 @@ export default function LegacyDocumentSmartFillPanel({ code, docId = null }) {
           <label>طلب سلفة مسجل — اختياري</label>
           <select value={advanceId} onChange={(event)=>setAdvanceId(event.target.value)}>
             <option value="">بيانات الموظف والمديونية فقط</option>
-            {advances.map((row)=><option key={row.id} value={row.id}>{row.request_no || 'طلب سلفة'} — {Number(row.finance_approved_amount || row.amount || 0).toLocaleString('ar-SA')} ريال — {row.status}</option>)}
+            {advances.map((row)=><option key={row.id} value={row.id}>{row.request_no || 'طلب سلفة'} — {Number(row.finance_approved_amount || row.amount || 0).toLocaleString('ar-SA-u-ca-gregory-nu-latn')} ريال — {row.status}</option>)}
           </select>
         </div>}
       </div>

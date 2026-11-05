@@ -14,7 +14,7 @@ import styles from './tool-shell.module.css';
 function dateLabel(value){
   if(!value)return '—';
   const [y,m,d] = String(value).split('-').map(Number);
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d));
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d));
 }
 
 export default function OperationToolShell({ type }){

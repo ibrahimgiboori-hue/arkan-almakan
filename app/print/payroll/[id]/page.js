@@ -9,7 +9,7 @@ import { PRINT_FLOW_KIND } from '@/lib/print-governance';
 import { filterBySelection, normalizeRecordSelection } from '@/lib/record-selection';
 
 const n=(v)=>Number(v||0);
-const money=(v)=>`${n(v).toLocaleString('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س`;
+const money=(v)=>`${n(v).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{minimumFractionDigits:2,maximumFractionDigits:2})} ر.س`;
 const STATUS={draft:'مسودة',submitted:'مرسلة للاعتماد',hr_reviewed:'مراجعة الموارد البشرية',accountant_approved:'مراجعة مالية',ceo_approved:'معتمدة',rejected:'مرفوضة',cancelled:'ملغاة'};
 const STEP_STATUS={pending:'قيد الانتظار',approved:'معتمد',returned:'معاد للتعديل',rejected:'مرفوض',cancelled:'ملغى'};
 

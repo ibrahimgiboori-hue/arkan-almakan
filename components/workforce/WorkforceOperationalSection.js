@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import RawGrid, { RawGridFooter } from '@/components/ui/RawGrid';
 
-const money=(v)=>`${Number(v||0).toLocaleString('ar-SA',{maximumFractionDigits:2})} ر.س`;
+const money=(v)=>`${Number(v||0).toLocaleString('ar-SA-u-ca-gregory-nu-latn',{maximumFractionDigits:2})} ر.س`;
 const isoMonth=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 const n=(v)=>Number(v||0);
 const REASONS=[
