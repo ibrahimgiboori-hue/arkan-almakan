@@ -7,6 +7,7 @@ import {
   DIRECT_EXPENSE_CHARGE_LABELS,
   DIRECT_EXPENSE_PAYER_LABELS,
   createDirectExpenseDraft,
+  directExpenseLineTotal,
   duplicateDirectExpenseSeed,
   summarizeDirectExpenseGrid,
 } from '@/lib/project-direct-expenses.mjs';
@@ -14,7 +15,7 @@ import { useCachedQuery, invalidateCachedQuery } from '@/lib/useCachedQuery';
 import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
 import styles from './operations.module.css';
 
-const money = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits:2 });
+const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
 export default function DirectExpensePanel({ projectId, date, contractor }){
   const cacheKey = projectId && date && contractor?.id ? `expenses:${projectId}:${date}:${contractor.id}` : null;
@@ -75,7 +76,7 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
       });
       return;
     }
-    if(!window.confirm(`حذف المصروف ${money(row.amount)} ر.س من هذا اليوم؟`))return;
+    if(!window.confirm(`حذف المصروف ${money(directExpenseLineTotal(row))} ر.س من هذا اليوم؟`))return;
     setBusy(true);setFeedback(null);
     try{
       await projectDirectExpenseService.deleteExpense({projectId,expenseId:row.id});
@@ -108,7 +109,19 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
     { key:'_index', label:'#', type:'index', render:(row)=>entryRows.indexOf(row)+1 },
     { key:'_status', label:'الحالة', type:'badge', text:(row)=>row.persisted?'محفوظ':'جديد', tone:(row)=>row.persisted?'saved':'new' },
     { key:'expense_date', label:'التاريخ', type:'date' },
-    { key:'amount', label:'المبلغ', type:'number', min:0, step:0.01, total:'sum' },
+    { key:'quantity', label:'الكمية', type:'number', min:0, step:'any' },
+    { key:'unit_price', label:'سعر الوحدة', type:'number', min:0, step:0.01 },
+    {
+      key:'amount', label:'المبلغ المباشر', type:'number', min:0, step:0.01,
+      visible:(row)=>!(row.quantity!==''&&row.unit_price!==''),
+      placeholderWhenHidden:'ƒ',
+    },
+    {
+      key:'_total', label:'الإجمالي', type:'computed', numeric:true, total:'sum',
+      formula:'الكمية × سعر الوحدة (يحسبها البرنامج في القاعدة)، أو المبلغ المباشر',
+      compute:(row)=>{const total=directExpenseLineTotal(row);return total>0?total:null;},
+      format:(value)=>value==null?null:money(value),
+    },
     { key:'category', label:'التصنيف', type:'select', options: DIRECT_EXPENSE_CATEGORIES.map(c=>({value:c,label:c})) },
     { key:'notes', label:'البيان', type:'text', placeholder:'بيان المصروف', minWidth:260 },
     {

@@ -1,5 +1,5 @@
 -- Daily expenses as an Excel sheet: الكمية × سعر الوحدة = الإجمالي, computed in the database.
--- STATUS: PROPOSED — apply only after the owner approves it.
+-- STATUS: APPLIED 2026-11-09 on the owner's approval («طبق»).
 --
 -- 1) Two optional columns on contractor_expenses: quantity, unit_price (both or neither).
 -- 2) A BEFORE INSERT/UPDATE trigger sets amount = round(quantity × unit_price, 2) when both are present.
