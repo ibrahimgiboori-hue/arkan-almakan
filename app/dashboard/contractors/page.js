@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { money } from '@/lib/format';
 import { CHARGE_AR } from '@/lib/projects';
@@ -18,7 +18,6 @@ const EMPTY = {
 };
 
 export default function Contractors() {
-  const router = useRouter();
   const [rows, setRows] = useState(null);
   const [acct, setAcct] = useState([]);
   const [portalAccounts, setPortalAccounts] = useState([]);
@@ -209,12 +208,12 @@ export default function Contractors() {
               <thead><tr><th>الاسم</th><th>النوع</th><th>الأساس</th><th className="num">يومية عامل</th><th className="num">يومية صنايعي</th><th>الوجبات على</th><th className="num">الرصيد</th><th>التقييم</th><th>بوابة المقاول</th><th style={{width:260}}>الإجراءات</th></tr></thead>
               <tbody>{rows.map((r) => (
                 <tr key={r.id} style={!r.is_active ? {opacity:.55} : undefined}>
-                  <td>{r.name_ar}{r.specialties && <div style={{fontSize:12,color:'var(--ink-soft)'}}>{r.specialties}</div>}</td>
+                  <td><Link href={`/dashboard/contractors/${r.id}`} style={{fontWeight:700}}>{r.name_ar}</Link>{r.specialties && <div style={{fontSize:12,color:'var(--ink-soft)'}}>{r.specialties}</div>}</td>
                   <td style={{fontSize:12.5}}>{KIND_AR[r.kind]}</td><td style={{fontSize:12.5}}>{r.default_basis || '—'}</td>
                   <td className="num">{r.worker_daily ? money(r.worker_daily) : '—'}</td><td className="num">{r.tech_daily ? money(r.tech_daily) : '—'}</td>
                   <td><span className="pill" style={{fontSize:11.5}}>{CHARGE_AR[r.meals_charge_to]}</span></td><td className="num">{money(balOf(r.id))}</td><td>{'★'.repeat(r.rating || 0)}</td>
                   <td>{(()=>{const account=portalAccounts.find(a=>a.contractor_id===r.id);return account?<div style={{minWidth:180}}><b>{account.display_name}</b><div className="mono" style={{fontSize:11.5,color:'var(--ink-soft)'}}>{account.username}</div><div className="rowsplit" style={{marginTop:6}}>{access.canManagePortal&&<><button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>resetPortalPassword(r)}>كلمة جديدة</button><button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>portalAction(r,'set_active',{isActive:!account.is_active})}>{account.is_active?'إيقاف':'تفعيل'}</button>{access.canIssuePermit&&projectLinks.some(x=>x.contractor_id===r.id)&&<button className="btn ghost" style={{padding:'3px 7px',fontSize:11}} onClick={()=>{const links=projectLinks.filter(x=>x.contractor_id===r.id);setPermitPanel({contractor:r,links,form:{project_id:links[0]?.project_id||'',from:new Date().toISOString().slice(0,10),to:new Date().toISOString().slice(0,10),hours:2,reason:''}});}}>تصريح تعديل</button>}</>}</div></div>:access.canManagePortal?<button className="btn ghost" style={{padding:'4px 8px',fontSize:11.5}} onClick={()=>provisionPortal(r)}>إنشاء الحساب</button>:<span>غير منشأ</span>;})()}</td>
-                  <td><div className="rowsplit">{access.canLaborView&&<button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>router.push(`/dashboard/labor?contractor=${r.id}`)}>العمالة</button>}{access.canLaborAssign&&<button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>router.push(`/dashboard/labor?contractor=${r.id}&add=1`)}>إضافة عامل</button>}{canWrite && <><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>startEdit(r)}>تعديل</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toggle(r)}>{r.is_active ? 'تعطيل' : 'تفعيل'}</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(r)}>حذف</button></>}</div></td>
+                  <td><div className="rowsplit">{canWrite && <><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>startEdit(r)}>تعديل</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5}} onClick={()=>toggle(r)}>{r.is_active ? 'تعطيل' : 'تفعيل'}</button><button className="btn ghost" style={{padding:'4px 9px',fontSize:12.5,borderColor:'#EBC3C0',color:'#A32B24'}} onClick={()=>remove(r)}>حذف</button></>}</div></td>
                 </tr>
               ))}</tbody>
             </table>

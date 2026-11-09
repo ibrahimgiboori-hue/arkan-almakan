@@ -321,3 +321,25 @@ input[data-date-overlay="value"]::before{color:inherit;font-variant-numeric:lini
   box-shadow:0 6px 24px rgba(0,0,0,.12);pointer-events:none}
 [data-sheet-runtime-bar][hidden]{display:none}
 @media print{[data-sheet-runtime-bar]{display:none!important}}
+
+/* Project settings: optional groups fold while empty. */
+details.project-settings-group {
+  margin-top: 14px;
+  border-top: 1px solid var(--hair, #e6dfd7);
+  padding-top: 10px;
+}
+details.project-settings-group > summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 14px;
+  list-style-position: inside;
+}
+details.project-settings-group > summary small {
+  font-weight: 500;
+  color: var(--ink-soft, #6b6761);
+  margin-inline-start: 6px;
+}
+details.project-settings-group > fieldset {
+  border-top: none;
+  padding-top: 8px;
+}
