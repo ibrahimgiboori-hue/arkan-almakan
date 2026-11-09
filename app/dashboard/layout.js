@@ -21,6 +21,7 @@ import ActiveDashboardSkinRuntime from '@/components/ui/ActiveDashboardSkinRunti
 import WorkThresholdRuntime, { WorkThresholdMarker } from '@/components/ui/WorkThresholdRuntime';
 import WorkSessionRuntime from '@/components/ui/WorkSessionRuntime';
 import ActionNervousSystemRuntime from '@/components/ui/ActionNervousSystemRuntime';
+import SheetTableRuntime from '@/components/ui/SheetTableRuntime';
 import './ui-active-dashboard-skin.css';
 
 export default function DashboardLayout({ children }) {
@@ -189,6 +190,7 @@ export default function DashboardLayout({ children }) {
                       data-ui-slot={uiSlot('applicationContent')}
                     >
                       <WorkThresholdMarker />
+                      <SheetTableRuntime />
                       <div
                         className="workSheetMount"
                         data-work-sheet-mount="true"
