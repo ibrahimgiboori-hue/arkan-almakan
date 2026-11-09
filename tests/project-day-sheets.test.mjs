@@ -147,3 +147,25 @@ test('claims sheet: measurement rows edit in place and new rows follow the singl
   assert.deepEqual(ready.map((r) => r._id), ['d1']);
   assert.deepEqual(errors, ['الصف 3: بداية فترة القياس يجب ألا تتجاوز نهايتها.']);
 });
+
+test('movements: one sheet for the period — days merge in order, filters narrow, totals follow what shows', async () => {
+  const ledger = await import('../lib/project-daily-ledger.mjs');
+  const day = (rows) => ledger.normalizeProjectDailyLedger({ rows, summary: { attendance: rows.filter((r) => r.type === 'attendance').length } });
+  const merged = ledger.mergeProjectDailyLedgers([
+    { date: '2026-11-08', ledger: day([
+      { id: 'a-1', type: 'attendance', title: 'أحمد', detail: 'كامل · مؤسسة الإتقان · نجار', time: '2026-11-08T08:00:00Z' },
+      { id: 'e-1', type: 'expense', title: 'وجبات', detail: 'مقاولات النخبة · دفعه المقاول · غداء', amount: 120, time: '2026-11-08T12:00:00Z' },
+    ]) },
+    { date: '2026-11-07', ledger: day([
+      { id: 'c-1', type: 'custody', title: 'صرف من العهدة', detail: 'سقالات · على أركان', amount: 300, time: '2026-11-07T10:00:00Z' },
+      { id: 'a-2', type: 'attendance', title: 'جمال', detail: 'نصف يوم · مقاولات النخبة', time: '2026-11-07T07:00:00Z' },
+    ]) },
+  ]);
+  assert.deepEqual(merged.rows.map((row) => row.id), ['2026-11-07:a-2', '2026-11-07:c-1', '2026-11-08:a-1', '2026-11-08:e-1']);
+  assert.equal(merged.summary.attendance, 2);
+  const nokhba = ledger.filterProjectMovementRows(merged.rows, { contractorName: 'مقاولات النخبة' });
+  assert.deepEqual(nokhba.map((row) => row.title), ['جمال', 'وجبات']);
+  assert.deepEqual(ledger.filterProjectMovementRows(merged.rows, { type: 'attendance', search: 'نجار' }).map((row) => row.title), ['أحمد']);
+  const totals = ledger.summarizeProjectMovementRows(merged.rows);
+  assert.deepEqual([totals.attendance, totals.full, totals.half, totals.expenses, totals.custody, totals.movements], [2, 1, 1, 120, 300, 4]);
+});
