@@ -31,9 +31,9 @@ test('unrecorded workers are explicitly explained as automatic absence', () => {
 
 test('registered attendance can change full-half or be cancelled in place, saved in one batch', () => {
   const page = read(ATTENDANCE_UI);
-  assert.match(page, /planProjectAttendanceSheet\(/);
-  assert.match(page, /writeAttendance\(plan\.entries\)/);
-  assert.match(page, /removeMark\(worker, requestDate\)/);
+  assert.match(page, /planProjectAttendanceLedger\(/);
+  assert.match(page, /writeAttendance\(day\.date, day\.entries\)/);
+  assert.match(page, /removeMark\(key, mark\)/);
   assert.equal(page.includes('window.confirm'), false);
 });
 
@@ -41,17 +41,23 @@ test('attendance is one sheet on the shared grid engine, not two hand-made panes
   const page = read(ATTENDANCE_UI);
   assert.match(page, /from '@\/components\/ui\/RawGrid'/);
   assert.match(page, /data-attendance-sheet="true"/);
+  // One continuous project ledger: no per-day navigation, no per-contractor tabs — the filter decides.
+  assert.match(page, /data-attendance-ledger="project"/);
+  assert.match(page, /ProjectLedgerFilterBar/);
+  assert.match(page, /service\.loadRange\(/);
+  assert.equal(page.includes('moveOperationalDate'), false);
+  assert.equal(page.includes('contractorTabs'), false);
   assert.equal((page.match(/<RawGrid\b/g) || []).length, 1);
   assert.equal(page.includes('layoutStyles'), false);
   assert.equal(fs.existsSync(new URL('../app/dashboard/projects/[id]/operations/BulkAttendanceList.js', import.meta.url)), false);
 });
 
-test('attendance ignores stale responses after the operator changes day', () => {
+test('attendance ignores stale responses after the operator changes the period', () => {
   const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
   assert.match(page, /loadSeqRef/);
-  assert.match(page, /dateRef/);
-  assert.match(page, /requestDate/);
-  assert.match(page, /dateRef\.current !== requestDate/);
+  assert.match(page, /rangeRef/);
+  assert.match(page, /requestRange/);
+  assert.match(page, /rangeRef\.current !== requestRange/);
 });
 
 test('legacy stopped and leave states are preserved and protected from quick overwrite', () => {
@@ -78,7 +84,7 @@ test('attendance cancellation rejects false-success boolean and stale row identi
   // The RPC result must be literally true; anything else is a failed removal, never a silent success.
   assert.match(adapter, /return query\.data\s*===\s*true/);
   assert.match(service, /if\s*\(!removed\)\s*throw new Error/);
-  assert.match(page, /current\[worker\.id\]\?\.id !== row\.id/);
+  assert.match(page, /current\[key\]\?\.id !== row\.id/);
   assert.match(page, /row\.work_date/);
 });
 

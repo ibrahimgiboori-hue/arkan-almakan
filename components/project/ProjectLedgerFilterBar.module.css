@@ -1,0 +1,29 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface);
+}
+.field { display: grid; gap: 4px; font-size: var(--ui-font-size-sm); color: var(--ui-text-muted); }
+.field select, .field input { min-height: 36px; min-width: 150px; font: inherit; color: var(--ui-text); }
+.search { flex: 1 1 200px; }
+.search input { width: 100%; }
+.periods { display: flex; flex-wrap: wrap; gap: 6px; }
+.periods button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  cursor: pointer;
+}
+.periods .on { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-surface); font-weight: 700; }
+.extra { display: flex; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }

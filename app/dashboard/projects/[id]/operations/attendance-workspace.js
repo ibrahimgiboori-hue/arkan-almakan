@@ -3,29 +3,42 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { todayIsoInRiyadh } from '@/lib/format';
 import { receiptLabel } from '@/lib/operation-safety.mjs';
-import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { projectAttendanceService } from '@/lib/application/project-attendance-service';
 import {
   PROJECT_ATTENDANCE_LABOR_CLASS,
   PROJECT_ATTENDANCE_STATUS,
-  filterProjectAttendanceWorkers,
-  groupProjectAttendanceByContractor,
-  planProjectAttendanceSheet,
-  projectAttendanceCellValue,
-  summarizeProjectAttendance,
+  createProjectAttendanceDraft,
+  planProjectAttendanceLedger,
+  projectAttendanceLedgerKey,
+  projectAttendanceLedgerRows,
+  projectAttendanceMarksForLedger,
+  projectAttendanceRosterForDate,
+  summarizeProjectAttendanceLedger,
 } from '@/lib/project-attendance.mjs';
 import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
+import ProjectLedgerFilterBar from '@/components/project/ProjectLedgerFilterBar';
 import styles from './operations.module.css';
 
-function dateLabel(value) {
+const WEEKDAY = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { weekday: 'short' });
+
+function dayText(value) {
+  if (!value) return '';
+  const [y, m, d] = String(value).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function dayLabel(value) {
   if (!value) return '—';
   const [y, m, d] = String(value).split('-').map(Number);
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  }).format(new Date(y, m - 1, d));
+  return `${WEEKDAY.format(new Date(y, m - 1, d))} ${dayText(value)}`;
+}
+
+function daysText(count) {
+  if (count === 1) return 'يوم واحد';
+  if (count === 2) return 'يومين';
+  return count <= 10 ? `${count} أيام` : `${count} يومًا`;
 }
 
 function queuedNotice(result, subject) {
@@ -34,25 +47,25 @@ function queuedNotice(result, subject) {
     : `حُفظت ${subject} على هذا الجهاز وتنتظر عودة الاتصال.`;
 }
 
+const blankDrafts = (count, date) => [...Array(count)].map(() => createProjectAttendanceDraft({ date }));
+const isBlankDraft = (draft) => !draft.laborer_id && !draft.status;
+const statusOptions = [{ value: 'full', label: PROJECT_ATTENDANCE_STATUS.full.label }, { value: 'half', label: PROJECT_ATTENDANCE_STATUS.half.label }];
+
 /**
- * الحضور كورقة إكسل: عمال المقاول صفوف، وعمود «الحضور» يُكتب فيه كامل أو نصف يوم
- * (أو يُلصق من إكسل، أو يُعبّأ لأسفل بـ Ctrl+D)، والخانة الفارغة غياب تلقائي. التعديلات
- * تُحفظ مرة واحدة: كتابة موثقة واحدة للحضور، وإلغاء مثبت لكل تسجيل مُسح.
+ * سجل الحضور: ورقة واحدة مستمرة للمشروع كله — صف لكل عامل في كل يوم (التاريخ، العامل، المقاول، الحضور).
+ * لا ورقة جديدة لكل يوم ولا لكل مقاول: الفلترة (المقاول، الفترة، البحث) هي التي تحدد ما يظهر.
+ * الصفوف الجديدة تُكتب أو تُلصق من إكسل أسفل السجل، والتعديلات تُحفظ مرة واحدة: كتابة موثقة لكل يوم
+ * فيه حضور جديد، وإلغاء مثبت لكل تسجيل مُسح. الخانة الفارغة غياب تلقائي.
  */
 export default function AttendanceWorkspace({ service = projectAttendanceService } = {}) {
   const { id: projectId } = useParams();
-  const {
-    date,
-    contractorId: activeContractor,
-    ready: contextReady,
-    setDate,
-    setContractorId: setActiveContractor,
-  } = useProjectOperationContext(projectId);
+  const context = useProjectOperationContext(projectId);
+  const { date: entryDate, contractorId, from, to, search, ready: contextReady, setDate } = context;
 
-  const [contractors, setContractors] = useState([]);
-  const [workers, setWorkers] = useState([]);
+  const [ledger, setLedger] = useState({ contractors: [], laborers: [], assignmentRows: [] });
   const [marks, setMarks] = useState({});
-  const [search, setSearch] = useState('');
+  const [changes, setChanges] = useState({});
+  const [drafts, setDrafts] = useState(() => blankDrafts(3, entryDate));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState('');
@@ -62,46 +75,49 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
   const [online, setOnline] = useState(true);
   const [pendingSync, setPendingSync] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  const [changes, setChanges] = useState({});
-  const dateRef = useRef(date);
-  const contractorRef = useRef(activeContractor);
+  const rangeKey = `${from}|${to}`;
+  const rangeRef = useRef(rangeKey);
   const loadSeqRef = useRef(0);
 
-  useEffect(() => { dateRef.current = date; }, [date]);
-  useEffect(() => { contractorRef.current = activeContractor; }, [activeContractor]);
+  useEffect(() => { rangeRef.current = rangeKey; }, [rangeKey]);
 
   const load = useCallback(async () => {
-    if (!contextReady || !projectId || !date) return;
-    const requestDate = date;
+    if (!contextReady || !projectId || !from || !to) return;
+    const requestRange = `${from}|${to}`;
     const requestSeq = ++loadSeqRef.current;
     setLoading(true);
     setLoadError('');
     try {
-      const workspace = await service.loadDay({ projectId, date: requestDate });
-      if (requestSeq !== loadSeqRef.current || dateRef.current !== requestDate) return;
-
-      setContractors(workspace.contractors);
-      setWorkers(workspace.workers);
-      setMarks(workspace.marks);
-
-      const selectedId = contractorRef.current;
-      const selectedStillExists = selectedId && workspace.contractors.some((contractor) => contractor.id === selectedId);
-      if (!selectedStillExists) setActiveContractor(workspace.contractors[0]?.id || '');
+      const result = await service.loadRange({ projectId, from, to });
+      if (requestSeq !== loadSeqRef.current || rangeRef.current !== requestRange) return;
+      setLedger(result);
+      // Server truth replaces what was read before; records still waiting for the network stay visible and locked.
+      setMarks((current) => ({
+        ...result.marks,
+        ...Object.fromEntries(Object.entries(current).filter(([, mark]) => mark.pending)),
+      }));
     } catch (error) {
-      if (requestSeq !== loadSeqRef.current || dateRef.current !== requestDate) return;
-      const message = 'تعذر فتح حضور اليوم: ' + (error.message || error);
+      if (requestSeq !== loadSeqRef.current || rangeRef.current !== requestRange) return;
+      const message = 'تعذر فتح سجل الحضور: ' + (error.message || error);
       setLoadError(message);
-      setErr(message);
-      setContractors([]);
-      setWorkers([]);
+      setLedger({ contractors: [], laborers: [], assignmentRows: [] });
       setMarks({});
     } finally {
-      if (requestSeq === loadSeqRef.current && dateRef.current === requestDate) setLoading(false);
+      if (requestSeq === loadSeqRef.current && rangeRef.current === requestRange) setLoading(false);
     }
-  }, [contextReady, date, projectId, setActiveContractor, service]);
+  }, [contextReady, from, to, projectId, service]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setChanges({}); }, [date, activeContractor]);
+  useEffect(() => { setChanges({}); }, [rangeKey]);
+
+  // New rows default to the entry day; keep that day inside the period being shown.
+  useEffect(() => {
+    if (!contextReady || !from || !to) return;
+    if (entryDate < from || entryDate > to) setDate(to);
+  }, [contextReady, entryDate, from, to, setDate]);
+  useEffect(() => {
+    setDrafts((current) => current.map((draft) => (isBlankDraft(draft) && draft.date !== entryDate ? { ...draft, date: entryDate } : draft)));
+  }, [entryDate]);
 
   useEffect(() => {
     const refresh = () => {
@@ -117,72 +133,82 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
     };
   }, [service]);
 
-  async function writeAttendance(entries) {
+  const rosterFor = useMemo(() => {
+    const cache = new Map();
+    return (day) => {
+      if (!day) return [];
+      if (!cache.has(day)) cache.set(day, projectAttendanceRosterForDate({ date: day, assignmentRows: ledger.assignmentRows, laborers: ledger.laborers }));
+      return cache.get(day);
+    };
+  }, [ledger]);
+  const contractorName = useMemo(() => {
+    const byId = new Map(ledger.contractors.map((contractor) => [contractor.id, contractor.operation_alias || contractor.name_ar]));
+    return (id) => byId.get(id) || '';
+  }, [ledger.contractors]);
+  const workerName = useMemo(() => {
+    const byId = new Map(ledger.laborers.map((worker) => [worker.id, worker.full_name]));
+    return (id) => byId.get(id) || '';
+  }, [ledger.laborers]);
+
+  async function writeAttendance(day, entries) {
     if (!entries.length) return null;
-    const requestDate = dateRef.current;
     setSaveProof({ status: 'saving' });
-    const result = await service.saveEntries({
-      projectId,
-      date: requestDate,
-      entries,
-    });
+    const result = await service.saveEntries({ projectId, date: day, entries });
     setPendingSync(result?.pendingCount || 0);
-
-    if (dateRef.current !== requestDate) return { ...result, stale: true };
-
-    if (result.status === 'verified') {
-      setSaveProof({ status: 'verified', receipt: result.receipt });
-    } else {
-      setSaveProof({ status: 'queued', requestId: result.requestId });
-    }
-    setMarks((current) => ({ ...current, ...(result.marks || {}) }));
+    if (result.status === 'verified') setSaveProof({ status: 'verified', receipt: result.receipt });
+    else setSaveProof({ status: 'queued', requestId: result.requestId });
+    const placementOf = (laborerId) => {
+      const worker = rosterFor(day).find((item) => item.id === laborerId);
+      return worker ? { contractor_id: worker.contractor_id, labor_class: worker.labor_class, trade: worker.trade } : {};
+    };
+    setMarks((current) => ({ ...current, ...projectAttendanceMarksForLedger(result.marks, day, placementOf) }));
     return result;
   }
 
   // One cleared registration → a confirmed removal. Returns true only when the server removed it.
-  async function removeMark(worker, requestDate) {
-    const row = marks[worker.id];
-    if (!row) return false;
-    if (row.protected) throw new Error(`الحالة الحالية لـ${worker.full_name} حالة تاريخية محفوظة ولا تُلغى من الإدخال السريع.`);
-    if (row.pending || !row.id) throw new Error(`حركة ${worker.full_name} بانتظار المزامنة؛ لا يمكن إلغاؤها قبل أن يثبتها الخادم.`);
-    if (row.work_date && row.work_date !== requestDate) throw new Error('تغيّر اليوم المعروض. أعد فتح اليوم قبل تعديل هذا السجل.');
-    await service.removeEntry({ mark: row, date: requestDate });
-    if (dateRef.current !== requestDate) return false;
+  async function removeMark(key, row) {
+    if (row.protected) throw new Error(`تسجيل ${workerName(row.laborer_id)} يوم ${dayText(row.work_date)} حالة تاريخية محفوظة ولا تُلغى من السجل.`);
+    if (row.pending || !row.id) throw new Error(`تسجيل ${workerName(row.laborer_id)} بانتظار المزامنة؛ لا يمكن إلغاؤه قبل أن يثبته الخادم.`);
+    if (key !== projectAttendanceLedgerKey(row.work_date, row.laborer_id)) throw new Error('تغيّر السجل المعروض. حدّث الفترة قبل تعديل هذا الصف.');
+    await service.removeEntry({ mark: row, date: row.work_date });
     setMarks((current) => {
-      if (current[worker.id]?.id !== row.id) return current;
+      if (current[key]?.id !== row.id) return current;
       const next = { ...current };
-      delete next[worker.id];
+      delete next[key];
       return next;
     });
     return true;
   }
 
   async function saveSheet() {
-    const requestDate = dateRef.current;
-    const plan = planProjectAttendanceSheet({ workers, marks, changes, date: requestDate });
-    if (!plan.entries.length && !plan.removals.length) {
+    const plan = planProjectAttendanceLedger({ marks, changes, drafts, rosterFor, from, to });
+    if (plan.errors.length) { setErr(plan.errors.slice(0, 4).join(' ')); return; }
+    const settledChanges = new Set(plan.settledChanges);
+    const settledDrafts = new Set(plan.settledDrafts);
+    if (!plan.days.length) {
       if (plan.blocked.length) setErr('لم تتغير هذه الصفوف: ' + plan.blocked.join('، '));
       return;
     }
     setBusy('sheet');
     setErr('');
     setMsg('');
-    const parts = [];
-    const settled = new Set();
+    let written = 0;
+    let writtenDays = 0;
+    let queued = 0;
+    let removed = 0;
+    let lastReceipt = null;
+    let queuedResult = null;
     try {
-      if (plan.entries.length) {
-        const result = await writeAttendance(plan.entries);
-        if (result?.stale) { setBusy(''); return; }
-        plan.entries.forEach(({ worker }) => settled.add(worker.id));
-        parts.push(result?.status === 'verified'
-          ? `سُجّل ${plan.entries.length} عاملًا · ${receiptLabel(result.receipt)}`
-          : queuedNotice(result, `${plan.entries.length} حركة حضور`));
+      for (const day of plan.days) {
+        if (day.entries.length) {
+          const result = await writeAttendance(day.date, day.entries);
+          day.entries.forEach(({ key, draftId }) => { if (draftId) settledDrafts.add(draftId); else settledChanges.add(key); });
+          if (result?.status === 'verified') { written += day.entries.length; writtenDays += 1; lastReceipt = result.receipt; } else { queued += day.entries.length; queuedResult = result; }
+        }
+        for (const { key, mark } of day.removals) {
+          if (await removeMark(key, mark)) { removed += 1; settledChanges.add(key); }
+        }
       }
-      let removed = 0;
-      for (const worker of plan.removals) {
-        if (await removeMark(worker, requestDate)) { removed += 1; settled.add(worker.id); }
-      }
-      if (removed) parts.push(`أُلغي تسجيل ${removed} وأصبحوا غيابًا تلقائيًا لهذا اليوم`);
       if (plan.blocked.length) setErr('لم تتغير هذه الصفوف: ' + plan.blocked.join('، '));
     } catch (error) {
       setSaveProof({ status: 'error' });
@@ -190,9 +216,18 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
     }
     setChanges((current) => {
       const next = { ...current };
-      settled.forEach((id) => { delete next[id]; });
+      settledChanges.forEach((key) => { delete next[key]; });
       return next;
     });
+    setDrafts((current) => {
+      const next = current.filter((draft) => !settledDrafts.has(draft._id));
+      const open = next.filter(isBlankDraft).length;
+      return open >= 2 ? next : [...next, ...blankDrafts(2 - open, entryDate)];
+    });
+    const parts = [];
+    if (written) parts.push([`سُجّل ${written} حضور على ${daysText(writtenDays)}`, receiptLabel(lastReceipt)].filter(Boolean).join(' · '));
+    if (queued) parts.push(queuedNotice(queuedResult, `${queued} حركة حضور`));
+    if (removed) parts.push(`أُلغي ${removed} تسجيل وأصبح غيابًا تلقائيًا`);
     if (parts.length) setMsg(parts.join(' · '));
     setBusy('');
   }
@@ -209,25 +244,113 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
     if (result.failed) setErr(`تعذرت مزامنة ${result.failed} حركة. ما زالت محفوظة على هذا الجهاز.`);
     if (result.synced) {
       setMsg(`تمت مزامنة ${result.synced} حركة.`);
+      setMarks((current) => Object.fromEntries(Object.entries(current).filter(([, mark]) => !mark.pending)));
       await load();
     }
   }
 
-  const grouped = useMemo(() => groupProjectAttendanceByContractor(contractors, workers), [contractors, workers]);
-  const visibleWorkers = useMemo(
-    () => filterProjectAttendanceWorkers(workers, activeContractor, search),
-    [activeContractor, search, workers],
+  // The roster on the entry day, narrowed by the contractor filter — the people a new row can name.
+  const entryRoster = useMemo(
+    () => rosterFor(entryDate).filter((worker) => !contractorId || worker.contractor_id === contractorId),
+    [rosterFor, entryDate, contractorId],
   );
-  const sheetRows = useMemo(() => visibleWorkers.map((worker) => ({
-    ...worker,
-    attendance: projectAttendanceCellValue(worker, marks, changes),
-    mark: marks[worker.id] || null,
-    dirty: Object.prototype.hasOwnProperty.call(changes, worker.id) && (changes[worker.id] || '') !== (marks[worker.id]?.status || ''),
-  })), [visibleWorkers, marks, changes]);
-  const dirtyCount = sheetRows.filter((row) => row.dirty).length;
-  const summary = useMemo(() => summarizeProjectAttendance(workers, marks), [workers, marks]);
-  const activeContractorRow = grouped.find((contractor) => contractor.id === activeContractor);
-  const activeContractorHasWorkers = Boolean(activeContractorRow?.workers?.length);
+  const savedRows = useMemo(() => projectAttendanceLedgerRows({
+    marks, laborers: ledger.laborers, contractors: ledger.contractors, from, to, contractorId, search,
+  }).map((row) => ({
+    ...row,
+    status: Object.prototype.hasOwnProperty.call(changes, row._id) ? changes[row._id] : (row.mark.status || ''),
+    dirty: Object.prototype.hasOwnProperty.call(changes, row._id) && (changes[row._id] || '') !== (row.mark.status || ''),
+  })), [marks, ledger, from, to, contractorId, search, changes]);
+  const rows = useMemo(() => [...savedRows, ...drafts], [savedRows, drafts]);
+  const summary = summarizeProjectAttendanceLedger(savedRows, (row) => row.status);
+  // Edits hidden by a filter still count: the filter only narrows what is shown, like Excel.
+  const dirtyCount = Object.entries(changes).filter(([key, value]) => marks[key] && (value || '') !== (marks[key].status || '')).length
+    + drafts.filter((draft) => draft.status).length;
+  const entryUnmarked = entryRoster.filter((worker) => !marks[projectAttendanceLedgerKey(entryDate, worker.id)]
+    && !drafts.some((draft) => draft.date === entryDate && draft.laborer_id === worker.id));
+  const periodHasLabor = ledger.assignmentRows.some((row) => !contractorId || row.contractor_id === contractorId);
+
+  function addEntryRoster() {
+    if (!entryUnmarked.length) return;
+    setDrafts((current) => [
+      ...current.filter((draft) => !isBlankDraft(draft)),
+      ...entryUnmarked.map((worker) => createProjectAttendanceDraft({ date: entryDate, laborer_id: worker.id })),
+      ...blankDrafts(1, entryDate),
+    ]);
+  }
+
+  function patchRows(list) {
+    const draftPatches = new Map();
+    const statusChanges = {};
+    for (const { key, patch } of list) {
+      if (drafts.some((draft) => draft._id === key)) draftPatches.set(key, { ...(draftPatches.get(key) || {}), ...patch });
+      else if (Object.prototype.hasOwnProperty.call(patch, 'status')) statusChanges[key] = patch.status || '';
+    }
+    if (draftPatches.size) setDrafts((current) => current.map((draft) => (draftPatches.has(draft._id) ? { ...draft, ...draftPatches.get(draft._id) } : draft)));
+    if (Object.keys(statusChanges).length) setChanges((current) => ({ ...current, ...statusChanges }));
+  }
+
+  function appendRows(patches) {
+    setDrafts((current) => [...current, ...patches.map((patch) => createProjectAttendanceDraft({ date: entryDate, ...patch }))]);
+  }
+
+  function removeDraft(row) {
+    setDrafts((current) => (current.length > 1 ? current.filter((draft) => draft._id !== row._id) : blankDrafts(1, entryDate)));
+  }
+
+  const workerOptions = (row) => {
+    const roster = rosterFor(row.date || entryDate);
+    const list = roster.filter((worker) => !contractorId || worker.contractor_id === contractorId || worker.id === row.laborer_id);
+    return list.map((worker) => ({ value: worker.id, label: worker.full_name }));
+  };
+  const draftWorker = (row) => rosterFor(row.date || entryDate).find((worker) => worker.id === row.laborer_id) || null;
+
+  const columns = [
+    { key: '_index', label: '#', type: 'index', render: (row) => rows.indexOf(row) + 1 },
+    {
+      key: 'date', label: 'التاريخ', type: 'date', minWidth: 150,
+      visible: (row) => !row.persisted,
+      placeholderWhenHidden: (row) => dayLabel(row.date),
+      sheetValue: (row) => dayText(row.date),
+      onChange: (row, value) => ({ date: value }),
+    },
+    {
+      key: 'laborer_id', label: 'العامل', type: 'select', minWidth: 170, emptyOption: '—', options: workerOptions,
+      visible: (row) => !row.persisted,
+      placeholderWhenHidden: (row) => row.worker_name,
+      sheetValue: (row) => (row.persisted ? row.worker_name : workerName(row.laborer_id)),
+    },
+    {
+      key: '_contractor', label: 'المقاول', type: 'computed',
+      compute: (row) => (row.persisted ? row.contractor_name : contractorName(draftWorker(row)?.contractor_id)) || null,
+    },
+    {
+      key: '_trade', label: 'المهنة', type: 'computed',
+      compute: (row) => {
+        const worker = row.persisted ? row : draftWorker(row);
+        return worker ? (worker.trade || PROJECT_ATTENDANCE_LABOR_CLASS[worker.labor_class] || null) : null;
+      },
+    },
+    {
+      key: 'status', label: 'الحضور', type: 'select', minWidth: 140, emptyOption: 'غياب تلقائي', total: 'count',
+      options: statusOptions,
+      visible: (row) => !row.mark?.protected,
+      placeholderWhenHidden: (row) => PROJECT_ATTENDANCE_STATUS[row.mark?.status]?.label || row.mark?.status,
+    },
+    {
+      key: '_state', label: 'الحفظ', type: 'badge',
+      text: (row) => (row.persisted
+        ? (row.mark?.pending ? 'بانتظار المزامنة' : row.mark?.protected ? 'حالة محفوظة' : row.dirty ? (row.status ? 'غير محفوظ' : 'سيُلغى') : 'محفوظ')
+        : (row.status ? 'جديد' : row.laborer_id ? 'غياب تلقائي' : '')),
+      tone: (row) => (row.persisted ? (row.dirty ? 'new' : row.mark?.pending ? 'muted' : 'saved') : row.status ? 'new' : 'muted'),
+    },
+    {
+      key: '_action', label: 'إجراء', type: 'action',
+      render: (row, { disabled }) => (row.persisted
+        ? <span aria-hidden="true">—</span>
+        : <button type="button" className={rawGridStyles.actionButton} onClick={() => removeDraft(row)} disabled={disabled} aria-label="حذف الصف">×</button>),
+    },
+  ];
 
   const saveLabel = saveProof?.status === 'saving'
     ? 'جارٍ الحفظ…'
@@ -242,18 +365,9 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
   if (!contextReady) return <div className={styles.loading}>جارٍ فتح سياق المشروع…</div>;
 
   return (
-    <div className={styles.root} dir="rtl" data-project-attendance-workspace="engineered-v1">
+    <div className={styles.root} dir="rtl" data-project-attendance-workspace="engineered-v1" data-attendance-ledger="project">
       <section className={styles.controlBar}>
-        <div className={styles.modeTitle}><span>التشغيل اليومي</span><strong>الحضور</strong></div>
-        <div className={styles.dateNav} aria-label="التنقل بين الأيام">
-          <button type="button" onClick={() => setDate((current) => moveOperationalDate(current, 1))} aria-label="اليوم التالي">←</button>
-          <div className={styles.dateCenter}>
-            <strong>{dateLabel(date)}</strong>
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label="اختيار التاريخ" />
-          </div>
-          <button type="button" onClick={() => setDate((current) => moveOperationalDate(current, -1))} aria-label="اليوم السابق">→</button>
-        </div>
-        <button type="button" className={styles.todayButton} onClick={() => setDate(todayIsoInRiyadh())}>اليوم</button>
+        <div className={styles.modeTitle}><span>سجل المشروع</span><strong>الحضور</strong></div>
         <div className={`${styles.syncState} ${!online || pendingSync ? styles.syncWarn : ''}`}>
           <span className={online ? styles.onlineDot : styles.offlineDot} />
           <div><strong>{online ? 'متصل' : 'غير متصل'}</strong><small>{saveLabel}</small></div>
@@ -261,91 +375,65 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
         </div>
       </section>
 
+      <ProjectLedgerFilterBar context={context} contractors={ledger.contractors} searchPlaceholder="اسم العامل أو المهنة أو المقاول" />
+
       {err && <div className={styles.error}>{err}</div>}
       {msg && <div className={styles.success}>{msg}</div>}
 
       <section className={styles.summaryStrip}>
-        <div><span>القوة المسندة</span><strong>{summary.total}</strong></div>
+        <div><span>سجلات الفترة</span><strong>{summary.records}</strong></div>
         <div className={styles.fullStat}><span>كامل</span><strong>{summary.full}</strong></div>
         <div className={styles.halfStat}><span>نصف يوم</span><strong>{summary.half}</strong></div>
+        <div><span>أيام العمل</span><strong>{summary.workedDays}</strong></div>
         {summary.protected > 0 && <div><span>حالة محفوظة</span><strong>{summary.protected}</strong></div>}
-        <div className={styles.absentStat}><span>غياب تلقائي</span><strong>{summary.absent}</strong></div>
-      </section>
-
-      <section className={styles.contractorBar}>
-        <div className={styles.contractorTabs}>
-          {grouped.map((contractor) => {
-            const remaining = contractor.workers.filter((worker) => !marks[worker.id]).length;
-            const status = contractor.workers.length === 0
-              ? 'بلا عمالة'
-              : remaining > 0 ? `${remaining} غائب/غير مسجل` : 'تم تسجيل الحاضرين';
-            return (
-              <button
-                key={contractor.id}
-                type="button"
-                className={activeContractor === contractor.id ? styles.activeContractor : ''}
-                onClick={() => setActiveContractor(contractor.id)}
-              >
-                <span>{contractor.operation_alias || contractor.name_ar}</span>
-                <small>{status}</small>
-              </button>
-            );
-          })}
-        </div>
-        <div className={styles.contractorMeta}>
-          <strong>{activeContractorRow?.name_ar || '—'}</strong>
-          <span>{activeContractorRow?.project_basis === 'piecework' ? 'مقطوعية / بالوحدة' : activeContractorRow?.project_basis === 'salary' ? 'راتب' : 'يومية'}</span>
-        </div>
+        <div className={styles.absentStat}><span>غياب تلقائي {dayText(entryDate)}</span><strong>{entryUnmarked.length}</strong></div>
       </section>
 
       {loading ? (
-        <div className={styles.loading}>جارٍ فتح سجل اليوم…</div>
+        <div className={styles.loading}>جارٍ فتح سجل الحضور…</div>
       ) : loadError ? (
-        <div className={styles.error}>تعذر تحميل بيانات اليوم. لم تُعرض حالة فارغة بديلة حتى لا تُنشئ بيانات فوق سجل غير مقروء.</div>
-      ) : grouped.length === 0 ? (
-        <div className={styles.empty}>لا يوجد مقاول مرتبط أو عمالة مسندة لهذا المشروع في التاريخ المختار.</div>
-      ) : !activeContractorHasWorkers ? (
+        <div className={styles.error}>{loadError} — لم تُعرض حالة فارغة بديلة حتى لا تُنشئ بيانات فوق سجل غير مقروء.</div>
+      ) : !periodHasLabor && !savedRows.length ? (
         <div className={styles.empty}>
-          هذا المقاول مرتبط بالمشروع لكنه بلا عمالة مسندة في هذا التاريخ.{' '}
+          {contractorId ? 'هذا المقاول بلا عمالة مسندة للمشروع في هذه الفترة.' : 'المشروع بلا عمالة مسندة في هذه الفترة.'}{' '}
           <Link href={`/dashboard/projects/${projectId}/operations/labor`}>أضف أو انقل العمالة من شاشة العمالة</Link>.
         </div>
       ) : (
         <section data-attendance-sheet="true">
           <div className={styles.panelTitle}>
             <div>
-              <h2>حضور اليوم</h2>
-              <small>اكتب في عمود «الحضور» كامل أو نصف يوم، أو حدّد عدة خانات والصق «كامل» أو اضغط Ctrl+D لتعبئتها لأسفل. الخانة الفارغة غياب تلقائي: من يبقى بلا تسجيل يُعامل كغياب تلقائيًا.</small>
+              <h2>سجل الحضور</h2>
+              <small>صف لكل عامل في كل يوم. اكتب الصفوف الجديدة أسفل السجل أو الصقها من إكسل (التاريخ، العامل، …، الحضور)، أو اضغط «عمالة اليوم» ثم اكتب «كامل» في أول خانة وCtrl+D لأسفل. الخانة الفارغة غياب تلقائي: من يبقى بلا تسجيل يُعامل كغياب تلقائيًا.</small>
             </div>
-            <input aria-label="بحث في عمالة الحضور" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو الصفة" />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <label style={{ display: 'grid', gap: 4 }}>
+                <small>تاريخ الصفوف الجديدة</small>
+                <input type="date" value={entryDate} min={from} max={to} onChange={(event) => event.target.value && setDate(event.target.value)} aria-label="تاريخ الصفوف الجديدة" />
+              </label>
+              <button type="button" className={rawGridStyles.plainButton} onClick={addEntryRoster} disabled={Boolean(busy) || !entryUnmarked.length}>
+                + عمالة يوم {dayText(entryDate)} ({entryUnmarked.length})
+              </button>
+            </div>
           </div>
           <RawGrid
-            columns={[
-              { key: '_index', label: '#', type: 'index', render: (row) => sheetRows.indexOf(row) + 1 },
-              { key: '_name', label: 'العامل', type: 'computed', compute: (row) => row.full_name },
-              { key: '_class', label: 'الصفة', type: 'computed', compute: (row) => PROJECT_ATTENDANCE_LABOR_CLASS[row.labor_class] || row.labor_class || null },
-              { key: '_trade', label: 'المهنة', type: 'computed', compute: (row) => row.trade || null },
-              {
-                key: 'attendance', label: 'الحضور', type: 'select', minWidth: 140, emptyOption: 'غياب تلقائي', total: 'count',
-                options: [{ value: 'full', label: PROJECT_ATTENDANCE_STATUS.full.label }, { value: 'half', label: PROJECT_ATTENDANCE_STATUS.half.label }],
-                visible: (row) => !row.mark?.protected,
-                placeholderWhenHidden: (row) => PROJECT_ATTENDANCE_STATUS[row.mark?.status]?.label || row.mark?.status,
-              },
-              {
-                key: '_state', label: 'الحفظ', type: 'badge',
-                text: (row) => row.mark?.pending ? 'بانتظار المزامنة' : row.mark?.protected ? 'حالة محفوظة' : row.dirty ? 'غير محفوظ' : row.mark ? 'محفوظ' : 'غياب تلقائي',
-                tone: (row) => row.dirty ? 'new' : row.mark && !row.mark.pending ? 'saved' : 'muted',
-              },
-            ]}
-            rows={sheetRows}
-            rowKey={(row) => row.id}
-            savedFlag={(row) => Boolean(row.mark) && !row.dirty}
+            columns={columns}
+            rows={rows}
+            rowKey={(row) => row._id}
+            savedFlag={(row) => row.persisted && !row.dirty}
             rowDisabled={(row) => Boolean(row.mark?.protected || row.mark?.pending)}
-            onPatchRow={(key, patch) => setChanges((current) => ({ ...current, [key]: patch.attendance || '' }))}
+            onPatchRows={patchRows}
+            onPatchRow={(key, patch) => patchRows([{ key, patch }])}
+            onAppendRows={appendRows}
             busy={Boolean(busy)}
             totalsLabel="الحاضرون"
+            emptyMessage="لا توجد سجلات حضور في هذه الفترة."
           />
           <RawGridFooter
-            actions={<button type="button" className={rawGridStyles.plainButton} onClick={() => setChanges({})} disabled={Boolean(busy) || !dirtyCount}>تراجع عن التعديلات</button>}
+            actions={<>
+              <button type="button" className={rawGridStyles.plainButton} onClick={() => setDrafts((current) => [...current, ...blankDrafts(4, entryDate)])} disabled={Boolean(busy)}>+ 4 صفوف</button>
+              <button type="button" className={rawGridStyles.plainButton} onClick={() => { setChanges({}); setDrafts(blankDrafts(3, entryDate)); }} disabled={Boolean(busy) || !dirtyCount}>تراجع عن التعديلات</button>
+              <button type="button" className={rawGridStyles.plainButton} onClick={load} disabled={Boolean(busy)}>تحديث السجل</button>
+            </>}
             summary={<>
               <strong>{dirtyCount ? `تعديلات غير محفوظة: ${dirtyCount}` : 'لا توجد تعديلات غير محفوظة'}</strong>
               <button className={rawGridStyles.primaryButton} type="button" onClick={saveSheet} disabled={Boolean(busy) || !dirtyCount}>{busy === 'sheet' ? 'جارٍ الحفظ…' : 'حفظ الحضور'}</button>
