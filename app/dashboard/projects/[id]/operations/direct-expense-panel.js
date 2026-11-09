@@ -108,7 +108,7 @@ export default function DirectExpensePanel({ projectId, date, contractor }){
     { key:'_index', label:'#', type:'index', render:(row)=>entryRows.indexOf(row)+1 },
     { key:'_status', label:'الحالة', type:'badge', text:(row)=>row.persisted?'محفوظ':'جديد', tone:(row)=>row.persisted?'saved':'new' },
     { key:'expense_date', label:'التاريخ', type:'date' },
-    { key:'amount', label:'المبلغ', type:'number', min:0, step:0.01 },
+    { key:'amount', label:'المبلغ', type:'number', min:0, step:0.01, total:'sum' },
     { key:'category', label:'التصنيف', type:'select', options: DIRECT_EXPENSE_CATEGORIES.map(c=>({value:c,label:c})) },
     { key:'notes', label:'البيان', type:'text', placeholder:'بيان المصروف', minWidth:260 },
     {
