@@ -224,3 +224,7 @@
   white-space: nowrap;
 }
 .table tfoot td[data-total] { color: var(--ui-accent); }
+
+/* صف عنوان قسم (مثل عناوين جدول الكميات) */
+.table tbody tr[data-row-kind="title"] td { background: var(--ui-border-soft); font-weight: 800; }
+.table tbody tr[data-row-kind="title"] .field { font-weight: 800; }

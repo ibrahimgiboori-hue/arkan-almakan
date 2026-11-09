@@ -232,6 +232,7 @@ export default function RawGrid({
   onPatchRows,
   onAppendRows,
   rowDisabled,
+  rowKind,
   selection = null,
   busy = false,
   loading = false,
@@ -589,6 +590,7 @@ export default function RawGrid({
                   data-record-row="true"
                   data-row-disabled={disabled ? 'true' : 'false'}
                   data-record-selected={rowSelected ? 'true' : 'false'}
+                  data-row-kind={rowKind ? rowKind(row) || undefined : undefined}
                 >
                   {hasSelection && <td data-cell-type="selection" style={{width:44,minWidth:44,textAlign:'center'}}>
                     {rowSelectable
