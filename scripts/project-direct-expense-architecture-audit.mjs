@@ -27,7 +27,7 @@ if(exists(files.domain)){
     if(source.includes(forbidden))fail(`direct expense domain leaked infrastructure/presentation: ${forbidden}`);
   }
   for(const required of [
-    'createDirectExpenseDraft','storedExpenseToDraft','directExpensePayload','validateDirectExpenseGrid','summarizeDirectExpenseGrid','duplicateDirectExpenseSeed',
+    'createDirectExpenseDraft','storedExpenseToDraft','directExpensePayload','validateDirectExpenseGrid','summarizeDirectExpenseGrid','duplicateDirectExpenseSeed','planDirectExpenseLedger','directExpenseSignature',
   ])if(!source.includes(required))fail(`direct expense domain missing rule: ${required}`);
 }
 
@@ -35,7 +35,7 @@ if(exists(files.adapter)){
   const source=read(files.adapter);
   if(!source.includes("@/lib/supabase"))fail('direct expense adapter must own the Supabase dependency.');
   for(const required of [
-    'projectDirectExpenseSupabaseRepository','loadProjectDirectExpenseDay','updateProjectDirectExpense','bulkCreateProjectDirectExpenses','deleteProjectDirectExpense',
+    'projectDirectExpenseSupabaseRepository','loadProjectDirectExpenseRange','updateProjectDirectExpense','bulkCreateProjectDirectExpenses','deleteProjectDirectExpense',
     "from('contractor_expenses')","rpc('fn_bulk_save_project_expenses'",
   ])if(!source.includes(required))fail(`direct expense adapter missing persistence contract: ${required}`);
 }
@@ -45,7 +45,7 @@ if(exists(files.service)){
   for(const forbidden of ['@/lib/supabase','@supabase/','supabase.from(','supabase.rpc(','window.','document.']){
     if(source.includes(forbidden))fail(`direct expense application service leaked infrastructure/presentation: ${forbidden}`);
   }
-  for(const required of ['createProjectDirectExpenseService','projectDirectExpenseService','loadDay','saveGrid','deleteExpense','projectDirectExpenseSupabaseRepository','validateDirectExpenseGrid']){
+  for(const required of ['createProjectDirectExpenseService','projectDirectExpenseService','loadRange','saveLedger','deleteExpense','projectDirectExpenseSupabaseRepository','planDirectExpenseLedger','projectLedgerRangeProblem']){
     if(!source.includes(required))fail(`direct expense application service missing use case: ${required}`);
   }
 }

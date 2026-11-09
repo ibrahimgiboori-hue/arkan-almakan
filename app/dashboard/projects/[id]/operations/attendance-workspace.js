@@ -375,7 +375,12 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
         </div>
       </section>
 
-      <ProjectLedgerFilterBar context={context} contractors={ledger.contractors} searchPlaceholder="اسم العامل أو المهنة أو المقاول" />
+      <ProjectLedgerFilterBar context={context} contractors={ledger.contractors} searchPlaceholder="اسم العامل أو المهنة أو المقاول">
+        <label style={{ display: 'grid', gap: 4 }}>
+          <small>تاريخ الصفوف الجديدة</small>
+          <input type="date" value={entryDate} min={from} max={to} onChange={(event) => event.target.value && setDate(event.target.value)} aria-label="تاريخ الصفوف الجديدة" />
+        </label>
+      </ProjectLedgerFilterBar>
 
       {err && <div className={styles.error}>{err}</div>}
       {msg && <div className={styles.success}>{msg}</div>}
@@ -406,10 +411,6 @@ export default function AttendanceWorkspace({ service = projectAttendanceService
               <small>صف لكل عامل في كل يوم. اكتب الصفوف الجديدة أسفل السجل أو الصقها من إكسل (التاريخ، العامل، …، الحضور)، أو اضغط «عمالة اليوم» ثم اكتب «كامل» في أول خانة وCtrl+D لأسفل. الخانة الفارغة غياب تلقائي: من يبقى بلا تسجيل يُعامل كغياب تلقائيًا.</small>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <label style={{ display: 'grid', gap: 4 }}>
-                <small>تاريخ الصفوف الجديدة</small>
-                <input type="date" value={entryDate} min={from} max={to} onChange={(event) => event.target.value && setDate(event.target.value)} aria-label="تاريخ الصفوف الجديدة" />
-              </label>
               <button type="button" className={rawGridStyles.plainButton} onClick={addEntryRoster} disabled={Boolean(busy) || !entryUnmarked.length}>
                 + عمالة يوم {dayText(entryDate)} ({entryUnmarked.length})
               </button>
