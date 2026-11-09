@@ -69,7 +69,7 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled, cellProps = {} }) {
   if (!isVisible && ['date', 'money', 'number', 'multiline', 'text', 'select'].includes(column.type)) {
     return (
       <td {...cellProps} data-cell-type={column.type} style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
-        <span className={styles.fieldMuted}>{column.placeholderWhenHidden ?? '—'}</span>
+        <span className={styles.fieldMuted}>{(typeof column.placeholderWhenHidden === 'function' ? column.placeholderWhenHidden(row) : column.placeholderWhenHidden) ?? '—'}</span>
       </td>
     );
   }
@@ -198,6 +198,8 @@ function moveVertical(table, target, delta) {
   return true;
 }
 
+// Columns a person types into keep a usable width even when the screen gives none (Excel's default column).
+const SHEET_MIN_WIDTH = Object.freeze({ number: 104, money: 104, date: 150, select: 120 });
 const money = (value) => formatLatinNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const TEXT_LIKE_INPUTS = new Set(['text', 'search', 'number', 'email', 'tel', 'url', '']);
 
@@ -382,6 +384,13 @@ export default function RawGrid({
     }
     dragRef.current = position;
     const field = event.target.closest('[data-grid-field="true"]');
+    // Like an Excel list cell: the first click selects it, a click on the selected cell opens the list.
+    if (field && field.tagName === 'SELECT' && document.activeElement !== field) {
+      event.preventDefault();
+      setCursor({ anchor: position, focus: position });
+      focusCell(position);
+      return;
+    }
     if (field && document.activeElement === field) editRef.current = field;
     else if (field) {
       mouseFocusRef.current = true;
@@ -558,7 +567,10 @@ export default function RawGrid({
                 label={selection.selectAllLabel || 'تحديد كل الظاهر المتاح'}
                 onChange={toggleVisibleSelection}
               />}
-              {columns.map((column) => <th key={column.key} data-column-type={column.type || 'custom'} style={column.minWidth ? { minWidth: column.minWidth } : undefined}>{column.label}</th>)}
+              {columns.map((column) => {
+                const minWidth = column.minWidth ?? SHEET_MIN_WIDTH[column.type];
+                return <th key={column.key} data-column-type={column.type || 'custom'} style={minWidth ? { minWidth } : undefined}>{column.label}</th>;
+              })}
             </tr>
           </thead>
           <tbody>

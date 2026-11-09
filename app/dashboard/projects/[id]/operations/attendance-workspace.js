@@ -9,15 +9,16 @@ import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { projectAttendanceService } from '@/lib/application/project-attendance-service';
 import {
+  PROJECT_ATTENDANCE_LABOR_CLASS,
   PROJECT_ATTENDANCE_STATUS,
   filterProjectAttendanceWorkers,
   groupProjectAttendanceByContractor,
+  planProjectAttendanceSheet,
+  projectAttendanceCellValue,
   summarizeProjectAttendance,
 } from '@/lib/project-attendance.mjs';
-import BulkAttendanceList from './BulkAttendanceList';
-import RegisteredAttendanceList from './RegisteredAttendanceList';
+import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
 import styles from './operations.module.css';
-import layoutStyles from './attendance-layout.module.css';
 
 function dateLabel(value) {
   if (!value) return '—';
@@ -33,7 +34,12 @@ function queuedNotice(result, subject) {
     : `حُفظت ${subject} على هذا الجهاز وتنتظر عودة الاتصال.`;
 }
 
-export default function AttendanceWorkspace() {
+/**
+ * الحضور كورقة إكسل: عمال المقاول صفوف، وعمود «الحضور» يُكتب فيه كامل أو نصف يوم
+ * (أو يُلصق من إكسل، أو يُعبّأ لأسفل بـ Ctrl+D)، والخانة الفارغة غياب تلقائي. التعديلات
+ * تُحفظ مرة واحدة: كتابة موثقة واحدة للحضور، وإلغاء مثبت لكل تسجيل مُسح.
+ */
+export default function AttendanceWorkspace({ service = projectAttendanceService } = {}) {
   const { id: projectId } = useParams();
   const {
     date,
@@ -56,6 +62,7 @@ export default function AttendanceWorkspace() {
   const [online, setOnline] = useState(true);
   const [pendingSync, setPendingSync] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [changes, setChanges] = useState({});
   const dateRef = useRef(date);
   const contractorRef = useRef(activeContractor);
   const loadSeqRef = useRef(0);
@@ -70,7 +77,7 @@ export default function AttendanceWorkspace() {
     setLoading(true);
     setLoadError('');
     try {
-      const workspace = await projectAttendanceService.loadDay({ projectId, date: requestDate });
+      const workspace = await service.loadDay({ projectId, date: requestDate });
       if (requestSeq !== loadSeqRef.current || dateRef.current !== requestDate) return;
 
       setContractors(workspace.contractors);
@@ -91,14 +98,15 @@ export default function AttendanceWorkspace() {
     } finally {
       if (requestSeq === loadSeqRef.current && dateRef.current === requestDate) setLoading(false);
     }
-  }, [contextReady, date, projectId, setActiveContractor]);
+  }, [contextReady, date, projectId, setActiveContractor, service]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setChanges({}); }, [date, activeContractor]);
 
   useEffect(() => {
     const refresh = () => {
       setOnline(navigator.onLine !== false);
-      setPendingSync(projectAttendanceService.pendingCount());
+      setPendingSync(service.pendingCount());
     };
     refresh();
     window.addEventListener('online', refresh);
@@ -107,13 +115,13 @@ export default function AttendanceWorkspace() {
       window.removeEventListener('online', refresh);
       window.removeEventListener('offline', refresh);
     };
-  }, []);
+  }, [service]);
 
   async function writeAttendance(entries) {
     if (!entries.length) return null;
     const requestDate = dateRef.current;
     setSaveProof({ status: 'saving' });
-    const result = await projectAttendanceService.saveEntries({
+    const result = await service.saveEntries({
       projectId,
       date: requestDate,
       entries,
@@ -131,94 +139,69 @@ export default function AttendanceWorkspace() {
     return result;
   }
 
-  async function markWorker(worker, status) {
-    if (!PROJECT_ATTENDANCE_STATUS[status] || PROJECT_ATTENDANCE_STATUS[status].protected) return;
-    const existing = marks[worker.id];
-    if (existing?.protected) {
-      setErr(`حالة ${worker.full_name} محفوظة تاريخيًا (${PROJECT_ATTENDANCE_STATUS[existing.status]?.label || existing.status}) ولا يجوز الكتابة فوقها من الإدخال السريع.`);
-      return;
-    }
-    if (existing?.pending) {
-      setErr(`حركة ${worker.full_name} ما زالت بانتظار المزامنة. لا تُنشئ حركة أخرى قبل اكتمالها.`);
-      return;
-    }
-    setBusy(`worker-${worker.id}`);
-    setErr('');
-    setMsg('');
-    try {
-      const result = await writeAttendance([{ worker, status }]);
-      if (result?.stale) return;
-      if (result?.status === 'queued') setMsg(queuedNotice(result, `تسجيل ${worker.full_name}`));
-      else if (result?.receipt) setMsg(`${worker.full_name} — ${PROJECT_ATTENDANCE_STATUS[status].label} · ${receiptLabel(result.receipt)}`);
-    } catch (error) {
-      setSaveProof({ status: 'error' });
-      setErr(error.message || String(error));
-    }
-    setBusy('');
-  }
-
-  async function markSelected(selectedWorkers, status) {
-    if (!selectedWorkers.length || !['full', 'half'].includes(status)) return false;
-    setBusy('selection');
-    setErr('');
-    setMsg('');
-    try {
-      const result = await writeAttendance(selectedWorkers.map((worker) => ({ worker, status })));
-      if (result?.stale) { setBusy(''); return false; }
-      if (result?.status === 'verified') {
-        setMsg(`تم تسجيل ${selectedWorkers.length} عاملًا — ${PROJECT_ATTENDANCE_STATUS[status].label} · ${receiptLabel(result.receipt)}`);
-      } else {
-        setMsg(queuedNotice(result, `${selectedWorkers.length} حركة ${PROJECT_ATTENDANCE_STATUS[status].label}`));
-      }
-      setBusy('');
-      return true;
-    } catch (error) {
-      setSaveProof({ status: 'error' });
-      setErr(error.message || String(error));
-      setBusy('');
-      return false;
-    }
-  }
-
-  async function removeAttendance(worker) {
+  // One cleared registration → a confirmed removal. Returns true only when the server removed it.
+  async function removeMark(worker, requestDate) {
     const row = marks[worker.id];
+    if (!row) return false;
+    if (row.protected) throw new Error(`الحالة الحالية لـ${worker.full_name} حالة تاريخية محفوظة ولا تُلغى من الإدخال السريع.`);
+    if (row.pending || !row.id) throw new Error(`حركة ${worker.full_name} بانتظار المزامنة؛ لا يمكن إلغاؤها قبل أن يثبتها الخادم.`);
+    if (row.work_date && row.work_date !== requestDate) throw new Error('تغيّر اليوم المعروض. أعد فتح اليوم قبل تعديل هذا السجل.');
+    await service.removeEntry({ mark: row, date: requestDate });
+    if (dateRef.current !== requestDate) return false;
+    setMarks((current) => {
+      if (current[worker.id]?.id !== row.id) return current;
+      const next = { ...current };
+      delete next[worker.id];
+      return next;
+    });
+    return true;
+  }
+
+  async function saveSheet() {
     const requestDate = dateRef.current;
-    if (!row) return;
-    if (row.protected) {
-      setErr(`الحالة الحالية لـ${worker.full_name} حالة تاريخية محفوظة ولا تُلغى من الإدخال السريع.`);
+    const plan = planProjectAttendanceSheet({ workers, marks, changes, date: requestDate });
+    if (!plan.entries.length && !plan.removals.length) {
+      if (plan.blocked.length) setErr('لم تتغير هذه الصفوف: ' + plan.blocked.join('، '));
       return;
     }
-    if (row.pending || !row.id) {
-      setErr(`حركة ${worker.full_name} بانتظار المزامنة؛ لا يمكن إلغاؤها قبل أن يثبتها الخادم.`);
-      return;
-    }
-    if (row.work_date && row.work_date !== requestDate) {
-      setErr('تغيّر اليوم المعروض. أعد فتح اليوم قبل تعديل هذا السجل.');
-      return;
-    }
-    setBusy(`undo-${worker.id}`);
+    setBusy('sheet');
     setErr('');
+    setMsg('');
+    const parts = [];
+    const settled = new Set();
     try {
-      await projectAttendanceService.removeEntry({ mark: row, date: requestDate });
-      if (dateRef.current !== requestDate) return;
-      setMarks((current) => {
-        if (current[worker.id]?.id !== row.id) return current;
-        const next = { ...current };
-        delete next[worker.id];
-        return next;
-      });
-      setMsg(`أُلغي تسجيل ${worker.full_name} وأصبح غائبًا تلقائيًا لهذا اليوم.`);
+      if (plan.entries.length) {
+        const result = await writeAttendance(plan.entries);
+        if (result?.stale) { setBusy(''); return; }
+        plan.entries.forEach(({ worker }) => settled.add(worker.id));
+        parts.push(result?.status === 'verified'
+          ? `سُجّل ${plan.entries.length} عاملًا · ${receiptLabel(result.receipt)}`
+          : queuedNotice(result, `${plan.entries.length} حركة حضور`));
+      }
+      let removed = 0;
+      for (const worker of plan.removals) {
+        if (await removeMark(worker, requestDate)) { removed += 1; settled.add(worker.id); }
+      }
+      if (removed) parts.push(`أُلغي تسجيل ${removed} وأصبحوا غيابًا تلقائيًا لهذا اليوم`);
+      if (plan.blocked.length) setErr('لم تتغير هذه الصفوف: ' + plan.blocked.join('، '));
     } catch (error) {
-      setErr('تعذر إلغاء التسجيل: ' + (error.message || error));
+      setSaveProof({ status: 'error' });
+      setErr(error.message || String(error));
     }
+    setChanges((current) => {
+      const next = { ...current };
+      settled.forEach((id) => { delete next[id]; });
+      return next;
+    });
+    if (parts.length) setMsg(parts.join(' · '));
     setBusy('');
   }
 
   async function retrySync() {
-    if (syncing || !online || projectAttendanceService.pendingCount() === 0) return;
+    if (syncing || !online || service.pendingCount() === 0) return;
     setSyncing(true);
     setErr('');
-    const result = await projectAttendanceService.syncPending(({ status, receipt }) => {
+    const result = await service.syncPending(({ status, receipt }) => {
       if (status === 'verified') setSaveProof({ status: 'verified', receipt });
     });
     setPendingSync(result.pendingCount || 0);
@@ -235,8 +218,13 @@ export default function AttendanceWorkspace() {
     () => filterProjectAttendanceWorkers(workers, activeContractor, search),
     [activeContractor, search, workers],
   );
-  const pendingWorkers = visibleWorkers.filter((worker) => !marks[worker.id]);
-  const doneWorkers = visibleWorkers.filter((worker) => marks[worker.id]);
+  const sheetRows = useMemo(() => visibleWorkers.map((worker) => ({
+    ...worker,
+    attendance: projectAttendanceCellValue(worker, marks, changes),
+    mark: marks[worker.id] || null,
+    dirty: Object.prototype.hasOwnProperty.call(changes, worker.id) && (changes[worker.id] || '') !== (marks[worker.id]?.status || ''),
+  })), [visibleWorkers, marks, changes]);
+  const dirtyCount = sheetRows.filter((row) => row.dirty).length;
   const summary = useMemo(() => summarizeProjectAttendance(workers, marks), [workers, marks]);
   const activeContractorRow = grouped.find((contractor) => contractor.id === activeContractor);
   const activeContractorHasWorkers = Boolean(activeContractorRow?.workers?.length);
@@ -322,47 +310,47 @@ export default function AttendanceWorkspace() {
           <Link href={`/dashboard/projects/${projectId}/operations/labor`}>أضف أو انقل العمالة من شاشة العمالة</Link>.
         </div>
       ) : (
-        <section className={layoutStyles.workArea}>
-          <main className={layoutStyles.pane}>
-            <div className={layoutStyles.paneHead}>
-              <div className={layoutStyles.paneTitle}>
-                <span className={layoutStyles.eyebrow}>FAST ENTRY</span>
-                <h2>غير المسجلين</h2>
-                <p>سجّل فقط من حضر: كامل أو نصف يوم. من يبقى هنا يُعامل كغياب تلقائيًا.</p>
-              </div>
-              <div className={layoutStyles.tools}>
-                <input aria-label="بحث في عمالة الحضور" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو الصفة" />
-                <span className={layoutStyles.count}>{pendingWorkers.length}</span>
-              </div>
+        <section data-attendance-sheet="true">
+          <div className={styles.panelTitle}>
+            <div>
+              <h2>حضور اليوم</h2>
+              <small>اكتب في عمود «الحضور» كامل أو نصف يوم، أو حدّد عدة خانات والصق «كامل» أو اضغط Ctrl+D لتعبئتها لأسفل. الخانة الفارغة غياب تلقائي: من يبقى بلا تسجيل يُعامل كغياب تلقائيًا.</small>
             </div>
-            <BulkAttendanceList
-              key={`${date}-${activeContractor}`}
-              workers={pendingWorkers}
-              busy={busy}
-              onMarkWorker={markWorker}
-              onMarkSelected={markSelected}
-            />
-          </main>
-
-          <aside className={layoutStyles.pane}>
-            <div className={layoutStyles.paneHead}>
-              <div className={layoutStyles.paneTitle}>
-                <span className={layoutStyles.eyebrow}>RECORDED</span>
-                <h2>تم التسجيل</h2>
-                <p>نفس قائمة العمال وبنفس البنية؛ عدّل كامل/نصف أو ألغِ التسجيل مباشرة.</p>
-              </div>
-              <div className={layoutStyles.tools}>
-                <span className={layoutStyles.count}>{doneWorkers.length}</span>
-              </div>
-            </div>
-            <RegisteredAttendanceList
-              workers={doneWorkers}
-              marks={marks}
-              busy={busy}
-              onMarkWorker={markWorker}
-              onRemove={removeAttendance}
-            />
-          </aside>
+            <input aria-label="بحث في عمالة الحضور" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ابحث بالاسم أو الصفة" />
+          </div>
+          <RawGrid
+            columns={[
+              { key: '_index', label: '#', type: 'index', render: (row) => sheetRows.indexOf(row) + 1 },
+              { key: '_name', label: 'العامل', type: 'computed', compute: (row) => row.full_name },
+              { key: '_class', label: 'الصفة', type: 'computed', compute: (row) => PROJECT_ATTENDANCE_LABOR_CLASS[row.labor_class] || row.labor_class || null },
+              { key: '_trade', label: 'المهنة', type: 'computed', compute: (row) => row.trade || null },
+              {
+                key: 'attendance', label: 'الحضور', type: 'select', minWidth: 140, emptyOption: 'غياب تلقائي', total: 'count',
+                options: [{ value: 'full', label: PROJECT_ATTENDANCE_STATUS.full.label }, { value: 'half', label: PROJECT_ATTENDANCE_STATUS.half.label }],
+                visible: (row) => !row.mark?.protected,
+                placeholderWhenHidden: (row) => PROJECT_ATTENDANCE_STATUS[row.mark?.status]?.label || row.mark?.status,
+              },
+              {
+                key: '_state', label: 'الحفظ', type: 'badge',
+                text: (row) => row.mark?.pending ? 'بانتظار المزامنة' : row.mark?.protected ? 'حالة محفوظة' : row.dirty ? 'غير محفوظ' : row.mark ? 'محفوظ' : 'غياب تلقائي',
+                tone: (row) => row.dirty ? 'new' : row.mark && !row.mark.pending ? 'saved' : 'muted',
+              },
+            ]}
+            rows={sheetRows}
+            rowKey={(row) => row.id}
+            savedFlag={(row) => Boolean(row.mark) && !row.dirty}
+            rowDisabled={(row) => Boolean(row.mark?.protected || row.mark?.pending)}
+            onPatchRow={(key, patch) => setChanges((current) => ({ ...current, [key]: patch.attendance || '' }))}
+            busy={Boolean(busy)}
+            totalsLabel="الحاضرون"
+          />
+          <RawGridFooter
+            actions={<button type="button" className={rawGridStyles.plainButton} onClick={() => setChanges({})} disabled={Boolean(busy) || !dirtyCount}>تراجع عن التعديلات</button>}
+            summary={<>
+              <strong>{dirtyCount ? `تعديلات غير محفوظة: ${dirtyCount}` : 'لا توجد تعديلات غير محفوظة'}</strong>
+              <button className={rawGridStyles.primaryButton} type="button" onClick={saveSheet} disabled={Boolean(busy) || !dirtyCount}>{busy === 'sheet' ? 'جارٍ الحفظ…' : 'حفظ الحضور'}</button>
+            </>}
+          />
         </section>
       )}
     </div>

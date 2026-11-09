@@ -14,46 +14,36 @@ const CUSTODY_PAGE = 'app/dashboard/projects/[id]/operations/custody/page.js';
 const CUSTODY_UI = 'app/dashboard/projects/[id]/operations/custody/ProjectCustodyWorkspaceEngineered.js';
 
 test('attendance entry offers only full and half day', () => {
-  const bulk = read('app/dashboard/projects/[id]/operations/BulkAttendanceList.js');
-  assert.match(bulk, /onMarkWorker\(worker, 'full'\)/);
-  assert.match(bulk, /onMarkWorker\(worker, 'half'\)/);
-  assert.equal(bulk.includes("onMarkWorker(worker, 'absent')"), false);
-  assert.equal(bulk.includes("applySelected('absent')"), false);
+  const page = read(ATTENDANCE_UI);
+  const rules = read(ATTENDANCE_RULES);
+  assert.match(page, /\{ value: 'full', label: PROJECT_ATTENDANCE_STATUS\.full\.label \}/);
+  assert.match(page, /\{ value: 'half', label: PROJECT_ATTENDANCE_STATUS\.half\.label \}/);
+  assert.equal(/value: 'absent'/.test(page), false);
+  assert.match(rules, /الإدخال السريع يقبل حضور كامل أو نصف يوم فقط/);
 });
 
 test('unrecorded workers are explicitly explained as automatic absence', () => {
-  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
-  const bulk = read('app/dashboard/projects/[id]/operations/BulkAttendanceList.js');
+  const page = read(ATTENDANCE_UI);
   assert.match(page, /غياب تلقائي/);
-  assert.match(page, /من يبقى هنا يُعامل كغياب تلقائيًا/);
-  assert.match(bulk, /يُعامل كغياب تلقائيًا/);
+  assert.match(page, /من يبقى بلا تسجيل يُعامل كغياب تلقائيًا/);
+  assert.match(page, /emptyOption: 'غياب تلقائي'/);
 });
 
-test('registered attendance can change full-half or be cancelled in place', () => {
-  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
-  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
-  assert.match(page, /RegisteredAttendanceList/);
-  assert.match(registered, /onMarkWorker\(worker, 'full'\)/);
-  assert.match(registered, /onMarkWorker\(worker, 'half'\)/);
-  assert.match(registered, /onRemove\(worker\)/);
+test('registered attendance can change full-half or be cancelled in place, saved in one batch', () => {
+  const page = read(ATTENDANCE_UI);
+  assert.match(page, /planProjectAttendanceSheet\(/);
+  assert.match(page, /writeAttendance\(plan\.entries\)/);
+  assert.match(page, /removeMark\(worker, requestDate\)/);
   assert.equal(page.includes('window.confirm'), false);
-  assert.equal(registered.includes('window.confirm'), false);
 });
 
-test('registered and unregistered attendance panes are structurally symmetric', () => {
-  const page = read('app/dashboard/projects/[id]/operations/attendance-workspace.js');
-  const layout = read('app/dashboard/projects/[id]/operations/attendance-layout.module.css');
-  const pending = read('app/dashboard/projects/[id]/operations/BulkAttendanceList.js');
-  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
-  assert.match(layout, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.equal((page.match(/className=\{layoutStyles\.pane\}/g) || []).length, 2);
-  for (const source of [pending, registered]) {
-    assert.match(source, /className=\{styles\.table\}/);
-    assert.match(source, />#</);
-    assert.match(source, />العامل</);
-    assert.match(source, />الصفة</);
-    assert.match(source, /styles\.statusButtons/);
-  }
+test('attendance is one sheet on the shared grid engine, not two hand-made panes', () => {
+  const page = read(ATTENDANCE_UI);
+  assert.match(page, /from '@\/components\/ui\/RawGrid'/);
+  assert.match(page, /data-attendance-sheet="true"/);
+  assert.equal((page.match(/<RawGrid\b/g) || []).length, 1);
+  assert.equal(page.includes('layoutStyles'), false);
+  assert.equal(fs.existsSync(new URL('../app/dashboard/projects/[id]/operations/BulkAttendanceList.js', import.meta.url)), false);
 });
 
 test('attendance ignores stale responses after the operator changes day', () => {
@@ -66,20 +56,19 @@ test('attendance ignores stale responses after the operator changes day', () => 
 
 test('legacy stopped and leave states are preserved and protected from quick overwrite', () => {
   const page = readAll(ATTENDANCE_UI, ATTENDANCE_RULES);
-  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
   assert.match(page, /stopped/);
   assert.match(page, /leave/);
   assert.match(page, /PROTECTED_STATUSES/);
-  assert.match(registered, /متوقف — حالة محفوظة/);
-  assert.match(registered, /إجازة — حالة محفوظة/);
+  assert.match(page, /متوقف — حالة محفوظة/);
+  assert.match(page, /إجازة — حالة محفوظة/);
+  assert.match(read(ATTENDANCE_UI), /rowDisabled=\{\(row\) => Boolean\(row\.mark\?\.protected \|\| row\.mark\?\.pending\)\}/);
 });
 
-test('queued attendance moves into registered list without creating duplicate clicks', () => {
+test('queued attendance stays locked until the server confirms it, so no duplicate writes', () => {
   const page = readAll(ATTENDANCE_UI, ATTENDANCE_RULES);
-  const registered = read('app/dashboard/projects/[id]/operations/RegisteredAttendanceList.js');
   assert.match(page, /pending:\s*true/);
-  assert.match(page, /existing\?\.pending/);
-  assert.match(registered, /بانتظار المزامنة/);
+  assert.match(page, /!mark\?\.pending/);
+  assert.match(page, /بانتظار المزامنة/);
 });
 
 test('attendance cancellation rejects false-success boolean and stale row identity', () => {

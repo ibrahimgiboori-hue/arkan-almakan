@@ -11,12 +11,27 @@ import {
   PROJECT_DAILY_LEDGER_FILTERS,
   filterProjectDailyLedgerRows,
 } from '@/lib/project-daily-ledger.mjs';
+import RawGrid from '@/components/ui/RawGrid';
 import styles from './movements.module.css';
 
 const money=(n)=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const TYPE_LABELS=Object.fromEntries(PROJECT_DAILY_LEDGER_FILTERS);
+const timeText=(value)=>value?new Date(value).toLocaleTimeString('ar-SA-u-ca-gregory-nu-latn',{hour:'2-digit',minute:'2-digit'}):null;
+
+// حركات اليوم ورقة للقراءة: كل ما سُجّل في اليوم صفًا صفًا، تُحدَّد وتُنسخ إلى إكسل ويُجمع مبلغها.
+const LEDGER_COLUMNS=(rows)=>[
+  {key:'_index',label:'#',type:'index',render:(row)=>rows.indexOf(row)+1},
+  {key:'_type',label:'النوع',type:'badge',text:(row)=>TYPE_LABELS[row.type]||row.type||'—',tone:()=>'muted'},
+  {key:'_title',label:'الحركة',type:'computed',compute:(row)=>row.title||null},
+  {key:'_detail',label:'التفاصيل',type:'computed',compute:(row)=>row.detail||null},
+  {key:'_amount',label:'المبلغ (ر.س)',type:'computed',numeric:true,compute:(row)=>row.amount===null||row.amount===undefined?null:Number(row.amount),format:(value)=>value===null?null:money(value),total:'sum'},
+  {key:'_value',label:'القيمة',type:'computed',compute:(row)=>row.amount===null||row.amount===undefined?(row.value||null):null},
+  {key:'_time',label:'الوقت',type:'computed',compute:(row)=>timeText(row.time)},
+];
+
 function dateLabel(value){const [y,m,d]=String(value).split('-').map(Number);return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d))}
 
-export default function MovementsPage(){
+export default function MovementsPage({service=projectDailyLedgerService}={}){
   const {id:projectId}=useParams();
   const {date,ready:contextReady,setDate}=useProjectOperationContext(projectId);
   const [rows,setRows]=useState([]);
@@ -29,11 +44,11 @@ export default function MovementsPage(){
     if(!contextReady||!projectId||!date)return;
     setLoading(true);setErr('');setRows([]);setSummary(PROJECT_DAILY_LEDGER_EMPTY_SUMMARY);
     try{
-      const ledger=await projectDailyLedgerService.load({projectId,date});
+      const ledger=await service.load({projectId,date});
       setRows(ledger.rows);setSummary(ledger.summary);
     }catch(e){setErr('تعذر تحميل حركات اليوم: '+(e?.message||e));}
     finally{setLoading(false);}
-  },[contextReady,projectId,date]);
+  },[contextReady,projectId,date,service]);
 
   useEffect(()=>{load()},[load]);
   const visible=useMemo(()=>filterProjectDailyLedgerRows(rows,filter),[rows,filter]);
@@ -64,11 +79,6 @@ export default function MovementsPage(){
       <div className={styles.empty}>جارٍ تجميع حركات اليوم…</div>
       :visible.length===0?
         <div className={styles.empty}>{filter==='all'?'لا توجد حركات مسجلة في التاريخ المختار.':'لا توجد حركات ضمن هذا التصنيف في التاريخ المختار.'}</div>
-        :<div className={styles.ledger}>{visible.map(row=><div className={styles.row} key={row.id}>
-          <span className={`${styles.marker} ${styles[`m_${row.type}`]||''}`}></span>
-          <div className={styles.copy}><strong>{row.title}</strong><small title={row.detail||''}>{row.detail||'—'}</small></div>
-          {row.value&&<b>{row.value}</b>}
-          <time>{row.time?new Date(row.time).toLocaleTimeString('ar-SA-u-ca-gregory-nu-latn',{hour:'2-digit',minute:'2-digit'}):'—'}</time>
-        </div>)}</div>}
+        :<RawGrid columns={LEDGER_COLUMNS(visible)} rows={visible} rowKey={(row)=>row.id} rowDisabled={()=>true}/>}
   </div>;
 }
