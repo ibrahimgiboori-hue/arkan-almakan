@@ -1,10 +1,11 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import { appendSelectionToUrl } from '@/lib/record-selection';
+import RawGrid from '@/components/ui/RawGrid';
 import { operationalDate } from '@/lib/system-constitution';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { WORK_ACTION_CONSEQUENCE, WORK_ACTION_KIND, WORK_ACTION_SCOPE } from '@/lib/work-surface-constitution';
@@ -862,10 +863,6 @@ export default function OperatingBudgetPage() {
     const childGroups = children.filter((n) => n.node_type === 'group');
     const childItems = new Set(children.filter((n) => n.node_type === 'item').map((n) => n.id));
     const lines = statement.filter((line) => childItems.has(line.item_id));
-    const lineIds = lines.map((line) => String(line.line_id));
-    const selectedInGroup = lineIds.filter((id) => selectedStatementIds.has(id)).length;
-    const allGroupSelected = lineIds.length > 0 && selectedInGroup === lineIds.length;
-    const someGroupSelected = selectedInGroup > 0 && !allGroupSelected;
     const isCollapsed = collapsed[group.id] !== false;
     const total = descendantLineTotal(group.id);
     if (!lines.length && !childGroups.some((g) => descendantLineTotal(g.id) > 0)) return null;
@@ -875,28 +872,40 @@ export default function OperatingBudgetPage() {
         <strong>{isCollapsed ? '▸' : '▾'} {group.name}</strong><span>تكلفة الشهر {amountLabel(total)}</span>
       </button>
       {!isCollapsed && <div style={{ marginTop: 8 }}>
-        {lines.length > 0 && <TableFrame><table data-selection-surface="true"><thead><tr>
-          <th style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد بنود ${group.name}`} checked={allGroupSelected} ref={(node)=>{if(node)node.indeterminate=someGroupSelected;}} onChange={()=>toggleStatementGroup(lines)} /></th>
-          <th>التفصيل</th><th>تكلفة الشهر</th><th>المتراكم</th><th>قيمة الدفعة</th><th>استحقاق هذا الشهر</th><th>الاستحقاق القادم</th><th>السداد</th><th></th>
-        </tr></thead><tbody>
-          {lines.map((line) => <Fragment key={line.line_id}>
-            <tr data-record-row="true" data-record-id={line.line_id} data-record-source="budget_period_lines" data-record-selected={selectedStatementIds.has(String(line.line_id))?'true':'false'}>
-              <td style={{width:44,textAlign:'center'}}><input type="checkbox" aria-label={`تحديد ${line.item_name}`} checked={selectedStatementIds.has(String(line.line_id))} onChange={()=>toggleStatementLine(line)} /></td>
-              <td><strong>{line.item_name}</strong><div className="muted">{[line.parent_name, recurrenceLabel(line)].filter(Boolean).join(' · ')}</div></td>
-              <td><strong>{amountLabel(line.monthly_cost)}</strong></td>
-              <td>{amountLabel(line.accumulated_cost)}</td>
-              <td><strong>{amountLabel(line.cycle_amount)}</strong></td>
-              <td>{line.has_due_in_period ? <><strong>{amountLabel(line.due_amount_this_period)}</strong><div className="muted">{line.payment_due_date ? dateAr(line.payment_due_date) : ''}</div></> : 'لا يوجد'}</td>
-              <td>{line.next_due_date ? dateAr(line.next_due_date) : '—'}</td>
-              <td><strong>{paymentStatusLabel(line)}</strong>{num(line.paid_amount) > 0 && <div className="muted">مدفوع {amountLabel(line.paid_amount)}</div>}{num(line.amount_due_now) > 0 && <div className="muted">المطلوب الآن {amountLabel(line.amount_due_now)}</div>}</td>
-              <td><Toolbar>
-                {canMutatePeriod && <button id={`budget-line-edit-${line.line_id}`} className="btn ghost" onClick={() => editLine(line)}>تعديل</button>}
-                {canMutatePeriod && num(line.reserve_gap) > 0 && <button className="btn ghost" onClick={() => reserveGap(line)}>تم حجز المطلوب</button>}
-              </Toolbar></td>
-            </tr>
-            {selectedLine?.line_id === line.line_id && <tr><td colSpan={9} style={{ padding: 0, border: 0 }}>{renderLineEditor()}</td></tr>}
-          </Fragment>)}
-        </tbody></table></TableFrame>}
+        {lines.length > 0 && <RawGrid
+          rows={lines}
+          rowKey={(line) => String(line.line_id)}
+          rowDisabled={() => true}
+          totalsLabel={`إجمالي ${group.name}`}
+          selection={{
+            selectedKeys: selectedStatementIds,
+            onChange: (keys) => setSelectedStatementIds((current) => {
+              const next = new Set([...current].filter((id) => !lines.some((line) => String(line.line_id) === id)));
+              keys.forEach((id) => next.add(String(id)));
+              return next;
+            }),
+            ariaLabel: (line) => `تحديد ${line.item_name}`,
+            selectAllLabel: `تحديد بنود ${group.name}`,
+          }}
+          columns={[
+            { key: '_item', label: 'التفصيل', type: 'custom', minWidth: 220, sheetValue: (line) => line.item_name,
+              render: (line) => <><strong>{line.item_name}</strong><div className="muted">{[line.parent_name, recurrenceLabel(line)].filter(Boolean).join(' · ')}</div></> },
+            { key: '_monthly', label: 'تكلفة الشهر', type: 'computed', numeric: true, total: 'sum', compute: (line) => num(line.monthly_cost), format: (v) => amountLabel(v) },
+            { key: '_accumulated', label: 'المتراكم', type: 'computed', numeric: true, total: 'sum', compute: (line) => num(line.accumulated_cost), format: (v) => amountLabel(v) },
+            { key: '_cycle', label: 'قيمة الدفعة', type: 'computed', numeric: true, compute: (line) => num(line.cycle_amount), format: (v) => amountLabel(v) },
+            { key: '_due', label: 'استحقاق هذا الشهر', type: 'computed', numeric: true, total: 'sum',
+              compute: (line) => line.has_due_in_period ? num(line.due_amount_this_period) : null,
+              format: (v, line) => v === null ? 'لا يوجد' : `${amountLabel(v)}${line.payment_due_date ? ` · ${dateAr(line.payment_due_date)}` : ''}` },
+            { key: '_next', label: 'الاستحقاق القادم', type: 'computed', compute: (line) => line.next_due_date ? dateAr(line.next_due_date) : null },
+            { key: '_paid', label: 'المدفوع', type: 'computed', numeric: true, total: 'sum', compute: (line) => num(line.paid_amount), format: (v) => amountLabel(v) },
+            { key: '_payment', label: 'السداد', type: 'computed', compute: (line) => [paymentStatusLabel(line), num(line.amount_due_now) > 0 ? `المطلوب الآن ${amountLabel(line.amount_due_now)}` : ''].filter((part) => part && part !== '—').join(' · ') || null },
+            { key: '_action', label: 'إجراء', type: 'action', render: (line) => <Toolbar>
+              {canMutatePeriod && <button id={`budget-line-edit-${line.line_id}`} className="btn ghost" onClick={() => editLine(line)}>تعديل</button>}
+              {canMutatePeriod && num(line.reserve_gap) > 0 && <button className="btn ghost" onClick={() => reserveGap(line)}>تم حجز المطلوب</button>}
+            </Toolbar> },
+          ]}
+        />}
+        {lines.some((line) => selectedLine?.line_id === line.line_id) && <div style={{ marginTop: 8 }}>{renderLineEditor()}</div>}
         {childGroups.map((child) => renderReportGroup(child, depth + 1))}
       </div>}
     </div>;
