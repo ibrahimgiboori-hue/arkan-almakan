@@ -202,8 +202,8 @@ test('output and finance sheets: saved rows lock, new rows validate by sheet row
   const finance = await import('../lib/project-operation-finance.mjs');
   let n = 0;
   const id = () => `d${++n}`;
-  const saved = output.storedOutputToRow({ id: 'x', project_item_id: 'i1', group_output: 12.5, unit: 'م2', notes: null });
-  assert.deepEqual(saved, { _id: 'saved-x', id: 'x', persisted: true, item_id: 'i1', qty: '12.5', notes: '', unit: 'م2' });
+  const saved = output.storedOutputToRow({ id: 'x', work_date: '2026-11-08', contractor_id: 'c1', project_item_id: 'i1', group_output: 12.5, unit: 'م2', notes: null });
+  assert.deepEqual(saved, { _id: 'saved-x', id: 'x', persisted: true, date: '2026-11-08', contractor_id: 'c1', item_id: 'i1', qty: '12.5', notes: '', unit: 'م2' });
   const outRows = [saved, output.createOutputDraft({ item_id: 'i1', qty: '4' }, id), output.createOutputDraft({ qty: '3' }, id), output.createOutputDraft({}, id)];
   const outCheck = output.validateOutputDrafts(outRows);
   assert.deepEqual(outCheck.ready.map((row) => row._id), ['d1']);
@@ -218,6 +218,67 @@ test('output and finance sheets: saved rows lock, new rows validate by sheet row
   const finCheck = finance.validateFinanceDrafts(finRows);
   assert.deepEqual(finCheck.ready.map((row) => row.reference), ['T-9']);
   assert.deepEqual(finCheck.errors, ['الصف 4: المبلغ مطلوب.']);
+});
+
+test('project ledgers: output, advances/payments and expenses carry their own day and contractor', async () => {
+  const output = await import('../lib/project-operation-output.mjs');
+  const finance = await import('../lib/project-operation-finance.mjs');
+  const expenses = await import('../lib/project-direct-expenses.mjs');
+  let n = 0;
+  const id = () => `n${++n}`;
+
+  // Output: a contractor may record only the items assigned to him on that day (or any item when he has none).
+  const items = [{ id: 'i1' }, { id: 'i2' }];
+  const links = [{ contractor_id: 'c1', project_item_id: 'i1', is_active: true, start_date: '2026-11-01', end_date: null }];
+  const itemsFor = (contractor, date) => output.availableOutputItems(items, links, contractor, date);
+  assert.deepEqual(itemsFor('c1', '2026-11-05').map((item) => item.id), ['i1']);
+  assert.deepEqual(itemsFor('c2', '2026-11-05').map((item) => item.id), ['i1', 'i2']);
+  const outRows = [
+    output.createOutputDraft({ date: '2026-11-05', contractor_id: 'c1', item_id: 'i1', qty: '4' }, id),
+    output.createOutputDraft({ date: '2026-11-05', contractor_id: 'c1', item_id: 'i2', qty: '4' }, id),
+    output.createOutputDraft({ date: '2026-11-05', item_id: 'i1', qty: '2' }, id),
+    output.createOutputDraft({ date: '2026-10-05', contractor_id: 'c2', item_id: 'i2', qty: '1' }, id),
+  ];
+  const outCheck = output.validateOutputDrafts(outRows, { itemsFor, from: '2026-11-01', to: '2026-11-09' });
+  assert.deepEqual(outCheck.ready.map((row) => row._id), ['n1']);
+  assert.deepEqual(outCheck.errors, [
+    'الصف 2: البند غير مسند لهذا المقاول في 2026-11-05.',
+    'الصف 3: اختر المقاول.',
+    'الصف 4: التاريخ خارج فترة العرض — وسّع الفلترة لتشمله.',
+  ]);
+
+  // Advances & payments: saved rows sort by day; new rows need a day and a contractor.
+  const stored = finance.storedFinanceRows({
+    advances: [{ id: 'a', contractor_id: 'c1', advance_date: '2026-11-07', amount: 100 }],
+    payments: [{ id: 'p', contractor_id: 'c2', payment_date: '2026-11-03', amount: 50, source: 'cash' }],
+  });
+  assert.deepEqual(stored.map((row) => `${row.date}:${row.kind}:${row.contractor_id}`), ['2026-11-03:payment:c2', '2026-11-07:advance:c1']);
+  assert.deepEqual(finance.summarizeFinanceLedger(stored), { advanceTotal: 100, paymentTotal: 50, total: 150 });
+  const finCheck = finance.validateFinanceDrafts([
+    ...stored,
+    finance.createFinanceDraft({ date: '2026-11-08', contractor_id: 'c1', amount: '75' }, id),
+    finance.createFinanceDraft({ date: '2026-11-08', amount: '20' }, id),
+  ], { ledger: true, from: '2026-11-01', to: '2026-11-09' });
+  assert.equal(finCheck.ready.length, 1);
+  assert.deepEqual(finCheck.errors, ['الصف 4: اختر المقاول.']);
+
+  // Expenses: only saved lines really edited are updated; new lines are created per contractor.
+  const savedA = expenses.storedExpenseToDraft({ id: 'e1', contractor_id: 'c1', expense_date: '2026-11-04', amount: 300, notes: 'وجبات', category: 'وجبات' }, '', id);
+  const savedB = expenses.storedExpenseToDraft({ id: 'e2', contractor_id: 'c2', expense_date: '2026-11-05', amount: 90, notes: 'نقل', category: 'ترحيل' }, '', id);
+  const baseline = { e1: expenses.directExpenseSignature(savedA), e2: expenses.directExpenseSignature(savedB) };
+  const plan = expenses.planDirectExpenseLedger([
+    savedA,
+    { ...savedB, amount: '95' },
+    expenses.createDirectExpenseDraft('2026-11-09', { contractor_id: 'c1', quantity: '3', unit_price: '40', notes: 'سقالات' }, id),
+    expenses.createDirectExpenseDraft('2026-11-09', { contractor_id: 'c2', amount: '25', notes: 'ماء' }, id),
+    expenses.createDirectExpenseDraft('2026-11-09', { contractor_id: 'c1', amount: '10', notes: 'ثلج' }, id),
+    expenses.createDirectExpenseDraft('2026-11-09', { amount: '10', notes: 'بلا مقاول' }, id),
+    expenses.createDirectExpenseDraft('2026-11-09', {}, id),
+  ], { baseline, from: '2026-11-01', to: '2026-11-09' });
+  assert.deepEqual(plan.updates.map((row) => row.id), ['e2']);
+  assert.deepEqual(plan.creates.map((group) => `${group.contractorId}:${group.rows.length}`), ['c1:2', 'c2:1']);
+  assert.equal(expenses.directExpensePayload(plan.creates[0].rows[0]).amount, 120);
+  assert.deepEqual(plan.errors, ['الصف 6: اختر المقاول.']);
 });
 
 test('every read-only table in the dashboard gets the Excel layer, without touching sheets or print previews', async () => {

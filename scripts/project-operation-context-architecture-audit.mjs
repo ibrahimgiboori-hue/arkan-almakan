@@ -27,7 +27,7 @@ if(exists(files.service)){
   for(const forbidden of ['@/lib/supabase','@supabase/','supabase.from(','supabase.rpc(','window.','document.']){
     if(source.includes(forbidden))fail(`project operation context service leaked infrastructure/presentation: ${forbidden}`);
   }
-  for(const required of ['createProjectOperationContextService','projectOperationContextService','loadContractors','selectRosterAssignmentsForDate','projectOperationContextSupabaseRepository']){
+  for(const required of ['createProjectOperationContextService','projectOperationContextService','loadContractors','loadContractorsForPeriod','selectRosterAssignmentsForDate','assignmentsOverlappingPeriod','projectOperationContextSupabaseRepository']){
     if(!source.includes(required))fail(`project operation context service missing contract: ${required}`);
   }
 }
@@ -39,6 +39,9 @@ if(exists(files.presentation)){
     if(source.includes(forbidden))fail(`operation tool shell leaked infrastructure/orchestration detail: ${forbidden}`);
   }
   for(const required of ['OutputPanel','DirectExpensePanel','FinancePanel'])if(!source.includes(required))fail(`operation tool shell lost shared tool: ${required}`);
+  // One ledger per data type: the shared filter decides contractor and period — no day navigation, no forced contractor.
+  if(!source.includes('ProjectLedgerFilterBar'))fail('operation tool shell must use the shared project ledger filter.');
+  for(const forbidden of ['moveOperationalDate','setContractorId(rows[0]'])if(source.includes(forbidden))fail(`operation tool shell went back to per-day/per-contractor sheets: ${forbidden}`);
 }
 
 if(failures.length){
