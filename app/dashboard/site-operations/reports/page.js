@@ -1,6 +1,6 @@
-'use client';
-import TimesheetReportCenter from '@/components/timesheet/TimesheetReportCenter';
+import { redirect } from 'next/navigation';
 
-export default function TimesheetReportsPage(){
-  return <TimesheetReportCenter/>;
+// تقارير التايم شيت مدخلها الوحيد داخل المشروع (المشروع ← تقارير التايم شيت).
+export default function LegacyTimesheetReportsRedirect() {
+  redirect('/dashboard/projects');
 }

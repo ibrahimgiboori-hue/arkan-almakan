@@ -52,13 +52,8 @@ export default function Dashboard() {
         <div>
           <p className={styles.eyebrow}>أركان المكان</p>
           <h1 id="portal-hall-title">بوابات العمل</h1>
-          <p className={styles.intro}>اختر المكان الذي تريد العمل داخله. القوائم تبدأ بعد دخول البوابة، ولا تعيد وصف ما هو موجود أمامك.</p>
+          <p className={styles.intro}>اختر المكان الذي تريد العمل داخله. «أعمالي» و«اعتماداتي» في الشريط الجانبي، ولكل وظيفة مدخل واحد.</p>
         </div>
-
-        <nav className={styles.personal} aria-label="منظور العمل الشخصي">
-          <Link href="/dashboard/my-work">أعمالي</Link>
-          {me?.access?.approvals ? <Link href="/dashboard/my-work/approvals">بانتظار قراري</Link> : null}
-        </nav>
       </header>
 
       <div className={styles.portals} role="list" aria-label="البوابات المتاحة">

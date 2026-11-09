@@ -67,9 +67,7 @@ export default function MovementsPage({service=projectDailyLedgerService,context
   },[contextReady,projectId,from,to,service,contextService]);
 
   useEffect(()=>{load()},[load]);
-  const contractor=contractors.find((item)=>item.id===contractorId);
-  const contractorName=contractor?(contractor.operation_alias||contractor.name_ar):'';
-  const scoped=useMemo(()=>filterProjectMovementRows(rows,{contractorName,search}),[rows,contractorName,search]);
+  const scoped=useMemo(()=>filterProjectMovementRows(rows,{contractorId,search}),[rows,contractorId,search]);
   const visible=useMemo(()=>filterProjectMovementRows(scoped,{type}),[scoped,type]);
   const summary=useMemo(()=>scoped.length?summarizeProjectMovementRows(scoped):PROJECT_DAILY_LEDGER_EMPTY_SUMMARY,[scoped]);
 

@@ -9,7 +9,7 @@ import {
   selectRosterAssignmentsForPeriod,
 } from '@/lib/site-operation-roster.mjs';
 import { laborClassSummaryLabel, summarizeLaborClasses } from '@/lib/labor-class-summary.mjs';
-import styles from '@/app/dashboard/site-operations/reports/page.module.css';
+import styles from './TimesheetReportCenter.module.css';
 
 const MODES = Object.freeze({
   monthly:{

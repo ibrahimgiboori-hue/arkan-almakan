@@ -400,7 +400,16 @@
     display: none;
   }
 
+  /* One entry per destination: the rail owns أعمالي/اعتماداتي on desktop; the drawer footer only on phones. */
+  .appNavContextFooter [data-nav-mobile-only='true'] {
+    display: none;
+  }
+
   @media (max-width: 900px), (hover: none), (pointer: coarse) {
+    .appNavContextFooter [data-nav-mobile-only='true'] {
+      display: inline-flex;
+    }
+
     .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1'] [data-ui-slot='application-stage'],
     .rawDashboardShell[data-ui-skin-contract='arkan-semantic-skin-v1']:has(.appContextNav[data-open='true']) [data-ui-slot='application-stage'] {
       padding-right: 0 !important;

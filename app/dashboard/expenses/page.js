@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
-export default function LegacyExpensesPage() {
-  redirect('/dashboard/site-operations');
+// المصروفات سجل واحد داخل كل مشروع (المشروع ← المصروفات).
+export default function LegacyExpensesRedirect() {
+  redirect('/dashboard/projects');
 }

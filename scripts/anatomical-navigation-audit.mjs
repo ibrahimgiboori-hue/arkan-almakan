@@ -71,10 +71,12 @@ for (const required of [
   'بوابات العمل',
   'filterAreasForAccess(AREAS',
   "area.key !== 'home'",
-  'أعمالي',
-  'بانتظار قراري',
 ]) {
   if (!hall.includes(required)) failures.push(`صالة البوابات: مفقود ${required}`);
+}
+// مدخل واحد لكل وظيفة: «أعمالي» و«اعتماداتي» في الشريط الرئيسي فقط، لا روابط مكررة في جسم الصالة.
+for (const duplicate of ['href="/dashboard/my-work"', 'my-work/approvals', 'href="/dashboard/approvals"']) {
+  if (hall.includes(duplicate)) failures.push(`صالة البوابات: رابط مكرر لوجهة لها مدخلها في الشريط: ${duplicate}`);
 }
 
 if (hall.includes('مركز العمل')) {

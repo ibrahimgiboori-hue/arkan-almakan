@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
+// العمالة تُدار داخل المشروع (المشروع ← العمالة). صفحة المقاول تعرض مشاريعه فقط.
 export default function LaborRouter({ searchParams }) {
   const contractor = searchParams?.contractor || '';
-  if (contractor) redirect(`/dashboard/contractors/${contractor}/labor`);
-  redirect('/dashboard/site-operations');
+  redirect(contractor ? `/dashboard/contractors/${contractor}` : '/dashboard/contractors');
 }

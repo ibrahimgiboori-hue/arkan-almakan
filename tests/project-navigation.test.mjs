@@ -84,10 +84,11 @@ test('nested operational routes resolve to exactly one project navigation item',
   }), 'movements');
 });
 
-test('timesheet reports have one shared implementation for global compatibility and project workflow', () => {
+test('timesheet reports have one entry — inside the project; the old global route only redirects', () => {
   const globalReports = read('app/dashboard/site-operations/reports/page.js');
   const projectReports = read('app/dashboard/projects/[id]/operations/reports/page.js');
-  assert.match(globalReports, /TimesheetReportCenter/);
+  assert.match(globalReports, /redirect\('\/dashboard\/projects'\)/);
+  assert.equal(globalReports.includes('TimesheetReportCenter'), false);
   assert.match(projectReports, /TimesheetReportCenter/);
   assert.match(projectReports, /fixedProjectId=\{id\}/);
   assert.equal(globalReports.includes('labor_project_assignments'), false);
@@ -109,13 +110,11 @@ test('project pages cannot reintroduce stacked local navigation', () => {
   assert.equal(operationsLayout.includes('<nav'), false);
 });
 
-test('the project day sheets are one Excel-style tab row at the bottom, built from the same navigation source', () => {
+test('project sheets open from the project menu only — no second tab row repeats them', () => {
   const operationsLayout = read('app/dashboard/projects/[id]/operations/layout.js');
-  const tabs = read('app/dashboard/projects/[id]/operations/sheet-tabs.js');
-  assert.match(operationsLayout, /\{children\}<ProjectSheetTabs \/>/, 'sheet tabs sit below the sheet, never stacked above it');
-  assert.ok(tabs.includes('PROJECT_NAV_GROUPS') && tabs.includes('projectNavigationHref('), 'tabs must derive from the constitutional project navigation, not a parallel link map');
-  assert.equal((tabs.match(/<nav/g) || []).length, 1);
-  assert.equal(tabs.includes('<select') || tabs.includes('dropdown'), false);
+  assert.equal(operationsLayout.includes('ProjectSheetTabs'), false);
+  assert.equal(operationsLayout.includes('<nav'), false);
+  assert.equal(fs.existsSync('app/dashboard/projects/[id]/operations/sheet-tabs.js'), false);
 });
 
 test('legacy documents and materials URLs are redirects, not parallel workspaces', () => {

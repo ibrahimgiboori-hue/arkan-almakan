@@ -259,7 +259,7 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       <div className="appRailBottom">
         {!approverOnly ? <RailButton label="أعمالي" kind="my-work" active={pathname === '/dashboard/my-work'} onClick={() => go('/dashboard/my-work')} /> : null}
         {me?.access?.approvals ? (
-          <RailButton label="اعتماداتي" kind="approvals" badge={approvalsBadge} active={pathname.startsWith('/dashboard/approvals') || pathname.startsWith('/dashboard/my-work/approvals')} onClick={() => go('/dashboard/approvals')} />
+          <RailButton label="اعتماداتي" kind="approvals" badge={approvalsBadge} active={pathname.startsWith('/dashboard/approvals')} onClick={() => go('/dashboard/approvals')} />
         ) : null}
         {hasDesktopContext ? (
           <button
@@ -380,8 +380,9 @@ export default function ContextualDashboardNavigation({ me, onSignOut }) {
       </div>
 
       <footer className="appNavContextFooter">
-        {!approverOnly ? <button type="button" onClick={() => go('/dashboard/my-work')}>أعمالي</button> : null}
-        {me?.access?.approvals ? <button type="button" onClick={() => go('/dashboard/approvals')}>اعتماداتي</button> : null}
+        {/* على الهاتف يختفي الشريط الرئيسي فيصبح هذا مدخله الوحيد؛ على الكمبيوتر يظهر في الشريط فقط. */}
+        {!approverOnly ? <button type="button" data-nav-mobile-only="true" onClick={() => go('/dashboard/my-work')}>أعمالي</button> : null}
+        {me?.access?.approvals ? <button type="button" data-nav-mobile-only="true" onClick={() => go('/dashboard/approvals')}>اعتماداتي</button> : null}
         <span className="appNavFooterSpacer" />
         <button type="button" onClick={onSignOut}>خروج</button>
       </footer>

@@ -25,7 +25,7 @@ if(exists(files.domain)){
 if(exists(files.adapter)){
   const source=read(files.adapter);
   if(!source.includes("@/lib/supabase"))fail('daily ledger adapter must own Supabase.');
-  if(!source.includes("rpc('fn_project_daily_ledger'"))fail('daily ledger adapter lost the canonical ledger RPC.');
+  if(!source.includes("rpc('fn_project_ledger_range'"))fail('movements adapter lost the canonical period ledger RPC.');
 }
 
 if(exists(files.service)){
@@ -37,7 +37,7 @@ if(exists(files.service)){
 if(exists(files.presentation)){
   const source=read(files.presentation);
   if(!source.includes("@/lib/application/project-daily-ledger-service"))fail('daily ledger presentation must use the application service.');
-  for(const forbidden of ['@/lib/supabase','@supabase/','.from(','.rpc(','fn_project_daily_ledger'])if(source.includes(forbidden))fail(`daily ledger presentation leaked persistence detail: ${forbidden}`);
+  for(const forbidden of ['@/lib/supabase','@supabase/','.from(','.rpc(','fn_project_daily_ledger','fn_project_ledger_range'])if(source.includes(forbidden))fail(`daily ledger presentation leaked persistence detail: ${forbidden}`);
 }
 
 const fixture=normalizeProjectDailyLedger({
