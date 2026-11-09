@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateAr, money } from '@/lib/format';
 import { QSTATUS_AR } from '@/lib/quote-calc';
+import { projectQuoteApprovalLabel } from '@/lib/project-quotes.mjs';
+import { projectQuotesService } from '@/lib/application/project-quotes-service';
 import { SYSTEM } from '@/lib/system-constitution';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import { canUseCapability } from '@/lib/access-ui';
@@ -36,16 +38,23 @@ export default function Quotes() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
+  // سجل واحد لكل العروض؛ «عروض مشروع» = نفس السجل مفلترًا بالمشروع (?project=).
+  const [projects, setProjects] = useState([]);
+  const [projectFilter, setProjectFilter] = useState(null);
+  const [projectWorkspace, setProjectWorkspace] = useState(null);
 
-  const canCreate = canUseCapability(session,'projects.quotes.create','all');
+  const canCreateAll = canUseCapability(session,'projects.quotes.create','all');
+  const canCreate = canCreateAll || Boolean(projectFilter && projectWorkspace?.canCreate);
   const canEdit = canUseCapability(session,'projects.quotes.edit','all');
   const canCreateProject = canUseCapability(session,'projects.projects.create','all');
 
   async function load() {
-    const [q, t] = await Promise.all([
+    const [q, t, p] = await Promise.all([
       supabase.from('quotations').select('*').order('created_at', { ascending: false }),
       supabase.from('v_quote_totals').select('*'),
+      supabase.from('projects').select('id,project_no,name_ar').order('project_no'),
     ]);
+    setProjects(p.data || []);
     if (q.error) {
       setErr('تعذّر تحميل عروض الأسعار: ' + q.error.message);
       setRows([]);
@@ -57,10 +66,39 @@ export default function Quotes() {
     setTot(map);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    setProjectFilter(new URLSearchParams(window.location.search).get('project') || '');
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (!projectFilter) { setProjectWorkspace(null); return; }
+    let alive = true;
+    projectQuotesService.loadWorkspace({ projectId:projectFilter })
+      .then((workspace) => { if (alive) setProjectWorkspace(workspace); })
+      .catch(() => { if (alive) setProjectWorkspace(null); });
+    return () => { alive = false; };
+  }, [projectFilter, rows]);
+
+  function chooseProject(value) {
+    setProjectFilter(value);
+    const url = value ? `/dashboard/quotes?project=${encodeURIComponent(value)}` : '/dashboard/quotes';
+    window.history.replaceState(null, '', url);
+  }
 
   async function create(kind) {
     setErr(''); setMsg(''); setBusy(true);
+    if (projectFilter) {
+      // عرض داخل مشروع: نفس قناة إنشاء عروض المشروع (يُربط بالمشروع ويُثبت قبل الفتح).
+      try {
+        const saved = await projectQuotesService.createQuote({ projectId:projectFilter, kind, language:newLang });
+        router.push(`/dashboard/quotes/${saved.id}`);
+      } catch (error) {
+        setErr('تعذّر إنشاء عرض السعر: ' + (error?.message || error));
+        setBusy(false);
+      }
+      return;
+    }
     const { data:num, error:numberError } = await supabase.rpc('next_document_number', {
       p_doc_type: kind === 'boq' ? 'BOQ' : 'QUOTE',
       p_prefix: kind === 'boq' ? 'BOQ' : 'QT',
@@ -127,14 +165,24 @@ export default function Quotes() {
     setMsg(language === 'en' ? `حُفظت لغة ${row.quote_no}: English` : `حُفظت لغة ${row.quote_no}: العربية`);
   }
 
-  if (!rows) return <ConstitutionPage><EmptyState title="جارٍ تحميل عروض الأسعار" description="يتم تحميل السجل الحالي."/></ConstitutionPage>;
+  const projectById = new Map(projects.map((project) => [project.id, project]));
+  const visibleRows = (rows || []).filter((row) => !projectFilter || row.project_id === projectFilter);
+  const filteredProject = projectFilter ? projectById.get(projectFilter) : null;
+
+  if (!rows || projectFilter === null) return <ConstitutionPage><EmptyState title="جارٍ تحميل عروض الأسعار" description="يتم تحميل السجل الحالي."/></ConstitutionPage>;
 
   return <ConstitutionPage>
     <PageHeader
       eyebrow="QUOTATIONS"
       title="عروض الأسعار وجداول الكميات"
-      description="سجل واحد للمستندات؛ افتح السطر لتعمل على العرض نفسه، واترك الإجراءات الثانوية في قائمته."
-      actions={canCreate?<Toolbar>
+      description="سجل واحد لكل عروض الأسعار وجداول الكميات. اختر مشروعًا من الفلتر لترى عروضه وتنشئ عرضًا مربوطًا به."
+      actions={<Toolbar>
+        <label htmlFor="quote-project-filter">المشروع</label>
+        <select id="quote-project-filter" value={projectFilter} onChange={(event)=>chooseProject(event.target.value)} aria-label="فلترة العروض بالمشروع">
+          <option value="">كل العروض</option>
+          {projects.map((project)=><option key={project.id} value={project.id}>{project.project_no} — {project.name_ar}</option>)}
+        </select>
+        {canCreate?<>
         <label htmlFor="new-quote-language">لغة الجديد</label>
         <select id="new-quote-language" value={newLang} onChange={(event)=>setNewLang(event.target.value)} aria-label="لغة العرض الجديد">
           <option value="ar">العربية</option><option value="en">English</option>
@@ -144,17 +192,19 @@ export default function Quotes() {
           secondary={[{key:'boq',node:<button className="btn ghost" disabled={busy} onClick={()=>create('boq')}>جدول كميات جديد</button>}]}
           label="أنواع مستندات أخرى"
         />
-      </Toolbar>:null}
+        </>:null}
+      </Toolbar>}
     />
 
     {err ? <Notice tone="error">{err}</Notice> : null}
+    {projectWorkspace?.readErrors?.length ? <Notice tone="warning">{projectWorkspace.readErrors.join(' · ')}</Notice> : null}
     {msg ? <InlineStatus tone="success" live>{msg}</InlineStatus> : null}
 
-    <Section title="السجل" description={`${rows.length} مستند في السجل الحالي`}>
-      {rows.length === 0 ? <EmptyState title="لا توجد عروض بعد" description={canCreate?'أنشئ عرض سعر من أعلى الورقة.':'لا توجد عروض متاحة لهذا الحساب.'}/> : <TableFrame>
+    <Section title={filteredProject?`عروض ${filteredProject.project_no} — ${filteredProject.name_ar}`:'السجل'} description={`${visibleRows.length} مستند${projectFilter?' في هذا المشروع':' في السجل'}`}>
+      {visibleRows.length === 0 ? <EmptyState title={projectFilter?'لا توجد عروض لهذا المشروع':'لا توجد عروض بعد'} description={canCreate?(projectFilter?'أنشئ أول عرض سعر من أعلى الورقة؛ سيُربط بالمشروع تلقائيًا.':'أنشئ عرض سعر من أعلى الورقة.'):'لا توجد عروض متاحة لهذا الحساب.'}/> : <TableFrame>
         <table>
-          <thead><tr><th>الرقم</th><th>النوع</th><th>اللغة</th><th>العميل</th><th>التاريخ</th><th className="num">المجموع</th><th>الحالة</th><th>الإجراء</th></tr></thead>
-          <tbody>{rows.map((row) => {
+          <thead><tr><th>الرقم</th><th>النوع</th><th>اللغة</th><th>العميل</th>{projectFilter?<th>المراجعة المالية</th>:<th>المشروع</th>}<th>التاريخ</th><th className="num">المجموع</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+          <tbody>{visibleRows.map((row) => {
             const secondary = [
               {key:'print',node:<Link className="btn ghost" href={`/print/quote/${row.id}`} target="_blank">طباعة</Link>},
             ];
@@ -166,6 +216,9 @@ export default function Quotes() {
               <td>{row.doc_kind === 'boq' ? 'جدول كميات' : 'عرض سعر'}</td>
               <td>{canEdit ? <select value={row.language || 'ar'} onChange={(event)=>setLanguage(row,event.target.value)} aria-label={`لغة ${row.quote_no}`}><option value="ar">العربية</option><option value="en">English</option></select> : <span className="pill">{row.language === 'en' ? 'EN' : 'AR'}</span>}</td>
               <td>{row.client_name}{row.client_kind==='individual'&&<small> · فرد</small>}</td>
+              {projectFilter
+                ?<td>{projectQuoteApprovalLabel(projectWorkspace?.states?.[row.id])}</td>
+                :<td>{row.project_id&&projectById.get(row.project_id)?<button type="button" className="btn ghost" onClick={()=>chooseProject(row.project_id)}>{projectById.get(row.project_id).project_no}</button>:'—'}</td>}
               <td className="mono">{dateAr(row.quote_date)}</td>
               <td className="num">{money(tot[row.id]?.grand_total || 0)}</td>
               <td>{canEdit ? <select value={row.status} onChange={(event)=>setStatus(row,event.target.value)} aria-label={`حالة ${row.quote_no}`}>{Object.entries(QSTATUS_AR).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select> : <span className="pill">{QSTATUS_AR[row.status]}</span>}</td>

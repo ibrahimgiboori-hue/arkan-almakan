@@ -1,5 +1,4 @@
-import ProjectSheetTabs from './sheet-tabs';
-
+// أوراق المشروع تُفتح من قائمة المشروع وحدها — لا صف تبويبات ثانٍ يكرر نفس الوجهات.
 export default function OperationsLayout({ children }) {
-  return <section data-operation-shell="true">{children}<ProjectSheetTabs /></section>;
+  return <section data-operation-shell="true">{children}</section>;
 }

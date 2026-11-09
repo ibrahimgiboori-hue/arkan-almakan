@@ -37,3 +37,19 @@ test('contractor payments have an explicit capability-scoped read policy', () =>
   assert.match(latestLedgerMigration.sql, /p_contractor_payments_select_cap/i);
   assert.match(latestLedgerMigration.sql, /has_project_capability\('finance\.projects\.view'/i);
 });
+
+test('period movements come from one read-only database call with the same rules as the daily ledger', () => {
+  const sql = fs.readFileSync(path.join(migrationsDir, '20261109120000_project_ledger_range.sql'), 'utf8');
+  assert.match(sql, /create or replace function public\.fn_project_ledger_range\(p_project_id uuid, p_from date, p_to date\)/i);
+  assert.match(sql, /\bstable\b/i);
+  assert.doesNotMatch(sql, /security definer/i);
+  assert.match(sql, /Period longer than 92 days/);
+  assert.match(sql, /a\.contractor_id_snapshot/i);
+  assert.match(sql, /legacy_day_expense_rows/i);
+  for (const source of ['contractor_expenses', 'day_expenses', 'contractor_advances', 'contractor_payments']) {
+    const pattern = new RegExp(`not exists[\\s\\S]{0,220}public\\.${source}[\\s\\S]{0,180}custody_trx_id\\s*=\\s*ct\\.id`, 'i');
+    assert.match(sql, pattern, `custody must exclude linked ${source}`);
+  }
+  assert.match(sql, /revoke all on function public\.fn_project_ledger_range\(uuid, date, date\) from public, anon/i);
+  assert.match(sql, /'contractorId', contractor_id/);
+});

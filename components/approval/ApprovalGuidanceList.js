@@ -9,8 +9,6 @@ import ApprovalGuidanceRow from './ApprovalGuidanceRow';
 const DATA_KIND_SOURCES = Object.freeze({
   'finance-invoices': ['progress_claims'],
   'finance-cases': ['financial_cases'],
-  'finance-payroll': ['payroll_runs'],
-  'documents-review': ['documents'],
 });
 
 export default function ApprovalGuidanceList({ dataKind, compact = true }) {

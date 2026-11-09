@@ -18,7 +18,9 @@ const files={
   domain:'lib/project-quotes.mjs',
   adapter:'lib/adapters/project-quotes-supabase.js',
   service:'lib/application/project-quotes-service.js',
-  presentation:'app/dashboard/projects/[id]/quotes/page.js',
+  // Quotes have ONE register for the whole program; a project's quotes are the same register filtered by ?project=.
+  presentation:'app/dashboard/quotes/page.js',
+  retiredProjectRoute:'app/dashboard/projects/[id]/quotes/page.js',
 };
 for(const [role,file] of Object.entries(files))if(!exists(file))fail(`${role}: missing ${file}`);
 
@@ -57,14 +59,19 @@ if(exists(files.service)){
 
 if(exists(files.presentation)){
   const source=read(files.presentation);
-  if(!source.includes("@/lib/application/project-quotes-service"))fail('project quote register must use the application service.');
-  if(!source.includes("@/lib/project-quotes.mjs"))fail('project quote register must consume domain contracts.');
-  for(const forbidden of ["@/lib/supabase",'@supabase/','supabase.','.from(','.rpc(','v_my_capabilities','fn_is_primary_user','next_document_number','v_quote_totals']){
-    if(source.includes(forbidden))fail(`project quote register leaked persistence/access detail: ${forbidden}`);
+  if(!source.includes("@/lib/application/project-quotes-service"))fail('project-filtered quote register must use the application service.');
+  if(!source.includes("@/lib/project-quotes.mjs"))fail('project-filtered quote register must consume domain contracts.');
+  for(const forbidden of ['v_my_capabilities','fn_is_primary_user']){
+    if(source.includes(forbidden))fail(`quote register leaked project access detail: ${forbidden}`);
   }
-  for(const required of ['projectQuotesService.loadWorkspace','projectQuotesService.createQuote','projectQuoteApprovalLabel','workspace.readErrors']){
-    if(!source.includes(required))fail(`project quote register lost governed behavior: ${required}`);
+  for(const required of ['projectQuotesService.loadWorkspace','projectQuotesService.createQuote','projectQuoteApprovalLabel','Workspace?.readErrors','?project=']){
+    if(!source.includes(required))fail(`quote register lost governed project behavior: ${required}`);
   }
+}
+if(exists(files.retiredProjectRoute)){
+  const source=read(files.retiredProjectRoute);
+  if(!source.includes('redirect(`/dashboard/quotes?project=${params.id}`)'))fail('project quotes route must redirect to the single quote register filtered by project.');
+  if(source.includes("'use client'"))fail('project quotes route must not render a second quote register.');
 }
 
 const caps=[
