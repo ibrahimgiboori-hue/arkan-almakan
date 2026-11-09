@@ -8,12 +8,19 @@ import { moveOperationalDate } from '@/lib/project-operation-context.mjs';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
 import { projectLaborService } from '@/lib/application/project-labor-service';
 import {
-  EMPTY_PROJECT_LABOR_QUICK_ADD,
   PROJECT_LABOR_CLASS,
   PROJECT_LABOR_PAY_BASIS,
+  createLaborDraft,
+  groupLaborDraftsForQuickAdd,
+  laborRosterRow,
   projectLaborSuggestedDailyRate,
 } from '@/lib/project-labor.mjs';
+import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
 import styles from '../operations.module.css';
+
+const options=(labels)=>Object.entries(labels).map(([value,label])=>({value,label}));
+const PLACEMENT={project:'مسند للمشروع',elsewhere:'لدى مشروع آخر',free:'غير مسند'};
+const RATE_LABEL={daily:'يومية',salary:'راتب شهري',piecework:'سعر الوحدة'};
 
 function dateLabel(value){
   if(!value)return '—';
@@ -21,7 +28,11 @@ function dateLabel(value){
   return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(y,m-1,d));
 }
 
-export default function ProjectLaborWorkspaceEngineered(){
+/**
+ * العمالة كورقة إكسل: عمالة المقاول المسجلة صفوف مقفلة (إسناد/نقل/تعديل من عمود الإجراء)،
+ * والعمالة الجديدة تُكتب أو تُلصق أسماؤها من إكسل تحتها ثم تُضاف وتُسند مرة واحدة.
+ */
+export default function ProjectLaborWorkspaceEngineered({service=projectLaborService}={}){
   const {id:projectId}=useParams();
   const {date,contractorId,ready:contextReady,setDate,setContractorId}=useProjectOperationContext(projectId);
 
@@ -32,8 +43,7 @@ export default function ProjectLaborWorkspaceEngineered(){
   const [busy,setBusy]=useState('');
   const [err,setErr]=useState('');
   const [msg,setMsg]=useState('');
-  const [quickAddOpen,setQuickAddOpen]=useState(false);
-  const [quickAddForm,setQuickAddForm]=useState({...EMPTY_PROJECT_LABOR_QUICK_ADD});
+  const [drafts,setDrafts]=useState([]);
   const [quickAddResults,setQuickAddResults]=useState([]);
   const [editFor,setEditFor]=useState(null);
   const [editForm,setEditForm]=useState({});
@@ -44,7 +54,7 @@ export default function ProjectLaborWorkspaceEngineered(){
     if(!contextReady||!projectId||!date)return;
     setLoading(true);setLoadError('');setErr('');
     try{
-      const workspace=await projectLaborService.loadWorkspace({projectId,date});
+      const workspace=await service.loadWorkspace({projectId,date});
       setContractors(workspace.contractors);
       setRoster(workspace.roster);
       const selectedStillExists=contractorId&&workspace.contractors.some((row)=>row.id===contractorId);
@@ -54,7 +64,7 @@ export default function ProjectLaborWorkspaceEngineered(){
       setLoadError(message);setErr(message);setContractors([]);setRoster([]);
     }
     setLoading(false);
-  },[contextReady,date,projectId,contractorId,setContractorId]);
+  },[contextReady,date,projectId,contractorId,setContractorId,service]);
 
   useEffect(()=>{load();},[load]);
 
@@ -66,34 +76,52 @@ export default function ProjectLaborWorkspaceEngineered(){
     return projectLaborSuggestedDailyRate(selectedContractor,laborClass);
   }
 
-  function openQuickAdd(){
-    setQuickAddResults([]);
-    setQuickAddForm({...EMPTY_PROJECT_LABOR_QUICK_ADD,daily_rate:suggestedDailyRate('worker'),effective_from:date});
-    setQuickAddOpen(true);setErr('');setMsg('');
-  }
+  // Stable keys only: reloading the roster after a save must not wipe rows that were not added.
+  const contractorKey=selectedContractor?.id||'';
+  const workerDaily=selectedContractor?.worker_daily??'';
+  const blankDraft=useCallback(()=>createLaborDraft({rate:String(workerDaily||''),effective_from:date}),[workerDaily,date]);
+  useEffect(()=>{setDrafts([1,2,3].map(()=>blankDraft()));setQuickAddResults([]);},[contractorKey,date]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function changeQuickLaborClass(laborClass){
-    setQuickAddForm((form)=>({...form,labor_class:laborClass,daily_rate:form.pay_basis==='daily'?suggestedDailyRate(laborClass):form.daily_rate}));
-  }
+  const rows=useMemo(()=>[...contractorRoster.map((worker)=>laborRosterRow(worker,projectId)),...drafts],[contractorRoster,drafts,projectId]);
+  const {groups,errors}=groupLaborDraftsForQuickAdd(drafts,date);
+  const readyCount=groups.reduce((sum,group)=>sum+group.rows.length,0);
 
-  async function saveQuickAdd(event){
-    event.preventDefault();
+  function patchRow(key,patch){setDrafts((prev)=>prev.map((row)=>row._id===key?{...row,...patch}:row));}
+  function appendRows(patches){setDrafts((prev)=>[...prev,...patches.map((patch)=>({...blankDraft(),...patch}))]);}
+  function removeRow(row){setDrafts((prev)=>prev.length>1?prev.filter((item)=>item._id!==row._id):[blankDraft()]);}
+
+  async function saveNewLabor(){
     if(!selectedContractor)return;
-    const effectiveFrom=quickAddForm.effective_from||date;
+    if(errors.length){setErr(errors.slice(0,4).join(' '));return;}
+    if(!groups.length)return;
     setBusy('quick-add');setErr('');setMsg('');setQuickAddResults([]);
-    try{
-      const result=await projectLaborService.quickAdd({
-        projectId,contractorId:selectedContractor.id,effectiveFrom,form:quickAddForm,today:todayIsoInRiyadh(),
-      });
-      setQuickAddResults(result.results);
-      const parts=[];
-      if(result.summary.created)parts.push(`أُضيف ${result.summary.created}`);
-      if(result.summary.existing)parts.push(`أُسند ${result.summary.existing} موجود`);
-      if(result.summary.transfers)parts.push(`${result.summary.transfers} يحتاج نقلًا صريحًا`);
-      setMsg(parts.length?`${parts.join('، ')}. تاريخ الإسناد: ${effectiveFrom}.`:'لم تُنشأ سجلات جديدة.');
-      await load();
-      if(!result.summary.transfers){setQuickAddOpen(false);setQuickAddForm({...EMPTY_PROJECT_LABOR_QUICK_ADD});}
-    }catch(error){setErr('تعذر إضافة العمالة: '+(error.message||error));}
+    const results=[];
+    const added=new Set();
+    let failure='';
+    for(const group of groups){
+      try{
+        const result=await service.quickAdd({
+          projectId,contractorId:selectedContractor.id,effectiveFrom:group.effectiveFrom,form:group.form,today:todayIsoInRiyadh(),
+        });
+        results.push(...result.results.map((row)=>({...row,effectiveFrom:group.effectiveFrom})));
+        group.rows.forEach((row)=>added.add(row._id));
+      }catch(error){failure=`تعذر إضافة ${group.rows.map((row)=>row.full_name).join('، ')}: ${error.message||error}`;break;}
+    }
+    setQuickAddResults(results);
+    const created=results.filter((row)=>row.status==='created').length;
+    const existing=results.filter((row)=>row.status==='existing').length;
+    const transfers=results.filter((row)=>row.status==='needs_transfer').length;
+    const parts=[];
+    if(created)parts.push(`أُضيف ${created}`);
+    if(existing)parts.push(`أُسند ${existing} موجود`);
+    if(transfers)parts.push(`${transfers} يحتاج نقلًا صريحًا`);
+    if(parts.length)setMsg(`${parts.join('، ')}.`);
+    if(failure)setErr(failure);
+    setDrafts((prev)=>{
+      const next=prev.filter((row)=>!added.has(row._id));
+      return next.length?next:[blankDraft()];
+    });
+    if(results.length)await load();
     setBusy('');
   }
 
@@ -102,8 +130,8 @@ export default function ProjectLaborWorkspaceEngineered(){
     const key=`quick-transfer:${candidate.laborer_id}`;
     setBusy(key);setErr('');setMsg('');
     try{
-      const effectiveFrom=quickAddForm.effective_from||date;
-      const worker=await projectLaborService.transferQuickCandidate({candidate,selectedContractor,projectId,effectiveFrom});
+      const effectiveFrom=candidate.effectiveFrom||date;
+      const worker=await service.transferQuickCandidate({candidate,selectedContractor,projectId,effectiveFrom});
       setQuickAddResults((rows)=>rows.map((row)=>row.laborer_id===candidate.laborer_id?{...row,status:'transferred'}:row));
       setMsg(`تم نقل ${worker.full_name} إلى المقاول والمشروع اعتبارًا من ${effectiveFrom} مع حفظ تاريخه السابق.`);
       await load();
@@ -117,7 +145,7 @@ export default function ProjectLaborWorkspaceEngineered(){
     const key=`${otherAssignment?'move-in':'assign'}:${worker.id}`;
     setBusy(key);setErr('');setMsg('');
     try{
-      const result=await projectLaborService.assignWorker({worker,projectId,contractorId:selectedContractor.id,effectiveFrom:date});
+      const result=await service.assignWorker({worker,projectId,contractorId:selectedContractor.id,effectiveFrom:date});
       setMsg(result.moved?`نُقل ${worker.full_name} إلى المشروع.`:`أُسند ${worker.full_name} للمشروع.`);
       await load();
     }catch(error){setErr(error.message||String(error));}
@@ -143,7 +171,7 @@ export default function ProjectLaborWorkspaceEngineered(){
     if(!editFor)return;
     setBusy('edit');setErr('');setMsg('');
     try{
-      await projectLaborService.updateWorker({worker:editFor,form:editForm});
+      await service.updateWorker({worker:editFor,form:editForm});
       setMsg(`حُفظ تعديل ${editForm.full_name}.`);setEditFor(null);await load();
     }catch(error){setErr('تعذر تعديل العامل: '+(error.message||error));}
     setBusy('');
@@ -157,7 +185,7 @@ export default function ProjectLaborWorkspaceEngineered(){
     if(!moveFor||!moveForm.contractor_id)return;
     setBusy('move');setErr('');setMsg('');
     try{
-      await projectLaborService.moveWorker({
+      await service.moveWorker({
         worker:moveFor,projectId,contractorId:moveForm.contractor_id,effectiveFrom:moveForm.effective_from||date,
         dailyRate:moveForm.daily_rate,notes:moveForm.notes||'نقل من إدارة عمالة المشروع',
       });
@@ -198,50 +226,53 @@ export default function ProjectLaborWorkspaceEngineered(){
         <div className={styles.contractorMeta}><strong>{selectedContractor?.name_ar||'—'}</strong><span>{date}</span></div>
       </section>
 
-      {!selectedContractor?<div className={styles.empty}>لا يوجد مقاول مسند للمشروع في التاريخ المختار.</div>:<section className={styles.operationGrid}>
-        <main className={styles.formPane}>
-          <div className={styles.panelTitle}>
-            <div><h2>عمالة المقاول</h2><small>الإضافة الجديدة تتم من هنا فقط حتى يبقى المشروع والمقاول وتاريخ الإسناد جزءًا واحدًا من العملية.</small></div>
-            <button type="button" className="btn" onClick={openQuickAdd}>إضافة عمالة</button>
-          </div>
-          <div className={styles.activityList}>
-            {contractorRoster.length===0?<div className={styles.panelEmpty}><div>لا توجد عمالة لدى هذا المقاول.</div><button type="button" className="btn" onClick={openQuickAdd} style={{marginTop:10}}>إضافة أول عمالة هنا</button></div>:contractorRoster.map((worker)=>{
-              const inThisProject=worker.current_assignment?.project_id===projectId;
-              const assignedElsewhere=Boolean(worker.current_assignment&&!inThisProject);
-              const actionKey=`${assignedElsewhere?'move-in':'assign'}:${worker.id}`;
-              return <div className={styles.activityRow} key={worker.id}>
-                <div><strong>{worker.full_name}</strong><small>{PROJECT_LABOR_CLASS[worker.labor_class]||worker.labor_class} · {worker.trade||'—'} · {PROJECT_LABOR_PAY_BASIS[worker.pay_basis]||worker.pay_basis}</small></div>
-                <div>{inThisProject?<span className="pill ok">مسند</span>:<button type="button" className="btn" disabled={busy===actionKey} onClick={()=>assignWorker(worker)}>{busy===actionKey?'جارٍ التنفيذ…':assignedElsewhere?'نقل للمشروع':'إسناد'}</button>}</div>
-              </div>;
-            })}
-          </div>
-        </main>
-
-        <aside className={styles.historyPane}>
-          <div className={styles.historyHead}><div><strong>في المشروع</strong></div><b>{projectWorkers.length}</b></div>
-          <div className={styles.activityList}>{projectWorkers.length===0?<div className={styles.panelEmpty}>لا توجد عمالة مسندة.</div>:projectWorkers.map((worker)=><div className={styles.activityRow} key={worker.id}><div><strong>{worker.full_name}</strong><small>{PROJECT_LABOR_CLASS[worker.labor_class]||worker.labor_class} · {worker.trade||'—'} · {PROJECT_LABOR_PAY_BASIS[worker.pay_basis]||worker.pay_basis}</small></div><div><button type="button" className="btn ghost" onClick={()=>openEdit(worker)}>تعديل</button> <button type="button" className="btn ghost" onClick={()=>openMove(worker)}>نقل</button></div></div>)}</div>
-        </aside>
+      {!selectedContractor?<div className={styles.empty}>لا يوجد مقاول مسند للمشروع في التاريخ المختار.</div>:<section data-canonical-labor-create-form="true">
+        <div className={styles.panelTitle}>
+          <div><h2>عمالة المقاول</h2><small>العمالة المسجلة مقفلة أعلى الورقة. الإضافة الجديدة من هنا فقط: اكتب أو الصق الأسماء من إكسل (الاسم، الصفة، المهنة، الأجر) فتُضاف وتُسند للمشروع والمقاول بتاريخ الإسناد معًا.</small></div>
+        </div>
+        <RawGrid
+          columns={[
+            {key:'_index',label:'#',type:'index',render:(row)=>rows.indexOf(row)+1},
+            {key:'_status',label:'الحالة',type:'badge',text:(row)=>row.persisted?PLACEMENT[row.placement]:'جديد',tone:(row)=>!row.persisted?'new':row.placement==='project'?'saved':'muted'},
+            {key:'full_name',label:'الاسم',type:'text',minWidth:200,placeholder:'اسم العامل'},
+            {key:'labor_class',label:'الصفة',type:'select',minWidth:110,options:options(PROJECT_LABOR_CLASS),
+              onChange:(row,value)=>({labor_class:value,...(row.pay_basis==='daily'&&String(row.rate||'')===String(suggestedDailyRate(row.labor_class)||'')?{rate:String(suggestedDailyRate(value)||'')}:{})})},
+            {key:'trade',label:'المهنة',type:'text',minWidth:120},
+            {key:'pay_basis',label:'طريقة الأجر',type:'select',minWidth:120,options:options(PROJECT_LABOR_PAY_BASIS),
+              onChange:(row,value)=>({pay_basis:value,rate:value==='daily'?String(suggestedDailyRate(row.labor_class)||''):''})},
+            {key:'rate',label:'الأجر',type:'number',min:0,step:0.01},
+            {key:'_rate_kind',label:'نوع الأجر',type:'computed',compute:(row)=>row.rate===''?null:`${RATE_LABEL[row.pay_basis]||''}${row.pay_basis==='piecework'&&row.piece_unit?` / ${row.piece_unit}`:''}`},
+            {key:'piece_unit',label:'الوحدة',type:'text',visible:(row)=>row.pay_basis==='piecework'},
+            {key:'effective_from',label:'تاريخ الإسناد',type:'date'},
+            {key:'_action',label:'إجراء',type:'action',render:(row,{disabled})=>{
+              if(!row.persisted)return <button type="button" className={rawGridStyles.actionButton} onClick={()=>removeRow(row)} disabled={disabled||busy==='quick-add'}>×</button>;
+              const worker=row.worker;
+              if(row.placement==='project')return <span style={{display:'inline-flex',gap:6}}><button type="button" className={rawGridStyles.actionButton} onClick={()=>openEdit(worker)}>تعديل</button><button type="button" className={rawGridStyles.actionButton} onClick={()=>openMove(worker)}>نقل</button></span>;
+              const actionKey=`${row.placement==='elsewhere'?'move-in':'assign'}:${worker.id}`;
+              return <button type="button" className={rawGridStyles.actionButton} disabled={busy===actionKey} onClick={()=>assignWorker(worker)}>{busy===actionKey?'جارٍ التنفيذ…':row.placement==='elsewhere'?'نقل للمشروع':'إسناد'}</button>;
+            }},
+          ]}
+          rows={rows}
+          rowKey={(row)=>row._id}
+          savedFlag={(row)=>row.persisted}
+          rowDisabled={(row)=>row.persisted}
+          onPatchRow={patchRow}
+          onAppendRows={appendRows}
+          busy={busy==='quick-add'}
+        />
+        <RawGridFooter
+          actions={<button type="button" className={rawGridStyles.plainButton} onClick={()=>setDrafts((prev)=>[...prev,...[1,2,3].map(()=>blankDraft())])} disabled={Boolean(busy)}>+ 3 صفوف</button>}
+          summary={<>
+            <strong>جاهز للإضافة: {readyCount} اسم{errors.length?` · ${errors.length} ناقص`:''}</strong>
+            <button className={rawGridStyles.primaryButton} type="button" onClick={saveNewLabor} disabled={busy==='quick-add'||(!readyCount&&!errors.length)}>{busy==='quick-add'?'جارٍ الإضافة…':'إضافة وإسناد للمشروع'}</button>
+          </>}
+        />
+        {quickAddResults.some((row)=>row.status==='needs_transfer')&&<div style={{marginTop:14}}>
+          <div className={styles.panelEmpty}>وجد البرنامج أسماء موجودة أصلًا لدى مقاول آخر، لذلك لم ينشئ نسخًا مكررة. اختر النقل الصريح لكل اسم بنفس تاريخ الإسناد.</div>
+          <div className={styles.activityList}>{quickAddResults.filter((row)=>row.status==='needs_transfer').map((row)=><div className={styles.activityRow} key={row.laborer_id}><div><strong>{row.name}</strong><small>موجود لدى مقاول آخر · إسناد من {row.effectiveFrom}</small></div><button type="button" className="btn" disabled={busy===`quick-transfer:${row.laborer_id}`} onClick={()=>transferQuickCandidate(row)}>{busy===`quick-transfer:${row.laborer_id}`?'جارٍ النقل…':'نقل إلى هنا'}</button></div>)}</div>
+        </div>}
       </section>}
     </>}
-
-    {quickAddOpen&&<ConstitutionDialog title={`إضافة عمالة — ${selectedContractor?.name_ar||''}`} size="wide" onClose={()=>{setQuickAddOpen(false);setQuickAddResults([]);}}>
-      <form className={styles.operationForm} onSubmit={saveQuickAdd} data-canonical-labor-create-form="true">
-        <label className={styles.wideField}><span>الأسماء *</span><textarea required rows="6" value={quickAddForm.names} onChange={(event)=>setQuickAddForm((form)=>({...form,names:event.target.value}))} placeholder={'اكتب كل اسم في سطر مستقل\nيمكن أيضًا الفصل بفاصلة'}/></label>
-        <label><span>الصفة</span><select value={quickAddForm.labor_class} onChange={(event)=>changeQuickLaborClass(event.target.value)}>{Object.entries(PROJECT_LABOR_CLASS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-        <label><span>المهنة</span><input value={quickAddForm.trade} onChange={(event)=>setQuickAddForm((form)=>({...form,trade:event.target.value}))}/></label>
-        <label><span>طريقة الأجر</span><select value={quickAddForm.pay_basis} onChange={(event)=>setQuickAddForm((form)=>({...form,pay_basis:event.target.value}))}>{Object.entries(PROJECT_LABOR_PAY_BASIS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-        {quickAddForm.pay_basis==='daily'&&<label><span>اليومية</span><input type="number" min="0" step="0.01" value={quickAddForm.daily_rate} onChange={(event)=>setQuickAddForm((form)=>({...form,daily_rate:event.target.value}))}/><small>تُقترح تلقائيًا من اتفاق المقاول ويمكن تعديلها قبل الحفظ.</small></label>}
-        {quickAddForm.pay_basis==='salary'&&<><label><span>الراتب الشهري</span><input type="number" min="0" step="0.01" value={quickAddForm.monthly_salary} onChange={(event)=>setQuickAddForm((form)=>({...form,monthly_salary:event.target.value}))}/></label><label><span>أيام الاحتساب</span><input type="number" min="1" value={quickAddForm.salary_days} onChange={(event)=>setQuickAddForm((form)=>({...form,salary_days:event.target.value}))}/></label></>}
-        {quickAddForm.pay_basis==='piecework'&&<><label><span>سعر الوحدة</span><input type="number" min="0" step="0.01" value={quickAddForm.piece_rate} onChange={(event)=>setQuickAddForm((form)=>({...form,piece_rate:event.target.value}))}/></label><label><span>الوحدة</span><input value={quickAddForm.piece_unit} onChange={(event)=>setQuickAddForm((form)=>({...form,piece_unit:event.target.value}))}/></label></>}
-        <label><span>تاريخ الإسناد *</span><input required type="date" max={todayIsoInRiyadh()} value={quickAddForm.effective_from||date} onChange={(event)=>setQuickAddForm((form)=>({...form,effective_from:event.target.value}))}/><small>أول يوم فعلي للعامل مع هذا المقاول في المشروع. يصبح العامل متاحًا للتايم شيت من هذا التاريخ فما بعد.</small></label>
-        <label><span>المقاول</span><input value={selectedContractor?.name_ar||''} readOnly/></label>
-        <button type="submit" className={styles.primaryAction} disabled={busy==='quick-add'}>{busy==='quick-add'?'جارٍ الإضافة…':'إضافة وإسناد للمشروع'}</button>
-      </form>
-      {quickAddResults.some((row)=>row.status==='needs_transfer')&&<div style={{marginTop:14}}>
-        <div className={styles.panelEmpty}>وجد البرنامج أسماء موجودة أصلًا لدى مقاول آخر، لذلك لم ينشئ نسخًا مكررة. اختر النقل الصريح لكل اسم بنفس تاريخ الإسناد المحدد أعلاه.</div>
-        <div className={styles.activityList}>{quickAddResults.filter((row)=>row.status==='needs_transfer').map((row)=><div className={styles.activityRow} key={row.laborer_id}><div><strong>{row.name}</strong><small>موجود لدى مقاول آخر</small></div><button type="button" className="btn" disabled={busy===`quick-transfer:${row.laborer_id}`} onClick={()=>transferQuickCandidate(row)}>{busy===`quick-transfer:${row.laborer_id}`?'جارٍ النقل…':'نقل إلى هنا'}</button></div>)}</div>
-      </div>}
-    </ConstitutionDialog>}
 
     {editFor&&<ConstitutionDialog title={`تعديل: ${editFor.full_name}`} size="wide" onClose={()=>setEditFor(null)}>
       <form className={styles.operationForm} onSubmit={saveEdit}>

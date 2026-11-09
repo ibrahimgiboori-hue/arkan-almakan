@@ -209,11 +209,12 @@
 /* عمود محسوب (ƒ) وصف الإجمالي — مثل Total Row في إكسل */
 .cellComputed {
   padding: 8px 10px;
-  color: var(--ui-accent);
-  font-weight: 700;
+  color: var(--ui-text);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.cellComputed[data-numeric="true"] { color: var(--ui-accent); font-weight: 700; }
 .table tfoot td {
   padding: 9px 10px;
   border-top: 2px solid var(--ui-border);

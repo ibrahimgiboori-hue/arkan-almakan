@@ -8,17 +8,30 @@ import { useProjectOperationContext } from '@/lib/use-project-operation-context'
 import { projectCustodyService } from '@/lib/application/project-custody-service';
 import {
   EMPTY_PROJECT_CUSTODY_OPEN_FORM,
-  EMPTY_PROJECT_CUSTODY_TRANSACTION_FORM,
   PROJECT_CUSTODY_CHARGE_LABELS,
   PROJECT_CUSTODY_DIRECTION_LABELS,
+  createCustodyDraft,
+  custodyInflow,
+  custodyOutflow,
   projectCustodyCanSettle,
+  storedCustodyTransactionRow,
   summarizeProjectCustodyTransactions,
+  validateCustodyDrafts,
 } from '@/lib/project-custody.mjs';
+import { saveSheetRows, sheetBatchMessage } from '@/lib/sheet-batch.mjs';
+import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
 import styles from './custody.module.css';
+
+const options=(labels)=>Object.entries(labels).map(([value,label])=>({value,label}));
+const EVIDENCE_TYPES='application/pdf,image/jpeg,image/png,image/webp';
 
 function onlineNow(){return typeof navigator==='undefined'||navigator.onLine!==false;}
 
-export default function ProjectCustodyWorkspaceEngineered(){
+/**
+ * العهدة كدفتر إكسل: حركات العهدة المحفوظة مقفلة بعمودي وارد ومنصرف وإجماليهما،
+ * والحركات الجديدة تُكتب أو تُلصق تحتها (كل صف بإثباته) ثم تُحفظ مرة واحدة.
+ */
+export default function ProjectCustodyWorkspaceEngineered({service=projectCustodyService}={}){
   const {id:projectId}=useParams();
   const {date:operationDate,ready:contextReady}=useProjectOperationContext(projectId);
   const [custodies,setCustodies]=useState([]);
@@ -32,16 +45,14 @@ export default function ProjectCustodyWorkspaceEngineered(){
   const [feedback,setFeedback]=useState(null);
   const [showOpen,setShowOpen]=useState(false);
   const [settleOpen,setSettleOpen]=useState(false);
-  const [evidenceFile,setEvidenceFile]=useState(null);
   const [openingEvidenceFile,setOpeningEvidenceFile]=useState(null);
-  const [evidenceKey,setEvidenceKey]=useState(0);
   const [openingEvidenceKey,setOpeningEvidenceKey]=useState(0);
   const [openForm,setOpenForm]=useState({...EMPTY_PROJECT_CUSTODY_OPEN_FORM,opened_at:todayIsoInRiyadh()});
-  const [form,setForm]=useState({...EMPTY_PROJECT_CUSTODY_TRANSACTION_FORM,trx_date:todayIsoInRiyadh()});
+  const [drafts,setDrafts]=useState(()=>[1,2,3].map(()=>createCustodyDraft(todayIsoInRiyadh())));
 
   useEffect(()=>{
     if(!contextReady||!operationDate)return;
-    setForm((current)=>({...current,trx_date:operationDate}));
+    setDrafts((current)=>current.map((row)=>row.amount||row.beneficiary||row.notes?row:{...row,trx_date:operationDate}));
     setOpenForm((current)=>({...current,opened_at:operationDate}));
   },[contextReady,operationDate]);
 
@@ -49,7 +60,7 @@ export default function ProjectCustodyWorkspaceEngineered(){
     if(!projectId)return;
     setLoading(true);
     try{
-      const workspace=await projectCustodyService.loadWorkspace({projectId});
+      const workspace=await service.loadWorkspace({projectId});
       setCustodies(workspace.custodies);
       setEmployeeOptions(workspace.employeeOptions);
       setEmployees(workspace.employees);
@@ -60,18 +71,19 @@ export default function ProjectCustodyWorkspaceEngineered(){
       setFeedback({type:'error',text:'تعذر تحميل العهد: '+(error?.message||error)});
     }
     setLoading(false);
-  },[projectId]);
+  },[projectId,service]);
 
   const loadTransactions=useCallback(async()=>{
     if(!selectedId){setTransactions([]);return;}
     try{
-      setTransactions(await projectCustodyService.loadTransactions({custodyId:selectedId}));
+      setTransactions(await service.loadTransactions({custodyId:selectedId}));
     }catch(error){
       setFeedback({type:'error',text:'تعذر تحميل حركات العهدة: '+(error?.message||error)});
     }
-  },[selectedId]);
+  },[selectedId,service]);
 
   useEffect(()=>{load();},[load]);
+  useEffect(()=>{setDrafts([1,2,3].map(()=>createCustodyDraft(operationDate||todayIsoInRiyadh())));},[selectedId]);
   useEffect(()=>{loadTransactions();},[loadTransactions]);
 
   const selected=useMemo(()=>custodies.find((row)=>row.id===selectedId)||null,[custodies,selectedId]);
@@ -79,7 +91,7 @@ export default function ProjectCustodyWorkspaceEngineered(){
 
   async function openEvidence(path){
     try{
-      const url=await projectCustodyService.openEvidence(path);
+      const url=await service.openEvidence(path);
       if(url)window.open(url,'_blank','noopener,noreferrer');
     }catch(error){setFeedback({type:'error',text:'تعذر فتح الإثبات: '+(error?.message||error)});}
   }
@@ -89,7 +101,7 @@ export default function ProjectCustodyWorkspaceEngineered(){
     if(!openForm.employee_id)return;
     setBusy(true);setFeedback(null);
     try{
-      const result=await projectCustodyService.openCustody({
+      const result=await service.openCustody({
         projectId,
         form:openForm,
         evidenceFile:openingEvidenceFile,
@@ -106,23 +118,32 @@ export default function ProjectCustodyWorkspaceEngineered(){
     setBusy(false);
   }
 
-  async function saveTransaction(event){
-    event.preventDefault();
-    if(!selected||!Number(form.amount))return;
+  const rows=useMemo(()=>[...[...transactions].reverse().map(storedCustodyTransactionRow),...drafts],[transactions,drafts]);
+  const {ready,errors}=validateCustodyDrafts(rows);
+  const blank=()=>createCustodyDraft(operationDate||todayIsoInRiyadh());
+
+  function patchRow(key,patch){setDrafts((prev)=>prev.map((row)=>row._id===key?{...row,...patch}:row));}
+  function appendRows(patches){setDrafts((prev)=>[...prev,...patches.map((patch)=>({...blank(),...patch}))]);}
+  function removeRow(row){setDrafts((prev)=>prev.length>1?prev.filter((item)=>item._id!==row._id):[blank()]);}
+
+  async function saveSheet(){
+    if(!selected)return;
+    if(errors.length){setFeedback({type:'error',text:errors.slice(0,4).join(' ')});return;}
+    if(!ready.length)return;
     setBusy(true);setFeedback(null);
     try{
-      const result=await projectCustodyService.saveTransaction({
-        projectId,
-        custody:selected,
-        form,
-        evidenceFile,
-        online:onlineNow(),
+      const result=await saveSheetRows(ready,async(row)=>{
+        const saved=await service.saveTransaction({projectId,custody:selected,form:row,evidenceFile:row.evidenceFile||null,online:onlineNow()});
+        return {...saved,status:'verified'};
       });
-      setFeedback({type:'success',text:`تم حفظ ${PROJECT_CUSTODY_DIRECTION_LABELS[form.direction]} بمبلغ ${money(form.amount)} ر.س والتحقق منها${result.proof?.document_path?' مع الإثبات':''}.`});
-      setForm((current)=>({...current,amount:'',beneficiary:'',notes:'',trx_date:operationDate||current.trx_date}));
-      setEvidenceFile(null);setEvidenceKey((key)=>key+1);
-      await load();await loadTransactions();
-    }catch(error){setFeedback({type:'error',text:'تعذر حفظ حركة العهدة: '+(error?.message||error)});}
+      const done=new Set(result.saved.map((entry)=>entry.row._id));
+      setDrafts((prev)=>{
+        const next=prev.filter((row)=>!done.has(row._id));
+        return next.length>=2?next:[...next,...[1,2].slice(next.length).map(blank)];
+      });
+      setFeedback({type:result.failure?'error':'success',text:sheetBatchMessage(result,'حركة عهدة')});
+      if(result.saved.length){await load();await loadTransactions();}
+    }catch(error){setFeedback({type:'error',text:'تعذر حفظ حركات العهدة: '+(error?.message||error)});}
     setBusy(false);
   }
 
@@ -130,7 +151,7 @@ export default function ProjectCustodyWorkspaceEngineered(){
     if(!selected||!projectCustodyCanSettle(selected))return;
     setBusy(true);setFeedback(null);
     try{
-      await projectCustodyService.settle({custody:selected,online:onlineNow()});
+      await service.settle({custody:selected,online:onlineNow()});
       setFeedback({type:'success',text:'تمت تسوية العهدة.'});
       await load();
     }catch(error){
@@ -174,37 +195,59 @@ export default function ProjectCustodyWorkspaceEngineered(){
         <div className={styles.balance}><span>الرصيد المتبقي</span><strong>{money(selected.balance)}</strong><small>ر.س</small></div>
       </section>
 
-      <section className={styles.grid}>
-        <main className={styles.formPane}>
-          <div className={styles.sectionTitle}><div><span>NEW MOVEMENT</span><h3>حركة عهدة</h3></div>{projectCustodyCanSettle(selected)&&<button type="button" onClick={()=>setSettleOpen(true)} disabled={busy}>تسوية العهدة</button>}</div>
-          <form onSubmit={saveTransaction} className={styles.form}>
-            <label><span>نوع الحركة</span><select value={form.direction} onChange={(event)=>setForm((current)=>({...current,direction:event.target.value}))}><option value="spend">صرف من العهدة</option><option value="issue">تعزيز العهدة</option><option value="return">إرجاع متبقي</option></select></label>
-            <label><span>التاريخ</span><input type="date" value={form.trx_date} onChange={(event)=>setForm((current)=>({...current,trx_date:event.target.value}))}/></label>
-            <label><span>المبلغ</span><input required type="number" min="0.01" step="0.01" value={form.amount} onChange={(event)=>setForm((current)=>({...current,amount:event.target.value}))}/></label>
-            {form.direction==='spend'&&<>
-              <label><span>التصنيف</span><input value={form.category} onChange={(event)=>setForm((current)=>({...current,category:event.target.value}))}/></label>
-              <label className={styles.wide}><span>البيان / المستفيد</span><input required value={form.beneficiary} onChange={(event)=>setForm((current)=>({...current,beneficiary:event.target.value}))} placeholder="مثال: إيجار معدات الموقع"/></label>
-              <label><span>على من؟</span><select value={form.charge_to} onChange={(event)=>setForm((current)=>({...current,charge_to:event.target.value,contractor_id:event.target.value==='contractor'?current.contractor_id:''}))}>{Object.entries(PROJECT_CUSTODY_CHARGE_LABELS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-              {form.charge_to==='contractor'&&<label><span>المقاول</span><select required value={form.contractor_id} onChange={(event)=>setForm((current)=>({...current,contractor_id:event.target.value}))}><option value="">اختر المقاول</option>{contractors.map((contractor)=><option key={contractor.id} value={contractor.id}>{contractor.operation_alias||contractor.name_ar}</option>)}</select></label>}
-            </>}
-            <label className={styles.wide}><span>ملاحظة</span><input value={form.notes} onChange={(event)=>setForm((current)=>({...current,notes:event.target.value}))} placeholder="اختياري"/></label>
-            <label className={styles.fileField}><span>الإثبات</span><input key={evidenceKey} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event)=>setEvidenceFile(event.target.files?.[0]||null)}/><small>فاتورة، سند أو صورة أصلية بدون ضغط.</small></label>
-            <button className={styles.primary} disabled={busy||selected.status!=='open'}>{busy?'جارٍ الحفظ…':'حفظ الحركة'}</button>
-          </form>
-          <div className={styles.purpose}><span>الغرض من العهدة</span><p>{selected.purpose||'غير محدد'}</p><small>افتتحت في {selected.opened_at} · الحالة: {selected.status==='open'?'مفتوحة':selected.status==='settled'?'مسوّاة':'مغلقة'}</small></div>
-        </main>
-
-        <aside className={styles.history}>
-          <div className={styles.historyHead}><div><span>LEDGER</span><h3>سجل الحركات</h3></div><strong>{transactions.length}</strong></div>
-          <div className={styles.list}>{transactions.map((row)=><div className={styles.row} key={row.id}>
-            <div className={styles.rowMain}><span className={`${styles.dot} ${styles[`dot_${row.direction}`]||''}`}></span><div><strong>{PROJECT_CUSTODY_DIRECTION_LABELS[row.direction]||row.direction}</strong><small>{row.category||row.beneficiary||row.notes||'—'} · {row.trx_date}</small></div></div>
-            <div className={styles.rowActions}>
-              {row.document_path&&<button className={styles.evidenceButton} type="button" onClick={()=>openEvidence(row.document_path)}>الإثبات</button>}
-              <div className={styles.rowAmount}><strong>{money(row.amount)}</strong><small>{row.charge_to?PROJECT_CUSTODY_CHARGE_LABELS[row.charge_to]:'ر.س'}</small></div>
-            </div>
-          </div>)}</div>
-        </aside>
+      <section className={styles.sheetHead}>
+        <div className={styles.sectionTitle}>
+          <div><span>CUSTODY LEDGER · SHEET</span><h3>دفتر العهدة</h3><small>{selected.purpose||'غرض غير محدد'} · افتتحت في {selected.opened_at} · {selected.status==='open'?'مفتوحة':selected.status==='settled'?'مسوّاة':'مغلقة'}</small></div>
+          {projectCustodyCanSettle(selected)&&<button type="button" onClick={()=>setSettleOpen(true)} disabled={busy}>تسوية العهدة</button>}
+        </div>
       </section>
+
+      <RawGrid
+        columns={[
+          {key:'_index',label:'#',type:'index',render:(row)=>rows.indexOf(row)+1},
+          {key:'_status',label:'الحالة',type:'badge',text:(row)=>row.persisted?'محفوظ':'جديد',tone:(row)=>row.persisted?'saved':'new'},
+          {key:'direction',label:'نوع الحركة',type:'select',minWidth:150,options:options(PROJECT_CUSTODY_DIRECTION_LABELS),
+            onChange:(row,value)=>({direction:value,...(value==='spend'?{}:{charge_to:'arkan',contractor_id:''})})},
+          {key:'trx_date',label:'التاريخ',type:'date'},
+          {key:'amount',label:'المبلغ',type:'number',min:0,step:0.01},
+          {key:'_in',label:'وارد',type:'computed',numeric:true,formula:'المبلغ إذا كانت الحركة تعزيزًا للعهدة',compute:custodyInflow,format:(value)=>value===null?null:money(value),total:'sum'},
+          {key:'_out',label:'منصرف',type:'computed',numeric:true,formula:'المبلغ إذا كانت الحركة صرفًا أو إرجاعًا',compute:custodyOutflow,format:(value)=>value===null?null:money(value),total:'sum'},
+          {key:'category',label:'التصنيف',type:'text',minWidth:130,visible:(row)=>row.direction==='spend'},
+          {key:'beneficiary',label:'البيان / المستفيد',type:'text',minWidth:200,visible:(row)=>row.direction==='spend',placeholder:'مثال: إيجار معدات الموقع'},
+          {key:'charge_to',label:'على من؟',type:'select',minWidth:110,visible:(row)=>row.direction==='spend',options:options(PROJECT_CUSTODY_CHARGE_LABELS),
+            onChange:(row,value)=>({charge_to:value,contractor_id:value==='contractor'?row.contractor_id:''})},
+          {key:'contractor_id',label:'المقاول',type:'select',minWidth:170,emptyOption:'اختر المقاول',visible:(row)=>row.direction==='spend'&&row.charge_to==='contractor',
+            options:contractors.map((contractor)=>({value:contractor.id,label:contractor.operation_alias||contractor.name_ar}))},
+          {key:'notes',label:'ملاحظة',type:'text',minWidth:160,placeholder:'اختياري'},
+          {key:'_evidence',label:'الإثبات',type:'custom',minWidth:150,render:(row,{disabled})=>row.persisted
+            ?(row.document_path?<button className={styles.evidenceButton} type="button" onClick={()=>openEvidence(row.document_path)}>الإثبات</button>:<span aria-hidden="true">—</span>)
+            :<label className={styles.evidencePick} title="فاتورة، سند أو صورة أصلية بدون ضغط">
+              <input type="file" accept={EVIDENCE_TYPES} disabled={disabled} onChange={(event)=>patchRow(row._id,{evidenceFile:event.target.files?.[0]||null})}/>
+              <span>{row.evidenceFile?row.evidenceFile.name:'إرفاق'}</span>
+            </label>},
+          {key:'_action',label:'إجراء',type:'action',render:(row,{disabled})=>row.persisted
+            ?<span aria-hidden="true">—</span>
+            :<button type="button" className={rawGridStyles.actionButton} onClick={()=>removeRow(row)} disabled={disabled}>×</button>},
+        ]}
+        rows={rows}
+        rowKey={(row)=>row._id}
+        savedFlag={(row)=>row.persisted}
+        rowDisabled={(row)=>row.persisted||selected.status!=='open'}
+        onPatchRow={patchRow}
+        onAppendRows={appendRows}
+        busy={busy}
+      />
+
+      <RawGridFooter
+        actions={<>
+          <button type="button" className={rawGridStyles.plainButton} onClick={()=>setDrafts((prev)=>[...prev,...[1,2,3].map(blank)])} disabled={busy||selected.status!=='open'}>+ 3 صفوف</button>
+          <button type="button" className={rawGridStyles.plainButton} onClick={()=>{setDrafts([1,2,3].map(blank));loadTransactions();}} disabled={busy}>إعادة تحميل الدفتر</button>
+        </>}
+        summary={<>
+          <strong>{selected.status!=='open'?'العهدة غير مفتوحة — الدفتر للقراءة':`جاهز للحفظ: ${ready.length} حركة${errors.length?` · ${errors.length} ناقصة`:''}`}</strong>
+          <button className={rawGridStyles.primaryButton} type="button" onClick={saveSheet} disabled={busy||selected.status!=='open'||(!ready.length&&!errors.length)}>{busy?'جارٍ الحفظ…':'حفظ حركات العهدة'}</button>
+        </>}
+      />
     </>}
 
     {settleOpen&&<ConstitutionDialog title="تسوية العهدة" description="سيتم تغيير حالة العهدة إلى «مسوّاة». لا تُنفذ العملية إلا إذا كان الرصيد صفرًا." size="compact" onClose={()=>!busy&&setSettleOpen(false)}>
