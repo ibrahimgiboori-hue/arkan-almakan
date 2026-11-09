@@ -81,6 +81,22 @@ for (const dead of ['app/dashboard/timesheet/[id]/page.js', 'app/dashboard/times
   if (fs.existsSync(path.join(root, dead))) fail(`عادت واجهة موازية متقاعدة: ${dead}`);
 }
 
+// 7) No visible link or button still sends people to a retired route.
+const RETIRED_TARGET = /(href=\{?|push\(|href:)\s*['"`]\/dashboard\/(labor|timesheet|expenses|my-work\/approvals|site-operations)(['"`/?$])/;
+const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((entry) => {
+  const relative = path.join(dir, entry.name);
+  if (entry.isDirectory()) return /node_modules|\.next|zz-/.test(relative) ? [] : walk(relative);
+  return /\.(js|jsx|mjs)$/.test(entry.name) ? [relative] : [];
+});
+for (const file of [...walk('app'), ...walk('components')]) {
+  const posix = file.replaceAll(path.sep, '/');
+  // Retired routes themselves and the hidden legacy operations area (reachable only by old URLs) are exempt.
+  if (Object.keys(RETIRED).includes(posix) || posix.startsWith('app/dashboard/site-operations/')) continue;
+  read(file).split('\n').forEach((line, index) => {
+    if (RETIRED_TARGET.test(line) && !/hidden:\s*true/.test(line)) fail(`${file}:${index + 1} يرسل المستخدم إلى مسار متقاعد — اربطه بمدخل الوظيفة الوحيد.`);
+  });
+}
+
 if (failures.length) {
   console.error('\nSingle-entry audit failed:\n');
   failures.forEach((item) => console.error(`- ${item}`));

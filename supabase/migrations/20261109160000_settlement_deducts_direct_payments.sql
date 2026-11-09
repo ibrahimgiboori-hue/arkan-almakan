@@ -1,5 +1,5 @@
 -- Contractor settlement: deduct the direct payments made to the contractor in the period.
--- STATUS: PROPOSED — apply only after the owner approves it.
+-- STATUS: APPLIED 2026-11-09 (owner approved: «طبق»). Verified first in a rolled-back transaction on the live database.
 --
 -- The owner's formula: works + expenses the contractor paid for Arkan − what Arkan paid to/for him
 -- (direct payments and custody spends charged to him) − advances and deductions = net payable.

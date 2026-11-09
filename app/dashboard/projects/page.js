@@ -35,6 +35,7 @@ export default function Projects(){
   const [registryOpen,setRegistryOpen]=useState(false);
   const [err,setErr]=useState('');
   const [busy,setBusy]=useState(false);
+  const [draft,setDraft]=useState(null); // {name, city} while «مشروع جديد» is open
 
   const canCreate=canUseCapability(session,'projects.projects.create','all');
 
@@ -54,11 +55,15 @@ export default function Projects(){
   useEffect(()=>{load();},[]);
   useLiveRefresh(load,['all']);
 
-  async function createProject(){
+  // مشروع جديد = سطر واحد: الاسم (والمدينة إن وُجدت) ثم إنشاء — لا سجل باسم مؤقت يبقى إذا أُغلقت الصفحة.
+  async function createProject(event){
+    event?.preventDefault?.();
+    const name=String(draft?.name||'').trim();
+    if(!name){setErr('اكتب اسم المشروع.');return;}
     setErr('');setBusy(true);
     const {data:number,error:numberError}=await supabase.rpc('next_document_number',{p_doc_type:'PROJECT',p_prefix:'PRJ'});
     if(numberError){setErr('تعذّر توليد رقم المشروع: '+numberError.message);setBusy(false);return;}
-    const {data,error}=await supabase.from('projects').insert({project_no:number,name_ar:'مشروع جديد',stage:'opportunity',status:'active',supply_scope:'labor_only'}).select('id').single();
+    const {data,error}=await supabase.from('projects').insert({project_no:number,name_ar:name,city:String(draft?.city||'').trim()||null,stage:'opportunity',status:'active',supply_scope:'labor_only'}).select('id').single();
     setBusy(false);
     if(error){setErr('تعذّر إنشاء المشروع: '+error.message);return;}
     router.push(`/dashboard/projects/${data.id}?view=settings`);
@@ -122,7 +127,16 @@ export default function Projects(){
       eyebrow="بوابة المشاريع"
       title="المشاريع"
       description="ابدأ بالمشاريع التي يجري تنفيذها الآن. السجل الكامل والأعمال غير الجارية تبقى في طبقة ثانية عند الحاجة."
-      actions={canCreate?<Toolbar><button className="btn" onClick={createProject} disabled={busy}>{busy?'جارٍ الإنشاء…':'مشروع جديد'}</button></Toolbar>:null}
+      actions={canCreate?<Toolbar>
+        {draft
+          ? <form onSubmit={createProject} style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}} aria-label="مشروع جديد">
+              <input autoFocus value={draft.name} onChange={(event)=>setDraft({...draft,name:event.target.value})} placeholder="اسم المشروع" aria-label="اسم المشروع" required/>
+              <input value={draft.city} onChange={(event)=>setDraft({...draft,city:event.target.value})} placeholder="المدينة (اختياري)" aria-label="المدينة"/>
+              <button className="btn" type="submit" disabled={busy||!draft.name.trim()}>{busy?'جارٍ الإنشاء…':'إنشاء وفتح المشروع'}</button>
+              <button className="btn ghost" type="button" onClick={()=>setDraft(null)} disabled={busy}>إلغاء</button>
+            </form>
+          : <button className="btn" onClick={()=>setDraft({name:'',city:''})}>مشروع جديد</button>}
+      </Toolbar>:null}
     />
 
     {err&&<Notice tone="error">{err}</Notice>}

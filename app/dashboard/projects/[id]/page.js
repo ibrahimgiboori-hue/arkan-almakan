@@ -20,6 +20,11 @@ import ProjClaims from '@/components/ProjClaims';
 import ProjDocs from '@/components/ProjDocs';
 import ProjGuarantees from '@/components/ProjGuarantees';
 
+// كم حقلًا معبأً في قسم من بيانات المشروع (صفر = القسم مطوي).
+function filledCount(project, keys) {
+  return keys.filter((key) => project?.[key] !== null && project?.[key] !== undefined && project?.[key] !== '').length;
+}
+
 export default function ProjectCard() {
   const { id } = useParams();
   const searchParams = useSearchParams();
@@ -359,8 +364,10 @@ export default function ProjectCard() {
             </div>
           </fieldset>
 
+          {/* قسم اختياري: يُطوى ما دام فارغًا حتى تبقى الصفحة قصيرة، ويُفتح وحده إذا كان فيه بيانات. */}
+          <details className="project-settings-group" open={filledCount(p,['originator_id','supervisor_id'])>0}>
+            <summary>الفريق<small>{filledCount(p,['originator_id','supervisor_id'])?` · ${filledCount(p,['originator_id','supervisor_id'])} معبأ`:' · اختياري — اضغط لإضافة البيانات'}</small></summary>
           <fieldset disabled={!canWrite}>
-            <legend>الفريق</legend>
             <div className="form-grid">
               <div className="field">
                 <label>جالب المشروع</label>
@@ -380,9 +387,12 @@ export default function ProjectCard() {
               </div>
             </div>
           </fieldset>
+          </details>
 
+          {/* قسم اختياري: يُطوى ما دام فارغًا حتى تبقى الصفحة قصيرة، ويُفتح وحده إذا كان فيه بيانات. */}
+          <details className="project-settings-group" open={filledCount(p,['signed_date','commencement_date','duration_days','delay_penalty_text','delay_penalty_daily'])>0}>
+            <summary>العقد والمدد<small>{filledCount(p,['signed_date','commencement_date','duration_days','delay_penalty_text','delay_penalty_daily'])?` · ${filledCount(p,['signed_date','commencement_date','duration_days','delay_penalty_text','delay_penalty_daily'])} معبأ`:' · اختياري — اضغط لإضافة البيانات'}</small></summary>
           <fieldset disabled={!canWrite}>
-            <legend>العقد والمدد</legend>
             <div className="form-grid">
               <div className="field">
                 <label>تاريخ التوقيع</label>
@@ -413,9 +423,12 @@ export default function ProjectCard() {
               </div>
             </div>
           </fieldset>
+          </details>
 
+          {/* قسم اختياري: يُطوى ما دام فارغًا حتى تبقى الصفحة قصيرة، ويُفتح وحده إذا كان فيه بيانات. */}
+          <details className="project-settings-group" open={filledCount(p,['advance_pct','advance_amount','retention_pct','payment_terms_days','claim_basis','notes'])>0}>
+            <summary>الشروط المالية<small>{filledCount(p,['advance_pct','advance_amount','retention_pct','payment_terms_days','claim_basis','notes'])?` · ${filledCount(p,['advance_pct','advance_amount','retention_pct','payment_terms_days','claim_basis','notes'])} معبأ`:' · اختياري — اضغط لإضافة البيانات'}</small></summary>
           <fieldset disabled={!canWrite}>
-            <legend>الشروط المالية</legend>
             <div className="form-grid">
               <div className="field">
                 <label>الدفعة المقدمة (نسبة)</label>
@@ -458,6 +471,7 @@ export default function ProjectCard() {
               </div>
             </div>
           </fieldset>
+          </details>
         </div>
       )}
     </>
