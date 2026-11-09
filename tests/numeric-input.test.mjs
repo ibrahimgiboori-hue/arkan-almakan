@@ -56,14 +56,14 @@ test('zero is a real value and is distinguished from empty', () => {
   assert.deepEqual(numericDraftNeedsWrite('', 0), { write:true, valid:true, value:null });
 });
 
-test('the scope table cannot reintroduce per-keystroke numeric writes', () => {
+test('the scope sheet writes a cell once when it is committed, never per keystroke', () => {
   const scope = read('components/ProjScope.js');
+  // Typing only stages the edit locally; the write happens when the cell is left (onCommit) or a paste is applied.
+  assert.match(scope, /onPatchRow=\{stageEdit\}/);
+  assert.match(scope, /onPatchRows=\{saveRows\}/);
+  const stage = scope.slice(scope.indexOf('function stageEdit('), scope.indexOf('function commitRow('));
+  assert.equal(stage.includes('projectScopeService'), false, 'a keystroke must not reach the service');
   for (const field of ['contract_qty', 'sell_price', 'budget_cost']) {
-    assert.equal(
-      new RegExp(`onChange=\\{\\(e\\)=>upd\\(l\\.id,\\{${field}:`).test(scope),
-      false,
-      `${field} must commit through NumericField, not on every keystroke`,
-    );
+    assert.match(scope, new RegExp(`key:'${field}'[^\\n]*onCommit:commitRow`), `${field} must commit on leaving the cell`);
   }
-  assert.equal(scope.includes("import NumericField from '@/components/NumericField'"), true);
 });

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { money, todayIsoInRiyadh } from '@/lib/format';
 import { ITEM_EXECUTION_AR, ITEM_EXECUTION_CLASS, MODE_AR, itemExecutionState } from '@/lib/projects';
 import { projectScopeService } from '@/lib/application/project-scope-service';
@@ -13,7 +13,7 @@ import {
   summarizeProjectScope,
 } from '@/lib/project-scope.mjs';
 import ItemBudget from '@/components/ItemBudget';
-import NumericField from '@/components/NumericField';
+import RawGrid from '@/components/ui/RawGrid';
 import ConstitutionDialog from '@/components/ui/ConstitutionDialog';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import styles from './proj-scope.module.css';
@@ -41,6 +41,8 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
   const [d, setD] = useState({});
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
+  // Keystrokes stay local until the cell is left (one write per committed cell, never per keystroke).
+  const pendingEditsRef = useRef(new Map());
 
   async function load() {
     setErr('');
@@ -106,6 +108,59 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
       setErr('تعذّر الحفظ: ' + (error?.message || error));
       await load();
     }
+  }
+
+  function stageEdit(id, patch) {
+    setItems((current) => (current || []).map((x) => x.id === id ? { ...x, ...patch } : x));
+    pendingEditsRef.current.set(id, { ...(pendingEditsRef.current.get(id) || {}), ...patch });
+  }
+
+  function commitRow(row) {
+    const fields = pendingEditsRef.current.get(row.id);
+    if (!fields) return;
+    pendingEditsRef.current.delete(row.id);
+    upd(row.id, fields);
+  }
+
+  // Paste, fill-down and clear arrive as committed values for many rows: write them, recalculate once.
+  async function saveRows(list) {
+    if (!list.length) return;
+    setErr('');
+    setItems((current) => (current || []).map((x) => {
+      const hit = list.find((entry) => entry.key === x.id);
+      return hit ? { ...x, ...hit.patch } : x;
+    }));
+    try {
+      for (const { key, patch } of list) {
+        pendingEditsRef.current.delete(key);
+        const saved = await projectScopeService.updateItem({ itemId:key, fields:patch });
+        setItems((current) => (current || []).map((x) => x.id === key ? { ...x, ...saved } : x));
+      }
+      if (list.some(({ patch }) => projectScopePatchNeedsCalculation(patch))) await refreshCalc();
+      notifyChange('scope');
+      onChange?.();
+    } catch (error) {
+      setErr('تعذّر حفظ اللصق: ' + (error?.message || error));
+      await load();
+    }
+  }
+
+  // Rows pasted past the last line become new items at the end of the scope.
+  async function appendPastedItems(patches) {
+    setErr('');
+    let added = 0;
+    try {
+      for (const patch of patches) {
+        const created = await projectScopeService.addLine({ projectId, kind:'item' });
+        await projectScopeService.updateItem({ itemId:created.id, fields:patch });
+        added += 1;
+      }
+      setMsg(`أُضيف ${added} بندًا من اللصق.`);
+    } catch (error) {
+      setErr(`أُضيف ${added} بندًا ثم تعذّر الباقي: ` + (error?.message || error));
+    }
+    await load();
+    notifyChange('scope');
   }
 
   async function refreshCalc() {
@@ -278,6 +333,30 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
     await load(); notifyChange('exec'); onChange?.();
   }
 
+  function renderExecution(l) {
+    const list = execsOf(l.id);
+    const current = projectScopeCurrentAssignment(execs,l.id);
+    const state = itemExecutionState(current);
+    const contractor = current ? cons.find((x)=>x.id===current.contractor_id) : null;
+    const bd = buds.find((x)=>x.project_item_id===l.id);
+    const t = totOf(l.id);
+    const ac = current ? actOf(current.id) : {};
+    return (
+      <div className={styles.executionSummary}>
+        <div className={styles.executionTop}>
+          <span className={`pill ${ITEM_EXECUTION_CLASS[state] || ''}`}>{ITEM_EXECUTION_AR[state] || state}</span>
+          {bd && <span className={`pill ${bd.over_budget ? 'bad' : 'ok'}`}>هامش {(Number(bd.actual_margin||0)*100).toFixed(0)}%</span>}
+        </div>
+        {current ? <>
+          <div className={styles.executionName}>{contractor?.name_ar || 'منفّذ غير محدد'}{list.length>1 ? ` · ${list.length} إسنادات` : ''}</div>
+          <div className={styles.executionMeta}>{MODE_AR[current.mode] || current.mode || '—'}{current.share_qty ? ` · ${Number(current.share_qty).toLocaleString('en-US')} ${l.unit || ''}` : ''}</div>
+          {Number(ac.actual_output||0)>0 && <div className={styles.executionMeta}>منفذ فعليًا {Number(ac.actual_output||0).toLocaleString('en-US')} {l.unit || ''} · {money(ac.actual_cost||0)}</div>}
+        </> : <div className={styles.emptyExecution}>لم يُسند منفّذ لهذا البند بعد.</div>}
+        {list.length>0 && <div className={styles.executionMeta}>المتبقي {Number(t.qty_remaining||0).toLocaleString('en-US')} {l.unit || ''}</div>}
+      </div>
+    );
+  }
+
   if (!items) return <div className="empty">جارٍ التحميل…</div>;
 
   const numbered = numberProjectScopeItems(items);
@@ -307,95 +386,46 @@ export default function ProjScope({ projectId, canWrite, onChange }) {
         </div>
       )}
 
-      <div className={styles.tableFrame}>
-        <table className={styles.table}>
-<thead>
-  <tr>
-    <th className={styles.numberCol}>م</th>
-    <th>بيان الأعمال</th>
-    <th className={styles.unitCol}>الوحدة</th>
-    <th className={styles.qtyCol}>الكمية</th>
-    <th className={styles.moneyCol}>فئة البيع</th>
-    <th className={styles.moneyCol}>تكلفة مخططة</th>
-    <th className={styles.valueCol}>قيمة البند</th>
-    <th className={styles.executionCol}>التنفيذ</th>
-    <th className={styles.actionCol}>إدارة</th>
-  </tr>
-</thead>
-<tbody>
-  {numbered.map((l) => {
-    if (l.kind === 'title') return (
-      <tr key={l.id} className={styles.titleRow}>
-        <td className="mono" style={{fontWeight:800,color:'var(--maroon-dark)'}}>{l.number}</td>
-        <td colSpan={7}>
-          <input
-            key={`${l.id}:${l.description_ar || ''}`}
-            defaultValue={l.description_ar || ''}
-            disabled={!canWrite}
-            className={styles.titleInput}
-            onBlur={(e)=>{ if (e.target.value !== (l.description_ar || '')) upd(l.id,{description_ar:e.target.value}); }}
-          />
-        </td>
-        <td className={styles.actionCell}>{canWrite && <button className="btn ghost" onClick={()=>setManageFor(l)}>إدارة</button>}</td>
-      </tr>
-    );
-
-    const list = execsOf(l.id);
-    const current = projectScopeCurrentAssignment(execs,l.id);
-    const state = itemExecutionState(current);
-    const contractor = current ? cons.find((x)=>x.id===current.contractor_id) : null;
-    const bd = buds.find((x)=>x.project_item_id===l.id);
-    const t = totOf(l.id);
-    const ac = current ? actOf(current.id) : {};
-
-    return (
-      <tr key={l.id}>
-        <td className="mono">{l.number}</td>
-        <td>
-          <textarea
-            key={`${l.id}:${l.description_ar || ''}`}
-            rows="1"
-            defaultValue={l.description_ar || ''}
-            disabled={!canWrite}
-            className={styles.textInput}
-            onBlur={(e)=>{ if (e.target.value !== (l.description_ar || '')) upd(l.id,{description_ar:e.target.value}); }}
-          />
-        </td>
-        <td>
-          <input
-            key={`${l.id}:${l.unit || ''}`}
-            defaultValue={l.unit || ''}
-            disabled={!canWrite}
-            className={styles.unitInput}
-            onBlur={(e)=>{ if (e.target.value !== (l.unit || '')) upd(l.id,{unit:e.target.value}); }}
-          />
-        </td>
-        <td><NumericField type="number" step="any" dir="ltr" value={l.contract_qty} disabled={!canWrite} aria-label="الكمية التعاقدية" onCommit={(v)=>upd(l.id,{contract_qty:v})} onInvalid={()=>setErr('الكمية غير صحيحة — أدخل رقمًا.')} className={styles.numeric}/></td>
-        <td><NumericField type="number" step="0.01" dir="ltr" value={l.sell_price} disabled={!canWrite} aria-label="سعر البيع" onCommit={(v)=>upd(l.id,{sell_price:v})} onInvalid={()=>setErr('سعر البيع غير صحيح — أدخل رقمًا.')} className={styles.numeric}/></td>
-        <td><NumericField type="number" step="0.01" dir="ltr" value={l.budget_cost} disabled={!canWrite} aria-label="التكلفة المخططة" onCommit={(v)=>upd(l.id,{budget_cost:v})} onInvalid={()=>setErr('التكلفة المخططة غير صحيحة — أدخل رقمًا.')} className={styles.numeric}/></td>
-        <td className="num">{money(l.contract_value)}</td>
-        <td>
-          <div className={styles.executionSummary}>
-            <div className={styles.executionTop}>
-              <span className={`pill ${ITEM_EXECUTION_CLASS[state] || ''}`}>{ITEM_EXECUTION_AR[state] || state}</span>
-              {bd && <span className={`pill ${bd.over_budget ? 'bad' : 'ok'}`}>هامش {(Number(bd.actual_margin||0)*100).toFixed(0)}٪</span>}
-            </div>
-            {current ? <>
-              <div className={styles.executionName}>{contractor?.name_ar || 'منفّذ غير محدد'}{list.length>1 ? ` · ${list.length} إسنادات` : ''}</div>
-              <div className={styles.executionMeta}>{MODE_AR[current.mode] || current.mode || '—'}{current.share_qty ? ` · ${Number(current.share_qty).toLocaleString('en-US')} ${l.unit || ''}` : ''}</div>
-              {Number(ac.actual_output||0)>0 && <div className={styles.executionMeta}>منفذ فعليًا {Number(ac.actual_output||0).toLocaleString('en-US')} {l.unit || ''} · {money(ac.actual_cost||0)}</div>}
-            </> : <div className={styles.emptyExecution}>لم يُسند منفّذ لهذا البند بعد.</div>}
-            {list.length>0 && <div className={styles.executionMeta}>المتبقي {Number(t.qty_remaining||0).toLocaleString('en-US')} {l.unit || ''}</div>}
-          </div>
-        </td>
-        <td className={styles.actionCell}>{canWrite && <button className={`btn ghost ${styles.manageButton}`} onClick={()=>setManageFor(l)}>إدارة</button>}</td>
-      </tr>
-    );
-  })}
-  {items.length === 0 && <tr><td colSpan={9}><div className="empty"><h3>لا توجد بنود</h3><p>أضف بندًا أو عنوان قسم من الشريط أعلى الجدول.</p></div></td></tr>}
-</tbody>
-        </table>
-      </div>
+      <RawGrid
+        rows={numbered}
+        rowKey={(l)=>l.id}
+        rowKind={(l)=>l.kind}
+        savedFlag={()=>true}
+        rowDisabled={()=>!canWrite}
+        onPatchRow={stageEdit}
+        onPatchRows={saveRows}
+        onAppendRows={canWrite ? appendPastedItems : undefined}
+        emptyMessage="لا توجد بنود — أضف بندًا أو عنوان قسم من الشريط أعلاه، أو الصق جدول الكميات من إكسل بعد إضافة أول بند."
+        columns={[
+          { key:'_number', label:'م', type:'index', render:(l)=>l.number },
+          { key:'description_ar', label:'بيان الأعمال', type:'text', minWidth:320, placeholder:'بيان البند', onCommit:commitRow },
+          { key:'unit', label:'الوحدة', type:'text', minWidth:80, visible:(l)=>l.kind==='item', placeholderWhenHidden:'', onCommit:commitRow },
+          { key:'contract_qty', label:'الكمية', type:'number', step:'any', visible:(l)=>l.kind==='item', placeholderWhenHidden:'', onCommit:commitRow },
+          { key:'sell_price', label:'فئة البيع', type:'number', step:0.01, visible:(l)=>l.kind==='item', placeholderWhenHidden:'', onCommit:commitRow },
+          { key:'budget_cost', label:'تكلفة الوحدة المخططة', type:'number', step:0.01, visible:(l)=>l.kind==='item', placeholderWhenHidden:'', onCommit:commitRow },
+          {
+            key:'_value', label:'قيمة البند', type:'computed', numeric:true, total:'sum', formula:'الكمية × فئة البيع',
+            compute:(l)=>l.kind!=='item' ? null : (l.contract_qty!==''&&l.contract_qty!=null&&l.sell_price!==''&&l.sell_price!=null ? Math.round(Number(l.contract_qty)*Number(l.sell_price)*100)/100 : Number(l.contract_value||0)),
+            format:(v)=>v==null ? null : money(v),
+          },
+          {
+            key:'_budget', label:'التكلفة المخططة', type:'computed', numeric:true, total:'sum', formula:'الكمية × تكلفة الوحدة المخططة',
+            compute:(l)=>l.kind!=='item' ? null : (l.contract_qty!==''&&l.contract_qty!=null&&l.budget_cost!==''&&l.budget_cost!=null ? Math.round(Number(l.contract_qty)*Number(l.budget_cost)*100)/100 : Number(l.budget_value||0)),
+            format:(v)=>v==null ? null : money(v),
+          },
+          {
+            key:'_margin', label:'الهامش', type:'computed', numeric:true, total:'sum', formula:'قيمة البند − التكلفة المخططة',
+            compute:(l)=>{
+              if (l.kind!=='item') return null;
+              const qty=Number(l.contract_qty||0);
+              return Math.round((qty*Number(l.sell_price||0)-qty*Number(l.budget_cost||0))*100)/100;
+            },
+            format:(v)=>v==null ? null : money(v),
+          },
+          { key:'_execution', label:'التنفيذ', type:'custom', minWidth:220, render:(l)=>l.kind==='item' ? renderExecution(l) : null },
+          { key:'_manage', label:'إدارة', type:'action', render:(l)=>canWrite ? <button className={`btn ghost ${styles.manageButton}`} onClick={()=>setManageFor(l)}>إدارة</button> : null },
+        ]}
+      />
 
       {manageFor && (
         <ConstitutionDialog
