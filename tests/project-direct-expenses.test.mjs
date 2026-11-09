@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  directExpenseLineTotal,
   DIRECT_EXPENSE_VALIDATION,
   DirectExpenseValidationError,
   createDirectExpenseDraft,
@@ -31,7 +32,7 @@ test('serializes only persistence-owned direct expense fields',()=>{
     project_item_id:'',paid_by_employee_id:'employee-should-not-persist',is_recoverable:true,
   },'2026-09-12');
   assert.deepEqual(payload,{
-    expense_date:'2026-09-12',amount:50.25,notes:'وقود',category:'وقود',payer:'contractor',charge_to:'contractor',
+    expense_date:'2026-09-12',amount:50.25,quantity:null,unit_price:null,notes:'وقود',category:'وقود',payer:'contractor',charge_to:'contractor',
     project_item_id:null,paid_by_employee_id:null,is_recoverable:false,
   });
 });
@@ -76,4 +77,21 @@ test('duplicate seed carries classification context but not amount or descriptio
   const draft=createDirectExpenseDraft('2026-09-12',seed,idFactory);
   assert.equal(draft.amount,'');
   assert.equal(draft.notes,'');
+});
+
+test('quantity × unit price is the line total, typed amount is used only without them',()=>{
+  const line={expense_date:'2026-11-09',quantity:'3',unit_price:'400',amount:'1',notes:'إيجار سقالات',payer:'contractor'};
+  assert.equal(directExpenseLineTotal(line),1200);
+  assert.equal(directExpenseLineTotal({amount:'150'}),150);
+  const payload=directExpensePayload(line,'2026-11-09');
+  assert.equal(payload.amount,1200);
+  assert.equal(payload.quantity,3);
+  assert.equal(payload.unit_price,400);
+  // clearing both on a saved line sends nulls, so the database keeps the typed amount instead of the old pair
+  const cleared=directExpensePayload({amount:'90',quantity:'',unit_price:'',notes:'x'},'2026-11-09');
+  assert.deepEqual([cleared.amount,cleared.quantity,cleared.unit_price],[90,null,null]);
+  assert.throws(()=>validateDirectExpenseGrid([{quantity:'2',unit_price:'',notes:'نصف زوج'}]),(error)=>error.code===DIRECT_EXPENSE_VALIDATION.QUANTITY_PRICE_PAIR);
+  const summary=summarizeDirectExpenseGrid([{persisted:true,quantity:'2',unit_price:'50',amount:'100',notes:'أ'},{persisted:false,quantity:'4',unit_price:'25',notes:'ب'}]);
+  assert.equal(summary.savedTotal,100);
+  assert.equal(summary.currentGridTotal,200);
 });
