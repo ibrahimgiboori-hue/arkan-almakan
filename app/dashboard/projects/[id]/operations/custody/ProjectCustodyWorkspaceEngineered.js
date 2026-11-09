@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import ConstitutionDialog from '@/components/ui/ConstitutionDialog';
 import { money, todayIsoInRiyadh } from '@/lib/format';
 import { useProjectOperationContext } from '@/lib/use-project-operation-context';
+import { projectLedgerMatches } from '@/lib/project-operation-context.mjs';
+import ProjectLedgerFilterBar from '@/components/project/ProjectLedgerFilterBar';
 import { projectCustodyService } from '@/lib/application/project-custody-service';
 import {
   EMPTY_PROJECT_CUSTODY_OPEN_FORM,
@@ -33,7 +35,8 @@ function onlineNow(){return typeof navigator==='undefined'||navigator.onLine!==f
  */
 export default function ProjectCustodyWorkspaceEngineered({service=projectCustodyService}={}){
   const {id:projectId}=useParams();
-  const {date:operationDate,ready:contextReady}=useProjectOperationContext(projectId);
+  const operationContext=useProjectOperationContext(projectId);
+  const {date:operationDate,from,to,search,ready:contextReady}=operationContext;
   const [custodies,setCustodies]=useState([]);
   const [selectedId,setSelectedId]=useState('');
   const [transactions,setTransactions]=useState([]);
@@ -118,7 +121,11 @@ export default function ProjectCustodyWorkspaceEngineered({service=projectCustod
     setBusy(false);
   }
 
-  const rows=useMemo(()=>[...[...transactions].reverse().map(storedCustodyTransactionRow),...drafts],[transactions,drafts]);
+  // One continuous custody ledger: the shared period and search decide which saved movements show.
+  const savedRows=useMemo(()=>[...transactions].reverse().map(storedCustodyTransactionRow)
+    .filter((row)=>(!from||row.trx_date>=from)&&(!to||row.trx_date<=to))
+    .filter((row)=>projectLedgerMatches(search,row.category,row.beneficiary,row.notes,PROJECT_CUSTODY_DIRECTION_LABELS[row.direction])),[transactions,from,to,search]);
+  const rows=useMemo(()=>[...savedRows,...drafts],[savedRows,drafts]);
   const {ready,errors}=validateCustodyDrafts(rows);
   const blank=()=>createCustodyDraft(operationDate||todayIsoInRiyadh());
 
@@ -195,9 +202,11 @@ export default function ProjectCustodyWorkspaceEngineered({service=projectCustod
         <div className={styles.balance}><span>الرصيد المتبقي</span><strong>{money(selected.balance)}</strong><small>ر.س</small></div>
       </section>
 
+      <ProjectLedgerFilterBar context={operationContext} showContractor={false} searchPlaceholder="البيان أو المستفيد أو التصنيف"/>
+
       <section className={styles.sheetHead}>
         <div className={styles.sectionTitle}>
-          <div><span>CUSTODY LEDGER · SHEET</span><h3>دفتر العهدة</h3><small>{selected.purpose||'غرض غير محدد'} · افتتحت في {selected.opened_at} · {selected.status==='open'?'مفتوحة':selected.status==='settled'?'مسوّاة':'مغلقة'}</small></div>
+          <div><span>CUSTODY LEDGER · SHEET</span><h3>دفتر العهدة</h3><small>{selected.purpose||'غرض غير محدد'} · افتتحت في {selected.opened_at} · {selected.status==='open'?'مفتوحة':selected.status==='settled'?'مسوّاة':'مغلقة'} · يظهر {savedRows.length} من {transactions.length} حركة في الفترة المختارة</small></div>
           {projectCustodyCanSettle(selected)&&<button type="button" onClick={()=>setSettleOpen(true)} disabled={busy}>تسوية العهدة</button>}
         </div>
       </section>
