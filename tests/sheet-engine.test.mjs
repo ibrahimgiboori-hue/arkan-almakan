@@ -166,3 +166,56 @@ test('the shared ledger grid carries the Excel layer for every screen that uses 
   const expenses = fs.readFileSync('app/dashboard/projects/[id]/operations/direct-expense-panel.js', 'utf8');
   assert.ok(expenses.includes('onAppendRows={appendPastedRows}'), 'daily expenses must accept pasted rows beyond the grid');
 });
+
+test('formula columns read their computed value and the total row sums like Excel', async () => {
+  const { columnTotal } = await import('../lib/sheet-engine.mjs');
+  const lines = [{ qty: '3', price: '400' }, { qty: '40', price: '18.5' }, { qty: '', price: '95' }];
+  const total = { key: 'total', label: 'الإجمالي', type: 'computed', numeric: true, formula: 'الكمية × سعر الوحدة', compute: (row) => (row.qty && row.price ? Number(row.qty) * Number(row.price) : null), total: 'sum' };
+  assert.deepEqual(lines.map((row) => cellText(total, row)), ['1200', '740', '']);
+  assert.equal(sheetColumns([total])[0].numeric, true);
+  assert.equal(sheetColumns([total])[0].editable, false);
+  assert.equal(columnTotal(total, lines), 1940);
+  assert.equal(columnTotal({ key: 'qty', type: 'number', total: 'count' }, lines), 2);
+  assert.equal(columnTotal({ key: 'qty', type: 'number', total: 'average' }, lines), 21.5);
+  assert.equal(columnTotal({ key: 'qty', type: 'number' }, lines), null);
+  assert.equal(columnTotal({ key: 'x', total: (rows) => `${rows.length} صفوف` }, lines), '3 صفوف');
+  assert.equal(planPaste({ rows: lines, columns: [total], start: { row: 0, col: 0 }, matrix: [['9']] }).written, 0);
+});
+
+test('a sheet batch saves row by row and stops at the first rejected row', async () => {
+  const { saveSheetRows, sheetBatchMessage } = await import('../lib/sheet-batch.mjs');
+  const calls = [];
+  const result = await saveSheetRows([{ n: 1 }, { n: 2 }, { n: 3 }, { n: 4 }], async (row) => {
+    calls.push(row.n);
+    if (row.n === 3) throw new Error('المبلغ مطلوب.');
+    return { status: row.n === 2 ? 'queued' : 'verified', pendingCount: row.n === 2 ? 1 : 1 };
+  });
+  assert.deepEqual(calls, [1, 2, 3]);
+  assert.equal(result.verified, 1);
+  assert.equal(result.queued, 1);
+  assert.equal(result.failure.row.n, 3);
+  assert.match(sheetBatchMessage(result, 'حركة'), /حُفظ 1 حركة .* 1 محفوظ على هذا الجهاز .* توقف الحفظ عند صف لم يُقبل: المبلغ مطلوب\./);
+});
+
+test('output and finance sheets: saved rows lock, new rows validate by sheet row number', async () => {
+  const output = await import('../lib/project-operation-output.mjs');
+  const finance = await import('../lib/project-operation-finance.mjs');
+  let n = 0;
+  const id = () => `d${++n}`;
+  const saved = output.storedOutputToRow({ id: 'x', project_item_id: 'i1', group_output: 12.5, unit: 'م2', notes: null });
+  assert.deepEqual(saved, { _id: 'saved-x', id: 'x', persisted: true, item_id: 'i1', qty: '12.5', notes: '', unit: 'م2' });
+  const outRows = [saved, output.createOutputDraft({ item_id: 'i1', qty: '4' }, id), output.createOutputDraft({ qty: '3' }, id), output.createOutputDraft({}, id)];
+  const outCheck = output.validateOutputDrafts(outRows);
+  assert.deepEqual(outCheck.ready.map((row) => row._id), ['d1']);
+  assert.deepEqual(outCheck.errors, ['الصف 3: اختر البند.']);
+
+  const finRows = [
+    ...finance.storedFinanceRows({ advances: [{ id: 'a', amount: 100, notes: 'x' }], payments: [{ id: 'p', amount: 50, source: 'cash', reference: 'R1', notes: null }] }),
+    finance.createFinanceDraft({ kind: 'payment', amount: '75', reference: 'T-9' }, id),
+    finance.createFinanceDraft({ notes: 'بلا مبلغ' }, id),
+  ];
+  assert.deepEqual(finRows.slice(0, 2).map((row) => [row.kind, row.amount, row.persisted]), [['advance', '100', true], ['payment', '50', true]]);
+  const finCheck = finance.validateFinanceDrafts(finRows);
+  assert.deepEqual(finCheck.ready.map((row) => row.reference), ['T-9']);
+  assert.deepEqual(finCheck.errors, ['الصف 4: المبلغ مطلوب.']);
+});

@@ -109,6 +109,15 @@ test('project pages cannot reintroduce stacked local navigation', () => {
   assert.equal(operationsLayout.includes('<nav'), false);
 });
 
+test('the project day sheets are one Excel-style tab row at the bottom, built from the same navigation source', () => {
+  const operationsLayout = read('app/dashboard/projects/[id]/operations/layout.js');
+  const tabs = read('app/dashboard/projects/[id]/operations/sheet-tabs.js');
+  assert.match(operationsLayout, /\{children\}<ProjectSheetTabs \/>/, 'sheet tabs sit below the sheet, never stacked above it');
+  assert.ok(tabs.includes('PROJECT_NAV_GROUPS') && tabs.includes('projectNavigationHref('), 'tabs must derive from the constitutional project navigation, not a parallel link map');
+  assert.equal((tabs.match(/<nav/g) || []).length, 1);
+  assert.equal(tabs.includes('<select') || tabs.includes('dropdown'), false);
+});
+
 test('legacy documents and materials URLs are redirects, not parallel workspaces', () => {
   const documentsPage = read('app/dashboard/projects/[id]/documents/page.js');
   const materialsPage = read('app/dashboard/projects/[id]/materials/page.js');

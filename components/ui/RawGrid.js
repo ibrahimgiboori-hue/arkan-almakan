@@ -17,6 +17,7 @@ import { formatLatinNumber } from '@/lib/latin-digits';
 import {
   cellAddress,
   cellText,
+  columnTotal,
   expandPasteMatrix,
   moveCell,
   normalizeRange,
@@ -63,6 +64,14 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled, cellProps = {} }) {
 
   function commit(event) {
     if (typeof column.onCommit === 'function') column.onCommit(row, event.target.value);
+  }
+
+  if (!isVisible && ['date', 'money', 'number', 'multiline', 'text', 'select'].includes(column.type)) {
+    return (
+      <td {...cellProps} data-cell-type={column.type} style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
+        <span className={styles.fieldMuted}>{column.placeholderWhenHidden ?? '—'}</span>
+      </td>
+    );
   }
 
   switch (column.type) {
@@ -130,13 +139,6 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled, cellProps = {} }) {
       );
 
     case 'select': {
-      if (!isVisible) {
-        return (
-          <td {...cellProps} data-cell-type="select" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
-            <span className={styles.fieldMuted}>{column.placeholderWhenHidden ?? '—'}</span>
-          </td>
-        );
-      }
       const opts = resolveOptions(column.options, row);
       return (
         <td {...cellProps} data-cell-type="select" style={column.minWidth ? { minWidth: column.minWidth } : undefined}>
@@ -144,6 +146,18 @@ function Cell({ column, row, rowIndex, onPatchRow, disabled, cellProps = {} }) {
             {column.emptyOption !== undefined && <option value="">{column.emptyOption}</option>}
             {opts.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
+        </td>
+      );
+    }
+
+    case 'computed': {
+      // A formula column (Excel ƒ): read-only, its rule shows in the formula bar.
+      const computed = column.compute ? column.compute(row) : value;
+      const shown = column.format ? column.format(computed, row) : computed;
+      const empty = shown === '' || shown === null || shown === undefined || Number.isNaN(shown);
+      return (
+        <td {...cellProps} className={styles.cellComputed} data-cell-type="computed" data-numeric={column.numeric ? 'true' : undefined}>
+          {empty ? <span className={styles.fieldMuted}>—</span> : shown}
         </td>
       );
     }
@@ -221,6 +235,7 @@ export default function RawGrid({
   loading = false,
   sheet = true,
   emptyMessage = 'لا توجد بيانات بعد.',
+  totalsLabel = 'الإجمالي',
 }) {
   const tableRef = useRef(null);
   const dragRef = useRef(false);
@@ -597,6 +612,21 @@ export default function RawGrid({
               );
             })}
           </tbody>
+          {columns.some((column) => column.total) && (
+            <tfoot>
+              <tr data-sheet-totals="true">
+                {hasSelection && <td aria-hidden="true" />}
+                {columns.map((column, gridIndex) => {
+                  const total = columnTotal(column, rows);
+                  const label = gridIndex === 0 && !column.total;
+                  const shown = total === null || total === undefined
+                    ? (label ? totalsLabel : '')
+                    : (typeof total === 'number' && column.total !== 'count' ? money(total) : total);
+                  return <td key={`total-${column.key}`} data-cell-type={column.type || 'custom'} data-total={column.total ? String(typeof column.total === 'function' ? 'custom' : column.total) : undefined}>{shown}</td>;
+                })}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       {sheetEnabled && (
