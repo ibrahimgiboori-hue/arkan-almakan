@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { money, dateAr } from '@/lib/format';
 import { numberLines, lineTotal, titleSubtotals, totals } from '@/lib/quote-calc';
 import WorkbookModelPreview from '@/components/quotes/WorkbookModelPreview';
+import { useCompanyMarkUrl } from '@/lib/company-marks-client';
 import { buildQuoteWorkbookData } from '@/lib/quote-workbook-data.mjs';
 
 function pickModel(schema, quote) {
@@ -79,16 +80,10 @@ export default function WorkbookQuotePrintPage() {
   }) : { toggles:{},repeatGroups:{},values:{} }, [quote,lines,payments,settings]);
   const { toggles, repeatGroups, values } = projection;
 
-  const overlayImages = useMemo(() => {
-    if (!settings) return {};
-    const stamp = settings.stamp_image_path
-      ? supabase.storage.from('brand').getPublicUrl(settings.stamp_image_path).data.publicUrl
-      : '';
-    const signature = settings.signature_image_path
-      ? supabase.storage.from('brand').getPublicUrl(settings.signature_image_path).data.publicUrl
-      : '';
-    return { stamp, signature };
-  }, [settings]);
+  // الختم والتوقيع برابط موقّع من الخزنة الخاصة — فارغان لمن لا يملك صلاحية إضافتهما.
+  const stampMark = useCompanyMarkUrl(settings?.stamp_image_path);
+  const signatureMark = useCompanyMarkUrl(settings?.signature_image_path);
+  const overlayImages = useMemo(() => ({ stamp: stampMark.url || '', signature: signatureMark.url || '' }), [stampMark.url, signatureMark.url]);
 
   const stationeryImages = useMemo(() => {
     if (!settings?.letterhead_image_path) return {};
