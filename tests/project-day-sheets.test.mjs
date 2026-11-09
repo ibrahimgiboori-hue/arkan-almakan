@@ -13,7 +13,7 @@ import {
   laborRosterRow,
   projectLaborRate,
 } from '../lib/project-labor.mjs';
-import { planProjectAttendanceSheet, projectAttendanceCellValue } from '../lib/project-attendance.mjs';
+import * as attendance from '../lib/project-attendance.mjs';
 
 let n = 0;
 const id = () => `d${++n}`;
@@ -63,21 +63,70 @@ test('labor sheet: roster rows show the pay that matches the basis; new rows gro
   assert.deepEqual(errors, ['الصف 5: اختر الصفة.']);
 });
 
-test('attendance sheet: only real changes are written; protected and pending marks are never touched', () => {
-  const workers = ['a', 'b', 'c', 'd', 'e', 'f'].map((key) => ({ id: key, full_name: `عامل ${key}` }));
-  const marks = {
-    a: { id: 'm-a', status: 'full', work_date: '2026-11-09' },
-    b: { id: 'm-b', status: 'half', work_date: '2026-11-09' },
-    c: { id: 'm-c', status: 'leave', protected: true },
-    d: { status: 'full', pending: true },
-  };
-  const changes = { a: 'full', b: '', c: 'full', d: 'half', e: 'half', f: '' };
-  assert.equal(projectAttendanceCellValue(workers[1], marks, changes), '');
-  assert.equal(projectAttendanceCellValue(workers[1], marks, {}), 'half');
-  const plan = planProjectAttendanceSheet({ workers, marks, changes, date: '2026-11-09' });
-  assert.deepEqual(plan.entries.map((entry) => `${entry.worker.id}:${entry.status}`), ['e:half']);
-  assert.deepEqual(plan.removals.map((worker) => worker.id), ['b']);
-  assert.deepEqual(plan.blocked, ['عامل c: حالة محفوظة تاريخيًا', 'عامل d: بانتظار المزامنة']);
+test('attendance ledger: one project sheet; filters narrow it, saves group by day, history stays protected', () => {
+  const assignmentRows = [
+    { id: 'as1', laborer_id: 'a', contractor_id: 'c1', daily_rate: 150, valid_from: '2026-11-01', valid_to: '2026-11-05' },
+    { id: 'as2', laborer_id: 'a', contractor_id: 'c2', daily_rate: 170, valid_from: '2026-11-06', valid_to: null },
+    { id: 'as3', laborer_id: 'b', contractor_id: 'c1', daily_rate: 120, valid_from: '2026-11-01', valid_to: null },
+    { id: 'as4', laborer_id: 'c', contractor_id: 'c2', daily_rate: 130, valid_from: '2026-11-01', valid_to: null },
+  ];
+  const laborers = [{ id: 'a', full_name: 'أحمد', trade: 'نجار' }, { id: 'b', full_name: 'بكر' }, { id: 'c', full_name: 'جمال' }];
+  const ledger = attendance.buildProjectAttendanceLedger({
+    days: [{ id: 'd4', work_date: '2026-11-04' }, { id: 'd8', work_date: '2026-11-08' }],
+    assignmentRows,
+    contractors: [{ id: 'c1', name_ar: 'مقاول أ' }, { id: 'c2', name_ar: 'مقاول ب' }],
+    laborers,
+    attendanceRows: [
+      { id: 'm1', day_id: 'd4', laborer_id: 'a', status: 'full' },
+      { id: 'm2', day_id: 'd8', laborer_id: 'a', status: 'half' },
+      { id: 'm3', day_id: 'd8', laborer_id: 'b', status: 'leave' },
+      { id: 'm4', day_id: 'd8', laborer_id: 'c', status: 'full' },
+    ],
+  });
+  // The contractor of a record is the one whose assignment covered that day (أحمد moved from c1 to c2).
+  assert.equal(ledger.marks['2026-11-04|a'].contractor_id, 'c1');
+  assert.equal(ledger.marks['2026-11-08|a'].contractor_id, 'c2');
+  assert.equal(ledger.marks['2026-11-08|b'].protected, true);
+
+  const all = attendance.projectAttendanceLedgerRows({ marks: ledger.marks, laborers: ledger.laborers, contractors: ledger.contractors, from: '2026-11-01', to: '2026-11-09' });
+  assert.deepEqual(all.map((row) => row._id), ['2026-11-04|a', '2026-11-08|b', '2026-11-08|a', '2026-11-08|c']);
+  const c2 = attendance.projectAttendanceLedgerRows({ marks: ledger.marks, laborers: ledger.laborers, contractors: ledger.contractors, from: '2026-11-01', to: '2026-11-09', contractorId: 'c2' });
+  assert.deepEqual(c2.map((row) => row.worker_name), ['أحمد', 'جمال']);
+  assert.equal(attendance.projectAttendanceLedgerRows({ marks: ledger.marks, laborers: ledger.laborers, contractors: ledger.contractors, from: '2026-11-05', to: '2026-11-09', search: 'نجار' }).length, 1);
+  assert.deepEqual(attendance.summarizeProjectAttendanceLedger(all, (row) => row.mark.status), { records: 4, full: 2, half: 1, protected: 1, workedDays: 2.5 });
+
+  const rosterFor = (date) => attendance.projectAttendanceRosterForDate({ date, assignmentRows, laborers });
+  assert.equal(rosterFor('2026-11-09').find((worker) => worker.id === 'a').daily_rate, 170);
+  const draft = (patch) => attendance.createProjectAttendanceDraft(patch, id);
+  const plan = attendance.planProjectAttendanceLedger({
+    marks: ledger.marks,
+    changes: { '2026-11-04|a': 'half', '2026-11-08|c': '', '2026-11-08|b': 'full', '2026-11-08|a': 'half' },
+    drafts: [
+      draft({ date: '2026-11-09', laborer_id: 'a', status: 'full' }),
+      draft({ date: '2026-11-09', laborer_id: 'b', status: 'half' }),
+      draft({ date: '2026-11-09', laborer_id: 'c' }),
+      draft({ date: '2026-11-09' }),
+      draft({ date: '2026-11-09', laborer_id: 'a', status: 'half' }),
+      draft({ date: '2026-10-30', laborer_id: 'b', status: 'full' }),
+      draft({ date: '2026-11-09', laborer_id: 'zz', status: 'full' }),
+    ],
+    rosterFor,
+    from: '2026-11-01',
+    to: '2026-11-09',
+  });
+  assert.deepEqual(plan.days.map((day) => day.date), ['2026-11-04', '2026-11-08', '2026-11-09']);
+  assert.deepEqual(plan.days[0].entries.map((entry) => `${entry.worker.id}:${entry.status}:${entry.worker.daily_rate}`), ['a:half:150']);
+  assert.deepEqual(plan.days[1].removals.map((removal) => removal.key), ['2026-11-08|c']);
+  assert.deepEqual(plan.days[2].entries.map((entry) => `${entry.worker.id}:${entry.status}:${entry.worker.daily_rate}`), ['a:full:170', 'b:half:120']);
+  assert.equal(plan.days[2].entries[0].draftId.startsWith('d'), true);
+  assert.deepEqual(plan.settledChanges, ['2026-11-08|a']);
+  assert.equal(plan.settledDrafts.length, 2);
+  assert.deepEqual(plan.blocked, ['بكر (2026-11-08): حالة محفوظة تاريخيًا']);
+  assert.deepEqual(plan.errors, [
+    'الصف الجديد 5: أحمد مكرر في 2026-11-09.',
+    'الصف الجديد 6: التاريخ 2026-10-30 خارج فترة العرض — وسّع الفلترة لتشمله.',
+    'الصف الجديد 7: العامل غير مسند للمشروع في 2026-11-09.',
+  ]);
 });
 
 test('claims sheet: measurement rows edit in place and new rows follow the single-measurement rule', async () => {
