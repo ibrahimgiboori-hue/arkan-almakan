@@ -57,7 +57,11 @@ test('one filter for every project sheet: a period, a contractor (or all) and a 
   assert.deepEqual([value.from, value.to, value.contractorId, value.search], ['2026-11-05', '2026-11-05', '', 'أحمد']);
   assert.deepEqual(projectOperationPeriod('month', '2026-11-09'), { from: '2026-11-01', to: '2026-11-09' });
   assert.deepEqual(projectOperationPeriod('last-month', '2026-03-09'), { from: '2026-02-01', to: '2026-02-28' });
-  assert.deepEqual(projectOperationPeriod('week', '2026-11-03'), { from: '2026-10-28', to: '2026-11-03' });
+  // Arkan's week: Saturday → Thursday. 2026-11-03 is a Tuesday; 2026-10-31 is the Saturday before it.
+  assert.deepEqual(projectOperationPeriod('week', '2026-11-03'), { from: '2026-10-31', to: '2026-11-03' });
+  assert.deepEqual(projectOperationPeriod('last-week', '2026-11-03'), { from: '2026-10-24', to: '2026-10-29' });
+  assert.deepEqual(projectOperationPeriod('week', '2026-10-31'), { from: '2026-10-31', to: '2026-10-31' });
+  assert.deepEqual(projectOperationPeriod('week', '2026-11-06'), { from: '2026-10-31', to: '2026-11-06' });
   assert.deepEqual(projectOperationDays('2026-10-30', '2026-11-02'), ['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
 });
 

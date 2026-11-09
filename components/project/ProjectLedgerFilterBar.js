@@ -3,7 +3,7 @@
 import { projectOperationPeriod } from '@/lib/project-operation-context.mjs';
 import styles from './ProjectLedgerFilterBar.module.css';
 
-const PERIODS = [['today', 'اليوم'], ['week', 'آخر 7 أيام'], ['month', 'هذا الشهر'], ['last-month', 'الشهر الماضي']];
+const PERIODS = [['today', 'اليوم'], ['week', 'هذا الأسبوع'], ['last-week', 'الأسبوع الماضي'], ['month', 'هذا الشهر'], ['last-month', 'الشهر الماضي']];
 
 /**
  * فلتر أوراق المشروع الموحد: كل ورقة (الحضور، المصروفات، الإنجاز، السلف، العهدة، الحركات)
