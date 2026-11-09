@@ -8,6 +8,7 @@ import ProjectLedgerFilterBar from '@/components/project/ProjectLedgerFilterBar'
 import OutputPanel from './output-panel';
 import DirectExpensePanel from './direct-expense-panel';
 import FinancePanel from './finance-panel';
+import SettlementPanel from './settlement-panel';
 import styles from './tool-shell.module.css';
 
 /**
@@ -51,6 +52,7 @@ export default function OperationToolShell({ type }){
     output:'الإنجاز',
     expenses:'المصروفات',
     finance:'السلف والدفعات',
+    settlement:'تسوية المقاول',
   }[type]||'التشغيل';
 
   function printExpenseReport(){
@@ -71,7 +73,7 @@ export default function OperationToolShell({ type }){
     </section>
 
     <ProjectLedgerFilterBar context={context} contractors={contractors} searchPlaceholder={type==='output'?'البند أو المقاول أو الملاحظة':'البيان أو المقاول أو التصنيف'}>
-      <label className={styles.entryDate}><span>تاريخ الصفوف الجديدة</span><input type="date" value={entryDate} min={from} max={to} onChange={e=>e.target.value&&setDate(e.target.value)}/></label>
+      {type!=='settlement'&&<label className={styles.entryDate}><span>تاريخ الصفوف الجديدة</span><input type="date" value={entryDate} min={from} max={to} onChange={e=>e.target.value&&setDate(e.target.value)}/></label>}
       {type==='expenses'&&<button className={styles.reportButton} type="button" onClick={printExpenseReport}>طباعة مصروفات الفترة</button>}
     </ProjectLedgerFilterBar>
 
@@ -82,6 +84,7 @@ export default function OperationToolShell({ type }){
       {type==='output'&&<OutputPanel {...panelProps}/>}
       {type==='expenses'&&<DirectExpensePanel {...panelProps}/>}
       {type==='finance'&&<FinancePanel {...panelProps}/>}
+      {type==='settlement'&&<SettlementPanel {...panelProps}/>}
     </>}
   </div>;
 }
