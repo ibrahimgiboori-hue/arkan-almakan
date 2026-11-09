@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import RawGrid from '@/components/ui/RawGrid';
 import { useDashboardSession } from '@/lib/dashboard-session-context';
 import {
   ConstitutionPage,
@@ -10,7 +11,6 @@ import {
   SummaryStrip,
   EntrySurface,
   FilterSurface,
-  TableFrame,
   EmptyState,
   Notice,
 } from '@/components/ui/ConstitutionUI';
@@ -312,6 +312,24 @@ export default function TreasuryVouchersPage(){
 
     {!state.accounts.length&&!showAccountEntry?<Notice tone="warning" actions={canCreateAccount?<button className="btn" onClick={()=>setShowAccountEntry(true)}>إنشاء حساب خزينة</button>:null}>لا يوجد حساب صندوق أو بنك نشط؛ لا يمكن إصدار سند قبل إنشاء الحساب.</Notice>:null}
 
-    <Section title="سجل السندات" description="المسودة قابلة للتعديل ولا تؤثر على الخزينة. الأثر المالي يبدأ فقط بعد التعميد النهائي، والسند الملغى يحتفظ برقمه."><FilterSurface><div className="form-grid"><div className="field"><label>النوع</label><select value={filter} onChange={(e)=>setFilter(e.target.value)}><option value="all">الكل</option><option value="receipt">سندات القبض</option><option value="payment">سندات الصرف</option></select></div><div className="field"><label>بحث</label><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="رقم السند، الطرف، الهوية، البيان…"/></div></div></FilterSurface>{visible.length?<TableFrame><table><thead><tr><th>النوع</th><th>الدفتر</th><th>السند</th><th>التاريخ</th><th>الطرف</th><th>المبلغ</th><th>الحساب</th><th>الطريقة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>{visible.map((voucher)=><tr key={voucher.id}><td><strong>{TYPE_LABEL[voucher.voucher_type]}</strong></td><td>{voucher.book_no}</td><td>{pageNo(voucher.page_no)}<br/><small>{voucher.voucher_no}</small></td><td>{voucher.voucher_date}</td><td>{voucher.party_name}<br/><small>{voucher.party_id_number||''}</small></td><td>{money(voucher.amount)}</td><td>{accountMap.get(voucher.account_id)?.name_ar||'—'}</td><td>{METHOD_LABEL[voucher.payment_method]||voucher.payment_method}</td><td>{voucher.status==='void'?<span className="tag danger">ملغى</span>:voucher.status==='draft'?<span className="tag">مسودة</span>:voucher.status==='pending'?<span className="tag">بانتظار التعميد</span>:<span className="tag">معتمد</span>}</td><td><div style={{display:'flex',gap:6,flexWrap:'wrap'}}><a className="btn ghost" href={`/print/treasury-voucher/${voucher.id}`} target="_blank" rel="noreferrer">طباعة</a>{voucher.status==='draft'&&canEdit?<button className="btn ghost" type="button" disabled={busy} onClick={()=>openEdit(voucher)}>تعديل</button>:null}{voucher.status==='draft'&&canEdit?<button className="btn" type="button" disabled={busy} onClick={()=>submitVoucherForApproval(voucher)}>إرسال للتعميد</button>:null}{voucher.status==='posted'&&canVoid?<button className="btn ghost" type="button" disabled={busy} onClick={()=>voidVoucher(voucher)}>إلغاء</button>:null}</div></td></tr>)}</tbody></table></TableFrame>:<EmptyState title="لا توجد سندات" description="أصدر أول سند قبض أو صرف واختر رقمه الورقي من 01 إلى 100 داخل الدفتر الإلكتروني رقم 2."/>}</Section>
+    <Section title="سجل السندات" description="المسودة قابلة للتعديل ولا تؤثر على الخزينة. الأثر المالي يبدأ فقط بعد التعميد النهائي، والسند الملغى يحتفظ برقمه."><FilterSurface><div className="form-grid"><div className="field"><label>النوع</label><select value={filter} onChange={(e)=>setFilter(e.target.value)}><option value="all">الكل</option><option value="receipt">سندات القبض</option><option value="payment">سندات الصرف</option></select></div><div className="field"><label>بحث</label><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="رقم السند، الطرف، الهوية، البيان…"/></div></div></FilterSurface>{visible.length?<RawGrid
+      rows={visible}
+      rowKey={(voucher)=>voucher.id}
+      rowDisabled={()=>true}
+      totalsLabel="إجمالي الظاهر"
+      columns={[
+        {key:'_type',label:'النوع',type:'computed',compute:(voucher)=>TYPE_LABEL[voucher.voucher_type]},
+        {key:'book_no',label:'الدفتر',type:'computed',compute:(voucher)=>voucher.book_no},
+        {key:'_page',label:'السند',type:'custom',sheetValue:(voucher)=>`${pageNo(voucher.page_no)} ${voucher.voucher_no||''}`.trim(),render:(voucher)=><>{pageNo(voucher.page_no)}<br/><small>{voucher.voucher_no}</small></>},
+        {key:'_date',label:'التاريخ',type:'computed',compute:(voucher)=>voucher.voucher_date},
+        {key:'_party',label:'الطرف',type:'custom',minWidth:180,sheetValue:(voucher)=>voucher.party_name,render:(voucher)=><>{voucher.party_name}<br/><small>{voucher.party_id_number||''}</small></>},
+        {key:'_in',label:'قبض',type:'computed',numeric:true,total:'sum',formula:'مبلغ سند القبض غير الملغى',compute:(voucher)=>voucher.voucher_type==='receipt'&&voucher.status!=='void'?Number(voucher.amount||0):null,format:(value)=>value==null?null:money(value)},
+        {key:'_out',label:'صرف',type:'computed',numeric:true,total:'sum',formula:'مبلغ سند الصرف غير الملغى',compute:(voucher)=>voucher.voucher_type==='payment'&&voucher.status!=='void'?Number(voucher.amount||0):null,format:(value)=>value==null?null:money(value)},
+        {key:'_account',label:'الحساب',type:'computed',compute:(voucher)=>accountMap.get(voucher.account_id)?.name_ar||null},
+        {key:'_method',label:'الطريقة',type:'computed',compute:(voucher)=>METHOD_LABEL[voucher.payment_method]||voucher.payment_method||null},
+        {key:'_status',label:'الحالة',type:'custom',sheetValue:(voucher)=>voucher.status==='void'?'ملغى':voucher.status==='draft'?'مسودة':voucher.status==='pending'?'بانتظار التعميد':'معتمد',render:(voucher)=>voucher.status==='void'?<span className="tag danger">ملغى</span>:voucher.status==='draft'?<span className="tag">مسودة</span>:voucher.status==='pending'?<span className="tag">بانتظار التعميد</span>:<span className="tag">معتمد</span>},
+        {key:'_action',label:'إجراء',type:'action',render:(voucher)=><div style={{display:'flex',gap:6,flexWrap:'wrap'}}><a className="btn ghost" href={`/print/treasury-voucher/${voucher.id}`} target="_blank" rel="noreferrer">طباعة</a>{voucher.status==='draft'&&canEdit?<button className="btn ghost" type="button" disabled={busy} onClick={()=>openEdit(voucher)}>تعديل</button>:null}{voucher.status==='draft'&&canEdit?<button className="btn" type="button" disabled={busy} onClick={()=>submitVoucherForApproval(voucher)}>إرسال للتعميد</button>:null}{voucher.status==='posted'&&canVoid?<button className="btn ghost" type="button" disabled={busy} onClick={()=>voidVoucher(voucher)}>إلغاء</button>:null}</div>},
+      ]}
+    />:<EmptyState title="لا توجد سندات" description="أصدر أول سند قبض أو صرف واختر رقمه الورقي من 01 إلى 100 داخل الدفتر الإلكتروني رقم 2."/>}</Section>
   </ConstitutionPage>;
 }
