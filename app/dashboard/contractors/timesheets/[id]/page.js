@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ConstitutionPage, PageHeader, Section, EmptyState, Notice, Toolbar } from '@/components/ui/ConstitutionUI';
+import RawGrid, { rawGridStyles } from '@/components/ui/RawGrid';
 import styles from '../timesheet.module.css';
 
 const STATUS_AR = { draft:'مسودة', reviewed:'مراجع', approved:'معتمد', closed:'مغلق' };
@@ -61,7 +62,6 @@ function money(value) {
 export default function ExternalTimesheetEditor() {
   const { id } = useParams();
   const [state, setState] = useState({ loading:true, sheet:null, workers:[], error:'', message:'' });
-  const [quickText, setQuickText] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -103,23 +103,6 @@ export default function ExternalTimesheetEditor() {
     setState((current) => ({ ...current, workers:[...current.workers,{_key:key,row_no:current.workers.length+1,worker_name:'',iqama_no:'',reported_days:0,attendance:{},daily_rate:null,notes:''}] }));
   }
 
-  function importQuick() {
-    const rows = quickText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
-      const parts = line.split(/\t|\||،|,/).map((part) => part.trim());
-      return {
-        _key:`quick-${Date.now()}-${index}`,
-        row_no:state.workers.length + index + 1,
-        worker_name:parts[0] || '',
-        iqama_no:parts[1] || '',
-        reported_days:parts[2] === undefined || parts[2] === '' ? 0 : n(parts[2]),
-        attendance:{}, daily_rate:null, notes:'',
-      };
-    }).filter((row) => row.worker_name);
-    if (!rows.length) return;
-    setState((current) => ({...current,workers:[...current.workers,...rows],message:`أضيف ${rows.length} عامل للإدخال. اضغط «حفظ الكل» لتثبيتهم.`}));
-    setQuickText('');
-  }
-
   function seedRow(row, index) {
     const key = workerKey(row,index);
     const attendance = seededAttendance(state.sheet.period_year,state.sheet.period_month,row.reported_days);
@@ -144,6 +127,41 @@ export default function ExternalTimesheetEditor() {
     if (value === 0) delete attendance[String(day)];
     else attendance[String(day)] = value;
     patchWorker(key,{attendance,reported_days:attendanceTotal(attendance)});
+  }
+
+  // The month as a sheet: each day is a list cell (1 / ½ / empty) derived from row.attendance.
+  const sheetRows = useMemo(() => state.workers.map((row) => {
+    const out = { ...row, _rowKey: row.id || row._key };
+    for (const day of days) {
+      const value = n(row.attendance?.[String(day)]);
+      out[`d${day}`] = value === 1 ? '1' : value === 0.5 ? '0.5' : '';
+    }
+    return out;
+  }), [state.workers, days]);
+
+  const dayColumns = days.map((day) => {
+    const date = new Date(state.sheet?.period_year, (state.sheet?.period_month || 1) - 1, day);
+    return {
+      key:`d${day}`, label:`${day} ${WEEKDAY[date.getDay()]}`, type:'select', minWidth:58, emptyOption:'·',
+      options:[{ value:'1', label:'1' }, { value:'0.5', label:'½' }],
+      onChange:(row, value) => {
+        const attendance = { ...(row.attendance || {}) };
+        if (value === '1' || value === '0.5') attendance[String(day)] = Number(value);
+        else delete attendance[String(day)];
+        return { attendance, reported_days:attendanceTotal(attendance) };
+      },
+    };
+  });
+
+  function appendPastedWorkers(patches) {
+    setState((current) => ({
+      ...current,
+      workers:[...current.workers, ...patches.map((patch, index) => ({
+        _key:`paste-${Date.now()}-${index}`, row_no:current.workers.length + index + 1,
+        worker_name:'', iqama_no:'', reported_days:0, attendance:{}, daily_rate:null, notes:'', ...patch,
+      }))],
+      message:`أضيف ${patches.length} عامل من اللصق. اضغط «حفظ الكل» لتثبيتهم.`,
+    }));
   }
 
   async function saveAll() {
@@ -247,32 +265,28 @@ export default function ExternalTimesheetEditor() {
         </div>
       </Section>
 
-      <Section title="إدخال العمال" description="للإدخال السريع: كل سطر = الاسم | رقم الإقامة | عدد الأيام">
-        <div className={styles.quickGrid} style={{padding:16}}>
-          <div className="field"><label>قائمة سريعة</label><textarea value={quickText} onChange={(e)=>setQuickText(e.target.value)} placeholder={'Mohamed Ahmed | 2619707017 | 25\nAdil Khan | 2633788886 | 25'} /></div>
-          <div>
-            <div className={styles.controls}><button type="button" className="btn" onClick={importQuick}>إضافة القائمة</button><button type="button" className="btn ghost" onClick={addBlank}>عامل فارغ</button><button type="button" className="btn ghost" onClick={seedAll}>زرع الأيام للجميع</button></div>
-            <div className="hint" style={{marginTop:10}}>الزرع يبدأ بأيام الشهر غير الجمعة، ثم يستخدم الجمعة فقط إذا تجاوز العدد الأيام المتاحة. بعد ذلك تستطيع تغيير أي خانة يدويًا.</div>
-          </div>
-        </div>
-      </Section>
 
-      <Section title={`الشهر كاملًا — ${monthName}`} description="اضغط خانة اليوم للتبديل: حضور كامل ← نصف يوم ← فارغ.">
-        <div className={styles.scroll}>
-          <table className={styles.monthGrid}>
-            <thead><tr><th className={styles.seq}>م</th><th className={styles.name}>اسم العامل</th><th className={styles.iqama}>رقم الإقامة</th>{days.map((day)=>{const date=new Date(sheet.period_year,sheet.period_month-1,day);return <th key={day} className={styles.day}><div className={styles.dayHead}><b>{day}</b><small>{WEEKDAY[date.getDay()]}</small></div></th>;})}<th className={styles.total}>الأيام</th><th className={styles.total}>اليومية</th><th className={styles.total}>إجراء</th></tr></thead>
-            <tbody>{state.workers.map((row,index)=>{const key=workerKey(row,index);return <tr key={key}>
-              <td>{index+1}</td>
-              <td className={styles.name}><input className={styles.rowInput} value={row.worker_name || ''} onChange={(e)=>patchWorker(key,{worker_name:e.target.value})}/></td>
-              <td className={styles.iqama}><input className={styles.rowInput} dir="ltr" value={row.iqama_no || ''} onChange={(e)=>patchWorker(key,{iqama_no:e.target.value})}/></td>
-              {days.map((day)=>{const value=n(row.attendance?.[String(day)]);return <td key={day} className={styles.day}><button type="button" className={styles.cellButton} data-value={String(value)} title={`اليوم ${day}`} onClick={()=>toggleDay(row,index,day)}>{value===1?'✓':value===0.5?'½':'·'}</button></td>;})}
-              <td className={styles.total}><input className={styles.rowInput} type="number" min="0" max={dayCount} step="0.5" dir="ltr" value={row.reported_days ?? 0} onChange={(e)=>patchWorker(key,{reported_days:e.target.value})}/><button type="button" className="btn ghost" style={{padding:'3px 6px',fontSize:11,marginTop:3}} onClick={()=>seedRow(row,index)}>زرع</button></td>
-              <td className={styles.total}><input className={styles.rowInput} type="number" min="0" step="0.01" dir="ltr" value={row.daily_rate ?? ''} onChange={(e)=>patchWorker(key,{daily_rate:e.target.value})} placeholder={sheet.default_daily_rate ?? '—'}/></td>
-              <td><button type="button" className="btn ghost" style={{padding:'4px 6px'}} onClick={()=>removeWorker(row)}>حذف</button></td>
-            </tr>;})}</tbody>
-          </table>
-        </div>
-        {!state.workers.length ? <EmptyState title="أضف العمال أولًا" /> : null}
+      <Section title={`الشهر كاملًا — ${monthName}`} description="ورقة الشهر: الصق من إكسل الاسم ورقم الإقامة والأيام المبلّغة (تُضاف صفوف جديدة تلقائيًا)، واكتب في خانة اليوم 1 أو ½، أو حدّد نطاقًا والصق 1 أو اضغط Ctrl+D. «زرع» يوزع الأيام المبلّغة على الشهر (غير الجمعة أولًا).">
+        <div className={styles.controls} style={{padding:'0 0 10px'}}><button type="button" className="btn ghost" onClick={addBlank}>عامل فارغ</button><button type="button" className="btn ghost" onClick={seedAll}>زرع الأيام للجميع</button></div>
+        <div style={{contain:'inline-size',width:'100%',minWidth:0}}><RawGrid
+          rows={sheetRows}
+          rowKey={(row)=>row._rowKey}
+          savedFlag={(row)=>Boolean(row.id)}
+          onPatchRow={patchWorker}
+          onAppendRows={appendPastedWorkers}
+          emptyMessage="أضف العمال: الصق قائمتهم من إكسل هنا بعد إضافة عامل فارغ، أو استخدم «عامل فارغ»."
+          columns={[
+            {key:'_seq',label:'م',type:'index',render:(row)=>sheetRows.indexOf(row)+1},
+            {key:'worker_name',label:'اسم العامل',type:'text',minWidth:180},
+            {key:'iqama_no',label:'رقم الإقامة',type:'text',minWidth:120},
+            {key:'reported_days',label:'الأيام المبلّغة',type:'number',step:0.5,min:0},
+            ...dayColumns,
+            {key:'_days',label:'مجموع الشهر',type:'computed',numeric:true,total:'sum',formula:'مجموع خانات الأيام (1 يوم كامل، ½ نصف يوم)',compute:(row)=>attendanceTotal(row.attendance)},
+            {key:'daily_rate',label:'اليومية',type:'number',step:0.01,min:0},
+            {key:'_due',label:'المستحق',type:'computed',numeric:true,total:'sum',formula:'مجموع الشهر × اليومية (أو يومية المستند)',compute:(row)=>round2(attendanceTotal(row.attendance)*n(row.daily_rate===''||row.daily_rate==null?sheet.default_daily_rate:row.daily_rate)),format:(v)=>money(v)},
+            {key:'_action',label:'إجراء',type:'action',render:(row)=><span style={{display:'inline-flex',gap:4}}><button type="button" className={rawGridStyles.actionButton} onClick={()=>seedRow(row,sheetRows.indexOf(row))}>زرع</button><button type="button" className={rawGridStyles.actionButton} onClick={()=>removeWorker(row)}>حذف</button></span>},
+          ]}
+        /></div>
       </Section>
 
       <Section title="ملخص المطالبة المبدئية" description="التسعير والضريبة لا يؤثران على التايم شيت نفسه ويمكن تعديلهما قبل إصدار المطالبة.">
