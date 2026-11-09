@@ -79,3 +79,22 @@ test('attendance sheet: only real changes are written; protected and pending mar
   assert.deepEqual(plan.removals.map((worker) => worker.id), ['b']);
   assert.deepEqual(plan.blocked, ['عامل c: حالة محفوظة تاريخيًا', 'عامل d: بانتظار المزامنة']);
 });
+
+test('claims sheet: measurement rows edit in place and new rows follow the single-measurement rule', async () => {
+  const claims = await import('../lib/project-claims.mjs');
+  const m = { measurement_id: 'm1', project_item_id: 'i1', description_ar: 'لياسة', measurement_no: 3, period_from: '2026-10-01', period_to: '2026-10-31', qty_measured: 120, unit_price: 32, amount: 3840, ready_for_claim: true };
+  const row = claims.measurementSheetRow(m);
+  assert.deepEqual([row._id, row.qty, row.price, row.ready], ['m1', '120', '32', true]);
+  assert.equal(claims.measurementLineValue(row), 3840);
+  assert.equal(claims.measurementSheetChange(row), 'none');
+  assert.equal(claims.measurementSheetChange({ ...row, qty: '130' }), 'edit');
+  const historical = claims.measurementSheetRow({ ...m, period_from: null });
+  assert.equal(claims.measurementSheetChange({ ...historical, from: '2026-10-05' }), 'start');
+  let n = 0;
+  const id = () => `d${++n}`;
+  const drafts = [row, claims.createMeasurementDraft({ item: 'i2', from: '2026-11-01', to: '2026-11-08', qty: '80', price: '55' }, id), claims.createMeasurementDraft({ item: 'i2', from: '2026-11-09', to: '2026-11-01', qty: '5' }, id), claims.createMeasurementDraft({}, id)];
+  assert.equal(claims.measurementLineValue(drafts[1]), 4400);
+  const { ready, errors } = claims.validateMeasurementDrafts(drafts);
+  assert.deepEqual(ready.map((r) => r._id), ['d1']);
+  assert.deepEqual(errors, ['الصف 3: بداية فترة القياس يجب ألا تتجاوز نهايتها.']);
+});

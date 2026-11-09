@@ -309,3 +309,15 @@ input[data-date-overlay="value"]::before{
 }
 input[data-date-overlay="hint"]::before{color:var(--ink-soft,#7a7f88);font-family:var(--font-plex,inherit);font-weight:400}
 input[data-date-overlay="value"]::before{color:inherit;font-variant-numeric:lining-nums tabular-nums}
+
+/* ---------- طبقة الإكسل لكل جدول عرض (SheetTableRuntime) ---------- */
+[data-work-sheet-mount] table:not([data-sheet="off"]) tbody td,
+[data-work-sheet-mount] table:not([data-sheet="off"]) tbody th{cursor:cell}
+[data-work-sheet-mount] [data-sheet-cell="selected"]{background:color-mix(in srgb,var(--ui-accent,#8b3332) 10%,transparent)!important}
+[data-work-sheet-mount] [data-sheet-active="true"]{box-shadow:inset 0 0 0 2px var(--ui-accent,#8b3332)!important}
+[data-sheet-runtime-bar]{position:fixed;inset-inline-start:50%;bottom:14px;transform:translateX(50%);z-index:80;
+  padding:7px 14px;border-radius:999px;border:1px solid var(--ui-border,#d6cfca);background:var(--ui-surface,#fffaf5);
+  color:var(--ui-text,#1c1717);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;
+  box-shadow:0 6px 24px rgba(0,0,0,.12);pointer-events:none}
+[data-sheet-runtime-bar][hidden]{display:none}
+@media print{[data-sheet-runtime-bar]{display:none!important}}

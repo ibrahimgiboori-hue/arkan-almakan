@@ -13,6 +13,15 @@ import {
   projectClaimJourneyState,
   projectClaimSelectedMeasurements,
 } from '@/lib/project-claims.mjs';
+import {
+  createMeasurementDraft,
+  measurementLineValue,
+  measurementSheetChange,
+  measurementSheetRow,
+  validateMeasurementDrafts,
+} from '@/lib/project-claims.mjs';
+import { saveSheetRows, sheetBatchMessage } from '@/lib/sheet-batch.mjs';
+import RawGrid, { RawGridFooter, rawGridStyles } from '@/components/ui/RawGrid';
 
 const MAROON = '#8B3332';
 
@@ -36,8 +45,8 @@ export default function ProjClaims({ project, canWrite, onChange }) {
   const [selected,setSelected] = useState([]);
   const [open,setOpen] = useState(null);
   const [upl,setUpl] = useState(null);
-  const [showMeasure,setShowMeasure] = useState(false);
-  const [measure,setMeasure] = useState({ item:'', from:'', to:'', qty:'', price:'', ref:'', notes:'' });
+  const [measureDrafts,setMeasureDrafts] = useState(()=>[1,2,3].map(()=>createMeasurementDraft()));
+  const [measureEdits,setMeasureEdits] = useState({});
   const [approvalNotes,setApprovalNotes] = useState({});
   const [collectForms,setCollectForms] = useState({});
   const [busy,setBusy] = useState('');
@@ -78,43 +87,64 @@ export default function ProjClaims({ project, canWrite, onChange }) {
   const selectedRows=selectedSummary.rows;
   const selectedTotal=selectedSummary.total;
 
-  function chooseItem(itemId) {
-    const it=items.find(x=>x.project_item_id===itemId);
-    setMeasure({item:itemId,from:it?.suggested_period_from||'',to:'',qty:'',price:String(it?.sell_price??''),ref:'',notes:''});
+  // The measurements sheet: an item's sell price fills the price of a new row when it is chosen.
+  function patchMeasurement(key,patch){
+    if(String(key).startsWith('draft:')){
+      const id=String(key).slice(6);
+      setMeasureDrafts((rows)=>rows.map((row)=>{
+        if(row._id!==id)return row;
+        const next={...row,...patch};
+        if(patch.item!==undefined&&patch.item!==row.item&&patch.price===undefined&&!row.price){
+          const it=items.find((x)=>x.project_item_id===patch.item);
+          next.price=String(it?.sell_price??'');
+          if(!next.from)next.from=it?.suggested_period_from||'';
+        }
+        return next;
+      }));
+      return;
+    }
+    setMeasureEdits((current)=>({...current,[key]:{...(current[key]||{}),...patch}}));
   }
 
-  async function recordMeasurement() {
+  async function commitMeasurement(row){
+    if(!row.persisted||(!measureEdits[row._id]&&!row._forceCommit))return;
+    const change=measurementSheetChange(row);
+    setErr(''); setMsg('');
+    try {
+      if(change==='start') await projectClaimsService.completeHistoricalStart({measurement:row.measurement,value:row.from});
+      else if(change==='edit') await projectClaimsService.editMeasurement({measurement:row.measurement,from:row.from,to:row.to,qty:row.qty,price:row.price});
+      if(change!=='none') setMsg(`تم تعديل التمتير رقم ${row.no}`);
+      setMeasureEdits((current)=>{const next={...current};delete next[row._id];return next;});
+      if(change!=='none') await load();
+    } catch(error) { setErr(error?.message||String(error)); }
+  }
+
+  // Paste / fill / clear on existing measurements are committed values: save each changed row right away.
+  async function patchMeasurementsBatch(list){
+    for(const {key,patch} of list){
+      if(String(key).startsWith('draft:')){patchMeasurement(key,patch);continue;}
+      const m=available.find((x)=>String(x.measurement_id)===String(key));
+      if(!m)continue;
+      const merged={...measurementSheetRow(m),...(measureEdits[key]||{}),...patch};
+      setMeasureEdits((current)=>({...current,[key]:{...(current[key]||{}),...patch}}));
+      await commitMeasurement({...merged,_forceCommit:true});
+    }
+  }
+
+  async function recordMeasurements(){
+    const {ready,errors}=validateMeasurementDrafts(measureDrafts);
+    if(errors.length){setErr(errors.slice(0,4).join(' '));return;}
+    if(!ready.length)return;
     setBusy('measure'); setErr(''); setMsg('');
-    try {
-      const result=await projectClaimsService.recordMeasurement({measure});
-      setMsg(`تم تسجيل التمتير رقم ${result?.measurement_no||''}`);
-      setShowMeasure(false);
-      setMeasure({item:'',from:'',to:'',qty:'',price:'',ref:'',notes:''});
-      await load();
-    } catch(error) { setErr(error?.message||String(error)); }
+    const result=await saveSheetRows(ready,async(row)=>{
+      const saved=await projectClaimsService.recordMeasurement({measure:row});
+      return {status:'verified',saved};
+    });
+    const done=new Set(result.saved.map((entry)=>entry.row._id));
+    setMeasureDrafts((rows)=>{const next=rows.filter((row)=>!done.has(row._id));return next.length>=2?next:[...next,...[1,2].slice(next.length).map(()=>createMeasurementDraft())];});
+    (result.failure?setErr:setMsg)(sheetBatchMessage(result,'قياس'));
+    if(result.saved.length) await load();
     setBusy('');
-  }
-
-  async function completeHistoricalStart(m) {
-    const value=window.prompt(`بداية فترة التمتير رقم ${m.measurement_no}`,m.period_from||'');
-    if(value===null)return;
-    try {
-      await projectClaimsService.completeHistoricalStart({measurement:m,value});
-      setMsg('تم استكمال فترة التمتير');
-      await load();
-    } catch(error) { setErr(error?.message||String(error)); }
-  }
-
-  async function editMeasurement(m) {
-    const from=window.prompt('بداية فترة القياس',m.period_from||''); if(from===null)return;
-    const to=window.prompt('تاريخ القياس',m.period_to||''); if(to===null)return;
-    const q=window.prompt('الكمية المقاسة',String(m.qty_measured??'')); if(q===null)return;
-    const p=window.prompt('فئة السعر',String(m.unit_price??'')); if(p===null)return;
-    try {
-      await projectClaimsService.editMeasurement({measurement:m,from,to,qty:q,price:p});
-      setMsg('تم تعديل التمتير');
-      await load();
-    } catch(error) { setErr(error?.message||String(error)); }
   }
 
   async function cancelMeasurement(m) {
@@ -270,16 +300,49 @@ export default function ProjClaims({ project, canWrite, onChange }) {
     {msg&&<div className="msg ok" style={{marginBottom:12}}>{msg}</div>}
 
     <div className="section" style={{marginTop:0,marginBottom:14,overflowX:'auto'}} data-project-claims-journey="engineered-v1">
-      <header><div><h2>القياسات الجاهزة</h2></div>{canWrite&&<button className="btn" onClick={()=>setShowMeasure(v=>!v)}>{showMeasure?'إغلاق':'تسجيل قياس'}</button>}</header>
-      {showMeasure&&canWrite&&<div style={{padding:14,borderBottom:'1px solid var(--hair)'}}><div className="form-grid">
-        <div className="field span2"><label>البند</label><select value={measure.item} onChange={e=>chooseItem(e.target.value)}><option value="">اختر البند</option>{items.map(x=><option key={x.project_item_id} value={x.project_item_id}>{x.description_ar}</option>)}</select></div>
-        <div className="field"><label>من</label><input type="date" value={measure.from} onChange={e=>setMeasure({...measure,from:e.target.value})}/></div>
-        <div className="field"><label>إلى</label><input type="date" value={measure.to} onChange={e=>setMeasure({...measure,to:e.target.value})}/></div>
-        <div className="field"><label>الكمية</label><input type="number" step="any" value={measure.qty} onChange={e=>setMeasure({...measure,qty:e.target.value})}/></div>
-        <div className="field"><label>السعر</label><input type="number" step="0.01" value={measure.price} onChange={e=>setMeasure({...measure,price:e.target.value})}/></div>
-        <div className="field span2"><label>مرجع / ملاحظة</label><input value={measure.ref} onChange={e=>setMeasure({...measure,ref:e.target.value})}/></div>
-      </div><div style={{marginTop:10}}><button className="btn" disabled={busy==='measure'} onClick={recordMeasurement}>تسجيل القياس</button></div></div>}
-      {available.length===0?<div className="empty"><h3>لا توجد قياسات تنتظر مستخلصًا</h3></div>:<><table><thead><tr><th>اختيار</th><th>البند</th><th>الرقم</th><th>الفترة</th><th className="num">الكمية</th><th className="num">القيمة</th><th>إجراء</th></tr></thead><tbody>{available.map(m=><tr key={m.measurement_id}><td><input type="checkbox" checked={selected.includes(m.measurement_id)} disabled={!m.ready_for_claim} onChange={()=>setSelected(s=>s.includes(m.measurement_id)?s.filter(x=>x!==m.measurement_id):[...s,m.measurement_id])}/></td><td>{m.description_ar}</td><td>{m.measurement_no}</td><td>{m.period_from?`${dateAr(m.period_from)} - ${dateAr(m.period_to)}`:'بداية الفترة مطلوبة'}</td><td className="num">{Number(m.qty_measured||0).toLocaleString('en-US',{maximumFractionDigits:3})}</td><td className="num">{money(m.amount)}</td><td>{canWrite&&<div className="rowsplit">{!m.period_from&&<button className="btn ghost" style={tiny} onClick={()=>completeHistoricalStart(m)}>تحديد البداية</button>}<button className="btn ghost" style={tiny} onClick={()=>editMeasurement(m)}>تعديل</button><button className="btn ghost" style={tiny} onClick={()=>cancelMeasurement(m)}>إلغاء</button></div>}</td></tr>)}</tbody></table><div style={{padding:12,display:'flex',justifyContent:'space-between',gap:12,alignItems:'center'}}><span>{selected.length} محدد {selected.length?`— ${money(selectedTotal)}`:''}</span>{canWrite&&<button className="btn" disabled={!selected.length||busy==='create'} onClick={createClaimFromSelected}>إنشاء مستخلص من المحدد</button>}</div></>}
+      <header><div><h2>القياسات (التمتير)</h2><small>القياسات المسجلة تنتظر مستخلصًا: عدّل فترتها وكميتها وسعرها في الورقة مباشرة. القياسات الجديدة تُكتب أو تُلصق من إكسل تحتها ثم تُسجّل مرة واحدة.</small></div></header>
+      <RawGrid
+        rows={[...available.map((m)=>({...measurementSheetRow(m),...(measureEdits[m.measurement_id]||{})})),...measureDrafts.map((row)=>({...row,_key:`draft:${row._id}`}))]}
+        rowKey={(row)=>row.persisted?row._id:row._key}
+        savedFlag={(row)=>row.persisted}
+        rowDisabled={()=>!canWrite}
+        onPatchRow={patchMeasurement}
+        onPatchRows={patchMeasurementsBatch}
+        onAppendRows={canWrite?(patches)=>setMeasureDrafts((rows)=>[...rows,...patches.map((patch)=>createMeasurementDraft(patch))]):undefined}
+        selection={{
+          selectedKeys:selected,
+          onChange:(keys)=>setSelected([...keys].filter((key)=>available.some((m)=>String(m.measurement_id)===String(key)))),
+          isSelectable:(row)=>row.persisted&&row.ready,
+          ariaLabel:(row)=>`اختيار التمتير ${row.no||''}`,
+          selectAllLabel:'تحديد كل القياسات الجاهزة',
+        }}
+        emptyMessage="لا توجد قياسات."
+        columns={[
+          {key:'_status',label:'الحالة',type:'badge',text:(row)=>!row.persisted?'جديد':row.ready?'جاهز للمستخلص':'بداية الفترة مطلوبة',tone:(row)=>!row.persisted?'new':row.ready?'saved':'muted'},
+          {key:'_no',label:'رقم',type:'computed',compute:(row)=>row.persisted?row.no:null},
+          {key:'item',label:'البند',type:'select',minWidth:240,emptyOption:'اختر البند',visible:(row)=>!row.persisted,placeholderWhenHidden:(row)=>row.label,
+            options:items.map((x)=>({value:x.project_item_id,label:x.description_ar}))},
+          {key:'from',label:'من',type:'date',onCommit:commitMeasurement},
+          {key:'to',label:'إلى (تاريخ القياس)',type:'date',onCommit:commitMeasurement},
+          {key:'qty',label:'الكمية',type:'number',step:'any',onCommit:commitMeasurement},
+          {key:'price',label:'فئة السعر',type:'number',step:0.01,onCommit:commitMeasurement},
+          {key:'_value',label:'القيمة',type:'computed',numeric:true,total:'sum',formula:'الكمية × فئة السعر',compute:measurementLineValue,format:(v)=>v==null?null:money(v)},
+          {key:'ref',label:'مرجع / ملاحظة',type:'text',minWidth:160,visible:(row)=>!row.persisted,placeholderWhenHidden:''},
+          {key:'_action',label:'إجراء',type:'action',render:(row,{disabled})=>row.persisted
+            ?(canWrite?<button className={rawGridStyles.actionButton} type="button" disabled={disabled} onClick={()=>cancelMeasurement(row.measurement)}>إلغاء</button>:null)
+            :<button className={rawGridStyles.actionButton} type="button" disabled={disabled} onClick={()=>setMeasureDrafts((rows)=>rows.length>1?rows.filter((x)=>x._id!==row._id):[createMeasurementDraft()])}>×</button>},
+        ]}
+      />
+      <RawGridFooter
+        actions={canWrite&&<>
+          <button type="button" className={rawGridStyles.plainButton} onClick={()=>setMeasureDrafts((rows)=>[...rows,...[1,2,3].map(()=>createMeasurementDraft())])}>+ 3 صفوف</button>
+          <button type="button" className={rawGridStyles.primaryButton} disabled={busy==='measure'} onClick={recordMeasurements}>{busy==='measure'?'جارٍ التسجيل…':'تسجيل القياسات الجديدة'}</button>
+        </>}
+        summary={<>
+          <span>{selected.length} محدد {selected.length?`— ${money(selectedTotal)}`:''}</span>
+          {canWrite&&<button className="btn" disabled={!selected.length||busy==='create'} onClick={createClaimFromSelected}>إنشاء مستخلص من المحدد</button>}
+        </>}
+      />
     </div>
 
     <div className="section" style={{marginTop:0,overflowX:'auto'}}>

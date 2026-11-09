@@ -219,3 +219,17 @@ test('output and finance sheets: saved rows lock, new rows validate by sheet row
   assert.deepEqual(finCheck.ready.map((row) => row.reference), ['T-9']);
   assert.deepEqual(finCheck.errors, ['الصف 4: المبلغ مطلوب.']);
 });
+
+test('every read-only table in the dashboard gets the Excel layer, without touching sheets or print previews', async () => {
+  const fs = await import('node:fs');
+  const layout = fs.readFileSync('app/dashboard/layout.js', 'utf8');
+  const runtime = fs.readFileSync('components/ui/SheetTableRuntime.js', 'utf8');
+  assert.match(layout, /<WorkThresholdMarker \/>\s*<SheetTableRuntime \/>/);
+  assert.ok(runtime.includes("const SCOPE = '[data-work-sheet-mount]'"));
+  for (const excluded of ['[data-sheet-engine]', '[data-print-flow-root]', '[data-print-content]', '[data-sheet="off"]']) {
+    assert.ok(runtime.includes(excluded), `runtime must exclude ${excluded}`);
+  }
+  for (const behaviour of ["addEventListener('copy'", 'toClipboardTable(matrix)', 'parseNumberText', "'Escape'", 'isEditableFocus()']) {
+    assert.ok(runtime.includes(behaviour), `runtime lost ${behaviour}`);
+  }
+});
