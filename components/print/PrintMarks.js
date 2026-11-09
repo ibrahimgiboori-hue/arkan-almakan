@@ -1,10 +1,9 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
+import { useCompanyMarkUrl } from '@/lib/company-marks-client';
 
-const assetUrl = (path) => path
-  ? supabase.storage.from('brand').getPublicUrl(path).data.publicUrl
-  : null;
+// الختم والتوقيع يضيفهما صاحب الصلاحية فقط: الصورة تأتي برابط موقّع لا تمنحه القاعدة لغيره،
+// فيطبع غيره الصفحة بلا ختم، ويرى على الشاشة فقط مكانه.
 
 function markProps(rawProps = {}) {
   const { style, ...props } = rawProps || {};
@@ -22,9 +21,15 @@ export function PrintMark({
 }) {
   const isSignature = kind === 'signature';
   const path = isSignature ? cfg?.signature_image_path : cfg?.stamp_image_path;
-  const src = show ? assetUrl(path) : null;
+  const mark = useCompanyMarkUrl(path, show);
+  const src = show ? mark.url : null;
   const dom = markProps(imageProps);
   const interactive = Boolean(dom.props.onPointerDown);
+  if (show && path && mark.state === 'denied') {
+    return <span className="company-mark-denied no-print" data-company-mark-denied={kind} role="note">
+      {isSignature ? 'التوقيع يضيفه صاحب الصلاحية' : 'الختم يضيفه صاحب الصلاحية'}
+    </span>;
+  }
   if (!src) return null;
 
   const resolvedSize = Number(sizeMm ?? (isSignature ? cfg?.signature_size_mm ?? 21 : cfg?.stamp_size_mm ?? 30));

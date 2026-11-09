@@ -313,3 +313,14 @@
   .print-unregistered>*{display:none!important}
   .print-unregistered::after{content:'الطباعة موقوفة: هذه المطبوعة غير مسجلة في دستور الطباعة.';display:block!important;padding:20mm;font-size:14pt;color:#7a2925;direction:rtl}
 }
+
+/* Stamp / signature the viewer may not apply: a screen-only hint, never printed. */
+.company-mark-denied {
+  display: inline-block;
+  padding: 2mm 3mm;
+  border: 1px dashed #b9aaa8;
+  border-radius: 2mm;
+  color: #7a6f6d;
+  font-size: 8pt;
+}
+@media print { .company-mark-denied { display: none !important; } }

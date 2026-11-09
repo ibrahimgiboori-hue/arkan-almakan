@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { COMPANY_MARKS_BUCKET, COMPANY_MARK_FILES, companyMarkLocation, exposedCompanyMarks, privateMarkPath } from '@/lib/company-marks.mjs';
+import { clearCompanyMarkCache, useCompanyMarkUrl } from '@/lib/company-marks-client';
 import { SYSTEM } from '@/lib/system-constitution';
 import {
   ConstitutionPage,
@@ -18,6 +20,17 @@ const OVERLAY_ASSETS = [
 ];
 
 const A4_RATIO = 210 / 297;
+
+// الختم والتوقيع من الخزنة الخاصة (رابط موقّع)، والشعار من مخزن الهوية العام.
+function AssetPreview({ col, path, label, publicUrl }) {
+  const isMark = Boolean(COMPANY_MARK_FILES[col]);
+  const mark = useCompanyMarkUrl(isMark ? path : null);
+  const src = isMark ? mark.url : publicUrl(path);
+  if (!path) return <span style={{fontSize:11.5,color:'var(--ui-text-muted)'}}>لم تُرفع بعد</span>;
+  if (isMark && mark.state === 'loading') return <span style={{fontSize:11.5,color:'var(--ui-text-muted)'}}>جارٍ الفتح…</span>;
+  if (isMark && !src) return <span style={{fontSize:11.5,color:'var(--ui-text-muted)'}}>محفوظ في الخزنة الخاصة</span>;
+  return <img src={src} alt={label} />;
+}
 
 async function imageBitmapFromFile(file){
   if(typeof createImageBitmap === 'function') return createImageBitmap(file);
@@ -166,9 +179,30 @@ export default function Settings() {
 
   const url=(path)=>path?supabase.storage.from('brand').getPublicUrl(path).data.publicUrl:null;
 
+  // الختم والتوقيع: خزنة خاصة لا يفتحها إلا صاحب الصلاحية، ثم حذف أي نسخة قديمة مكشوفة في مخزن الهوية العام.
+  async function uploadMark(col,file){
+    const path=privateMarkPath(col,file.name);
+    const location=companyMarkLocation(path);
+    const up=await supabase.storage.from(COMPANY_MARKS_BUCKET).upload(location.key,file,{upsert:true,cacheControl:'0'});
+    if(up.error)throw new Error(/row-level security|not found|Bucket/i.test(up.error.message)
+      ? 'الخزنة الخاصة للختم والتوقيع غير مفعّلة بعد، أو أن الرفع للمدير التنفيذي فقط.'
+      : 'تعذّر رفع الصورة: '+up.error.message);
+    const {error}=await supabase.from('app_settings').update({[col]:path}).eq('id',1);
+    if(error)throw new Error('تعذّر الحفظ: '+error.message);
+    const old=s?.[col];
+    if(old&&!companyMarkLocation(old)?.private)await supabase.storage.from('brand').remove([old]);
+    clearCompanyMarkCache();
+  }
+
   async function upload(col,file){
     if(!file)return;
     setErr('');setMsg('');setBusy(col);
+    if(COMPANY_MARK_FILES[col]){
+      try{await uploadMark(col,file);setMsg('حُفظ في الخزنة الخاصة — لا يظهر إلا لصاحب الصلاحية عند الطباعة.');load();}
+      catch(error){setErr(error?.message||'تعذّر رفع الصورة.');}
+      finally{setBusy('');}
+      return;
+    }
     try{
       const ext=file.name.split('.').pop().toLowerCase();
       const path=`${col}.${ext}`;
@@ -308,12 +342,11 @@ export default function Settings() {
           </div> : null}
         </div>
 
+        {exposedCompanyMarks(s).length>0&&<div style={{gridColumn:'1 / -1'}}><Notice tone="warning">الختم أو التوقيع ما زال محفوظًا في المخزن العام ويمكن لأي شخص معه الرابط تنزيله. أعد رفعه من هنا مرة واحدة لينتقل إلى الخزنة الخاصة وتُحذف النسخة المكشوفة.</Notice></div>}
         {OVERLAY_ASSETS.map((a)=><div key={a.col} data-ui-role="asset-card">
           <strong style={{fontSize:13}}>{a.label}</strong>
           <div data-ui-role="asset-preview">
-            {s[a.col]
-              ? <img src={url(s[a.col])} alt={a.label} />
-              : <span style={{fontSize:11.5,color:'var(--ui-text-muted)'}}>لم تُرفع بعد</span>}
+            <AssetPreview col={a.col} path={s[a.col]} label={a.label} publicUrl={url}/>
           </div>
           <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e)=>upload(a.col,e.target.files?.[0])} disabled={busy===a.col} style={{fontSize:12,maxWidth:'100%'}} />
           <div className="hint" style={{marginTop:5}}>{a.hint}</div>
